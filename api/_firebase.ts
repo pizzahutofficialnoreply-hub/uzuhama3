@@ -1,18 +1,24 @@
-import * as admin from 'firebase-admin';
+import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
+import { getMessaging } from 'firebase-admin/messaging';
 
-if (!admin.apps.length) {
+let app: App;
+
+if (getApps().length > 0) {
+  app = getApps()[0];
+} else {
   let serviceAccount: any = null;
   const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT;
 
   if (rawKey) {
     try {
-      serviceAccount = typeof rawKey === 'string' ? JSON.parse(rawKey) : rawKey;
-    } catch (e) {
+      serviceAccount = JSON.parse(rawKey);
+    } catch (error) {
       try {
-        const cleaned = rawKey.replace(/[\r\n\t]/g, ' ');
-        serviceAccount = JSON.parse(cleaned);
-      } catch (err2) {
-        console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT:', e);
+        serviceAccount = JSON.parse(rawKey.replace(/[\r\n\t]/g, ' '));
+      } catch (error2) {
+        console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT:', error);
       }
     }
 
@@ -27,69 +33,61 @@ if (!admin.apps.length) {
     };
   }
 
-  if (serviceAccount && serviceAccount.private_key) {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-  } else {
-    admin.initializeApp();
-  }
+  app = serviceAccount?.private_key
+    ? initializeApp({ credential: cert(serviceAccount) })
+    : initializeApp();
 }
 
-export const db = admin.firestore();
-export const messaging = admin.messaging();
-export const auth = admin.auth();
+export const db = getFirestore(app);
+export const messaging = getMessaging(app);
+export const auth = getAuth(app);
 
-// CORS: allow only the site's known origins.
-export function setCorsHeaders(req: any, res?: any) {
-  const actualRes = res || req;
+const ALLOWED_ORIGINS = new Set([
+  'https://uzuhama-beta.web.app',
+  'https://uzuhama.web.app',
+]);
+
+export function setCorsHeaders(req: any, res: any) {
   const origin = req?.headers?.origin;
-  const allowedOrigins = [
-    'https://uzuhama-beta.web.app',
-    'https://uzuhama.web.app',
-  ];
 
-  if (origin && allowedOrigins.includes(origin)) {
-    actualRes.setHeader('Access-Control-Allow-Origin', origin);
-    actualRes.setHeader('Vary', 'Origin');
-    actualRes.setHeader('Access-Control-Allow-Credentials', 'true');
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
   }
 
-  actualRes.setHeader(
-    'Access-Control-Allow-Methods',
-    'GET,OPTIONS,PATCH,DELETE,POST,PUT'
-  );
-  actualRes.setHeader(
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
     'Access-Control-Allow-Headers',
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, x-cron-secret'
   );
+  res.setHeader('Access-Control-Max-Age', '86400');
 }
 
-// 로그인 유저 토큰 검증 헬퍼 (필수)
 export async function verifyUserToken(req: any) {
-  const authHeader = req.headers.authorization;
+  const authHeader = req.headers?.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     throw new Error('인증 토큰이 누락되었습니다.');
   }
-  const idToken = authHeader.split('Bearer ')[1];
-  return await auth.verifyIdToken(idToken);
+
+  const idToken = authHeader.substring('Bearer '.length);
+  return auth.verifyIdToken(idToken);
 }
 
-// 로그인 유저 토큰 검증 헬퍼 (선택 - 비로그인 지원)
 export async function verifyUserTokenOptional(req: any) {
   const authHeader = req.headers?.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
   }
+
   try {
-    const idToken = authHeader.split('Bearer ')[1];
+    const idToken = authHeader.substring('Bearer '.length);
     return await auth.verifyIdToken(idToken);
   } catch {
     return null;
   }
 }
 
-// 관리자 권한 검증 헬퍼 (기존 이메일 대조 방식 유지 및 백엔드 격리)
 export async function verifyAdmin(req: any) {
   const decodedToken = await verifyUserToken(req);
   if (decodedToken.email !== 'saramoriyo@gmail.com') {
