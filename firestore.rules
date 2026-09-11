@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'saramoriyo@gmail.com';
+    }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 0. 사용자 프로필
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // 1. 치지직 실시간 방송 상태 (외부 Worker 또는 관리자 기록)
+    match /live_status/{document=**} {
+      allow read: if true;
+      allow write: if true; 
+    }
+
+    // 2. 앱 기본 설정
+    match /config/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 3. 메인 방송 일지 (기존 logs 및 신규 logs_by_month)
+    // 읽기는 전체 허용, 쓰기는 관리자만 가능하도록 잠금
+    match /logs/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /logs_by_month/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // 4. 피드백 및 버그 제보
+    match /feedbacks/{feedbackId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    // 5. 기여 데이터
+    match /contributions/{contributionId} {
+      allow read: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid));
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || request.resource.data.uid == request.auth.uid);
+      allow update: if isAdmin() || (
+        isAuthenticated() 
+        && (resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid)
+        && resource.data.status == 'pending'
+      );
+      allow delete: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid));
+    }
+    
+    // 6. 기타 제안
+    match /suggestions/{suggestionId} {
+      allow read: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid));
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || request.resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+    
+    // 7. 알림
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAdmin();
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // 8. 푸시 알림 구독: 클라이언트 직접 수정 차단 (Vercel API만 제어)
+    match /push_subscriptions/{subId} {
+      allow read, write: if false;
+    }
+
+    // 9. 푸시 발송 큐: 클라이언트 직접 접근 차단
+    match /push_queue/{queueId} {
+      allow read, write: if false;
+    }
+
+    // 기본 차단
+    match /{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

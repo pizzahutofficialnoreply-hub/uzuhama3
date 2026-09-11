@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "우주하마 방송 예측",
+  "short_name": "우주하마 예측",
+  "description": "우주하마 방송 시간 및 패턴 예측 애플리케이션",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
