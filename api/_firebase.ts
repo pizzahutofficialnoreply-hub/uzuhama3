@@ -40,14 +40,25 @@ export const db = admin.firestore();
 export const messaging = admin.messaging();
 export const auth = admin.auth();
 
-// CORS 헤더 유틸리티 (요청 Origin 허용 및 사전 요청 지원)
+// CORS: allow only the site's known origins.
 export function setCorsHeaders(req: any, res?: any) {
   const actualRes = res || req;
-  const origin = (res ? req?.headers?.origin : req?.headers?.origin) || '*';
-  
-  actualRes.setHeader('Access-Control-Allow-Origin', origin);
-  actualRes.setHeader('Access-Control-Allow-Credentials', 'true');
-  actualRes.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  const origin = req?.headers?.origin;
+  const allowedOrigins = [
+    'https://uzuhama-beta.web.app',
+    'https://uzuhama.web.app',
+  ];
+
+  if (origin && allowedOrigins.includes(origin)) {
+    actualRes.setHeader('Access-Control-Allow-Origin', origin);
+    actualRes.setHeader('Vary', 'Origin');
+    actualRes.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
+  actualRes.setHeader(
+    'Access-Control-Allow-Methods',
+    'GET,OPTIONS,PATCH,DELETE,POST,PUT'
+  );
   actualRes.setHeader(
     'Access-Control-Allow-Headers',
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, x-cron-secret'
