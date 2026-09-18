@@ -14,11 +14,16 @@ if (getApps().length > 0) {
   if (rawKey) {
     try {
       serviceAccount = JSON.parse(rawKey);
-    } catch (error) {
+    } catch {
       try {
-        serviceAccount = JSON.parse(rawKey.replace(/[\r\n\t]/g, ' '));
-      } catch (error2) {
-        console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT:', error);
+        const decoded = Buffer.from(rawKey, 'base64').toString('utf-8');
+        serviceAccount = JSON.parse(decoded);
+      } catch {
+        try {
+          serviceAccount = JSON.parse(rawKey.replace(/[\r\n\t]/g, ' '));
+        } catch (error) {
+          console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT:', error);
+        }
       }
     }
 
@@ -26,10 +31,16 @@ if (getApps().length > 0) {
       serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
     }
   } else if (process.env.FIREBASE_PRIVATE_KEY) {
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+      privateKey = privateKey.slice(1, -1);
+    }
+    privateKey = privateKey.replace(/\\n/g, '\n');
+
     serviceAccount = {
       projectId: process.env.FIREBASE_PROJECT_ID || 'uzuhama',
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      privateKey,
     };
   }
 
@@ -42,24 +53,27 @@ export const db = getFirestore(app);
 export const messaging = getMessaging(app);
 export const auth = getAuth(app);
 
-const ALLOWED_ORIGINS = new Set([
-  'https://uzuhama-beta.web.app',
-  'https://uzuhama.web.app',
-]);
-
 export function setCorsHeaders(req: any, res: any) {
   const origin = req?.headers?.origin;
+  const method = req?.method;
+  const url = req?.url;
 
-  if (origin && ALLOWED_ORIGINS.has(origin)) {
+  if (process.env.DEBUG_CORS || process.env.NODE_ENV !== 'production') {
+    console.log(`[CORS Request] ${method} ${url} | Origin: ${origin || '(same-origin/no-origin)'}`);
+  }
+
+  if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Vary', 'Origin');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
   }
 
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, x-cron-secret'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, x-cron-secret, X-Cron-Secret'
   );
   res.setHeader('Access-Control-Max-Age', '86400');
 }

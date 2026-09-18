@@ -9,7 +9,13 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { token, endpoint, keys, action } = req.body || {};
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch {}
+    }
+    const { token, endpoint, keys, action } = body || {};
 
     if (!token) {
       return res.status(400).json({ error: 'FCM 토큰이 누락되었습니다.' });

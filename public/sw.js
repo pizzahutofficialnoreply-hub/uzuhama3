@@ -145,10 +145,11 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const title = data.title || '우주하마 방송 알림';
-  const tag = data.tag || (data.id ? `uzuhama-${data.id}` : `uzuhama-${title.slice(0, 10)}-${(data.body || '').slice(0, 15)}`);
+  let title = (data.title || '우주하마 방송 예측').replace(/^(from\s*우주하마\s*예측[:\s]*|\[from\s*우주하마\s*예측\]\s*)/i, '').trim() || '우주하마 방송 예측';
+  let body = (data.body || '새로운 방송 정보가 업데이트되었습니다.').replace(/^(from\s*우주하마\s*예측[:\s]*|\[from\s*우주하마\s*예측\]\s*)/i, '').trim();
+  const tag = data.tag || (data.id ? `uzuhama-${data.id}` : `uzuhama-${title.slice(0, 10)}-${body.slice(0, 15)}`);
   const options = {
-    body: data.body || '새로운 방송 정보가 업데이트되었습니다.',
+    body: body,
     icon: data.icon || '/icon.png',
     badge: data.badge || '/icon.png',
     tag: tag,

@@ -1,8 +1,45 @@
 
 const TrendTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
+  const [visible, setVisible] = useState(false);
+  const timerRef = useRef<any>(null);
+  const currentKeyRef = useRef<string>('');
+
+  const dataKey = (active && payload && payload.length)
+    ? `${label || ''}_${payload[0]?.value}_${payload[0]?.payload?.datesDesc || ''}`
+    : '';
+
+  useEffect(() => {
+    if (active && payload && payload.length) {
+      if (currentKeyRef.current !== dataKey) {
+        currentKeyRef.current = dataKey;
+        setVisible(true);
+
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+          setVisible(false);
+        }, 2200);
+      }
+    } else {
+      if (currentKeyRef.current !== '') {
+        currentKeyRef.current = '';
+        setVisible(false);
+      }
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+  }, [active, dataKey]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  if (visible && active && payload && payload.length) {
     return (
-      <div className="bg-white dark:bg-zinc-800 p-3 rounded-lg shadow-md border border-zinc-200 dark:border-zinc-700 text-sm">
+      <div className="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md p-3 rounded-xl shadow-xl border border-zinc-200 dark:border-zinc-700 text-sm pointer-events-none transition-opacity duration-300">
         <p className="font-bold text-zinc-900 dark:text-white mb-1">{label} 주간</p>
         <p className="text-purple-600 dark:text-purple-400 font-medium">방송 횟수: {payload[0].value}회</p>
         <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-1">방송일: {payload[0].payload.datesDesc}</p>
@@ -14,7 +51,7 @@ const TrendTooltip = ({ active, payload, label }: any) => {
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList } from 'recharts';
-import { format, startOfYear, startOfMonth, endOfMonth, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, subDays, formatISO } from 'date-fns';
+import { format, startOfYear, startOfMonth, endOfMonth, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, subDays, subYears, formatISO } from 'date-fns';
 import { AppData, BroadcastLog } from '../../types';
 import { CustomTooltip } from '../CustomTooltip';
 import { parseTimeString, parseTimeTo24, cn } from '../../utils';
@@ -24,6 +61,9 @@ import jsPDF from 'jspdf';
 import * as htmlToImage from 'html-to-image';
 import { BroadcastHeatmap } from '../stats/BroadcastHeatmap';
 import { CategoryStatsTab } from '../stats/CategoryStatsTab';
+import { SmartTrendLabel } from '../stats/SmartTrendLabel';
+import { StatInsightSummary } from '../stats/StatInsightSummary';
+import { WidgetShareButton } from '../common/WidgetShareButton';
 import { HEATMAP_LEVEL_COLORS, getBroadcastHeatmapLevel } from '../../utils/heatmapUtils';
 
 const PDF_CATEGORY_PALETTE = [
@@ -62,6 +102,15 @@ export function DetailedStatsTab({
     return dates.length > 0 ? dates[0].substring(0, 4) : '2016';
   }, [data.logs]);
 
+  const { firstDateStr, maxDateStr } = useMemo(() => {
+    const dates = Object.values(data.logs || {}).map(l => l.date).filter(Boolean).sort();
+    const minD = dates.length > 0 ? dates[0] : '2016-01-01';
+    const latestDbDate = dates.length > 0 ? dates[dates.length - 1] : format(new Date(), 'yyyy-MM-dd');
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const maxD = latestDbDate > today ? latestDbDate : today;
+    return { firstDateStr: minD, maxDateStr: maxD };
+  }, [data.logs]);
+
   const defaultStartDate = `${latestYear}-01-01`;
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -75,6 +124,66 @@ export function DetailedStatsTab({
     arrowLeft: number;
     showAbove: boolean;
   } | null>(null);
+
+  const previousRangeBeforePresetRef = useRef<{ start: string; end: string } | null>(null);
+
+  const handleApplyPreset = (preset: '30d' | '1y' | '5y' | 'all') => {
+    // 이미 선택된 프리셋을 한 번 더 클릭하면 프리셋 누르기 전 상태로 취소 복귀
+    if (activePreset === preset) {
+      if (previousRangeBeforePresetRef.current) {
+        const prev = previousRangeBeforePresetRef.current;
+        setStartDate(prev.start);
+        setEndDate(prev.end);
+        if (fetchLogs) {
+          fetchLogs(prev.start, prev.end);
+        }
+        previousRangeBeforePresetRef.current = null;
+      }
+      return;
+    }
+
+    // 프리셋 적용 전의 기존 기간 저장
+    if (!activePreset) {
+      previousRangeBeforePresetRef.current = { start: startDate, end: endDate };
+    }
+
+    const today = new Date();
+    const todayStr = format(today, 'yyyy-MM-dd');
+    let newStart = '';
+    let newEnd = todayStr;
+
+    if (preset === '30d') {
+      newStart = format(subDays(today, 30), 'yyyy-MM-dd');
+    } else if (preset === '1y') {
+      newStart = format(subYears(today, 1), 'yyyy-MM-dd');
+    } else if (preset === '5y') {
+      newStart = format(subYears(today, 5), 'yyyy-MM-dd');
+    } else if (preset === 'all') {
+      newStart = firstDateStr;
+      newEnd = maxDateStr > todayStr ? maxDateStr : todayStr;
+    }
+
+    setStartDate(newStart);
+    setEndDate(newEnd);
+    if (fetchLogs) {
+      fetchLogs(newStart, newEnd);
+    }
+  };
+
+  const activePreset = useMemo<'30d' | '1y' | '5y' | 'all' | null>(() => {
+    const today = new Date();
+    const todayStr = format(today, 'yyyy-MM-dd');
+    const d30Start = format(subDays(today, 30), 'yyyy-MM-dd');
+    const y1Start = format(subYears(today, 1), 'yyyy-MM-dd');
+    const y5Start = format(subYears(today, 5), 'yyyy-MM-dd');
+    const allEnd = maxDateStr > todayStr ? maxDateStr : todayStr;
+
+    if (startDate === d30Start && endDate === todayStr) return '30d';
+    if (startDate === y1Start && endDate === todayStr) return '1y';
+    if (startDate === y5Start && endDate === todayStr) return '5y';
+    if (startDate === firstDateStr && (endDate === todayStr || endDate === allEnd)) return 'all';
+    return null;
+  }, [startDate, endDate, firstDateStr, maxDateStr]);
 
   // 관리자 설정: 과거(~2025) 카테고리 분석 표시 여부
   const showLegacyCategory = data.system?.showLegacyCategoryAnalysis !== false;
@@ -351,6 +460,103 @@ export function DetailedStatsTab({
     return { dailyStatsArray, hourStatsArray, exactTimeStatsArray, durationStatsArray, dailyTimeMap, trendStatsArray, avgDaily, total };
   }, [logsArray]);
 
+  const insights = useMemo(() => {
+    // 1. 주간 방송 횟수 추이 한줄 정리
+    let weeklySummary: React.ReactNode = null;
+    if (stats.trendStatsArray.length > 0) {
+      const totalTrendCount = stats.trendStatsArray.reduce((acc, w) => acc + w.count, 0);
+      const avgWeekly = (totalTrendCount / stats.trendStatsArray.length).toFixed(1);
+      const maxWeekly = Math.max(...stats.trendStatsArray.map(w => w.count));
+      const minWeekly = Math.min(...stats.trendStatsArray.map(w => w.count));
+      if (totalTrendCount === 0) {
+        weeklySummary = '조회 기간에 진행된 방송 기록이 없습니다.';
+      } else if (stats.trendStatsArray.length === 1) {
+        weeklySummary = (
+          <span>해당 주간에는 총 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{totalTrendCount}회</strong> 방송을 진행했습니다.</span>
+        );
+      } else {
+        weeklySummary = (
+          <span>조회 기간 동안 주 평균 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{avgWeekly}회</strong> 방송을 진행했으며, 한 주 최다 방송은 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{maxWeekly}회</strong>, 최소는 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{minWeekly}회</strong>입니다.</span>
+        );
+      }
+    } else {
+      weeklySummary = '조회 기간에 방송 추이 데이터가 없습니다.';
+    }
+
+    // 2. 요일별 방송 확률 및 빈도 한줄 정리
+    let dailySummary: React.ReactNode = null;
+    if (stats.dailyStatsArray.length > 0 && stats.total > 0) {
+      const sortedDaily = [...stats.dailyStatsArray].sort((a, b) => b.count - a.count);
+      const topDay = sortedDaily[0];
+      const bottomDay = sortedDaily[sortedDaily.length - 1];
+      dailySummary = (
+        <span>방송 확률이 가장 높은 요일은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topDay.day}요일</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDay.probability.toFixed(1)}%</strong>, <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDay.count}회</strong>)이며, 가장 낮은 요일은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{bottomDay.day}요일</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{bottomDay.probability.toFixed(1)}%</strong>, <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{bottomDay.count}회</strong>)입니다.</span>
+      );
+    } else {
+      dailySummary = '조회 기간에 요일별 방송 기록이 없습니다.';
+    }
+
+    // 3. 요일별 자주 오는 시간 한줄 정리
+    let dayTimesSummary: React.ReactNode = null;
+    if (stats.total > 0) {
+      const sortedDaily = [...stats.dailyStatsArray].sort((a, b) => b.count - a.count);
+      const topDay = sortedDaily[0];
+      const times = stats.dailyTimeMap[topDay.day] || {};
+      const sortedTimes = Object.keys(times).sort((a, b) => times[b] - times[a]);
+      const topTimeStr = sortedTimes[0];
+      if (topTimeStr) {
+        dayTimesSummary = (
+          <span>방송이 가장 잦은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topDay.day}요일</strong>(총 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDay.count}회</strong>)에는 주로 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topTimeStr}</strong>에 방송을 시작했습니다.</span>
+        );
+      } else {
+        dayTimesSummary = (
+          <span>방송이 가장 잦은 요일은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topDay.day}요일</strong>(총 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDay.count}회</strong>)입니다.</span>
+        );
+      }
+    } else {
+      dayTimesSummary = '조회 기간에 시간대별 방송 기록이 없습니다.';
+    }
+
+    // 4. 시작 시간대별 분석 한줄 정리
+    let hourSummary: React.ReactNode = null;
+    if (stats.total > 0 && stats.hourStatsArray.length > 0) {
+      const sortedHours = [...stats.hourStatsArray].sort((a, b) => b.count - a.count);
+      const topHour = sortedHours[0];
+      const topExact = stats.exactTimeStatsArray[0];
+      if (topExact) {
+        hourSummary = (
+          <span>가장 선호하는 방송 시작 시간대는 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topHour.label}</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topHour.probability.toFixed(1)}%</strong>)이며, 단일 시간대로는 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topExact.label}</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topExact.probability.toFixed(1)}%</strong>)이 1위입니다.</span>
+        );
+      } else {
+        hourSummary = (
+          <span>가장 선호하는 방송 시작 시간대는 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topHour.label}</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topHour.probability.toFixed(1)}%</strong>)입니다.</span>
+        );
+      }
+    } else {
+      hourSummary = '조회 기간에 시작 시간대 데이터가 없습니다.';
+    }
+
+    // 5. 1회당 방송 진행 시간 한줄 정리
+    let durationSummary: React.ReactNode = null;
+    if (stats.total > 0 && stats.durationStatsArray.length > 0) {
+      const sortedDurations = [...stats.durationStatsArray].sort((a, b) => b.count - a.count);
+      const topDuration = sortedDurations[0];
+      durationSummary = (
+        <span>1회 방송 진행 시간은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topDuration.label}</strong> 구간이 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDuration.probability.toFixed(1)}% ({topDuration.count}회)</strong>로 가장 높은 비중을 차지합니다.</span>
+      );
+    } else {
+      durationSummary = '진행 시간 데이터가 없습니다.';
+    }
+
+    return {
+      weeklySummary,
+      dailySummary,
+      dayTimesSummary,
+      hourSummary,
+      durationSummary
+    };
+  }, [stats]);
+
   // PDF 리포트용 히트맵 데이터 계산
   const pdfHeatmap = useMemo(() => {
     let s = parseISO(startDate);
@@ -554,23 +760,54 @@ export function DetailedStatsTab({
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       {/* Filters */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h3 className="text-lg font-bold text-zinc-900 dark:text-white">상세 분석</h3>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-sm w-full sm:w-auto">
-          <input 
-            type="date" 
-            value={startDate} 
-            onChange={(e) => setStartDate(e.target.value)}
-            className="flex-1 w-full min-w-0 sm:w-auto bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-          <span className="text-zinc-400 hidden sm:inline">~</span>
-          <input 
-            type="date" 
-            value={endDate} 
-            onChange={(e) => setEndDate(e.target.value)}
-            className="flex-1 w-full min-w-0 sm:w-auto bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-          <button onClick={handleFilter} className="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors mt-2 sm:mt-0">
+      <div id="detailed-main-card" className="w-full max-w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4 xl:gap-6 box-border overflow-hidden relative">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">상세 분석</h3>
+        </div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 text-sm w-full xl:w-auto min-w-0 max-w-full box-border">
+          {/* 기간 프리셋 버튼 그룹 */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
+            {[
+              { key: '30d' as const, label: '최근 30일' },
+              { key: '1y' as const, label: '최근 1년' },
+              { key: '5y' as const, label: '최근 5년' },
+              { key: 'all' as const, label: '전체' },
+            ].map((p) => {
+              const isSelected = activePreset === p.key;
+              return (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => handleApplyPreset(p.key)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer",
+                    isSelected
+                      ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs"
+                      : "bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300"
+                  )}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
+            <input 
+              type="date" 
+              value={startDate} 
+              onChange={(e) => setStartDate(e.target.value)}
+              className="flex-1 w-full min-w-0 max-w-full box-border bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 sm:px-3.5 py-2 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-400 text-sm"
+            />
+            <span className="text-zinc-400 shrink-0">~</span>
+            <input 
+              type="date" 
+              value={endDate} 
+              onChange={(e) => setEndDate(e.target.value)}
+              className="flex-1 w-full min-w-0 max-w-full box-border bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 sm:px-3.5 py-2 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-400 text-sm"
+            />
+          </div>
+          <button onClick={handleFilter} className="w-full sm:w-auto px-5 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-sm font-semibold transition-colors shrink-0 cursor-pointer shadow-xs hover:shadow active:scale-[0.98]">
             조회
           </button>
         </div>
@@ -635,7 +872,7 @@ export function DetailedStatsTab({
 
           {isLegacyRange && (
             <div className="flex items-center gap-1.5 ml-1 sm:ml-2 shrink-0">
-              <span className="text-[11px] font-bold px-2 py-1 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+              <span className="text-[11px] font-bold px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
                 ~2025 포함 데이터
               </span>
               <button
@@ -645,8 +882,8 @@ export function DetailedStatsTab({
                 className={cn(
                   "p-1 rounded-full transition-colors",
                   showLegacyTooltip 
-                    ? "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60" 
-                    : "text-zinc-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    ? "text-zinc-900 dark:text-white bg-zinc-200 dark:bg-zinc-700" 
+                    : "text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 )}
                 title="과거 데이터 안내 보기"
                 aria-label="과거 데이터 안내 보기"
@@ -682,70 +919,98 @@ export function DetailedStatsTab({
             {activeSubTab !== 'category' && (
               <div className="space-y-6">
                 {/* 1. 주간 방송 횟수 추이 */}
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
-                  <h4 className="font-bold mb-4">주간 방송 횟수 추이</h4>
+                <div id="detailed-legacy-trend-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold">주간 방송 횟수 추이</h4>
+                    <WidgetShareButton targetId="detailed-legacy-trend-card" title="주간 방송 횟수 추이" />
+                  </div>
+                  <StatInsightSummary>
+                    {insights.weeklySummary}
+                  </StatInsightSummary>
                   <div className="h-[300px] w-full">
                     {isActive && (
                       <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                        <LineChart data={stats.trendStatsArray} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <LineChart data={stats.trendStatsArray} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                           <XAxis dataKey="week" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                           <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                           <Tooltip content={<TrendTooltip />} cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} />
-                          <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={3} dot={{ r: 4, fill: '#a855f7' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out" />
+                          <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={3} dot={{ r: 4, fill: '#a855f7' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
+                            <LabelList 
+                              dataKey="count" 
+                              content={(props: any) => (
+                                <SmartTrendLabel 
+                                  {...props} 
+                                  totalPoints={stats.trendStatsArray.length} 
+                                  strokeColor="#a855f7" 
+                                  textColor="#7e22ce"
+                                  className="chart-capture-only-label"
+                                />
+                              )} 
+                            />
+                          </Line>
                         </LineChart>
                       </ResponsiveContainer>
                     )}
                   </div>
                 </div>
 
-                {/* 2. 요일별 방송 빈도 그래프 & 요일별 방송 확률 표 (히트맵은 숨김) */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col">
-                    <h4 className="font-bold mb-4">요일별 방송 빈도 그래프</h4>
-                    <div className="h-[300px] w-full">
-                      {isActive && (
-                        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                          <BarChart data={stats.dailyStatsArray} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
-                            <XAxis dataKey="day" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`} />
-                            <Tooltip cursor={{ fill: '#a1a1aa', opacity: 0.1 }} content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} />
-                            <ReferenceLine y={stats.avgDaily} stroke="#f43f5e" strokeDasharray="3 3" label={{ position: 'top', value: `평균(${stats.avgDaily.toFixed(1)}%)`, fill: '#f43f5e', fontSize: 10 }} />
-                            <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
-                              {stats.dailyStatsArray.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#a855f7' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      )}
-                    </div>
+                {/* 2. 요일별 방송 빈도 그래프 & 요일별 방송 확률 표 (그래프와 표 함께 캡처) */}
+                <div id="detailed-legacy-weekday-combo" className="bg-zinc-50/50 dark:bg-zinc-950/40 p-4 sm:p-5 rounded-3xl border border-zinc-200/80 dark:border-zinc-800/80 relative space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-zinc-900 dark:text-white text-base">요일별 방송 분석 (그래프 및 통계표)</h4>
+                    <WidgetShareButton targetId="detailed-legacy-weekday-combo" title="요일별 방송 분석" />
                   </div>
+                  <StatInsightSummary>
+                    {insights.dailySummary}
+                  </StatInsightSummary>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col">
+                      <h4 className="font-bold mb-4">요일별 방송 빈도 그래프</h4>
+                      <div className="h-[300px] w-full">
+                        {isActive && (
+                          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                            <BarChart data={stats.dailyStatsArray} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
+                              <XAxis dataKey="day" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
+                              <YAxis stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`} />
+                              <Tooltip cursor={false} content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} />
+                              <ReferenceLine y={stats.avgDaily} stroke="#f43f5e" strokeDasharray="3 3" label={{ position: 'top', value: `평균(${stats.avgDaily.toFixed(1)}%)`, fill: '#f43f5e', fontSize: 10 }} />
+                              <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
+                                {stats.dailyStatsArray.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#a855f7' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        )}
+                      </div>
+                    </div>
 
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col">
-                    <h4 className="font-bold mb-4">요일별 방송 확률 표</h4>
-                    <div className="overflow-x-auto flex-1">
-                      <table className="w-full text-left text-sm whitespace-nowrap">
-                        <thead className="bg-zinc-50 dark:bg-zinc-950/50 text-zinc-500 dark:text-zinc-400 font-semibold border-y border-zinc-200 dark:border-zinc-800">
-                          <tr>
-                            <th className="px-4 py-3">요일</th>
-                            <th className="px-4 py-3 text-right">방송 횟수</th>
-                            <th className="px-4 py-3 text-right">확률</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                          {stats.dailyStatsArray.map((stat) => (
-                            <tr key={stat.day} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                              <td className="px-4 py-3 font-semibold text-zinc-900 dark:text-white">{stat.day}요일</td>
-                              <td className="px-4 py-3 text-right text-zinc-600 dark:text-zinc-400">{stat.count}회</td>
-                              <td className="px-4 py-3 text-right font-bold text-purple-600 dark:text-purple-400">
-                                {stat.probability.toFixed(1)}%
-                              </td>
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col">
+                      <h4 className="font-bold mb-4">요일별 방송 확률 표</h4>
+                      <div className="overflow-x-auto custom-scrollbar flex-1 w-full">
+                        <table className="w-full min-w-[280px] text-left text-xs sm:text-sm whitespace-nowrap table-auto lg:table-fixed">
+                          <thead className="bg-zinc-50 dark:bg-zinc-950/50 text-zinc-500 dark:text-zinc-400 font-semibold border-y border-zinc-200 dark:border-zinc-800">
+                            <tr>
+                              <th className="px-4 sm:px-7 py-3.5 sm:py-4 w-1/3">요일</th>
+                              <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-1/3">방송 횟수</th>
+                              <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-1/3">확률</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            {stats.dailyStatsArray.map((stat) => (
+                              <tr key={stat.day} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+                                <td className="px-4 sm:px-7 py-3.5 sm:py-4 font-bold text-purple-600 dark:text-purple-300">{stat.day}요일</td>
+                                <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-semibold text-emerald-600 dark:text-emerald-400">{stat.count}회</td>
+                                <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                                  {stat.probability.toFixed(1)}%
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -766,24 +1031,49 @@ export function DetailedStatsTab({
           <>
             {activeSubTab === 'trend' && (
               <div className="space-y-6">
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
-                  <h4 className="font-bold mb-4">주간 방송 횟수 추이</h4>
+                <div id="detailed-trend-weekly-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold">주간 방송 횟수 추이</h4>
+                    <WidgetShareButton targetId="detailed-trend-weekly-card" title="주간 방송 횟수 추이" />
+                  </div>
+                  <StatInsightSummary>
+                    {insights.weeklySummary}
+                  </StatInsightSummary>
                   <div className="h-[300px] w-full">
                     {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                      <LineChart data={stats.trendStatsArray} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <LineChart data={stats.trendStatsArray} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                         <XAxis dataKey="week" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                         <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                         <Tooltip content={<TrendTooltip />} cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} />
-                        <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={3} dot={{ r: 4, fill: '#a855f7' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out" />
+                        <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={3} dot={{ r: 4, fill: '#a855f7' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
+                          <LabelList 
+                            dataKey="count" 
+                            content={(props: any) => (
+                              <SmartTrendLabel 
+                                {...props} 
+                                totalPoints={stats.trendStatsArray.length} 
+                                strokeColor="#a855f7" 
+                                textColor="#7e22ce"
+                                className="chart-capture-only-label"
+                              />
+                            )} 
+                          />
+                        </Line>
                       </LineChart>
                     </ResponsiveContainer>)}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm col-span-1 lg:col-span-2">
-                    <h4 className="font-bold mb-4">요일별 자주 오는 시간</h4>
+                  <div id="detailed-day-times-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm col-span-1 lg:col-span-2 relative space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold">요일별 자주 오는 시간</h4>
+                      <WidgetShareButton targetId="detailed-day-times-card" title="요일별 자주 오는 시간" />
+                    </div>
+                    <StatInsightSummary>
+                      {insights.dayTimesSummary}
+                    </StatInsightSummary>
                     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
                       {['월', '화', '수', '목', '금', '토', '일'].map(day => {
                         const times = stats.dailyTimeMap[day];
@@ -799,34 +1089,42 @@ export function DetailedStatsTab({
                     </div>
                   </div>
                   
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col">
-                    <h4 className="font-bold mb-4">시작 시간대별 그래프</h4>
+                  <div id="detailed-start-hour-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col relative space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold">시작 시간대별 그래프 & 순위</h4>
+                      <WidgetShareButton targetId="detailed-start-hour-card" title="시작 시간대별 분석" />
+                    </div>
+                    <StatInsightSummary>
+                      {insights.hourSummary}
+                    </StatInsightSummary>
                     <div className="h-[250px] w-full mb-4">
                       {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                         <BarChart data={stats.hourStatsArray} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                           <XAxis dataKey="label" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                           <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`} />
-                          <Tooltip cursor={{ fill: '#a1a1aa', opacity: 0.1 }} content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} />
-                          <Bar dataKey="probability" radius={[4, 4, 0, 0]} fill="#3b82f6" animationDuration={300} animationEasing="ease-out" />
+                          <Tooltip cursor={false} content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} />
+                          <Bar dataKey="probability" radius={[4, 4, 0, 0]} fill="#3b82f6" animationDuration={300} animationEasing="ease-out">
+                            <LabelList dataKey="probability" position="top" fill="#2563eb" fontSize={10} offset={4} fontWeight="bold" className="chart-capture-only-label" formatter={(val: number) => val > 0 ? `${val.toFixed(1)}%` : ''} />
+                          </Bar>
                         </BarChart>
                       </ResponsiveContainer>)}
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm whitespace-nowrap">
+                    <div className="overflow-x-auto custom-scrollbar w-full">
+                      <table className="w-full min-w-[280px] text-left text-xs sm:text-sm whitespace-nowrap table-auto lg:table-fixed">
                         <thead className="bg-zinc-50 dark:bg-zinc-950/50 text-zinc-500 dark:text-zinc-400 font-semibold border-y border-zinc-200 dark:border-zinc-800">
                           <tr>
-                            <th className="px-4 py-3">순위</th>
-                            <th className="px-4 py-3">시간대</th>
-                            <th className="px-4 py-3 text-right">확률</th>
+                            <th className="px-4 sm:px-7 py-3.5 sm:py-4 w-16 sm:w-20">순위</th>
+                            <th className="px-4 sm:px-7 py-3.5 sm:py-4">시간대</th>
+                            <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-24 sm:w-28">확률</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                           {stats.exactTimeStatsArray.slice(0, 5).map((stat, i) => (
                             <tr key={stat.label} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                              <td className="px-4 py-3 text-zinc-400 font-medium">{i + 1}</td>
-                              <td className="px-4 py-3 font-semibold text-zinc-900 dark:text-white">{stat.label}</td>
-                              <td className="px-4 py-3 text-right font-bold text-purple-600 dark:text-purple-400">
+                              <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-zinc-400 font-medium">{i + 1}</td>
+                              <td className="px-4 sm:px-7 py-3.5 sm:py-4 font-bold text-purple-600 dark:text-purple-300">{stat.label}</td>
+                              <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
                                 {stat.probability.toFixed(1)}%
                               </td>
                             </tr>
@@ -836,23 +1134,29 @@ export function DetailedStatsTab({
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col">
-                    <h4 className="font-bold mb-4">1회당 방송 진행 시간(길이) 비율</h4>
-                    <div className="overflow-x-auto flex-1">
-                      <table className="w-full text-left text-sm whitespace-nowrap">
+                  <div id="detailed-duration-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col relative space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold">1회당 방송 진행 시간(길이) 비율</h4>
+                      <WidgetShareButton targetId="detailed-duration-card" title="방송 진행 시간 분석" />
+                    </div>
+                    <StatInsightSummary>
+                      {insights.durationSummary}
+                    </StatInsightSummary>
+                    <div className="overflow-x-auto custom-scrollbar flex-1 w-full">
+                      <table className="w-full min-w-[300px] text-left text-xs sm:text-sm whitespace-nowrap table-auto lg:table-fixed">
                         <thead className="bg-zinc-50 dark:bg-black/40 text-zinc-500 dark:text-zinc-400 font-semibold border-y border-zinc-200 dark:border-zinc-800">
                           <tr>
-                            <th className="px-4 py-3">방송 진행 시간</th>
-                            <th className="px-4 py-3 text-right">횟수</th>
-                            <th className="px-4 py-3 text-right">비율</th>
+                            <th className="px-4 sm:px-7 py-3.5 sm:py-4">방송 진행 시간</th>
+                            <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-24 sm:w-28">횟수</th>
+                            <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-24 sm:w-28">비율</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                           {stats.durationStatsArray.map((stat) => (
                             <tr key={stat.label} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                              <td className="px-4 py-3 font-semibold text-zinc-900 dark:text-white">{stat.label}</td>
-                              <td className="px-4 py-3 text-right text-zinc-600 dark:text-zinc-400">{stat.count}회</td>
-                              <td className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">{stat.probability.toFixed(1)}%</td>
+                              <td className="px-4 sm:px-7 py-3.5 sm:py-4 font-bold text-purple-600 dark:text-purple-300">{stat.label}</td>
+                              <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-semibold text-emerald-600 dark:text-emerald-400">{stat.count}회</td>
+                              <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-bold text-emerald-600 dark:text-emerald-400">{stat.probability.toFixed(1)}%</td>
                             </tr>
                           ))}
                         </tbody>
@@ -873,50 +1177,61 @@ export function DetailedStatsTab({
                   onSelectDate={onNavigateToCalendar}
                 />
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col">
-                    <h4 className="font-bold mb-4">요일별 방송 빈도 그래프</h4>
-                    <div className="h-[300px] w-full">
-                      {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                        <BarChart data={stats.dailyStatsArray} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
-                          <XAxis dataKey="day" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
-                          <YAxis stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`} />
-                          <Tooltip cursor={{ fill: '#a1a1aa', opacity: 0.1 }} content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} />
-                          <ReferenceLine y={stats.avgDaily} stroke="#f43f5e" strokeDasharray="3 3" label={{ position: 'top', value: `평균(${stats.avgDaily.toFixed(1)}%)`, fill: '#f43f5e', fontSize: 10 }} />
-                          <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
-                            {stats.dailyStatsArray.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#a855f7' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>)}
-                    </div>
+                {/* 요일별 방송 빈도 그래프 & 요일별 방송 확률 표 (그래프와 표 함께 캡처) */}
+                <div id="detailed-weekday-combo" className="bg-zinc-50/50 dark:bg-zinc-950/40 p-4 sm:p-5 rounded-3xl border border-zinc-200/80 dark:border-zinc-800/80 relative space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-zinc-900 dark:text-white text-base">요일별 방송 분석 (그래프 및 통계표)</h4>
+                    <WidgetShareButton targetId="detailed-weekday-combo" title="요일별 방송 분석" />
                   </div>
+                  <StatInsightSummary>
+                    {insights.dailySummary}
+                  </StatInsightSummary>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col">
+                      <h4 className="font-bold mb-4">요일별 방송 빈도 그래프</h4>
+                      <div className="h-[300px] w-full">
+                        {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                          <BarChart data={stats.dailyStatsArray} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
+                            <XAxis dataKey="day" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`} />
+                            <Tooltip cursor={false} content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} />
+                            <ReferenceLine y={stats.avgDaily} stroke="#f43f5e" strokeDasharray="3 3" label={{ position: 'top', value: `평균(${stats.avgDaily.toFixed(1)}%)`, fill: '#f43f5e', fontSize: 10 }} />
+                            <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
+                              <LabelList dataKey="probability" position="top" fill="#4b5563" fontSize={11} offset={4} fontWeight="bold" className="chart-capture-only-label" formatter={(val: number) => `${val.toFixed(1)}%`} />
+                              {stats.dailyStatsArray.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#a855f7' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>)}
+                      </div>
+                    </div>
 
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col">
-                    <h4 className="font-bold mb-4">요일별 방송 확률 표</h4>
-                    <div className="overflow-x-auto flex-1">
-                      <table className="w-full text-left text-sm whitespace-nowrap">
-                        <thead className="bg-zinc-50 dark:bg-zinc-950/50 text-zinc-500 dark:text-zinc-400 font-semibold border-y border-zinc-200 dark:border-zinc-800">
-                          <tr>
-                            <th className="px-4 py-3">요일</th>
-                            <th className="px-4 py-3 text-right">방송 횟수</th>
-                            <th className="px-4 py-3 text-right">확률</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                          {stats.dailyStatsArray.map((stat) => (
-                            <tr key={stat.day} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                              <td className="px-4 py-3 font-semibold text-zinc-900 dark:text-white">{stat.day}요일</td>
-                              <td className="px-4 py-3 text-right text-zinc-600 dark:text-zinc-400">{stat.count}회</td>
-                              <td className="px-4 py-3 text-right font-bold text-purple-600 dark:text-purple-400">
-                                {stat.probability.toFixed(1)}%
-                              </td>
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col">
+                      <h4 className="font-bold mb-4">요일별 방송 확률 표</h4>
+                      <div className="overflow-x-auto custom-scrollbar flex-1 w-full">
+                        <table className="w-full min-w-[280px] text-left text-xs sm:text-sm whitespace-nowrap table-auto lg:table-fixed">
+                          <thead className="bg-zinc-50 dark:bg-zinc-950/50 text-zinc-500 dark:text-zinc-400 font-semibold border-y border-zinc-200 dark:border-zinc-800">
+                            <tr>
+                              <th className="px-4 sm:px-7 py-3.5 sm:py-4 w-1/3">요일</th>
+                              <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-1/3">방송 횟수</th>
+                              <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-1/3">확률</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            {stats.dailyStatsArray.map((stat) => (
+                              <tr key={stat.day} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+                                <td className="px-4 sm:px-7 py-3.5 sm:py-4 font-bold text-purple-600 dark:text-purple-300">{stat.day}요일</td>
+                                <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-semibold text-emerald-600 dark:text-emerald-400">{stat.count}회</td>
+                                <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                                  {stat.probability.toFixed(1)}%
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1282,12 +1597,23 @@ export function DetailedStatsTab({
               <h4 className="font-bold mb-4 text-zinc-900">주간 방송 횟수 추이</h4>
               <div className="w-full flex justify-center">
                 {isActive && (
-                  <LineChart width={880} height={250} data={stats.trendStatsArray} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                  <LineChart width={880} height={260} data={stats.trendStatsArray} margin={{ top: 30, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
                     <XAxis dataKey="week" stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                     <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={3} dot={{ r: 4, fill: '#a855f7' }} isAnimationActive={false}>
-                      <LabelList dataKey="count" position="top" fill="#a855f7" fontSize={12} offset={10} formatter={(val: number) => `${val}회`} />
+                      <LabelList 
+                        dataKey="count" 
+                        content={(props: any) => (
+                          <SmartTrendLabel 
+                            {...props} 
+                            totalPoints={stats.trendStatsArray.length} 
+                            strokeColor="#a855f7" 
+                            textColor="#7e22ce"
+                            className="pdf-smart-trend-label"
+                          />
+                        )} 
+                      />
                     </Line>
                   </LineChart>
                 )}

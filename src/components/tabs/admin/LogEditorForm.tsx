@@ -353,9 +353,9 @@ export const LogEditorForm = ({
                   const currentList = (log.games && log.games.length > 0)
                     ? [...log.games]
                     : (log.game
-                        ? [{ name: log.game, link: '', category: log.category || '종합' }]
+                        ? [{ name: log.game, link: '', category: log.category || '' }]
                         : []);
-                  const nextList = [...currentList, { name: "", link: "", category: "종합" }];
+                  const nextList = [...currentList, { name: "", link: "", category: "" }];
                   onChange({
                     games: nextList,
                     game: nextList.map((g) => g.name).filter(Boolean).join(", "),
@@ -374,7 +374,7 @@ export const LogEditorForm = ({
                     {
                       name: log.game || "",
                       link: "",
-                      category: log.category || "종합",
+                      category: log.category || "",
                     },
                   ]
               ).map((g, gIdx, allGames) => (

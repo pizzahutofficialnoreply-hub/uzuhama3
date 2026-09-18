@@ -144,22 +144,88 @@ export function fuzzyKoreanMatch(query: string, target: string) {
   return check(normQ, normT) || check(normQNum, normTNum);
 }
 
-export function fuzzyDateMatch(query: string, dateStr: string) {
-  if (/[a-zA-Z가-힣]/.test(query.replace(/[월일\s\/\.-]/g, ''))) return false;
+export function fuzzyDateMatch(query: string, dateStr: string): boolean {
+  if (!query || !dateStr) return false;
   
-  const normalize = (s: string) => s.replace(/[^0-9]/g, '');
-  const nQuery = normalize(query);
-  if (!nQuery || nQuery.length > 4) return false;
-  
+  const trimmed = query.trim();
   const parts = dateStr.split('-');
   if (parts.length !== 3) return false;
-  const month = parts[1];
-  const day = parts[2];
   
-  const mmdd = month + day;
-  const m_d = parseInt(month, 10).toString() + parseInt(day, 10).toString();
-  
-  return mmdd.includes(nQuery) || m_d.includes(nQuery);
+  const logYear = parseInt(parts[0], 10);
+  const logMonth = parseInt(parts[1], 10);
+  const logDay = parseInt(parts[2], 10);
+
+  // 1. 단순 전체 YYYY-MM-DD 또는 서브스트링 포함 여부
+  if (dateStr.includes(trimmed)) return true;
+
+  // 2. "M월 D일" / "M월 D" / "M월" 등 한글 날짜 패턴 (예: "5월 12일", "5월12일", "05월 02일", "5월")
+  const koreanMonthDayMatch = trimmed.match(/^(\d{1,2})\s*월(?:\s*(\d{1,2})\s*일?)?$/);
+  if (koreanMonthDayMatch) {
+    const qMonth = parseInt(koreanMonthDayMatch[1], 10);
+    const qDay = koreanMonthDayMatch[2] ? parseInt(koreanMonthDayMatch[2], 10) : null;
+    
+    if (qMonth >= 1 && qMonth <= 12) {
+      if (qDay !== null) {
+        return logMonth === qMonth && logDay === qDay;
+      }
+      return logMonth === qMonth;
+    }
+  }
+
+  // 3. "M/D", "M-D", "M.D" 또는 "M/" 패턴 (예: "5/12", "05/12", "5-12", "5.12", "5/")
+  const separatorMatch = trimmed.match(/^(\d{1,2})\s*[\/\.-]\s*(\d{1,2})?$/);
+  if (separatorMatch) {
+    const qMonth = parseInt(separatorMatch[1], 10);
+    const qDay = separatorMatch[2] ? parseInt(separatorMatch[2], 10) : null;
+    
+    if (qMonth >= 1 && qMonth <= 12) {
+      if (qDay !== null) {
+        return logMonth === qMonth && logDay === qDay;
+      }
+      return logMonth === qMonth;
+    }
+  }
+
+  // 4. 순수 4자리 숫자 (예: "0512", "1103" -> MMDD 또는 YYYY)
+  if (/^\d{4}$/.test(trimmed)) {
+    const qMonth = parseInt(trimmed.substring(0, 2), 10);
+    const qDay = parseInt(trimmed.substring(2, 4), 10);
+    if (qMonth >= 1 && qMonth <= 12 && qDay >= 1 && qDay <= 31) {
+      if (logMonth === qMonth && logDay === qDay) return true;
+    }
+    if (parseInt(trimmed, 10) === logYear) return true;
+  }
+
+  // 5. "YYYY년 M월 D일" 등 년도가 포함된 한글 패턴 (예: "2024년 5월 12일", "24년 5월")
+  const fullKoreanMatch = trimmed.match(/^(\d{2,4})\s*년(?:\s*(\d{1,2})\s*월)?(?:\s*(\d{1,2})\s*일?)?$/);
+  if (fullKoreanMatch) {
+    let qYear = parseInt(fullKoreanMatch[1], 10);
+    if (qYear < 100) qYear += 2000;
+    const qMonth = fullKoreanMatch[2] ? parseInt(fullKoreanMatch[2], 10) : null;
+    const qDay = fullKoreanMatch[3] ? parseInt(fullKoreanMatch[3], 10) : null;
+    
+    if (logYear === qYear) {
+      if (qMonth !== null && qDay !== null) {
+        return logMonth === qMonth && logDay === qDay;
+      }
+      if (qMonth !== null) {
+        return logMonth === qMonth;
+      }
+      return true;
+    }
+  }
+
+  // 6. "YY.MM.DD" 또는 "YYYY.MM.DD" (마침표로 연결된 전체 날짜)
+  const dotDateMatch = trimmed.match(/^(\d{2,4})\.(\d{1,2})\.(\d{1,2})$/);
+  if (dotDateMatch) {
+    let qYear = parseInt(dotDateMatch[1], 10);
+    if (qYear < 100) qYear += 2000;
+    const qMonth = parseInt(dotDateMatch[2], 10);
+    const qDay = parseInt(dotDateMatch[3], 10);
+    return logYear === qYear && logMonth === qMonth && logDay === qDay;
+  }
+
+  return false;
 }
 
 export interface YouTubeVideoStats {
@@ -236,4 +302,85 @@ export function getWeightedRandomVideos(videos: YouTubeVideoStats[], count: numb
   // Simple random selection
   const shuffled = [...videos].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, count);
+}
+
+/**
+ * 한국어 단어의 받침 유무를 판별하여 올바른 조사를 반환합니다.
+ * @param word 앞선 단어
+ * @param particleType 조사 유형 ('으로/로' | '이/가' | '을/를' | '은/는' | '과/와' | '이나/나' | '이란/란')
+ */
+export function getKoreanParticle(
+  word: string, 
+  particleType: '으로/로' | '이/가' | '을/를' | '은/는' | '과/와' | '이나/나' | '이란/란'
+): string {
+  if (!word || typeof word !== 'string') {
+    return particleType.split('/')[0];
+  }
+
+  // 특수문자, 괄호 등 끝부분의 무의미한 기호 제거 후 마지막 음절 검사
+  const cleanWord = word.trim().replace(/[\s.,!?;:()\[\]'"]+$/g, '');
+  if (!cleanWord) return particleType.split('/')[0];
+
+  const lastChar = cleanWord[cleanWord.length - 1];
+  const charCode = lastChar.charCodeAt(0);
+
+  // 한글 완성형 음절 범위: AC00 ~ D7A3
+  if (charCode >= 0xAC00 && charCode <= 0xD7A3) {
+    const jongseong = (charCode - 0xAC00) % 28;
+    const hasJongseong = jongseong > 0;
+
+    switch (particleType) {
+      case '으로/로':
+        // 받침이 없거나 'ㄹ' 받침(jongseong === 8)일 때는 '로'
+        return (!hasJongseong || jongseong === 8) ? '로' : '으로';
+      case '이/가':
+        return hasJongseong ? '이' : '가';
+      case '을/를':
+        return hasJongseong ? '을' : '를';
+      case '은/는':
+        return hasJongseong ? '은' : '는';
+      case '과/와':
+        return hasJongseong ? '과' : '와';
+      case '이나/나':
+        return hasJongseong ? '이나' : '나';
+      case '이란/란':
+        return hasJongseong ? '이란' : '란';
+    }
+  }
+
+  // 숫자로 끝날 경우의 일반적인 발음 기준
+  if (/[013678]$/.test(cleanWord)) {
+    // 0(영), 1(일), 3(삼), 6(육), 7(칠), 8(팔)은 받침 있음
+    if (particleType === '으로/로') {
+      return (/[18]$/.test(cleanWord)) ? '로' : '으로'; // 1(일), 8(팔)은 ㄹ받침 -> 로
+    }
+    return particleType.split('/')[0];
+  } else if (/[2459]$/.test(cleanWord)) {
+    // 2(이), 4(사), 5(오), 9(구)는 받침 없음
+    return particleType.split('/')[1];
+  }
+
+  return particleType.split('/')[1];
+}
+
+export function attachKoreanParticle(
+  word: string, 
+  particleType: '으로/로' | '이/가' | '을/를' | '은/는' | '과/와' | '이나/나' | '이란/란'
+): string {
+  return `${word}${getKoreanParticle(word, particleType)}`;
+}
+
+/**
+ * 텍스트 내의 '(으)로', '(이/가)', '(을/를)', '(은/는)', '(과/와)' 등의 패턴을 올바른 조사로 자동 변환
+ */
+export function autoFixKoreanParticles(text: string): string {
+  if (!text || typeof text !== 'string') return text;
+  
+  return text
+    .replace(/([가-힣0-9a-zA-Z]+)\(으\)로/g, (_, word) => `${word}${getKoreanParticle(word, '으로/로')}`)
+    .replace(/([가-힣0-9a-zA-Z]+)\(이\/가\)/g, (_, word) => `${word}${getKoreanParticle(word, '이/가')}`)
+    .replace(/([가-힣0-9a-zA-Z]+)\(을\/를\)/g, (_, word) => `${word}${getKoreanParticle(word, '을/를')}`)
+    .replace(/([가-힣0-9a-zA-Z]+)\(은\/는\)/g, (_, word) => `${word}${getKoreanParticle(word, '은/는')}`)
+    .replace(/([가-힣0-9a-zA-Z]+)\(과\/와\)/g, (_, word) => `${word}${getKoreanParticle(word, '과/와')}`)
+    .replace(/([가-힣0-9a-zA-Z]+)으로\/로/g, (_, word) => `${word}${getKoreanParticle(word, '으로/로')}`);
 }

@@ -19,8 +19,8 @@ const firebaseConfig = {
   authDomain: "uzuhama.firebaseapp.com",
   projectId: "uzuhama",
   storageBucket: "uzuhama.firebasestorage.app",
-  messagingSenderId: "542360533089", // updated based on user's sw config
-  appId: "1:542360533089:web:355d9d9ff7b36f0db5c102"
+  messagingSenderId: "8322844637",
+  appId: "1:8322844637:web:85ed5c72a675f66adad834"
 };
 
 const app = initializeApp(firebaseConfig);

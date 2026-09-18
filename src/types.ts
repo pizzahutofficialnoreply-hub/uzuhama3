@@ -1,3 +1,5 @@
+export type Tab = 'summary' | 'calendar' | 'detailed' | 'recommend';
+
 export interface DailyStat {
   day: string;
   count: number;
@@ -30,17 +32,69 @@ export interface MonthlyStat {
   attendanceRate: number;
 }
 
+export interface GameGroup {
+  groupName: string;
+  gameNames: string[];
+}
+
 export interface LinkItem {
   title: string;
   url: string;
   category?: string;
   categories?: string[];
+  isCompilation?: boolean;
+  compilationId?: string;
+  allBroadcastDates?: string[];
+  games?: GameItem[];
+  gameSortOrder?: 'latest' | 'oldest' | 'custom';
+  gameGroups?: GameGroup[];
+  createdAt?: string;
+}
+
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: number;
+}
+
+export interface Poll {
+  id: string;
+  title: string;
+  description?: string;
+  options: PollOption[];
+  isActive: boolean;
+  allowMultiple?: boolean;
+  hideResultsBeforeVote?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  startDate?: string;
+  endDate?: string;
+  totalVotes?: number;
+  voterCount?: number;
+}
+
+export interface CompilationSelectedLog {
+  logId: string;
+  date: string;
+  games: string[];
+}
+
+export interface CompilationVideo {
+  id: string;
+  title: string;
+  url: string;
+  createdAt: string;
+  broadcasts: CompilationSelectedLog[];
+  gameSortOrder?: 'latest' | 'oldest' | 'custom';
+  gameGroups?: GameGroup[];
 }
 
 export interface GameItem {
   name: string;
   link: string;
   category?: string;
+  vodUrl?: string;
+  date?: string;
 }
 
 export interface BroadcastLog {
@@ -57,6 +111,8 @@ export interface BroadcastLog {
   durationHours: number;
   isAbsence?: boolean;
   absenceReasons?: string[];
+  youtubeUrl?: string;
+  chzzkUrl?: string;
 }
 
 export interface PatternGuide {
@@ -99,6 +155,8 @@ export interface TermsRevision {
 
 export interface SystemConfig {
   maintenance: boolean;
+  maintenanceTitle?: string;
+  maintenanceContent?: string;
   noticeType: 'none' | 'big' | 'small';
   noticeContent: string;
   absenceReason?: string;
@@ -107,6 +165,9 @@ export interface SystemConfig {
   adminEmail?: string;
   maintenanceStart?: string;
   maintenanceEnd?: string;
+  maintenanceLinkUrl?: string;
+  maintenanceLinkText?: string;
+  maintenanceLinks?: NoticeLink[];
   noticeList?: NoticeItem[];
   termsOfService?: string;
   privacyPolicy?: string;
@@ -120,6 +181,8 @@ export interface SystemConfig {
   showLegacyCategoryAnalysis?: boolean; // ~2025 과거 데이터 카테고리 분석 표시 여부 (기본 true/토글 가능)
   absenceReasonOptions?: string[];
   archiveSourceUrl?: string;
+  activePoll?: Poll | null;
+  compilations?: CompilationVideo[];
 }
 
 export interface AppData {
@@ -131,6 +194,7 @@ export interface AppData {
   patternGuides: Record<string, PatternGuide>;
   videoStats?: Record<string, { score: number, count: number }>;
   system?: SystemConfig;
+  polls?: Poll[];
 }
 
 export interface SuggestionItem {
@@ -177,5 +241,14 @@ export interface PushSubscriptionItem {
   notifyAbsence: boolean;  // 휴방 알림 수신 여부
   notifyFeedback?: boolean; // 내 제보 결과 알림 수신 여부 (레거시)
   updatedAt: any;
+}
+
+export interface SavedDraft {
+  id: string;
+  savedAt: number;
+  savedAtFormatted: string;
+  summary: string;
+  type: 'live' | 'video' | 'shorts';
+  data: any;
 }
 

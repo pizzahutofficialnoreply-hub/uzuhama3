@@ -100,7 +100,7 @@ export function AdminRoute() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans selection:bg-purple-500/30">
-      <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-50">
+      <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-50 pt-[calc(env(safe-area-inset-top,0px)+8px)] pb-1 sm:pt-2.5 sm:pb-0">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center cursor-pointer" onClick={() => navigate('/')}>
@@ -121,14 +121,14 @@ export function AdminRoute() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-28 sm:pb-8">
         <AdminTab 
           data={data} 
           onAddLog={addLog} 
-          onUpdateLog={updateLog}
-          onDeleteLog={deleteLog}
-          onDeleteAllLogs={deleteAllLogs}
-          onUpdateSystemConfig={updateSystemConfig}
+          onUpdateLog={updateLog} 
+          onDeleteLog={deleteLog} 
+          onDeleteAllLogs={deleteAllLogs} 
+          onUpdateSystemConfig={updateSystemConfig} 
         />
       </main>
     </div>

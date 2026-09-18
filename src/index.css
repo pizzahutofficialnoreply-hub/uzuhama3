@@ -1,5 +1,177 @@
 @import "tailwindcss";
 
+/* 배달의민족 한나체 Pro (BM HANNA Pro) - 경량 최적화 웹폰트 CDN */
+@font-face {
+  font-family: 'BMHANNAPro';
+  src: local('배달의민족 한나체 Pro'), local('BM HANNA Pro'), local('BMHANNAPro'),
+       url('https://cdn.jsdelivr.net/npm/@kfonts/bm-hanna-pro@0.2.0/BMHANNAPro.woff2') format('woff2'),
+       url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_seven@1.0/BMHANNAPro.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: '배달의민족 한나체 Pro';
+  src: local('배달의민족 한나체 Pro'), local('BM HANNA Pro'), local('BMHANNAPro'),
+       url('https://cdn.jsdelivr.net/npm/@kfonts/bm-hanna-pro@0.2.0/BMHANNAPro.woff2') format('woff2'),
+       url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_seven@1.0/BMHANNAPro.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 배달의민족 한나체 Air (BM HANNA Air) - 본문/줄글 전용 경량 서체 */
+@font-face {
+  font-family: 'BMHANNAAir';
+  src: local('배달의민족 한나체 Air'), local('BM HANNA Air'), local('BMHANNAAir'),
+       url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_four@master/BMHANNAAir.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: '배달의민족 한나체 Air';
+  src: local('배달의민족 한나체 Air'), local('BM HANNA Air'), local('BMHANNAAir'),
+       url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_four@master/BMHANNAAir.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  --font-hanna: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  --font-air: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+html, body {
+  font-family: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  font-weight: 400;
+  background-color: #ffffff;
+  color: #18181b;
+  min-height: 100%;
+  letter-spacing: 0.008em; /* 자간 아주 살짝 줄여 안정적인 가독성 및 겹침 방지 */
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+html.dark, html.dark body {
+  background-color: #000000;
+  color: #f4f4f5;
+}
+
+#root {
+  min-height: 100%;
+  background-color: transparent;
+  letter-spacing: 0.008em;
+}
+
+/* 전체적인 글자 두께 슬림화 및 가짜 볼드(Faux Bold) 차단 */
+*, *::before, *::after {
+  font-synthesis: none !important;
+}
+
+/* 작은 글씨 기본 자간 확보 */
+.text-xs,
+.text-\[9px\],
+.text-\[10px\],
+.text-\[11px\],
+.text-\[12px\],
+small {
+  letter-spacing: 0.008em;
+}
+
+/* 볼드체 글씨에 한해 아주아주 살짝 두께 보강 */
+.font-bold,
+.font-extrabold,
+.font-black,
+.font-semibold {
+  -webkit-text-stroke: 0.12px currentColor;
+}
+
+/* 줄글 (공지사항 본문, 설명 단락, 약관 등) - 배민한나체 Air: 너무 얇지 않게 두께를 살짝 보강하여 최적 가독성 확보 */
+.prose,
+.prose p,
+.whitespace-pre-wrap,
+.notice-body,
+p:not(.font-bold):not(.font-extrabold):not(.font-black):not(.font-semibold),
+.leading-relaxed:not(h1):not(h2):not(h3):not(button):not(.font-bold):not(.font-extrabold):not(.font-black),
+article p,
+.font-normal,
+.font-light {
+  font-family: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  font-weight: 400;
+  -webkit-text-stroke: 0.08px currentColor;
+  letter-spacing: 0.008em;
+  line-height: 1.65;
+}
+
+/* 코드 블록이나 정밀 수치 입력창 등 기본 폼 필드 가독성 */
+.font-mono,
+input,
+textarea,
+select {
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+  letter-spacing: normal;
+}
+
+/* Recharts 그래프 클릭 시 하얀 칸 / 툴팁 커서 / 포커스 아웃라인 완벽 제거 */
+.recharts-tooltip-cursor,
+rect.recharts-tooltip-cursor,
+.recharts-bar-cursor {
+  display: none !important;
+  fill: transparent !important;
+  stroke: transparent !important;
+  opacity: 0 !important;
+}
+
+.recharts-default-tooltip {
+  display: none !important;
+}
+
+.recharts-surface,
+.recharts-surface:focus,
+.recharts-surface:focus-visible,
+.recharts-sector,
+.recharts-sector:focus,
+.recharts-sector:focus-visible,
+.recharts-pie-sector,
+.recharts-pie-sector:focus,
+.recharts-pie-sector:focus-visible,
+.recharts-pie,
+.recharts-pie:focus,
+.recharts-pie:focus-visible,
+.recharts-layer,
+.recharts-layer:focus,
+.recharts-layer:focus-visible,
+.recharts-wrapper,
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-bar-rectangle,
+.recharts-bar-rectangle:focus,
+.recharts-bar-rectangle:focus-visible,
+.recharts-bar-rectangles,
+svg:focus,
+svg:focus-visible,
+path:focus,
+path:focus-visible,
+rect:focus,
+rect:focus-visible,
+circle:focus,
+circle:focus-visible,
+g:focus,
+g:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
 @layer utilities {
   .custom-scrollbar::-webkit-scrollbar {
     width: 4px;
@@ -22,6 +194,92 @@
   }
 }
 
+/* 그래프 수치 라벨: 일반 웹 사이트에서는 숨기고 이미지 캡처 시에만 표시 */
+.chart-capture-only-label,
+svg text.chart-capture-only-label,
+svg g.chart-capture-only-label {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* 공유 이미지 캡처 모드일 때만 그래프 위 수치 데이터 선명하게 노출 */
+.capturing-image .chart-capture-only-label,
+.capturing-image svg text.chart-capture-only-label,
+.capturing-image svg g.chart-capture-only-label,
+[data-capturing="true"] .chart-capture-only-label,
+[data-capturing="true"] svg text.chart-capture-only-label,
+[data-capturing="true"] svg g.chart-capture-only-label {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* 라이트 모드 이미지 캡처 시 글씨 및 차트 축 텍스트의 고대비/초선명도 보정 */
+.capturing-image {
+  background-color: #ffffff !important;
+  color: #18181b !important;
+}
+
+.capturing-image .bg-zinc-50,
+.capturing-image [class*="bg-zinc-50"] {
+  background-color: #f8fafc !important;
+}
+
+.capturing-image .border-zinc-100,
+.capturing-image [class*="border-zinc-100"] {
+  border-color: #e2e8f0 !important;
+}
+
+.capturing-image .text-zinc-400,
+.capturing-image .text-zinc-500,
+.capturing-image .text-zinc-600,
+.capturing-image .dark\:text-white,
+.capturing-image .dark\:text-zinc-200,
+.capturing-image .dark\:text-zinc-300,
+.capturing-image .dark\:text-zinc-400 {
+  color: #27272a !important;
+}
+
+.capturing-image .text-purple-600,
+.capturing-image .text-purple-500,
+.capturing-image .dark\:text-purple-400,
+.capturing-image [class*="text-purple-"] {
+  color: #7c3aed !important;
+}
+
+.capturing-image .text-blue-600,
+.capturing-image [class*="text-blue-"] {
+  color: #2563eb !important;
+}
+
+.capturing-image svg text,
+.capturing-image svg tspan,
+.capturing-image .recharts-cartesian-axis-tick-value {
+  fill: #18181b !important;
+  font-weight: 600 !important;
+  stroke: none !important;
+}
+
+.capturing-image .chart-capture-only-label text,
+.capturing-image text.chart-capture-only-label {
+  font-weight: 800 !important;
+  font-size: 11px !important;
+}
+
+.capturing-image .chart-capture-only-label text[stroke="#ffffff"],
+.capturing-image text.chart-capture-only-label[stroke="#ffffff"] {
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
+  stroke-width: 3px !important;
+}
+
+.capturing-image .chart-capture-only-label text:not([stroke="#ffffff"]),
+.capturing-image text.chart-capture-only-label:not([stroke="#ffffff"]) {
+  fill: #7e22ce !important;
+  stroke: none !important;
+}
+
 body {
   word-break: keep-all;
   overflow-wrap: break-word;
@@ -29,9 +287,18 @@ body {
 }
 
 @layer base {
-  button, select, label, [role="button"] {
+  * {
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  button, select, label, [role="button"], a {
     user-select: none;
     -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent !important;
+    outline: none !important;
+  }
+  button:focus, button:focus-visible, a:focus, a:focus-visible {
+    outline: none !important;
+    box-shadow: none;
   }
 }
 
@@ -39,4 +306,15 @@ body {
   strong, b {
     font-weight: 700;
   }
+  input, select, textarea {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    max-width: 100%;
+  }
 }
+

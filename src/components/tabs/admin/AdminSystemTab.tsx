@@ -5,6 +5,7 @@ import { format, addDays, differenceInCalendarDays } from 'date-fns';
 import { migrateLogsToMonthly, MigrationProgress } from '../../../utils/migrateLogs';
 import { TermsRevisionModal } from '../../TermsRevisionModal';
 import { deleteField } from 'firebase/firestore';
+import { AdminPollSection } from './AdminPollSection';
 
 export function AdminSystemTab({ 
   data, 
@@ -18,8 +19,13 @@ export function AdminSystemTab({
     absenceReason: data.system?.absenceReason || '',
     absenceDuration: data.system?.absenceDuration || '',
     maintenance: data.system?.maintenance || false,
+    maintenanceTitle: data.system?.maintenanceTitle || '',
+    maintenanceContent: data.system?.maintenanceContent || '',
     maintenanceStart: data.system?.maintenanceStart || '',
     maintenanceEnd: data.system?.maintenanceEnd || '',
+    maintenanceLinkUrl: data.system?.maintenanceLinkUrl || '',
+    maintenanceLinkText: data.system?.maintenanceLinkText || '',
+    maintenanceLinks: data.system?.maintenanceLinks || (data.system?.maintenanceLinkUrl ? [{ url: data.system.maintenanceLinkUrl, title: data.system.maintenanceLinkText || '' }] : []),
     adminEmail: data.system?.adminEmail || '',
     noticeType: data.system?.noticeType || 'none',
     noticeList: data.system?.noticeList || [],
@@ -90,8 +96,13 @@ export function AdminSystemTab({
         absenceReason: data.system?.absenceReason || '',
         absenceDuration: data.system?.absenceDuration || '',
         maintenance: data.system?.maintenance || false,
+        maintenanceTitle: data.system?.maintenanceTitle || '',
+        maintenanceContent: data.system?.maintenanceContent || '',
         maintenanceStart: data.system?.maintenanceStart || '',
         maintenanceEnd: data.system?.maintenanceEnd || '',
+        maintenanceLinkUrl: data.system?.maintenanceLinkUrl || '',
+        maintenanceLinkText: data.system?.maintenanceLinkText || '',
+        maintenanceLinks: data.system?.maintenanceLinks || (data.system?.maintenanceLinkUrl ? [{ url: data.system.maintenanceLinkUrl, title: data.system.maintenanceLinkText || '' }] : []),
         adminEmail: data.system?.adminEmail || '',
         noticeType: data.system?.noticeType || 'none',
         noticeList: data.system?.noticeList || [],
@@ -466,6 +477,28 @@ export function AdminSystemTab({
         
         {systemEdit.maintenance && (
           <div className="space-y-4 mt-4">
+            <div>
+              <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-2">점검 화면 제목</label>
+              <input 
+                type="text"
+                value={systemEdit.maintenanceTitle || ''}
+                onChange={e => handleChange('maintenanceTitle', e.target.value)}
+                placeholder="점검 중입니다 (비워두면 기본값 적용)"
+                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-sm text-zinc-900 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-2">점검 안내 상세 내용</label>
+              <textarea 
+                rows={4}
+                value={systemEdit.maintenanceContent || ''}
+                onChange={e => handleChange('maintenanceContent', e.target.value)}
+                placeholder="현재 사이트 업데이트 및 점검 작업이 진행 중입니다.&#10;이용에 불편을 드려 죄송합니다. (비워두면 기본값 적용)"
+                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-sm text-zinc-900 dark:text-white resize-y"
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-2">예상 시작 시간</label>
@@ -488,8 +521,101 @@ export function AdminSystemTab({
             </div>
 
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              * 예상 종료 시간이 설정되면, 해당 시간에 도달하는 즉시 사용자 화면에서 점검 안내가 자동으로 해제(종료)되어 정상 사이트로 접속됩니다.
+              * <strong>예약 점검</strong>: 예상 시작 시간이 미래일 경우 해당 시작 시간에 도달했을 때 자동으로 점검 화면이 시작됩니다. 예상 종료 시간이 경과하면 점검 안내가 자동으로 해제(종료)되어 정상 사이트로 접속됩니다.
             </p>
+
+            {systemEdit.maintenanceStart && new Date(systemEdit.maintenanceStart).getTime() > Date.now() && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between text-xs text-blue-800 dark:text-blue-200">
+                <span>
+                  ⏰ <strong>점검 예약 중:</strong> 설정된 시작 시간({systemEdit.maintenanceStart.replace('T', ' ')})에 맞춰 자동으로 일반 사용자 화면에 점검 모드가 실행됩니다.
+                </span>
+              </div>
+            )}
+
+            {/* 점검 공지 링크 관리 */}
+            <div className="pt-2 border-t border-zinc-200/80 dark:border-zinc-800/80">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <label className="text-sm font-bold text-zinc-700 dark:text-zinc-300 block">
+                    점검 공지 링크 버튼 (선택)
+                  </label>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    점검 화면에 바로가기 버튼으로 표시됩니다. (본문 텍스트 내 URL도 자동 링크 처리됨)
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = systemEdit.maintenanceLinks || [];
+                    const next = [...current, { title: '', url: '' }];
+                    handleChange('maintenanceLinks', next);
+                  }}
+                  className="px-2.5 py-1.5 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  링크 추가
+                </button>
+              </div>
+
+              {(!systemEdit.maintenanceLinks || systemEdit.maintenanceLinks.length === 0) ? (
+                <div className="p-3 bg-zinc-50 dark:bg-zinc-950 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-center text-xs text-zinc-400">
+                  등록된 링크가 없습니다. 필요 시 위 '링크 추가' 버튼을 눌러주세요.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {systemEdit.maintenanceLinks.map((link, idx) => (
+                    <div key={idx} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl">
+                      <input
+                        type="text"
+                        placeholder="버튼 이름 (예: 치지직 방송국 바로가기)"
+                        value={link.title || ''}
+                        onChange={e => {
+                          const list = [...(systemEdit.maintenanceLinks || [])];
+                          list[idx] = { ...list[idx], title: e.target.value };
+                          handleChange('maintenanceLinks', list);
+                          if (idx === 0) {
+                            handleChange('maintenanceLinkText', e.target.value);
+                          }
+                        }}
+                        className="sm:w-1/3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-white"
+                      />
+                      <input
+                        type="url"
+                        placeholder="링크 URL (https://...)"
+                        value={link.url || ''}
+                        onChange={e => {
+                          const list = [...(systemEdit.maintenanceLinks || [])];
+                          list[idx] = { ...list[idx], url: e.target.value };
+                          handleChange('maintenanceLinks', list);
+                          if (idx === 0) {
+                            handleChange('maintenanceLinkUrl', e.target.value);
+                          }
+                        }}
+                        className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-xs text-zinc-900 dark:text-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const list = (systemEdit.maintenanceLinks || []).filter((_, i) => i !== idx);
+                          handleChange('maintenanceLinks', list);
+                          if (list.length > 0) {
+                            handleChange('maintenanceLinkUrl', list[0].url || '');
+                            handleChange('maintenanceLinkText', list[0].title || '');
+                          } else {
+                            handleChange('maintenanceLinkUrl', '');
+                            handleChange('maintenanceLinkText', '');
+                          }
+                        }}
+                        className="p-2 text-zinc-400 hover:text-red-500 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors self-end sm:self-auto shrink-0"
+                        title="링크 삭제"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {systemEdit.maintenanceEnd && new Date(systemEdit.maintenanceEnd).getTime() <= Date.now() && (
               <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center justify-between text-xs text-amber-800 dark:text-amber-200">
@@ -781,7 +907,10 @@ export function AdminSystemTab({
         </div>
       </div>
 
-      {/* 5. 약관 및 개인정보처리방침 개정 관리 시스템 */}
+      {/* 5. 메인 화면 무기명 투표 관리 (다중 투표 등록 및 관리 지원) */}
+      <AdminPollSection system={data.system} polls={data.polls} onUpdateSystemConfig={onUpdateSystemConfig} />
+
+      {/* 6. 약관 및 개인정보처리방침 개정 관리 시스템 */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-4">
           <div>
@@ -1140,10 +1269,10 @@ export function AdminSystemTab({
         </div>
       </div>
 
-      <div className="flex justify-end pt-4 sticky bottom-4">
+      <div className="flex justify-end pt-4 pb-2 sticky bottom-[62px] sm:bottom-6 z-30 pointer-events-auto">
         <button 
           onClick={handleSave}
-          className="bg-purple-600 hover:bg-purple-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition-all hover:-translate-y-0.5"
+          className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-bold px-8 py-3 rounded-2xl shadow-xl transition-all hover:-translate-y-0.5 cursor-pointer"
         >
           모든 변경사항 저장
         </button>

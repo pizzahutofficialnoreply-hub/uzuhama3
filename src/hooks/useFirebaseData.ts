@@ -13,9 +13,44 @@ import {
   writeBatch,
   onSnapshot
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { BroadcastLog, DailyStat, TimeStat, DurationStat, MonthlyStat, AppData, PatternGuide, SystemConfig } from '../types';
+import { db, auth } from '../lib/firebase';
+import { BroadcastLog, DailyStat, TimeStat, DurationStat, MonthlyStat, AppData, PatternGuide, SystemConfig, Poll } from '../types';
 import { dailyStats as defaultDaily, timeStats as defaultTime, durationStats as defaultDuration, monthlyStats as defaultMonthly, patternGuides as defaultGuides } from '../data';
+
+// Vercel 서버 API를 통한 관리자 Firestore 데이터 편집 (보안 및 무결성 강화)
+async function executeAdminMutation(action: string, payload: any): Promise<boolean> {
+  try {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) return false;
+
+    const isVercel = typeof window !== 'undefined' && (
+      window.location.hostname.endsWith('vercel.app') ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.port === '3000'
+    );
+    const mutateUrl = isVercel ? '/api/admin/mutate' : 'https://uzuhama.vercel.app/api/admin/mutate';
+
+    const res = await fetch(mutateUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ action, ...payload })
+    });
+
+    if (res.ok) {
+      return true;
+    }
+    const errJson = await res.json().catch(() => ({}));
+    console.warn('[Admin Mutate Warning]', errJson);
+    return false;
+  } catch (e) {
+    console.debug('[Admin Mutate Network Error, falling back]:', e);
+    return false;
+  }
+}
 
 // Firestore does not allow `undefined` field values. This recursively purges undefined values
 // while preserving Firestore special FieldValues (such as deleteField()).
@@ -172,6 +207,70 @@ export function useFirebaseData() {
     };
   }, []);
 
+  // 1-2. 무기명 투표 목록 실시간 리스너 (모든 사용자 권한 보장 및 복수 활성 투표 지원)
+  useEffect(() => {
+    let unsubscribeLivePolls: () => void;
+    let unsubscribeLegacyPolls: () => void;
+
+    try {
+      const livePollsRef = collection(db, 'live_status', 'polls', 'items');
+      unsubscribeLivePolls = onSnapshot(
+        livePollsRef,
+        (snap) => {
+          if (!snap.empty) {
+            const pollList: Poll[] = [];
+            snap.forEach((docSnap) => {
+              const pollData = docSnap.data() as Poll;
+              pollList.push({
+                ...pollData,
+                id: docSnap.id
+              });
+            });
+            pollList.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+            setData(prev => prev ? { ...prev, polls: pollList } : null);
+          }
+        },
+        (error) => {
+          console.debug('Live polls snapshot listener notice:', error);
+        }
+      );
+    } catch (e) {
+      console.warn('Failed to subscribe to live polls:', e);
+    }
+
+    try {
+      const legacyPollsRef = collection(db, 'polls');
+      unsubscribeLegacyPolls = onSnapshot(
+        legacyPollsRef,
+        (snap) => {
+          if (!snap.empty) {
+            const pollList: Poll[] = [];
+            snap.forEach((docSnap) => {
+              const pollData = docSnap.data() as Poll;
+              pollList.push({
+                ...pollData,
+                id: docSnap.id
+              });
+            });
+            pollList.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+            setData(prev => prev ? { ...prev, polls: pollList } : null);
+          }
+        },
+        (error) => {
+          // 비로그인 사용자 권한 에러는 live_status 리스너가 대체하므로 조용히 처리
+          console.debug('Legacy polls listener notice:', error);
+        }
+      );
+    } catch (e) {
+      // safe fallback
+    }
+
+    return () => {
+      if (unsubscribeLivePolls) unsubscribeLivePolls();
+      if (unsubscribeLegacyPolls) unsubscribeLegacyPolls();
+    };
+  }, []);
+
   // 2. 방송 시작(OPEN) 및 방송 종료(CLOSE) 감지 기반 데이터 호출
   useEffect(() => {
     const unsubscribeLive = onSnapshot(
@@ -293,16 +392,19 @@ export function useFirebaseData() {
     if (!data) return;
     try {
       const sanitizedLog = cleanFirestoreData(log);
-      await setDoc(doc(db, 'logs', log.id), sanitizedLog);
-      try {
-        const monthKey = log.date.slice(0, 7);
-        const docRef = doc(db, 'logs_by_month', monthKey);
-        await setDoc(docRef, {
-          month: monthKey,
-          updatedAt: new Date().toISOString(),
-          items: { [log.id]: sanitizedLog }
-        }, { merge: true });
-      } catch {}
+      const serverHandled = await executeAdminMutation('addLog', { log: sanitizedLog });
+      if (!serverHandled) {
+        await setDoc(doc(db, 'logs', log.id), sanitizedLog);
+        try {
+          const monthKey = log.date.slice(0, 7);
+          const docRef = doc(db, 'logs_by_month', monthKey);
+          await setDoc(docRef, {
+            month: monthKey,
+            updatedAt: new Date().toISOString(),
+            items: { [log.id]: sanitizedLog }
+          }, { merge: true });
+        } catch {}
+      }
 
       setData(prev => {
         if (!prev) return prev;
@@ -324,16 +426,19 @@ export function useFirebaseData() {
     if (!data) return;
     try {
       const sanitizedLog = cleanFirestoreData(log);
-      await setDoc(doc(db, 'logs', log.id), sanitizedLog, { merge: true });
-      try {
-        const monthKey = log.date.slice(0, 7);
-        const docRef = doc(db, 'logs_by_month', monthKey);
-        await setDoc(docRef, {
-          month: monthKey,
-          updatedAt: new Date().toISOString(),
-          items: { [log.id]: sanitizedLog }
-        }, { merge: true });
-      } catch {}
+      const serverHandled = await executeAdminMutation('updateLog', { log: sanitizedLog });
+      if (!serverHandled) {
+        await setDoc(doc(db, 'logs', log.id), sanitizedLog, { merge: true });
+        try {
+          const monthKey = log.date.slice(0, 7);
+          const docRef = doc(db, 'logs_by_month', monthKey);
+          await setDoc(docRef, {
+            month: monthKey,
+            updatedAt: new Date().toISOString(),
+            items: { [log.id]: sanitizedLog }
+          }, { merge: true });
+        } catch {}
+      }
 
       setData(prev => {
         if (!prev) return prev;
@@ -356,15 +461,18 @@ export function useFirebaseData() {
     const targetLog = data.logs[id];
     const monthKey = targetLog?.date ? targetLog.date.slice(0, 7) : null;
     try {
-      await deleteDoc(doc(db, 'logs', id));
-      if (monthKey) {
-        try {
-          const docRef = doc(db, 'logs_by_month', monthKey);
-          await updateDoc(docRef, {
-            [`items.${id}`]: deleteField(),
-            updatedAt: new Date().toISOString()
-          });
-        } catch {}
+      const serverHandled = await executeAdminMutation('deleteLog', { id });
+      if (!serverHandled) {
+        await deleteDoc(doc(db, 'logs', id));
+        if (monthKey) {
+          try {
+            const docRef = doc(db, 'logs_by_month', monthKey);
+            await updateDoc(docRef, {
+              [`items.${id}`]: deleteField(),
+              updatedAt: new Date().toISOString()
+            });
+          } catch {}
+        }
       }
 
       setData(prev => {
@@ -436,9 +544,12 @@ export function useFirebaseData() {
   const updateGuide = async (guide: PatternGuide) => {
     if (!data) return;
     try {
-      await setDoc(doc(db, 'config', 'patternGuides'), {
-        [guide.id]: guide
-      }, { merge: true });
+      const serverHandled = await executeAdminMutation('updateGuide', { guide });
+      if (!serverHandled) {
+        await setDoc(doc(db, 'config', 'patternGuides'), {
+          [guide.id]: guide
+        }, { merge: true });
+      }
     } catch (e) {
       console.error(e);
     }
@@ -447,7 +558,10 @@ export function useFirebaseData() {
   const updateSystemConfig = async (sys: Partial<SystemConfig>) => {
     try {
       const sanitized = cleanFirestoreData(sys);
-      await setDoc(doc(db, 'config', 'system'), sanitized, { merge: true });
+      const serverHandled = await executeAdminMutation('updateSystemConfig', { config: sanitized });
+      if (!serverHandled) {
+        await setDoc(doc(db, 'config', 'system'), sanitized, { merge: true });
+      }
       setData(prev => {
         if (!prev) return prev;
         const newSystem = { ...prev.system };

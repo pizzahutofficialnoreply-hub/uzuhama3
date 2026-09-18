@@ -75,16 +75,31 @@ export function useRealtimeNotification(logs: BroadcastLog[]) {
 
     const checkPeakProbability = () => {
       const now = new Date();
-      const todayStr = now.toISOString().slice(0, 10);
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       
-      // 이미 오늘 발송했는지 확인
+      // 이미 오늘 발송했는지 확인 (하루 1회 제한)
       const lastSentDate = localStorage.getItem(DAILY_NOTIF_KEY);
       if (lastSentDate === todayStr) return;
 
+      // 사용자 설정 불러오기 (기본값 30분 전)
+      let leadTime = 30;
+      let notifyPeak = true;
+      try {
+        const raw = localStorage.getItem('uzuhama_push_settings');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.leadTimeMinutes !== undefined) leadTime = Number(parsed.leadTimeMinutes);
+          if (parsed.notifyPeakProb !== undefined) notifyPeak = Boolean(parsed.notifyPeakProb);
+        }
+      } catch {}
+
+      if (!notifyPeak) return;
+
       const currentDayIdx = now.getDay();
       
-      // 요일별 빈도 계산
+      // 오늘 요일의 방송 시작 시간 통계 분석
       const timeFreq = Array(1440).fill(0);
+      let validLogCount = 0;
       logs.forEach(log => {
         if (log.isAbsence) return;
         const d = new Date(log.date);
@@ -94,11 +109,14 @@ export function useRealtimeNotification(logs: BroadcastLog[]) {
           const [h, m] = log.time.split(':').map(Number);
           if (!isNaN(h) && !isNaN(m)) {
             timeFreq[h * 60 + m] += 1;
+            validLogCount++;
           }
         }
       });
 
-      // 가장 빈도가 높은 1시간 구간(60분) 찾기
+      if (validLogCount === 0) return;
+
+      // 당일 방송 확률이 가장 높은 단 1개의 최적 시간대(1시간 윈도우) 자동 선별
       let maxCount = 0;
       let peakMinute = -1;
       
@@ -118,20 +136,28 @@ export function useRealtimeNotification(logs: BroadcastLog[]) {
 
       const currentMinute = now.getHours() * 60 + now.getMinutes();
       
-      // 최고 확률 시간 기준 1시간 ~ 30분 전인지 확인
+      // 최고 확률 시간 기준 남은 시간 계산
       let diff = peakMinute - currentMinute;
       if (diff < -720) diff += 1440; // 자정 넘김 처리
       if (diff > 720) diff -= 1440;
       
-      // 30분 ~ 60분 전일 때 발송
-      if (diff >= 30 && diff <= 60) {
+      // 유저가 설정한 사전 알림 시점 (예: 30분 전) 도달 여부 확인 (오차범위 ±5분)
+      const minDiff = Math.max(5, leadTime - 5);
+      const maxDiff = leadTime + 5;
+
+      if (diff >= minDiff && diff <= maxDiff) {
         const peakHour = Math.floor(peakMinute / 60);
         const peakMin = peakMinute % 60;
         const timeStr = `${String(peakHour).padStart(2, '0')}:${String(peakMin).padStart(2, '0')}`;
         
+        const title = '우주하마 방송 예측';
+        const body = leadTime > 0
+          ? `오늘 방송 확률이 가장 높은 시간대(${timeStr})가 약 ${leadTime}분 후 시작될 예정입니다.`
+          : `오늘 방송 확률이 가장 높은 시간대(${timeStr})입니다!`;
+
         triggerNativeNotification(
-          '[우주하마] 방송 예상 안내',
-          `오늘 방송 확률이 가장 높은 시간대(${timeStr})가 다가오고 있습니다!`,
+          title,
+          body,
           '/',
           `prob-notif-${todayStr}`
         );

@@ -1,16 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Video, PlaySquare, Youtube, MessageSquare } from 'lucide-react';
+import { Plus, Video, PlaySquare, Youtube } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../hooks/useAuth';
 import { UserContributeModal } from './UserContributeModal';
-import { FeedbackModal } from './FeedbackModal';
 import { LoginOnboardingModal } from './LoginOnboardingModal';
 import { SystemConfig, BroadcastLog } from '../types';
 
 export function FloatingActionMenu({ system, logs }: { system?: SystemConfig, logs?: Record<string, BroadcastLog> }) {
   const [isOpen, setIsOpen] = useState(false);
   const [modalType, setModalType] = useState<'live' | 'video' | 'shorts' | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<'live' | 'video' | 'shorts' | null>(null);
   
@@ -22,10 +20,12 @@ export function FloatingActionMenu({ system, logs }: { system?: SystemConfig, lo
   useEffect(() => {
     let userIsScrolling = false;
     let scrollTimeout: ReturnType<typeof setTimeout>;
+    let restoreTimeout: ReturnType<typeof setTimeout>;
 
     const handleManualScrollStart = () => {
       userIsScrolling = true;
       clearTimeout(scrollTimeout);
+      clearTimeout(restoreTimeout);
       scrollTimeout = setTimeout(() => {
         userIsScrolling = false;
       }, 200);
@@ -33,9 +33,15 @@ export function FloatingActionMenu({ system, logs }: { system?: SystemConfig, lo
 
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
+      clearTimeout(restoreTimeout);
+
       if (userIsScrolling && currentScrollY > lastScrollY.current && currentScrollY > 150) {
         setIsVisible(false);
         setIsOpen(false);
+        // 사용자가 스크롤을 멈추면 몇 초(1.5초) 후 +버튼 자동 복원 표시
+        restoreTimeout = setTimeout(() => {
+          setIsVisible(true);
+        }, 1500);
       } else if (currentScrollY <= lastScrollY.current || currentScrollY <= 150) {
         setIsVisible(true);
       }
@@ -51,27 +57,28 @@ export function FloatingActionMenu({ system, logs }: { system?: SystemConfig, lo
       window.removeEventListener('touchmove', handleManualScrollStart);
       window.removeEventListener('scroll', handleScroll);
       clearTimeout(scrollTimeout);
+      clearTimeout(restoreTimeout);
     };
   }, []);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
 
-    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside, { passive: true });
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, [isOpen]);
 
-  const handleAction = async (type: 'live' | 'video' | 'shorts' | 'feedback') => {
-    if (type === 'feedback') {
-      setIsOpen(false);
-      setShowFeedback(true);
-      return;
-    }
-
+  const handleAction = async (type: 'live' | 'video' | 'shorts') => {
     if (!user) {
       setPendingAction(type);
       setIsOpen(false);
@@ -130,7 +137,7 @@ export function FloatingActionMenu({ system, logs }: { system?: SystemConfig, lo
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ duration: 0.2 }}
             ref={menuRef} 
-            className="fixed bottom-20 sm:bottom-8 right-4 sm:right-8 z-50 flex flex-col items-end gap-3"
+            className="fixed bottom-[calc(max(env(safe-area-inset-bottom),12px)+72px)] sm:bottom-8 right-4 sm:right-8 z-50 flex flex-col items-end gap-3"
           >
             <AnimatePresence>
               {isOpen && (
@@ -141,12 +148,6 @@ export function FloatingActionMenu({ system, logs }: { system?: SystemConfig, lo
                   exit="exit"
                   className="flex flex-col gap-2 items-end"
                 >
-                  <motion.button variants={itemVariants} onClick={() => handleAction('feedback')} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-full shadow-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors">
-                    <span className="text-sm font-medium">피드백/버그 제보</span>
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                      <MessageSquare className="w-4 h-4" />
-                    </div>
-                  </motion.button>
                   <motion.button variants={itemVariants} onClick={() => handleAction('shorts')} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-full shadow-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors">
                     <span className="text-sm font-medium">쇼츠 추가</span>
                     <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
@@ -197,10 +198,6 @@ export function FloatingActionMenu({ system, logs }: { system?: SystemConfig, lo
           onClose={() => setModalType(null)} 
           logs={logs}
         />
-      )}
-      
-      {showFeedback && (
-        <FeedbackModal onClose={() => setShowFeedback(false)} />
       )}
       
       {showLoginModal && (

@@ -4,17 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": "24.x"
+    "node": ">=22"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "npx license-checker --production --json --out src/licenses.json && tsc && vite build",
-    "preview": "vite preview",
+    "dev": "vite --host 0.0.0.0 --port 3000",
+    "build": "license-checker-rseidelsohn --production --json --out src/licenses.json && tsc && vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 3000",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "clsx": "^2.1.1",
@@ -42,7 +41,7 @@
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
-    "license-checker": "^25.0.1",
+    "license-checker-rseidelsohn": "^5.0.1",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",

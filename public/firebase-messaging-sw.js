@@ -1,9 +1,7 @@
 importScripts('https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-compat.js');
 
-// Initialize the Firebase app in the service worker by passing in
-// your app's Firebase config object.
-// The config values are retrieved from the environment / existing logic.
+// Initialize Firebase in Service Worker
 firebase.initializeApp({
   apiKey: "AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM",
   authDomain: "uzuhama.firebaseapp.com",
@@ -16,13 +14,46 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage(function(payload) {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  const notificationTitle = payload.notification?.title || '우주하마 알림';
+  console.log('[firebase-messaging-sw.js] Received background push message:', payload);
+  let notificationTitle = payload.notification?.title || payload.data?.title || '우주하마 방송 예측';
+  // 'from 우주하마 예측' 접두사 제거
+  notificationTitle = notificationTitle.replace(/^(from\s*우주하마\s*예측[:\s]*|\[from\s*우주하마\s*예측\]\s*)/i, '').trim() || '우주하마 방송 예측';
+
+  let body = payload.notification?.body || payload.data?.body || '';
+  body = body.replace(/^(from\s*우주하마\s*예측[:\s]*|\[from\s*우주하마\s*예측\]\s*)/i, '').trim();
+
   const notificationOptions = {
-    body: payload.notification?.body,
+    body: body,
     icon: '/icon.png',
-    data: payload.data,
+    badge: '/icon.png',
+    data: {
+      url: payload.data?.url || payload.fcmOptions?.link || '/'
+    },
+    vibrate: [100, 50, 100],
+    tag: payload.data?.tag || `uzuhama-${Date.now()}`
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  return self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(windowClients) {
+      for (let i = 0; i < windowClients.length; i++) {
+        const client = windowClients[i];
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          if ('navigate' in client) {
+            client.navigate(targetUrl);
+          }
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
 });

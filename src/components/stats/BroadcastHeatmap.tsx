@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { BroadcastLog } from '../../types';
 import { format, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, differenceInCalendarDays, subDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { cn } from '../../utils';
 import { HEATMAP_LEVEL_COLORS, getBroadcastHeatmapLevel } from '../../utils/heatmapUtils';
+import { WidgetShareButton } from '../common/WidgetShareButton';
+import { ZoomIn, ZoomOut } from 'lucide-react';
 
 const HEATMAP_CELL_CLASSES: Record<number, string> = {
   0: "bg-zinc-200/70 dark:bg-zinc-800/50 border-zinc-300/80 dark:border-zinc-700/60 hover:border-zinc-400 dark:hover:border-zinc-500",
@@ -51,6 +53,10 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
   const [selectedCell, setSelectedCell] = useState<DayCellData | null>(null);
   const [hoveredCell, setHoveredCell] = useState<DayCellData | null>(null);
   const [selectedLegendLevel, setSelectedLegendLevel] = useState<number | null>(null);
+  const [isZoomed, setIsZoomed] = useState<boolean>(false);
+
+  // 모바일 터치 오작동(스크롤 제스처와 탭 구분) 방지를 위한 터치 추적 ref
+  const touchStartPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const getLegendLevelText = (level: number): string => {
     if (level === 0) return '0시간 00분';
@@ -276,62 +282,95 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
       </div>
 
       {/* 방송 활동 히트맵 보드 (라이트/다크 테마 정상 적용, 가로 스크롤 최소화) */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col space-y-5 text-zinc-900 dark:text-zinc-100">
+      <div id="broadcast-heatmap-board" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col space-y-5 text-zinc-900 dark:text-zinc-100 relative">
         {/* 상단 헤더 & 기간 토글 */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h4 className="font-bold text-zinc-900 dark:text-white text-base sm:text-lg">
-              방송 활동 히트맵
-            </h4>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              날짜별 방송 진행 여부와 방송 시간을 20분 단위로 파악할 수 있는 히트맵입니다.
-            </p>
+          <div className="flex items-start justify-between sm:justify-start gap-3">
+            <div>
+              <h4 className="font-bold text-zinc-900 dark:text-white text-base sm:text-lg">
+                방송 활동 히트맵
+              </h4>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                날짜별 방송 진행 여부와 방송 시간을 20분 단위로 파악할 수 있는 히트맵입니다.
+              </p>
+            </div>
+            <div className="sm:hidden">
+              <WidgetShareButton targetId="broadcast-heatmap-board" title="방송 활동 히트맵" />
+            </div>
           </div>
 
-          <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-medium self-start sm:self-auto">
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-medium">
+              <button
+                onClick={() => setViewScope('range')}
+                className={cn(
+                  "px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-xs",
+                  viewScope === 'range'
+                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold shadow-xs"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                )}
+              >
+                선택 기간
+              </button>
+              <button
+                onClick={() => setViewScope('year')}
+                className={cn(
+                  "px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-xs",
+                  viewScope === 'year'
+                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold shadow-xs"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                )}
+              >
+                올해 전체
+              </button>
+              <button
+                onClick={() => setViewScope('recent')}
+                className={cn(
+                  "px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-xs",
+                  viewScope === 'recent'
+                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold shadow-xs"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                )}
+              >
+                최근 1년
+              </button>
+            </div>
+
+            {/* 히트맵 확대/축소 토글 버튼: 탭 정확도 극대화 */}
             <button
-              onClick={() => setViewScope('range')}
+              type="button"
+              onClick={() => setIsZoomed(prev => !prev)}
               className={cn(
-                "px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-xs",
-                viewScope === 'range'
-                  ? "bg-purple-600 text-white font-bold shadow-xs"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                "flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer",
+                isZoomed
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-xs"
+                  : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700/60"
               )}
+              title={isZoomed ? "전체 크기로 축소" : "칸을 크게 확대하여 원하는 날짜를 정밀하게 선택합니다."}
             >
-              선택 기간
+              {isZoomed ? <ZoomOut className="w-3.5 h-3.5" /> : <ZoomIn className="w-3.5 h-3.5" />}
+              <span>{isZoomed ? "축소" : "확대"}</span>
             </button>
-            <button
-              onClick={() => setViewScope('year')}
-              className={cn(
-                "px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-xs",
-                viewScope === 'year'
-                  ? "bg-purple-600 text-white font-bold shadow-xs"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-              )}
-            >
-              올해 전체
-            </button>
-            <button
-              onClick={() => setViewScope('recent')}
-              className={cn(
-                "px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-xs",
-                viewScope === 'recent'
-                  ? "bg-purple-600 text-white font-bold shadow-xs"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-              )}
-            >
-              최근 1년
-            </button>
+            <div className="hidden sm:block">
+              <WidgetShareButton targetId="broadcast-heatmap-board" title="방송 활동 히트맵" />
+            </div>
           </div>
         </div>
 
-        {/* 상단 날짜 및 방송 정보 표시 영역 (마우스 호버 또는 클릭 선택 시 상세 표시) */}
+        {/* 상단 날짜 및 방송 정보 표시 영역 (마우스 호버 또는 클릭 선택 시 상세 표시, 높이 고정으로 레이아웃 시프트 방지) */}
         {(() => {
           const activeDisplay = hoveredCell || selectedCell;
           return (
-            <div className="min-h-[46px] bg-zinc-100/80 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 rounded-xl p-2.5 sm:p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div 
+              onClick={() => {
+                setSelectedCell(null);
+                setSelectedLegendLevel(null);
+              }}
+              className="min-h-[52px] bg-zinc-100/80 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 rounded-xl p-2.5 sm:p-3 flex flex-wrap items-center justify-between gap-2 text-xs cursor-pointer select-none"
+              title="클릭 시 선택 해제"
+            >
               {activeDisplay ? (
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-zinc-900 dark:text-white text-xs sm:text-sm">
                       {format(activeDisplay.date, 'yyyy.MM.dd (eee)', { locale: ko })}
@@ -360,13 +399,19 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                   )}
                 </div>
               ) : (
-                <div className="h-4" />
+                <div className="text-zinc-400 dark:text-zinc-500 text-[11px] sm:text-xs">
+                  날짜 칸을 1번 누르면 정보가 표시되고, 한 번 더 누르면 달력 기록으로 이동합니다.
+                </div>
               )}
 
               {activeDisplay && activeDisplay.dateStr && onSelectDate && (
                 <button
-                  onClick={() => onSelectDate(activeDisplay.dateStr)}
-                  className="ml-auto px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium text-xs transition-colors shrink-0 shadow-xs"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectDate(activeDisplay.dateStr);
+                  }}
+                  className="ml-auto px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium text-xs transition-colors shrink-0 shadow-xs cursor-pointer"
                 >
                   달력에서 보기 →
                 </button>
@@ -375,14 +420,25 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
           );
         })()}
 
-        {/* 메인 히트맵 캔버스 영역 (모바일 가로 스크롤 없음, 화면 너비에 맞게 압축) */}
-        <div className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 rounded-xl p-2 sm:p-4 overflow-x-hidden sm:overflow-x-auto custom-scrollbar">
-          <div className="w-full flex flex-col">
+        {/* 메인 히트맵 캔버스 영역 (배경 클릭 시만 선택 취소, 가로 스크롤 및 확대 뷰 지원) */}
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelectedCell(null);
+              setSelectedLegendLevel(null);
+            }
+          }}
+          className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 rounded-xl p-2 sm:p-4 overflow-x-auto custom-scrollbar cursor-default select-none"
+        >
+          <div className={cn("flex flex-col", isZoomed ? "min-w-max pb-2" : "w-full min-w-[620px] sm:min-w-0")}>
             
             {/* 그리드 바디: 요일 레이블 + 주(컬럼)들 */}
             <div className="flex items-start w-full">
               {/* 좌측 요일 라벨 (일~토) - 셀 높이와 1:1 정렬 */}
-              <div className="flex flex-col gap-[1px] sm:gap-[3px] pr-1 sm:pr-2 select-none w-3 sm:w-6 shrink-0">
+              <div className={cn(
+                "flex flex-col gap-[2px] sm:gap-[3px] pr-1 sm:pr-2 select-none shrink-0",
+                isZoomed ? "w-5 sm:w-7" : "w-3.5 sm:w-6"
+              )}>
                 {[
                   { label: '일', color: 'text-red-500/90 dark:text-red-400/90 font-medium' },
                   { label: '월', color: 'text-zinc-400 dark:text-zinc-500' },
@@ -395,7 +451,8 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                   <div
                     key={idx}
                     className={cn(
-                      "h-2.5 sm:h-[18px] flex items-center justify-center text-[8px] sm:text-[11px] leading-none",
+                      "flex items-center justify-center leading-none",
+                      isZoomed ? "h-6 sm:h-7 text-xs font-semibold" : "h-3.5 sm:h-[18px] text-[9px] sm:text-[11px]",
                       day.color
                     )}
                   >
@@ -405,11 +462,17 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
               </div>
 
               {/* 주 컬럼 목록 */}
-              <div className="flex flex-1 gap-[1px] sm:gap-[2.5px] md:gap-[3px] justify-between w-full min-w-0">
+              <div className={cn(
+                "flex gap-[2px] sm:gap-[3px]",
+                isZoomed ? "justify-start" : "flex-1 justify-between w-full min-w-0"
+              )}>
                 {weeks.map((week, weekIdx) => (
                   <div
                     key={weekIdx}
-                    className="flex flex-col gap-[1px] sm:gap-[3px] flex-1 min-w-0 max-w-[36px]"
+                    className={cn(
+                      "flex flex-col gap-[2px] sm:gap-[3px]",
+                      isZoomed ? "w-6 sm:w-7 shrink-0" : "flex-1 min-w-[13px] max-w-[36px]"
+                    )}
                   >
                     {week.map((cell) => {
                       const isOutside = cell.date < start || cell.date > end;
@@ -426,29 +489,62 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                       const isLegendMatch = selectedLegendLevel !== null && !isOutside && cell.level === selectedLegendLevel;
                       const isLegendDimmed = selectedLegendLevel !== null && !isOutside && cell.level !== selectedLegendLevel;
 
+                      const handleSelect = () => {
+                        if (isOutside) return;
+                        if (selectedCell?.dateStr === cell.dateStr) {
+                          // 이미 선택된 셀을 한 번 더 누르면 달력으로 이동
+                          if (cell.dateStr && onSelectDate) {
+                            onSelectDate(cell.dateStr);
+                          }
+                        } else {
+                          // 첫 번째 누를 때는 셀 선택 및 세부 정보 표시
+                          setSelectedCell(cell);
+                        }
+                      };
+
                       return (
-                        <div
+                        <button
                           key={cell.dateStr}
+                          type="button"
+                          disabled={isOutside}
+                          aria-label={`${cell.dateStr} ${cell.hasBroadcast ? '방송 진행' : '휴방'}`}
                           onMouseEnter={() => {
                             if (!isOutside) setHoveredCell(cell);
                           }}
                           onMouseLeave={() => {
                             setHoveredCell(null);
                           }}
-                          onClick={() => {
-                            if (isOutside) return;
-                            setSelectedCell(cell);
-                            if (cell.hasBroadcast && cell.dateStr && onSelectDate) {
-                              onSelectDate(cell.dateStr);
+                          onTouchStart={(e) => {
+                            const touch = e.touches[0];
+                            touchStartPosRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+                          }}
+                          onTouchEnd={(e) => {
+                            if (!touchStartPosRef.current) return;
+                            const touch = e.changedTouches[0];
+                            const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
+                            const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
+                            const dt = Date.now() - touchStartPosRef.current.time;
+                            touchStartPosRef.current = null;
+                            // 스크롤 제스처가 아닌 순수 탭(12px 이하 이동, 400ms 미만)일 때만 반응
+                            if (dx < 12 && dy < 12 && dt < 400) {
+                              e.preventDefault();
+                              handleSelect();
                             }
                           }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelect();
+                          }}
                           className={cn(
-                            "h-2.5 sm:h-[18px] w-full rounded-[1px] sm:rounded-[2.5px] border transition-all duration-150",
+                            "rounded-[2px] sm:rounded-[3px] border transition-all touch-manipulation select-none relative focus:outline-none",
+                            isZoomed 
+                              ? "h-6 w-6 sm:h-7 sm:w-7 min-w-[24px] sm:min-w-[28px]" 
+                              : "h-3.5 sm:h-[18px] w-full min-w-[13px] sm:min-w-[16px]",
                             cellStyle,
-                            isSelected && "ring-2 ring-purple-600 dark:ring-purple-400 z-10",
-                            isLegendMatch && "ring-2 ring-purple-600 dark:ring-purple-300 ring-offset-1 ring-offset-zinc-50 dark:ring-offset-zinc-950 z-20 scale-110 shadow-md font-bold",
+                            isSelected && "ring-2 ring-purple-600 dark:ring-purple-400 z-20 scale-110 shadow-sm",
+                            isLegendMatch && "ring-2 ring-purple-600 dark:ring-purple-300 ring-offset-1 ring-offset-zinc-50 dark:ring-offset-zinc-950 z-20 scale-105 shadow-md",
                             isLegendDimmed && "opacity-25 dark:opacity-20",
-                            !isOutside && "cursor-pointer"
+                            !isOutside ? "cursor-pointer hover:scale-105 active:scale-95" : "cursor-default"
                           )}
                         />
                       );
@@ -459,13 +555,19 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
             </div>
 
             {/* 하단 월 라벨 (1월~12월 등) */}
-            <div className="flex pl-3 sm:pl-6 mt-1.5 sm:mt-2 text-[8px] sm:text-[11px] font-medium text-zinc-400 dark:text-zinc-500 select-none h-3 sm:h-4 w-full justify-between">
+            <div className={cn(
+              "flex mt-1.5 sm:mt-2 text-[8px] sm:text-[11px] font-medium text-zinc-400 dark:text-zinc-500 select-none h-3 sm:h-4",
+              isZoomed ? "pl-5 sm:pl-7" : "pl-3.5 sm:pl-6 w-full justify-between"
+            )}>
               {weeks.map((_, idx) => {
                 const matchedLabel = monthLabels.find(l => l.weekIndex === idx);
                 return (
                   <div
                     key={idx}
-                    className="text-center flex-1 min-w-0 max-w-[36px]"
+                    className={cn(
+                      "text-center",
+                      isZoomed ? "w-6 sm:w-7 shrink-0" : "flex-1 min-w-[13px] max-w-[36px]"
+                    )}
                   >
                     {matchedLabel ? (
                       <span className="whitespace-nowrap font-semibold text-zinc-500 dark:text-zinc-400">

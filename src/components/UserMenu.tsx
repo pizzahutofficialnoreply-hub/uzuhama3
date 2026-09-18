@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreVertical, User, Calendar, LogOut, Trash2, Trash, Monitor, RefreshCw, Download, Bell, X } from 'lucide-react';
+import { MoreVertical, User, Calendar, LogOut, Trash2, Trash, Monitor, RefreshCw, Download, Bell, X, BookOpen, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { deleteUser } from 'firebase/auth';
 import { auth } from '../lib/firebase';
@@ -14,9 +14,10 @@ interface UserMenuProps {
   onLogout: () => void;
   system?: SystemConfig;
   onOpenNotice: () => void;
+  onOpenTutorial?: () => void;
 }
 
-export function UserMenu({ user, onLogout, system, onOpenNotice }: UserMenuProps) {
+export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { isInstallable, showInstallGuide, setShowInstallGuide, promptInstall } = useInstallPrompt();
@@ -36,7 +37,9 @@ export function UserMenu({ user, onLogout, system, onOpenNotice }: UserMenuProps
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const handleToggle = async (key: keyof PushSettings) => {
@@ -94,8 +97,12 @@ export function UserMenu({ user, onLogout, system, onOpenNotice }: UserMenuProps
   return (
     <div className="relative" ref={menuRef}>
       <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(prev => !prev);
+        }}
+        className="w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-95 transition-all touch-manipulation cursor-pointer border border-zinc-200/60 dark:border-zinc-700/60"
         title="설정 및 메뉴"
       >
         <MoreVertical className="w-5 h-5 text-zinc-700 dark:text-zinc-300" />
@@ -103,12 +110,28 @@ export function UserMenu({ user, onLogout, system, onOpenNotice }: UserMenuProps
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="absolute right-0 mt-2 w-64 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 overflow-hidden"
-          >
+          <>
+            {/* 배경 딤 / 외부 터치 닫기 백드롭 */}
+            <div 
+              className="fixed inset-0 z-[90] bg-transparent"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(false);
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                setIsOpen(false);
+              }}
+            />
+
+            <motion.div 
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              transition={{ duration: 0.18 }}
+              className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-24px)] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-[100] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
             {/* 상단 프로필 영역 */}
             <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950">
               <div className="flex items-center gap-3 overflow-hidden">
@@ -202,6 +225,60 @@ export function UserMenu({ user, onLogout, system, onOpenNotice }: UserMenuProps
                       />
                     </button>
                   </div>
+
+                  <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">최고 확률 시간 알림</span>
+                      <span className="text-[11px] text-zinc-400">당일 최고 방송 확률 시간대 알림</span>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isSubscribed && (settings.notifyPeakProb ?? true)}
+                      disabled={pushLoading}
+                      onClick={() => handleToggle('notifyPeakProb')}
+                      className={cn(
+                        "w-9 h-5 flex items-center rounded-full p-0.5 transition-colors focus:outline-none shrink-0 cursor-pointer",
+                        isSubscribed && (settings.notifyPeakProb ?? true) ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700",
+                        pushLoading && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200",
+                          isSubscribed && (settings.notifyPeakProb ?? true) ? "translate-x-4" : "translate-x-0"
+                        )}
+                      />
+                    </button>
+                  </div>
+
+                  {(settings.notifyPeakProb ?? true) && (
+                    <div className="px-2 pt-1 pb-1">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">사전 알림 시점</span>
+                        <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">
+                          {settings.leadTimeMinutes ?? 30}분 전
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1">
+                        {[10, 20, 30, 60].map((mins) => (
+                          <button
+                            key={mins}
+                            type="button"
+                            onClick={() => updateSettings({ leadTimeMinutes: mins })}
+                            className={cn(
+                              "py-1 text-xs font-medium rounded border transition-all text-center",
+                              (settings.leadTimeMinutes ?? 30) === mins
+                                ? "bg-purple-50 dark:bg-purple-950/40 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 font-bold"
+                                : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            )}
+                          >
+                            {mins}분
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -209,6 +286,19 @@ export function UserMenu({ user, onLogout, system, onOpenNotice }: UserMenuProps
 
               <div className="px-3 py-2">
                 <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-1">앱 설정</p>
+                <a 
+                  href="https://hushed-sailboat-ece.notion.site/d176b75d9cf94efbb96f5e5168bbe18a?source=copy_link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsOpen(false)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <BookOpen className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                    <span>사이트 안내</span>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-zinc-400" />
+                </a>
                 <button onClick={handleClearCache} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-left">
                   <Trash className="w-4 h-4 text-zinc-400" />
                   <span>캐시 데이터 삭제</span>
@@ -251,6 +341,7 @@ export function UserMenu({ user, onLogout, system, onOpenNotice }: UserMenuProps
 
             </div>
           </motion.div>
+          </>
         )}
       </AnimatePresence>
 

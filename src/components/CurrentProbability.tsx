@@ -15,8 +15,10 @@ import {
 } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { cn } from "../utils";
+import { cn, attachKoreanParticle, autoFixKoreanParticles } from "../utils";
 import { motion, AnimatePresence } from "motion/react";
+
+import { WidgetShareButton } from "./common/WidgetShareButton";
 
 const ChzzkIcon = ({ className }: { className?: string }) => (
   <svg
@@ -450,15 +452,20 @@ export function CurrentProbability({
         // 완만한 감쇄 적용 (기존 5씩 떨어지던 것을 2.5로 줄임, 최대치도 줄여서 0.1로 급락 방지)
         patternModifier -= Math.min(15, (overDays - 3) * 2.5);
         const displayReason = system?.absenceReason === '기타 (직접 입력)' ? system?.customAbsenceReason : system?.absenceReason;
-        patternMessage = displayReason
-          ? `${daysSinceLastStream}일째 ${displayReason}(으)로 인한 휴방 중입니다.${system?.absenceDuration ? ` (예상 기간: ${system?.absenceDuration})` : ""}`
-          : `${daysSinceLastStream}일째 장기 휴방 중입니다. 언제든 올 수 있습니다.`;
+        if (displayReason) {
+          const reasonWithParticle = attachKoreanParticle(displayReason, '으로/로');
+          patternMessage = `${daysSinceLastStream}일째 ${reasonWithParticle} 인한 휴방 중입니다.${system?.absenceDuration ? ` (예상 기간: ${system?.absenceDuration})` : ""}`;
+        } else {
+          patternMessage = `${daysSinceLastStream}일째 장기 휴방 중입니다. 언제든 올 수 있습니다.`;
+        }
       }
 
       // 장기 휴방 중 영상 업로드 시 이후 확률에 소폭 가산점 부여 (+18)
       if (isLongAbsence && hasVideoUploadDuringLongAbsence) {
         patternModifier += 18;
-        patternMessage += ` (🎬 장기 휴방 중 ${videoUploadSourceDesc || '유튜브 영상'}이 업로드되어 복귀 기대감으로 방송 확률에 소폭 가산점이 반영되었습니다.)`;
+        const uploadSource = videoUploadSourceDesc || '유튜브 영상';
+        const uploadSourceWithParticle = attachKoreanParticle(uploadSource, '이/가');
+        patternMessage += ` (🎬 장기 휴방 중 ${uploadSourceWithParticle} 업로드되어 복귀 기대감으로 방송 확률에 소폭 가산점이 반영되었습니다.)`;
       }
     }
   } else if (hasStreamedYesterday && hasStreamedTwoDaysAgo) {
@@ -578,7 +585,10 @@ export function CurrentProbability({
 
   if (liveData?.status === "OPEN") {
     return (
-      <div className="bg-white dark:bg-zinc-900 border-2 border-red-500 dark:border-red-500/50 rounded-3xl p-8 shadow-xl dark:shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
+      <div id="current-prob-live-card" className="bg-white dark:bg-zinc-900 border-2 border-red-500 dark:border-red-500/50 rounded-3xl p-8 shadow-xl dark:shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
+        <div className="absolute top-4 right-4 z-20">
+          <WidgetShareButton targetId="current-prob-live-card" title="생방송 진행 중" />
+        </div>
         <div className="absolute top-0 right-0 w-96 h-96 bg-red-500/10 dark:bg-red-500/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
 
         <div className="relative z-10 flex flex-col items-center gap-4 w-full">
@@ -627,7 +637,10 @@ export function CurrentProbability({
   }
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-8 shadow-xl dark:shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
+    <div id="current-prob-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-8 shadow-xl dark:shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
+      <div className="absolute top-4 right-4 z-20">
+        <WidgetShareButton targetId="current-prob-card" title="현재 방송 확률" />
+      </div>
       <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 dark:bg-purple-500/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
 
       
@@ -642,9 +655,12 @@ export function CurrentProbability({
           <p className="text-zinc-500 dark:text-zinc-400 text-base font-medium mb-1">
             현재 방송 켜질 확률
           </p>
-          <div className="text-7xl sm:text-8xl font-black text-zinc-900 dark:text-white tracking-tighter">
+          <div 
+            className="text-7xl sm:text-8xl font-black text-zinc-900 dark:text-white tracking-[0.02em] sm:tracking-[0.025em] pl-0.5"
+            style={{ WebkitTextStroke: '0.65px currentColor' }}
+          >
             {finalProb.toFixed(1)}
-            <span className="text-4xl sm:text-5xl ml-1">%</span>
+            <span className="text-4xl sm:text-5xl ml-1 tracking-normal font-bold" style={{ WebkitTextStroke: '0.3px currentColor' }}>%</span>
           </div>
         </div>
 

@@ -17,7 +17,9 @@ import { db, auth } from '../../../lib/firebase';
 import { ActionModal } from './ActionModal';
 import { ContributionProcessModal } from './ContributionProcessModal';
 
-const VERCEL_API_BASE = import.meta.env.VITE_VERCEL_API_URL || 'https://uzuhama.vercel.app';
+const RAW_VERCEL_API = import.meta.env.VITE_VERCEL_API_URL || 
+  (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app');
+const VERCEL_API_BASE = (RAW_VERCEL_API || '').replace(/\/+$/, '');
 const SEND_NOTIFICATION_URL = `${VERCEL_API_BASE}/api/notifications/send`;
 import { 
   MessageSquare, 
@@ -200,9 +202,9 @@ export function AdminSuggestionsTab({
           time: item.startTime || '',
           endTime: item.endTime || '',
           isAbsence: false,
-          category: '종합',
-          game: item.gameName || '종합 게임',
-          games: [{ name: item.gameName || '종합 게임', category: item.gameCategory || '종합', link: '' }],
+          category: item.gameCategory || '',
+          game: item.gameName || '게임',
+          games: [{ name: item.gameName || '게임', category: item.gameCategory || '', link: '' }],
           durationHours,
           vods: [],
           edited: [],
@@ -251,9 +253,9 @@ export function AdminSuggestionsTab({
             date: item.liveDate || new Date().toISOString().slice(0, 10),
             time: '',
             isAbsence: false,
-            category: '종합',
+            category: '',
             game: item.videoTitle || '유튜브 영상',
-            games: [{ name: item.videoTitle || '유튜브 영상', category: '영상', link: item.videoLink || '' }],
+            games: [{ name: item.videoTitle || '유튜브 영상', category: '', link: item.videoLink || '' }],
             durationHours: 0,
             vods: [],
             edited: item.type === 'video' ? [{ title: item.videoTitle || '', url: item.videoLink || '' }] : [],
@@ -348,7 +350,7 @@ export function AdminSuggestionsTab({
           'Authorization': `Bearer ${idToken}`
         },
         body: JSON.stringify({
-          title: '[우주하마 아카이브] 테스트 전체 알림',
+          title: '[우주하마 방송 예측] 테스트 전체 알림',
           body: '푸시 알림 수신이 정상적으로 연결되어 있습니다.',
           url: '/'
         })

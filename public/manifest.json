@@ -1,7 +1,7 @@
 {
   "id": "/",
   "name": "우주하마 방송 예측",
-  "short_name": "우주하마 예측",
+  "short_name": "우주하마 방송 예측",
   "description": "우주하마 방송 시간 및 패턴 예측 애플리케이션",
   "start_url": "/",
   "scope": "/",

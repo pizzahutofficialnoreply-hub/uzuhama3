@@ -95,7 +95,7 @@ export function AdminLogsTab({
                         ...prev,
                         [log.id]: {
                           ...log,
-                          games: log.games ? [...log.games] : (log.game ? [{ name: log.game, link: '', category: log.category || '종합' }] : []),
+                          games: log.games ? [...log.games] : (log.game ? [{ name: log.game, link: '', category: log.category || '' }] : []),
                           vods: log.vods ? [...log.vods] : [],
                           edited: log.edited ? [...log.edited] : [],
                           shorts: log.shorts ? [...log.shorts] : [],

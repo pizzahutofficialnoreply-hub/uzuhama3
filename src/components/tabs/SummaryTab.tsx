@@ -1,9 +1,11 @@
 import { useMemo, useEffect, useState } from 'react';
 import { PatternAnalysis } from '../PatternAnalysis';
+import { WidgetShareButton } from '../common/WidgetShareButton';
 import { AppData } from '../../types';
 import { format, startOfMonth, endOfMonth, parseISO, startOfWeek, isSameDay, addDays } from 'date-fns';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, Cell, LabelList } from 'recharts';
 import { CustomTooltip } from '../CustomTooltip';
+import { SmartTrendLabel } from '../stats/SmartTrendLabel';
 import { parseTimeString, parseTimeTo24 } from '../../utils';
 
 interface SummaryTabProps {
@@ -202,30 +204,49 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
+        <div id="summary-weekly-trend-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative">
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-bold text-zinc-900 dark:text-white">최근 주간 방송 횟수</h4>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/40">{latestYear}년</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/40">{latestYear}년</span>
+              <WidgetShareButton targetId="summary-weekly-trend-card" title="최근 주간 방송 횟수" />
+            </div>
           </div>
           <div className="h-[200px] w-full">
             {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-              <LineChart data={stats.trendStatsArray} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <LineChart data={stats.trendStatsArray} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                 <XAxis dataKey="week" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                 <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                 <RechartsTooltip content={<CustomTooltip formatter={(value: number) => [`${value}회`, '방송 횟수']} />} cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} />
-                <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={3} dot={{ r: 4, fill: '#a855f7' }} animationDuration={300} animationEasing="ease-out" />
+                <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={3} dot={{ r: 4, fill: '#a855f7' }} animationDuration={300} animationEasing="ease-out">
+                  <LabelList 
+                    dataKey="count" 
+                    content={(props: any) => (
+                      <SmartTrendLabel 
+                        {...props} 
+                        totalPoints={stats.trendStatsArray.length} 
+                        strokeColor="#a855f7" 
+                        textColor="#7e22ce"
+                        className="chart-capture-only-label"
+                      />
+                    )} 
+                  />
+                </Line>
               </LineChart>
             </ResponsiveContainer>)}
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
+        <div id="summary-daily-density-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative">
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-bold text-zinc-900 dark:text-white">최근 요일별 집중도</h4>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/40">{latestYear}년</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/40">{latestYear}년</span>
+              <WidgetShareButton targetId="summary-daily-density-card" title="최근 요일별 집중도" />
+            </div>
           </div>
           <div className="h-[200px] w-full">
             {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
@@ -233,8 +254,10 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                 <XAxis dataKey="day" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                 <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
-                <RechartsTooltip cursor={{ fill: '#a1a1aa', opacity: 0.1 }} content={<CustomTooltip formatter={(value: number) => [`${value}회`, '방송 횟수']} />} />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="#3b82f6" animationDuration={300} animationEasing="ease-out" />
+                <RechartsTooltip cursor={false} content={<CustomTooltip formatter={(value: number) => [`${value}회`, '방송 횟수']} />} />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="#3b82f6" animationDuration={300} animationEasing="ease-out">
+                  <LabelList dataKey="count" position="top" fill="#2563eb" fontSize={11} offset={4} fontWeight="bold" className="chart-capture-only-label" formatter={(val: number) => `${val}회`} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>)}
           </div>
