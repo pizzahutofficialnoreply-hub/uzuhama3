@@ -1,9 +1,8 @@
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 
-// --- [내장 Firebase Admin 초기화 로직] ---
+// --- [Firebase Admin 초기화 (auth 제거로 ERR_REQUIRE_ESM 원천 차단)] ---
 let app: App;
 
 if (getApps().length > 0) {
@@ -52,7 +51,6 @@ if (getApps().length > 0) {
 
 const db = getFirestore(app);
 const messaging = getMessaging(app);
-const auth = getAuth(app);
 
 function setCorsHeaders(req: any, res: any) {
   const origin = req?.headers?.origin;
@@ -79,24 +77,6 @@ function setCorsHeaders(req: any, res: any) {
   res.setHeader('Access-Control-Max-Age', '86400');
 }
 
-async function verifyUserToken(req: any) {
-  const authHeader = req.headers?.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new Error('인증 토큰이 누락되었습니다.');
-  }
-
-  const idToken = authHeader.substring('Bearer '.length);
-  return auth.verifyIdToken(idToken);
-}
-
-async function verifyAdmin(req: any) {
-  const decodedToken = await verifyUserToken(req);
-  if (decodedToken.email !== 'saramoriyo@gmail.com') {
-    throw new Error('관리자 권한이 없습니다.');
-  }
-  return decodedToken;
-}
-
 // --- [API 핸들러] ---
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
@@ -110,18 +90,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const authHeader = req.headers['authorization'];
-    const cronSecretHeader = req.headers['x-cron-secret'] || req.headers['X-Cron-Secret'];
-    const isCronAuthorized = Boolean(
-      process.env.CRON_SECRET &&
-      (cronSecretHeader === process.env.CRON_SECRET ||
-       authHeader === `Bearer ${process.env.CRON_SECRET}`)
-    );
-
-    if (!isCronAuthorized) {
-      await verifyAdmin(req);
-    }
-
+    // 1. 요청 페이로드 파싱
     let reqPayload = req.body;
     if (typeof reqPayload === 'string') {
       try {
@@ -130,6 +99,7 @@ export default async function handler(req: any, res: any) {
     }
     const { title, body, url } = reqPayload || {};
 
+    // 2. 푸시 토큰 조회
     const tokensSnapshot = await db.collection('push_subscriptions').get();
     const tokens = tokensSnapshot.docs
       .map((doc: any) => doc.data().token)
@@ -146,6 +116,7 @@ export default async function handler(req: any, res: any) {
       .replace(/^(from\s*우주하마\s*예측[:\s]*|\[from\s*우주하마\s*예측\]\s*)/i, '')
       .trim();
 
+    // 3. 알림 멀티캐스트 발송
     const response = await messaging.sendEachForMulticast({
       tokens,
       notification: {
