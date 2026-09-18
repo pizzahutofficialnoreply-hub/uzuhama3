@@ -1,4 +1,4 @@
-import { setCorsHeaders, verifyAdmin, db } from '../_firebase';
+import { setCorsHeaders, verifyAdmin, db } from '../_firebase.js';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export default async function handler(req: any, res: any) {

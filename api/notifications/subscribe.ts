@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { setCorsHeaders, verifyUserTokenOptional, db } from '../_firebase';
+import { setCorsHeaders, verifyUserTokenOptional, db } from '../_firebase.js';
 
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);

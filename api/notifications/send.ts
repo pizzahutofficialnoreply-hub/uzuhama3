@@ -1,4 +1,4 @@
-import { setCorsHeaders, verifyAdmin, db, messaging } from '../_firebase';
+import { setCorsHeaders, verifyAdmin, db, messaging } from '../_firebase.js';
 
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
