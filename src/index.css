@@ -49,12 +49,12 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 html, body {
-  font-family: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  font-family: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
   font-weight: 400;
   background-color: #ffffff;
   color: #18181b;
   min-height: 100%;
-  letter-spacing: 0.008em; /* 자간 아주 살짝 줄여 안정적인 가독성 및 겹침 방지 */
+  letter-spacing: 0.008em;
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -72,6 +72,15 @@ html.dark, html.dark body {
   letter-spacing: 0.008em;
 }
 
+/* 제목, 헤딩, 핵심 UI 컨트롤은 BMHANNAPro 적용 */
+h1, h2, h3, h4, h5, h6,
+button,
+nav,
+.font-display,
+.ui-title {
+  font-family: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+}
+
 /* 전체적인 글자 두께 슬림화 및 가짜 볼드(Faux Bold) 차단 */
 *, *::before, *::after {
   font-synthesis: none !important;
@@ -87,29 +96,44 @@ small {
   letter-spacing: 0.008em;
 }
 
-/* 볼드체 글씨에 한해 아주아주 살짝 두께 보강 */
+/* 중요 내용 및 공지사항/시스템 메뉴의 볼드체(강조) 부분은 Pro 폰트 적용 (이질감 없는 균형 잡힌 두께와 자간) */
+b,
+strong,
 .font-bold,
 .font-extrabold,
 .font-black,
 .font-semibold {
-  -webkit-text-stroke: 0.12px currentColor;
+  font-family: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  -webkit-text-stroke: 0.10px currentColor;
+  letter-spacing: 0.008em;
 }
 
-/* 줄글 (공지사항 본문, 설명 단락, 약관 등) - 배민한나체 Air: 너무 얇지 않게 두께를 살짝 보강하여 최적 가독성 확보 */
+/* 본문, 설명 단락, 약관 등 줄글은 BMHANNAAir 적용 */
+p,
 .prose,
 .prose p,
 .whitespace-pre-wrap,
 .notice-body,
-p:not(.font-bold):not(.font-extrabold):not(.font-black):not(.font-semibold),
-.leading-relaxed:not(h1):not(h2):not(h3):not(button):not(.font-bold):not(.font-extrabold):not(.font-black),
 article p,
 .font-normal,
 .font-light {
   font-family: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
   font-weight: 400;
-  -webkit-text-stroke: 0.08px currentColor;
+  -webkit-text-stroke: 0.06px currentColor;
   letter-spacing: 0.008em;
   line-height: 1.65;
+}
+
+/* 공지사항이나 시스템 메뉴 내부의 볼드(강조) 텍스트는 자연스럽게 Pro로 연동 */
+.notice-body strong,
+.notice-body b,
+.prose strong,
+.prose b,
+.whitespace-pre-wrap strong,
+.whitespace-pre-wrap b {
+  font-family: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif !important;
+  font-weight: 700;
+  -webkit-text-stroke: 0.10px currentColor;
 }
 
 /* 코드 블록이나 정밀 수치 입력창 등 기본 폼 필드 가독성 */
@@ -121,14 +145,26 @@ select {
   letter-spacing: normal;
 }
 
-/* Recharts 그래프 클릭 시 하얀 칸 / 툴팁 커서 / 포커스 아웃라인 완벽 제거 */
-.recharts-tooltip-cursor,
+/* Recharts 바 차트의 불필요한 배경 사각형 커서만 투명 처리 */
 rect.recharts-tooltip-cursor,
 .recharts-bar-cursor {
   display: none !important;
   fill: transparent !important;
   stroke: transparent !important;
   opacity: 0 !important;
+}
+
+/* 라인 차트 마우스 호버 시 세로 점선 커서는 선명하게 표시 */
+line.recharts-tooltip-cursor {
+  display: block !important;
+  stroke: #a1a1aa !important;
+  stroke-dasharray: 3 3 !important;
+  stroke-width: 1.5px !important;
+  opacity: 0.85 !important;
+}
+
+html.dark line.recharts-tooltip-cursor {
+  stroke: #71717a !important;
 }
 
 .recharts-default-tooltip {

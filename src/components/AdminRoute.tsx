@@ -59,7 +59,7 @@ export function AdminRoute() {
   if (!user) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-black flex flex-col items-center justify-center p-6 selection:bg-purple-500/30">
-        <div className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 shadow-2xl">
+        <div className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-8 shadow-2xl">
           <div className="flex flex-col items-center mb-8">
             <div className="w-12 h-12 rounded-xl bg-purple-600 flex items-center justify-center mb-4">
               <Tv className="w-6 h-6 text-white" />

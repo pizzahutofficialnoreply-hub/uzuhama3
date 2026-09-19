@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, Check, Copy, ExternalLink, Smartphone, Globe, X, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useBodyScrollLock } from '../utils';
 
 interface CalendarSubscribeModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  useBodyScrollLock(isOpen);
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
@@ -72,7 +74,7 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
           exit={{ opacity: 0, scale: 0.96, y: 8 }}
           transition={{ duration: 0.2 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         >
           {/* Header */}
           <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 relative bg-zinc-50/50 dark:bg-zinc-900">

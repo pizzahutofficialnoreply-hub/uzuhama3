@@ -371,7 +371,7 @@ export function CategoryStatsTab({
             }
           }}
           className={cn(
-            "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-3 sm:p-4 shadow-sm flex flex-col justify-between transition-all group",
+            "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between transition-all group",
             topCategory ? "cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md" : ""
           )}
           title={topCategory ? `클릭 시 추천 영상 탭에서 "${topCategory.name}" 카테고리로 이동합니다.` : undefined}
@@ -392,7 +392,7 @@ export function CategoryStatsTab({
           </span>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-3 sm:p-4 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between">
           <span className="text-[11px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
             분류된 게임 카테고리 수
           </span>
@@ -404,7 +404,7 @@ export function CategoryStatsTab({
           </span>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-3 sm:p-4 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between">
           <span className="text-[11px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
             플레이한 고유 게임 수
           </span>
@@ -424,7 +424,7 @@ export function CategoryStatsTab({
             }
           }}
           className={cn(
-            "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-3 sm:p-4 shadow-sm flex flex-col justify-between transition-all group",
+            "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between transition-all group",
             topIndividualGames[0] ? "cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md" : ""
           )}
           title={topIndividualGames[0] ? `클릭 시 추천 영상 탭에서 "${topIndividualGames[0].name}" 검색 결과로 이동합니다.` : undefined}
@@ -450,7 +450,7 @@ export function CategoryStatsTab({
       <div 
         id="detailed-category-pie-card"
         onClick={handleClearCategory}
-        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm cursor-default relative"
+        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm cursor-default relative"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 sm:mb-6">
           <div>
@@ -640,9 +640,9 @@ export function CategoryStatsTab({
       </div>
 
       {/* 가장 많이 플레이한 게임 카테고리 순위표 (검색창이 순위표 상단에 통합, 카테고리 선택 제거) */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm">
         {selectedCategory && (
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-2xl text-xs text-purple-900 dark:text-purple-200">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl text-xs text-purple-900 dark:text-purple-200">
             <div className="flex items-center gap-2">
               <span className="font-bold">선택된 카테고리:</span>
               <span className="px-2 py-0.5 rounded-full bg-purple-200 dark:bg-purple-800 font-semibold">{selectedCategory}</span>

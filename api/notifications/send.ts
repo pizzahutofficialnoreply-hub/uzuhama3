@@ -99,14 +99,28 @@ export default async function handler(req: any, res: any) {
     }
     const { title, body, url } = reqPayload || {};
 
-    // 2. 푸시 토큰 조회
+    // 2. 푸시 토큰 조회 (token, fcmToken, 및 endpoint의 /fcm/send/ 토큰 완벽 지원)
     const tokensSnapshot = await db.collection('push_subscriptions').get();
-    const tokens = tokensSnapshot.docs
-      .map((doc: any) => doc.data().token)
-      .filter((token: unknown): token is string => typeof token === 'string' && token.length > 0);
+    const tokens: string[] = [];
+
+    tokensSnapshot.docs.forEach((docSnap: any) => {
+      const data = docSnap.data();
+      let t = data.token || data.fcmToken;
+      if (!t && data.endpoint && typeof data.endpoint === 'string' && data.endpoint.includes('/fcm/send/')) {
+        t = data.endpoint.split('/fcm/send/')[1];
+      }
+      if (t && typeof t === 'string' && t.trim().length > 0 && !tokens.includes(t.trim())) {
+        tokens.push(t.trim());
+      }
+    });
 
     if (tokens.length === 0) {
-      return res.status(200).json({ message: '등록된 구독 토큰이 없습니다.' });
+      return res.status(200).json({
+        success: false,
+        successCount: 0,
+        failureCount: 0,
+        message: '등록된 유효 FCM 푸시 구독 토큰이 없습니다. 기기 설정에서 알림을 허용한 후 앱을 새로고침하여 기기 토큰을 재등록해주세요.'
+      });
     }
 
     const cleanTitle = (title || '우주하마 방송 예측')

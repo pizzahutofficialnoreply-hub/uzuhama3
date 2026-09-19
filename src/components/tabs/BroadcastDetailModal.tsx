@@ -169,7 +169,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
   return (
     <div 
       ref={containerRef}
-      className="w-full rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-sm overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-top-2"
+      className="w-full rounded-[20px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-sm overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-top-2"
     >
       {/* 1. 상단 컨트롤 바: X 닫기 버튼 */}
       <div className="px-4 sm:px-6 py-3 flex items-center justify-end border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-black">
@@ -363,7 +363,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
               return (
                 <div
                   key={dateStr}
-                  className="group flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1"
+                  className="group flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1"
                 >
                   {/* 상단 16:9 썸네일 영역 (추천 영상 카드와 동일한 규격 및 인터랙션) */}
                   <div className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">

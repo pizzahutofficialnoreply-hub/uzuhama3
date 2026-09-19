@@ -113,7 +113,7 @@ export function NoticeModal({ notices, onClose }: NoticeModalProps) {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-7 max-w-2xl w-full shadow-2xl relative flex flex-col max-h-[85vh] sm:max-h-[80vh] overflow-hidden"
+        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-5 sm:p-7 max-w-2xl w-full shadow-2xl relative flex flex-col max-h-[85vh] sm:max-h-[80vh] overflow-hidden"
       >
         <button
           onClick={onClose}

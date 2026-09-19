@@ -11,6 +11,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Poll, SystemConfig } from '../types';
 import { format, isAfter, isBefore } from 'date-fns';
 import { generatePollResultImage } from '../utils/generatePollImage';
+import { useBodyScrollLock } from '../utils';
 
 interface AnonymousPollCardProps {
   system?: SystemConfig;
@@ -52,6 +53,7 @@ export function AnonymousPollCard({ system, polls: propsPolls }: AnonymousPollCa
   // 결과 공유 상태
   const [isSharing, setIsSharing] = useState<boolean>(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+  useBodyScrollLock(isShareModalOpen);
   const [generatedImageBlob, setGeneratedImageBlob] = useState<Blob | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [shareToast, setShareToast] = useState<string | null>(null);
@@ -633,10 +635,10 @@ export function AnonymousPollCard({ system, polls: propsPolls }: AnonymousPollCa
   return (
     <div 
       id="anonymous-poll-card"
-      className="bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-900/40 rounded-3xl overflow-hidden shadow-xs hover:shadow-md transition-all relative"
+      className="bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-900/40 rounded-[24px] overflow-hidden shadow-xs hover:shadow-md transition-all relative"
     >
       {/* 1. 상단 카드 헤더 & 배너 넘기기 컨트롤 */}
-      <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           {/* 다중 투표 시 좌측 넘기기 화살표 */}
           {livePolls.length > 1 && (
@@ -744,7 +746,7 @@ export function AnonymousPollCard({ system, polls: propsPolls }: AnonymousPollCa
 
       {/* 에러 발생 시에만 최소한으로 표시 */}
       {errorMessage && (
-        <div className="mx-4 sm:mx-5 mb-3 p-2.5 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/50 text-red-800 dark:text-red-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+        <div className="mx-5 sm:mx-6 mb-3 p-2.5 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/50 text-red-800 dark:text-red-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{errorMessage}</span>
         </div>
@@ -760,7 +762,7 @@ export function AnonymousPollCard({ system, polls: propsPolls }: AnonymousPollCa
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             className="overflow-hidden border-t border-zinc-100 dark:border-zinc-800"
           >
-            <div className="p-4 sm:p-6 space-y-4">
+            <div className="p-5 sm:p-6 space-y-4">
               
               {/* 펼쳤을 때 익명 투표 명확히 표기 */}
               <div className="flex items-center justify-between pb-1 text-xs text-zinc-500 dark:text-zinc-400">

@@ -206,7 +206,7 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div id="summary-weekly-trend-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative">
+        <div id="summary-weekly-trend-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative">
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-bold text-zinc-900 dark:text-white">최근 주간 방송 횟수</h4>
             <div className="flex items-center gap-1.5">
@@ -240,7 +240,7 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
           </div>
         </div>
 
-        <div id="summary-daily-density-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative">
+        <div id="summary-daily-density-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative">
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-bold text-zinc-900 dark:text-white">최근 요일별 집중도</h4>
             <div className="flex items-center gap-1.5">

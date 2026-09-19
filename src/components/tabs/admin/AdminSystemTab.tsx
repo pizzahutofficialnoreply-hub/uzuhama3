@@ -373,7 +373,7 @@ export function AdminSystemTab({
   return (
     <div className="space-y-6">
       {/* 1. 장기 휴방 / 여행 일정 설정 (확률 모델 반영) */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm">
         <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4 flex items-center gap-2">
           ✈️ 장기 휴방 / 여행 일정 설정 (확률 모델 반영)
         </h3>
@@ -460,7 +460,7 @@ export function AdminSystemTab({
       </div>
 
       {/* 2. 점검 모드 */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm">
         <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4 flex items-center gap-2">
           <Settings className="w-5 h-5 text-purple-600" />
           시스템 점검 모드 (접속 차단)
@@ -636,7 +636,7 @@ export function AdminSystemTab({
       </div>
       
       {/* 3. 공지사항 모달 목록 관리 */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-zinc-900 dark:text-white">팝업 공지사항 관리 (다중 등록 및 수정)</h3>
           {editingNoticeId && (
@@ -834,7 +834,7 @@ export function AdminSystemTab({
       </div>
 
       {/* 4. 시스템 버전 및 약관 버전 설정 */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-6">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm space-y-6">
         <h3 className="text-lg font-bold text-zinc-900 dark:text-white">버전 및 데이터 표시 설정</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -911,7 +911,7 @@ export function AdminSystemTab({
       <AdminPollSection system={data.system} polls={data.polls} onUpdateSystemConfig={onUpdateSystemConfig} />
 
       {/* 6. 약관 및 개인정보처리방침 개정 관리 시스템 */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-6">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-4">
           <div>
             <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
@@ -1195,7 +1195,7 @@ export function AdminSystemTab({
       </div>
 
       {/* 6. 데이터베이스 이관 (logs -> logs_by_month) */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
             <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
@@ -1245,7 +1245,7 @@ export function AdminSystemTab({
       </div>
 
       {/* 6. 약관 및 방침 관리 */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm">
         <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">서비스 이용약관 및 개인정보처리방침</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>

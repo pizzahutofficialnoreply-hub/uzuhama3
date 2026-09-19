@@ -353,7 +353,7 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative"
+              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 max-w-sm w-full shadow-2xl relative"
             >
               <button 
                 onClick={() => setShowInstallGuide(false)}

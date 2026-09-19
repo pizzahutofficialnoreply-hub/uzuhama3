@@ -166,6 +166,25 @@ export function usePushNotification() {
           if (sub) {
             subscriptionRef.current = sub;
             setIsSubscribed(true);
+
+            // 이미 구독된 브라우저 기기인 경우 서버 DB 동기화 확인
+            try {
+              let syncToken: string | null = null;
+              if (sub.endpoint.includes('/fcm/send/')) {
+                syncToken = sub.endpoint.split('/fcm/send/')[1];
+              }
+              const rawSub = JSON.parse(JSON.stringify(sub));
+              fetch(SUBSCRIBE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  token: syncToken,
+                  endpoint: sub.endpoint,
+                  keys: rawSub?.keys || null,
+                  settings: loadStoredSettings()
+                })
+              }).catch(() => {});
+            } catch {}
           } else {
             setIsSubscribed(false);
           }
@@ -216,18 +235,49 @@ export function usePushNotification() {
       }
 
       let token: string | null = null;
+      let pushSub: PushSubscription | null = null;
+
+      // 1. 네이티브 PushManager 구독 확인 및 생성
+      try {
+        if ('pushManager' in registration) {
+          pushSub = await registration.pushManager.getSubscription();
+          if (!pushSub && DEFAULT_VAPID_KEY) {
+            pushSub = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(DEFAULT_VAPID_KEY)
+            });
+          }
+          if (pushSub) {
+            subscriptionRef.current = pushSub;
+          }
+        }
+      } catch (pushErr) {
+        console.warn('PushManager 구독 시도 안내:', pushErr);
+      }
+
+      // 2. Firebase FCM Messaging 토큰 획득 시도 (VAPID 키 및 fallback 모드)
       try {
         const msg = await messaging();
         if (msg) {
-          token = await getToken(msg, {
-            vapidKey: DEFAULT_VAPID_KEY,
-            serviceWorkerRegistration: registration
-          });
+          try {
+            token = await getToken(msg, {
+              vapidKey: DEFAULT_VAPID_KEY,
+              serviceWorkerRegistration: registration
+            });
+          } catch (vapidErr) {
+            console.warn('VAPID 지정 FCM 토큰 획득 실패, 기본 모드로 재시도:', vapidErr);
+            token = await getToken(msg, {
+              serviceWorkerRegistration: registration
+            });
+          }
         }
       } catch (fcmErr: any) {
         console.warn('FCM 토큰 획득 안내 (브라우저 로컬 알림으로 대체 활성화):', fcmErr);
-        // Firebase Installations 403 또는 VAPID 키 관련 에러 발생 시에도
-        // 이미 perm === 'granted' 이므로 브라우저 네이티브 알림은 100% 정상 작동 가능함
+      }
+
+      // 3. 토큰이 없는 경우 pushSub의 endpoint에서 FCM 토큰 추출
+      if (!token && pushSub?.endpoint && pushSub.endpoint.includes('/fcm/send/')) {
+        token = pushSub.endpoint.split('/fcm/send/')[1];
       }
 
       const newSettings: PushSettings = {
@@ -238,8 +288,8 @@ export function usePushNotification() {
       saveStoredSettings(newSettings);
       setIsSubscribed(true);
 
-      // FCM 토큰이 발급된 경우 Vercel 백엔드 API로 서버 등록 동기화
-      if (token) {
+      // FCM 토큰 또는 Web Push 엔드포인트를 Vercel 백엔드 API로 서버 등록 동기화
+      if (token || pushSub?.endpoint) {
         try {
           const idToken = user?.uid ? await firebaseAuth.currentUser?.getIdToken() : null;
           const headers: Record<string, string> = {
@@ -248,10 +298,17 @@ export function usePushNotification() {
           if (idToken) {
             headers['Authorization'] = `Bearer ${idToken}`;
           }
+          const rawSub = pushSub ? JSON.parse(JSON.stringify(pushSub)) : null;
+
           await fetch(SUBSCRIBE_URL, {
             method: 'POST',
             headers,
-            body: JSON.stringify({ token })
+            body: JSON.stringify({
+              token: token || null,
+              endpoint: pushSub?.endpoint || null,
+              keys: rawSub?.keys || null,
+              settings: newSettings
+            })
           });
         } catch (e) {
           console.debug('Failed to sync subscription via Vercel API:', e);

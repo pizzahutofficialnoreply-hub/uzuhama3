@@ -18,7 +18,7 @@ export function ReAgreementModal({ onAgree, onLogout }: ReAgreementModalProps) {
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 max-w-md w-full shadow-2xl relative"
+        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 max-w-md w-full shadow-2xl relative"
       >
         <button onClick={onLogout} className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="로그아웃">
           <X className="w-5 h-5" />

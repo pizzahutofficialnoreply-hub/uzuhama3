@@ -212,7 +212,7 @@ export function SettingsView({
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
           의견
         </h3>
-        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-3xl overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[20px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           
           <button 
             type="button"
@@ -246,7 +246,7 @@ export function SettingsView({
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
           계정
         </h3>
-        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-3xl overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[20px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           
           {user ? (
             <div className="p-3.5 sm:p-4 flex items-center justify-between">
@@ -292,7 +292,7 @@ export function SettingsView({
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
           환경설정
         </h3>
-        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-3xl overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[20px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           
           {/* 알림 설정 */}
           <div>
@@ -601,7 +601,7 @@ export function SettingsView({
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
           정보
         </h3>
-        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-3xl overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[20px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           
           <button 
             type="button"
@@ -845,7 +845,7 @@ export function SettingsView({
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
           법적 정보
         </h3>
-        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-3xl overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[20px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           
           <a 
             href="/terms"
@@ -920,7 +920,7 @@ export function SettingsView({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 12 }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-7 max-w-lg w-full shadow-2xl relative flex flex-col overflow-hidden"
+              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-5 sm:p-7 max-w-lg w-full shadow-2xl relative flex flex-col overflow-hidden"
             >
               {/* 우측 상단 닫기 버튼 */}
               <button

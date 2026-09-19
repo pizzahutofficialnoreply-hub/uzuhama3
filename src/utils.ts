@@ -8,15 +8,43 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const activeLocks = new Set<string>();
+
+export function lockBodyScroll(id: string = 'default') {
+  if (typeof document === 'undefined') return;
+  activeLocks.add(id);
+  document.body.style.overflow = 'hidden';
+}
+
+export function unlockBodyScroll(id: string = 'default') {
+  if (typeof document === 'undefined') return;
+  activeLocks.delete(id);
+  if (activeLocks.size === 0) {
+    document.body.style.overflow = '';
+  }
+}
+
+export function resetBodyScrollLock() {
+  if (typeof document === 'undefined') return;
+  activeLocks.clear();
+  document.body.style.overflow = '';
+}
+
 export function useBodyScrollLock(isLocked: boolean) {
+  const lockIdRef = React.useRef<string>('');
+  if (!lockIdRef.current) {
+    lockIdRef.current = 'lock_' + Math.random().toString(36).substring(2, 9);
+  }
+
   useEffect(() => {
+    const id = lockIdRef.current;
     if (isLocked) {
-      document.body.style.overflow = 'hidden';
+      lockBodyScroll(id);
     } else {
-      document.body.style.overflow = '';
+      unlockBodyScroll(id);
     }
     return () => {
-      document.body.style.overflow = '';
+      unlockBodyScroll(id);
     };
   }, [isLocked]);
 }

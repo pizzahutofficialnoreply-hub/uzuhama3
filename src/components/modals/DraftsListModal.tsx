@@ -1,5 +1,6 @@
 import { SavedDraft } from '../../types';
 import { X, Clock, Trash2, Download, AlertCircle } from 'lucide-react';
+import { useBodyScrollLock } from '../../utils';
 
 interface DraftsListModalProps {
   isOpen: boolean;
@@ -18,11 +19,12 @@ export function DraftsListModal({
   onDeleteDraft,
   onClearAllDrafts,
 }: DraftsListModalProps) {
+  useBodyScrollLock(isOpen);
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-5 sm:p-6 shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
           <div className="flex items-center gap-2">

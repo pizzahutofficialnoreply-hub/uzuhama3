@@ -585,7 +585,7 @@ export function CurrentProbability({
 
   if (liveData?.status === "OPEN") {
     return (
-      <div id="current-prob-live-card" className="bg-white dark:bg-zinc-900 border-2 border-red-500 dark:border-red-500/50 rounded-3xl p-8 shadow-xl dark:shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
+      <div id="current-prob-live-card" className="bg-white dark:bg-zinc-900 border-2 border-red-500 dark:border-red-500/50 rounded-[24px] p-6 sm:p-8 shadow-xl dark:shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
         <div className="absolute top-4 right-4 z-20">
           <WidgetShareButton targetId="current-prob-live-card" title="생방송 진행 중" />
         </div>
@@ -637,7 +637,7 @@ export function CurrentProbability({
   }
 
   return (
-    <div id="current-prob-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-8 shadow-xl dark:shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
+    <div id="current-prob-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 sm:p-8 shadow-xl dark:shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
       <div className="absolute top-4 right-4 z-20">
         <WidgetShareButton targetId="current-prob-card" title="현재 방송 확률" />
       </div>
@@ -657,10 +657,10 @@ export function CurrentProbability({
           </p>
           <div 
             className="text-7xl sm:text-8xl font-black text-zinc-900 dark:text-white tracking-[0.02em] sm:tracking-[0.025em] pl-0.5"
-            style={{ WebkitTextStroke: '0.65px currentColor' }}
+            style={{ WebkitTextStroke: '0.95px currentColor' }}
           >
             {finalProb.toFixed(1)}
-            <span className="text-4xl sm:text-5xl ml-1 tracking-normal font-bold" style={{ WebkitTextStroke: '0.3px currentColor' }}>%</span>
+            <span className="text-4xl sm:text-5xl ml-1 tracking-normal font-bold" style={{ WebkitTextStroke: '0.45px currentColor' }}>%</span>
           </div>
         </div>
 

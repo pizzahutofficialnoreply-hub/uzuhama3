@@ -413,7 +413,7 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
   // Full Screen Modal View
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-2xl max-w-lg w-full max-h-[90vh] relative flex flex-col">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-5 sm:p-6 shadow-2xl max-w-lg w-full max-h-[90vh] relative flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between gap-2 pb-3 mb-2 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
           <div className="flex items-center gap-2 min-w-0">

@@ -564,7 +564,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
           id="calendar-main-card" 
           onTouchStart={handleCalendarTouchStart}
           onTouchEnd={handleCalendarTouchEnd}
-          className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm touch-pan-y transition-colors duration-200"
+          className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden shadow-sm touch-pan-y transition-colors duration-200"
         >
           <div className="p-5 sm:p-6 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
@@ -689,8 +689,8 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
               id="calendar-detail-panel" 
               className={cn(
                 "bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 p-5 sm:p-6 shadow-2xl flex flex-col z-30",
-                "lg:absolute lg:top-0 lg:right-0 lg:bottom-0 lg:w-[36%] lg:min-w-[360px] lg:max-w-[460px] lg:rounded-r-3xl lg:rounded-l-2xl lg:border-y-0 lg:border-r-0 lg:border-l lg:overflow-y-auto lg:custom-scrollbar",
-                "mt-4 lg:mt-0 w-full rounded-3xl"
+                "lg:absolute lg:top-0 lg:right-0 lg:bottom-0 lg:w-[36%] lg:min-w-[360px] lg:max-w-[460px] lg:rounded-r-[24px] lg:rounded-l-2xl lg:border-y-0 lg:border-r-0 lg:border-l lg:overflow-y-auto lg:custom-scrollbar",
+                "mt-4 lg:mt-0 w-full rounded-[24px]"
               )}
             >
               <div className="w-full relative">
@@ -834,7 +834,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
       </div>
 
       {/* 전체 방송 기록 표 */}
-      <div id="calendar-table-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm mt-8">
+      <div id="calendar-table-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden shadow-sm mt-8">
         <div className="p-5 sm:p-6 lg:p-7 border-b border-zinc-200 dark:border-zinc-800 flex flex-col gap-4">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <h3 className="text-xl font-bold text-zinc-900 dark:text-white shrink-0">전체 방송 기록</h3>

@@ -23,7 +23,7 @@ import { FloatingBottomNav } from './components/FloatingBottomNav';
 import { LicensePage } from './components/LicensePage';
 import { CurrentProbability } from './components/CurrentProbability';
 import { AnonymousPollCard } from './components/AnonymousPollCard';
-import { cn } from './utils';
+import { cn, useBodyScrollLock, resetBodyScrollLock } from './utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './lib/firebase';
@@ -72,6 +72,12 @@ function MainApp() {
     return (localStorage.getItem('uzuhama_active_tab') as Tab) || 'summary';
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // iOS PWA 단독 실행 감지 (닫기 모션 버벅임 제거용)
+  const isIOSStandalone = typeof window !== 'undefined' && 
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) &&
+    (('standalone' in window.navigator && (window.navigator as any).standalone) || window.matchMedia('(display-mode: standalone)').matches);
+
   
   // PWA 및 브라우저 기본 뒤로가기 버튼 지원 (새 탭 없이 / 경로 유지)
   const openSettings = () => {
@@ -132,6 +138,10 @@ function MainApp() {
   const [hideSmallNotice, setHideSmallNotice] = useState(false);
   const [policyType, setPolicyType] = useState<'terms' | 'privacy' | null>(null);
   const [forceRender, setForceRender] = useState(0);
+
+  // 모바일 전체화면 설정창이 열려있을 때만 배경 스크롤 차단
+  useBodyScrollLock(isSettingsOpen && typeof window !== 'undefined' && window.innerWidth < 1024);
+
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
   const [recommendTargetCategory, setRecommendTargetCategory] = useState<string | null>(null);
@@ -197,6 +207,7 @@ function MainApp() {
   }, [loading, activeTab, isSettingsOpen]);
 
   useEffect(() => {
+    resetBodyScrollLock();
     const noticeSeen = localStorage.getItem('notice_seen_v1');
     if (!noticeSeen) {
       setShowNotice(true);
@@ -464,7 +475,7 @@ function MainApp() {
       {/* Notice Modal (Default disclaimer) */}
       {showNotice && data.system?.noticeType !== 'big' && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-7 max-w-md w-full shadow-2xl relative">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-5 sm:p-7 max-w-md w-full shadow-2xl relative">
             <button onClick={() => closeNotice(false)} className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
               <X className="w-5 h-5" />
             </button>
@@ -525,7 +536,7 @@ function MainApp() {
             </div>
           );
         })}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-15 flex items-center justify-between gap-2">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-15 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
             <button
               type="button"
@@ -597,7 +608,7 @@ function MainApp() {
 
       <main className={cn(
         "mx-auto px-4 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-32 sm:pb-36 flex-1 w-full transition-all duration-300",
-        isSettingsOpen ? "max-w-[1700px]" : "max-w-6xl"
+        isSettingsOpen ? "max-w-[1700px]" : "max-w-5xl"
       )}>
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start w-full">
           {/* Main Content Area: 데스크톱 및 모바일 기본 본문 */}
@@ -661,6 +672,22 @@ function MainApp() {
                 <PlaySquare className="w-4 h-4" />
                 추천 영상
               </button>
+
+              <button
+                onClick={() => {
+                  if (isSettingsOpen) closeSettings();
+                  else openSettings();
+                }}
+                className={cn(
+                  "flex items-center gap-2 py-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap cursor-pointer",
+                  isSettingsOpen 
+                    ? "border-purple-600 text-purple-600 dark:border-purple-500 dark:text-purple-400 font-bold" 
+                    : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                )}
+              >
+                <SettingsIcon className="w-4 h-4" />
+                설정
+              </button>
             </div>
 
             {/* Tab Content */}
@@ -714,7 +741,7 @@ function MainApp() {
                 transition={{ type: 'spring', damping: 28, stiffness: 320, mass: 0.8 }}
                 className="hidden lg:block w-[450px] xl:w-[490px] 2xl:w-[530px] shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar"
               >
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-lg relative">
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-5 sm:p-6 shadow-lg relative">
                   <div className="flex items-center justify-between pb-4 mb-5 border-b border-zinc-200 dark:border-zinc-800">
                     <div className="flex items-center gap-2.5">
                       <SettingsIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
@@ -751,19 +778,23 @@ function MainApp() {
         </div>
       </main>
 
-      {/* 모바일 설정창 (부드러운 슬라이드 인/아웃 닫기 모션) */}
+      {/* 모바일 설정창 (부드러운 슬라이드 인/아웃 닫기 모션, iOS PWA에서는 즉시 닫기) */}
       <AnimatePresence>
         {isSettingsOpen && (
           <motion.div
             key="settings-mobile-drawer"
             initial={{ opacity: 0, x: '100%' }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: '100%', transition: { duration: 0.24, ease: [0.32, 0, 0.67, 0] } }}
+            exit={
+              isIOSStandalone 
+                ? { opacity: 0, transition: { duration: 0 } } 
+                : { opacity: 0, x: '100%', transition: { duration: 0.24, ease: [0.32, 0, 0.67, 0] } }
+            }
             transition={{ type: 'spring', damping: 28, stiffness: 300, mass: 0.8 }}
             className="lg:hidden fixed inset-0 z-50 bg-zinc-50 dark:bg-zinc-950 overflow-y-auto"
           >
-            {/* 모바일 설정 상단 헤더 */}
-            <div className="sticky top-0 z-20 bg-zinc-50/95 dark:bg-zinc-950/95 backdrop-blur-md px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+            {/* 모바일 설정 상단 헤더 (iOS Safe Area 노치 대응) */}
+            <div className="sticky top-0 z-20 bg-zinc-50/95 dark:bg-zinc-950/95 backdrop-blur-md px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between pt-[calc(env(safe-area-inset-top,0px)+0.75rem)]">
               <div className="flex items-center gap-2">
                 <button
                   type="button"

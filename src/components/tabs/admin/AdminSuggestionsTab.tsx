@@ -361,6 +361,11 @@ export function AdminSuggestionsTab({
         throw new Error(resData.error || '알림 발송 서버 응답 오류');
       }
 
+      if (resData.message && !resData.success) {
+        alert(`⚠️ 알림 발송 안내\n\n${resData.message}`);
+        return;
+      }
+
       alert(`🔔 전체 기기 테스트 알림 발송 완료!\n- 성공: ${resData.successCount ?? 0}대\n- 실패/만료: ${resData.failureCount ?? 0}대${resData.cleanedTokens ? `\n- 만료 정리된 토큰: ${resData.cleanedTokens}개` : ''}`);
     } catch (err: any) {
       console.error('테스트 알림 발송 오류:', err);
@@ -425,7 +430,7 @@ export function AdminSuggestionsTab({
       </div>
 
       {activeTab === 'feedbacks' && (
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-4 sm:p-6 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-purple-600" />
@@ -499,7 +504,7 @@ export function AdminSuggestionsTab({
       )}
 
       {activeTab === 'contributions' && (
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-4 sm:p-6 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
               <Plus className="w-5 h-5 text-purple-600" />

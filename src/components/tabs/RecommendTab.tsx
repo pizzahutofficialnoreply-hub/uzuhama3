@@ -153,7 +153,7 @@ const VideoCard = ({
 
   return (
     <div 
-      className="group flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1"
+      className="group flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -1197,7 +1197,7 @@ export function RecommendTab({
         </div>
       </div>
 
-      <div id="recommend-main-card" className="flex flex-col sm:flex-row gap-3 bg-white dark:bg-zinc-900 p-4 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm">
+      <div id="recommend-main-card" className="flex flex-col sm:flex-row gap-3 bg-white dark:bg-zinc-900 p-5 sm:p-6 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
@@ -1369,7 +1369,7 @@ export function RecommendTab({
               })}
               
               {recommended.length === 0 && (
-                <div className="col-span-full py-12 text-center text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl">
+                <div className="col-span-full py-12 text-center text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px]">
                   <YoutubeLogo className="w-12 h-12 mx-auto mb-4 opacity-20" />
                   <p>조건에 맞는 추천 영상을 찾을 수 없습니다.</p>
                 </div>
@@ -1440,7 +1440,7 @@ export function RecommendTab({
       </div>
       
       {/* 푸터 바로 윗부분: 과거 데이터 안내문구 */}
-      <div className="mt-8 p-4 rounded-3xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2 leading-relaxed">
+      <div className="mt-8 p-5 rounded-[24px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2 leading-relaxed">
         <div>
           <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 {firstYear}~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 파일 변환 시에 누락된 데이터나 잘못된 정보가 포함되어 있을 수 있습니다. (또한 {firstYear}~2025년 데이터에는 쇼츠 영상 정보가 포함되지 않습니다)
         </div>

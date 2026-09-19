@@ -23,11 +23,11 @@ export function PolicyModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative flex flex-col max-h-[85vh]">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 w-full max-w-2xl shadow-2xl relative flex flex-col max-h-[85vh]">
         <button onClick={onClose} className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
           <X className="w-5 h-5" />
         </button>
-        <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-4">{title}</h2>
+        <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-4 font-title">{title}</h2>
         <div className="flex-1 overflow-y-auto pr-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4">
           <div className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap font-sans leading-relaxed prose dark:prose-invert max-w-none">
             <Markdown>{content || '등록된 내용이 없습니다.'}</Markdown>

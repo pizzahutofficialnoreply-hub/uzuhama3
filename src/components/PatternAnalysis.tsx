@@ -19,7 +19,7 @@ export function PatternAnalysis({ guides }: PatternAnalysisProps) {
   };
 
   return (
-    <div id="summary-pattern-guide-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 relative">
+    <div id="summary-pattern-guide-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 relative">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2 break-keep">
           <Target className="w-5 h-5 text-purple-600 dark:text-purple-400" />

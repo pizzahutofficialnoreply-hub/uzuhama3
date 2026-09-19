@@ -160,6 +160,38 @@ function logToVEvent(log: BroadcastLog, nowStr: string, index: number, origin: s
   ].join('\r\n');
 }
 
+function parseFirestoreValue(valueObj: any): any {
+  if (!valueObj || typeof valueObj !== 'object') return valueObj;
+  if ('stringValue' in valueObj) return valueObj.stringValue;
+  if ('integerValue' in valueObj) return Number(valueObj.integerValue);
+  if ('doubleValue' in valueObj) return Number(valueObj.doubleValue);
+  if ('booleanValue' in valueObj) return Boolean(valueObj.booleanValue);
+  if ('timestampValue' in valueObj) return valueObj.timestampValue;
+  if ('nullValue' in valueObj) return null;
+  if ('arrayValue' in valueObj) {
+    const arr = valueObj.arrayValue?.values || [];
+    return arr.map((item: any) => parseFirestoreValue(item));
+  }
+  if ('mapValue' in valueObj) {
+    const fields = valueObj.mapValue?.fields || {};
+    const res: any = {};
+    for (const [k, v] of Object.entries(fields)) {
+      res[k] = parseFirestoreValue(v);
+    }
+    return res;
+  }
+  return valueObj;
+}
+
+function parseFirestoreDoc(doc: any): any {
+  if (!doc || !doc.fields) return {};
+  const res: any = {};
+  for (const [k, v] of Object.entries(doc.fields)) {
+    res[k] = parseFirestoreValue(v);
+  }
+  return res;
+}
+
 /**
  * 전체 방송 로그를 수집하여 iCalendar(RFC 5545) 포맷 문자열 생성
  */
@@ -181,6 +213,46 @@ export async function buildFullCalendarFeed(origin: string): Promise<string> {
   }
 
   // 2. Firestore 실시간 데이터 수집 (logs_by_month 및 logs 컬렉션)
+  // 2-1. Firestore REST API로 우선 수집 (인증/권한 환경 제약 없이 2026년 최신 데이터 100% 보장)
+  try {
+    const firestoreBase = 'https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents';
+    
+    // 월별 아카이브 (2026년도 월별 로그 포함) 수집
+    const monthRes = await fetch(`${firestoreBase}/logs_by_month?pageSize=100`, { headers: { 'Accept': 'application/json' } });
+    if (monthRes.ok) {
+      const monthData: any = await monthRes.json();
+      const docs = monthData?.documents || [];
+      for (const doc of docs) {
+        const parsed = parseFirestoreDoc(doc);
+        if (parsed.items && typeof parsed.items === 'object') {
+          Object.assign(logsMap, parsed.items);
+        }
+        Object.entries(parsed).forEach(([key, val]) => {
+          if (key !== 'month' && key !== 'updatedAt' && key !== 'items' && val && typeof val === 'object' && (val as any).date) {
+            logsMap[key] = val as BroadcastLog;
+          }
+        });
+      }
+    }
+
+    // 최신 개별 로그 수집 (최대 100개)
+    const logsRes = await fetch(`${firestoreBase}/logs?pageSize=100`, { headers: { 'Accept': 'application/json' } });
+    if (logsRes.ok) {
+      const logsData: any = await logsRes.json();
+      const docs = logsData?.documents || [];
+      for (const doc of docs) {
+        const parsed = parseFirestoreDoc(doc);
+        const docId = doc.name ? doc.name.split('/').pop() : '';
+        if (parsed.date && docId) {
+          logsMap[docId] = parsed as BroadcastLog;
+        }
+      }
+    }
+  } catch (restErr) {
+    console.warn('[Calendar Feed] Firestore REST fetch notice:', restErr);
+  }
+
+  // 2-2. Firestore Admin SDK 연결이 가능하면 추가 병합
   try {
     if (db) {
       const snaps = await db.collection('logs_by_month').get();
@@ -214,7 +286,7 @@ export async function buildFullCalendarFeed(origin: string): Promise<string> {
       }
     }
   } catch (err) {
-    console.warn('[Calendar Feed] Firestore logs read notice:', err);
+    console.warn('[Calendar Feed] Firestore Admin logs read notice:', err);
   }
 
   // 3. 로그 정렬 (첫 데이터부터 마지막 데이터까지 전체 수집)

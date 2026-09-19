@@ -18,19 +18,45 @@ export function LicensePage() {
   });
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-4 md:p-8">
-      <div className="max-w-3xl mx-auto bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-zinc-200 dark:border-zinc-800 flex flex-col h-[calc(100vh-4rem)]">
-        
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
-          <div className="flex items-center gap-3">
-            <Link to="/" className="p-2 -ml-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col">
+      {/* 상단 글로벌 헤더 (iOS Safe Area 지원) */}
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 pt-[env(safe-area-inset-top,0px)]">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 sm:h-15 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Link 
+              to="/" 
+              className="p-2 -ml-2 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+              title="뒤로 가기"
+            >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <h1 className="text-xl font-bold text-zinc-900 dark:text-white">오픈소스 및 폰트 라이선스</h1>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300">
-              {filteredEntries.length + (fontMatches ? 1 : 0)}개
-            </span>
+            <Link 
+              to="/" 
+              className="flex items-center gap-1.5 text-zinc-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              title="홈으로 이동"
+            >
+              <h1 className="text-lg sm:text-xl font-black tracking-tight font-title">
+                우주하마 방송 예측
+              </h1>
+            </Link>
           </div>
+
+          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300">
+            오픈소스 라이선스
+          </span>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 md:p-8 pb-16">
+        <div className="bg-white dark:bg-zinc-900 rounded-[20px] shadow-sm border border-zinc-200 dark:border-zinc-800 flex flex-col min-h-[calc(100vh-10rem)]">
+          
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white font-title">오픈소스 및 폰트 라이선스</h2>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300">
+                {filteredEntries.length + (fontMatches ? 1 : 0)}개
+              </span>
+            </div>
 
           <div className="w-full sm:w-64">
             <input
@@ -151,6 +177,7 @@ export function LicensePage() {
           </p>
         </div>
       </div>
+      </main>
     </div>
   );
 }
