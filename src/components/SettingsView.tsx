@@ -3,7 +3,8 @@ import {
   MessageSquare, Flag, User, Bell, Palette, Database, Megaphone, 
   BookOpen, FileText, ExternalLink, Mail, AlertCircle, Gavel, 
   ShieldCheck, Trash2, LogOut, ChevronRight, Check, RefreshCw,
-  Copy, Smartphone, Sun, Moon, Laptop, Sparkles, Youtube, X, Share2, Type
+  Copy, Smartphone, Sun, Moon, Laptop, Sparkles, Youtube, X, Share2, Type,
+  FileCode2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { deleteUser } from 'firebase/auth';
@@ -25,6 +26,7 @@ interface SettingsViewProps {
   onOpenTutorial?: () => void;
   onOpenTerms: () => void;
   onOpenPrivacy: () => void;
+  onOpenPatchNotes?: () => void;
 }
 
 export function SettingsView({
@@ -38,7 +40,8 @@ export function SettingsView({
   onOpenNotice,
   onOpenTutorial,
   onOpenTerms,
-  onOpenPrivacy
+  onOpenPrivacy,
+  onOpenPatchNotes
 }: SettingsViewProps) {
   const { 
     isSupported, 
@@ -212,7 +215,7 @@ export function SettingsView({
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
           의견
         </h3>
-        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[20px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           
           <button 
             type="button"
@@ -246,7 +249,7 @@ export function SettingsView({
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
           계정
         </h3>
-        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[20px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           
           {user ? (
             <div className="p-3.5 sm:p-4 flex items-center justify-between">
@@ -292,7 +295,7 @@ export function SettingsView({
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
           환경설정
         </h3>
-        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[20px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           
           {/* 알림 설정 */}
           <div>
@@ -601,7 +604,7 @@ export function SettingsView({
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
           정보
         </h3>
-        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[20px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           
           <button 
             type="button"
@@ -614,6 +617,29 @@ export function SettingsView({
             </div>
             <ChevronRight className="w-4 h-4 text-zinc-400" />
           </button>
+
+          {/* 패치노트 & 업데이트 공지 아카이브 바로가기 (새 탭으로 열기) */}
+          <a 
+            href="/patch"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              if (onOpenPatchNotes) {
+                e.preventDefault();
+                onOpenPatchNotes();
+              }
+            }}
+            className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <FileCode2 className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+              <div>
+                <span className="text-sm font-semibold text-zinc-900 dark:text-white">패치노트 & 업데이트 아카이브</span>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">버전별 패치노트, 핫픽스, 개발자 노트</p>
+              </div>
+            </div>
+            <ExternalLink className="w-4 h-4 text-zinc-400" />
+          </a>
 
           <a 
             href="https://hushed-sailboat-ece.notion.site/d176b75d9cf94efbb96f5e5168bbe18a?source=copy_link"
@@ -845,7 +871,7 @@ export function SettingsView({
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
           법적 정보
         </h3>
-        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[20px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           
           <a 
             href="/terms"

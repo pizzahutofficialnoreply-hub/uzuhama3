@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { AppData, BroadcastLog } from '../../../types';
-import { List, Video, PlaySquare, ChevronDown, ChevronUp, Trash2, Youtube } from 'lucide-react';
+import { List, Video, PlaySquare, ChevronDown, ChevronUp, Trash2, Youtube, Search, X } from 'lucide-react';
+import { fuzzyKoreanMatch, fuzzyDateMatch } from '../../../utils';
+import { matchLogMedia, matchMediaUrl } from '../../../utils/urlUtils';
 
 const ShortsIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink } from 'lucide-react';
 import { useFirebaseData } from './hooks/useFirebaseData';
 import { SummaryTab } from './components/tabs/SummaryTab';
@@ -21,6 +21,7 @@ import { ReAgreementModal } from './components/ReAgreementModal';
 import { TermsRevisionModal } from './components/TermsRevisionModal';
 import { FloatingBottomNav } from './components/FloatingBottomNav';
 import { LicensePage } from './components/LicensePage';
+import { PatchNotesPage } from './components/PatchNotesPage';
 import { CurrentProbability } from './components/CurrentProbability';
 import { AnonymousPollCard } from './components/AnonymousPollCard';
 import { cn, useBodyScrollLock, resetBodyScrollLock } from './utils';
@@ -64,6 +65,7 @@ import { SettingsView } from './components/SettingsView';
 import { useAuth } from './hooks/useAuth';
 
 function MainApp() {
+  const navigate = useNavigate();
   const { data, loading, fetchLogsByDateRange, fetchLatestLogs, rateVideo } = useFirebaseData();
   const { isInstallable, promptInstall } = useInstallPrompt();
   const { user, loginWithGoogle, logout } = useAuth();
@@ -741,7 +743,7 @@ function MainApp() {
                 transition={{ type: 'spring', damping: 28, stiffness: 320, mass: 0.8 }}
                 className="hidden lg:block w-[450px] xl:w-[490px] 2xl:w-[530px] shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar"
               >
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-5 sm:p-6 shadow-lg relative">
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-5 sm:p-6 shadow-lg relative">
                   <div className="flex items-center justify-between pb-4 mb-5 border-b border-zinc-200 dark:border-zinc-800">
                     <div className="flex items-center gap-2.5">
                       <SettingsIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
@@ -770,6 +772,9 @@ function MainApp() {
                     }}
                     onOpenTerms={() => setPolicyType('terms')}
                     onOpenPrivacy={() => setPolicyType('privacy')}
+                    onOpenPatchNotes={() => {
+                      window.open('/patch', '_blank', 'noopener,noreferrer');
+                    }}
                   />
                 </div>
               </motion.div>
@@ -783,14 +788,14 @@ function MainApp() {
         {isSettingsOpen && (
           <motion.div
             key="settings-mobile-drawer"
-            initial={{ opacity: 0, x: '100%' }}
+            initial={isIOSStandalone ? false : { opacity: 0, x: '100%' }}
             animate={{ opacity: 1, x: 0 }}
             exit={
               isIOSStandalone 
                 ? { opacity: 0, transition: { duration: 0 } } 
                 : { opacity: 0, x: '100%', transition: { duration: 0.24, ease: [0.32, 0, 0.67, 0] } }
             }
-            transition={{ type: 'spring', damping: 28, stiffness: 300, mass: 0.8 }}
+            transition={isIOSStandalone ? { duration: 0 } : { type: 'spring', damping: 28, stiffness: 300, mass: 0.8 }}
             className="lg:hidden fixed inset-0 z-50 bg-zinc-50 dark:bg-zinc-950 overflow-y-auto"
           >
             {/* 모바일 설정 상단 헤더 (iOS Safe Area 노치 대응) */}
@@ -831,6 +836,9 @@ function MainApp() {
                 }}
                 onOpenTerms={() => setPolicyType('terms')}
                 onOpenPrivacy={() => setPolicyType('privacy')}
+                onOpenPatchNotes={() => {
+                  window.open('/patch', '_blank', 'noopener,noreferrer');
+                }}
               />
             </div>
           </motion.div>
@@ -865,6 +873,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<MainApp />} />
         <Route path="/admin" element={<AdminRoute />} />
+        <Route path="/patch" element={<PatchNotesPage />} />
+        <Route path="/patch-:version" element={<PatchNotesPage />} />
         <Route path="/terms" element={<PolicyPage type="terms" />} />
         <Route path="/privacy" element={<PolicyPage type="privacy" />} />
         <Route path="/licenses" element={<LicensePage />} />

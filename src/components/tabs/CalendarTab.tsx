@@ -20,7 +20,7 @@ import { ko } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, PlaySquare, Smartphone, Video, Calendar as CalendarIcon, ChevronDown, X, CalendarPlus, ExternalLink, Check, CalendarDays, Sparkles, Search } from 'lucide-react';
 import { AppData, BroadcastLog } from '../../types';
 import { cn, formatDuration, formatTo12Hour, parseTimeTo24, fuzzyKoreanMatch, fuzzyDateMatch } from '../../utils';
-import { extractYoutubeId, extractChzzkId, isVideoUrl, matchMediaUrl } from '../../utils/urlUtils';
+import { extractYoutubeId, extractChzzkId, isVideoUrl, matchMediaUrl, matchLogMedia } from '../../utils/urlUtils';
 import { getKoreanHoliday, isKoreanHoliday } from '../../utils/koreanHolidays';
 import { exportToDeviceCalendar, exportMultipleToDeviceCalendar, getGoogleCalendarUrl } from '../../utils/calendarExport';
 import { CalendarSubscribeModal } from '../CalendarSubscribeModal';
@@ -48,14 +48,8 @@ interface CalendarTabProps {
 }
 
 
-const getYoutubeId = (url: string) => {
-  if (!url) return null;
-  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([^&?]+)/);
-  return match ? match[1] : null;
-};
-
 const VideoLinkCard = ({ url, title, category, categories, icon: Icon, borderClass, bgClass, textClass }: any) => {
-  const ytId = getYoutubeId(url);
+  const ytId = extractYoutubeId(url);
   const catList: string[] = (() => {
     if (Array.isArray(categories) && categories.length > 0) return categories;
     if (category) return category.split(',').map((c: string) => c.trim()).filter(Boolean);
@@ -491,40 +485,21 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
       const isUrl = isVideoUrl(rawTerm) || !!ytId || !!chzzkId;
 
       return logsArray.filter(log => {
-        // 1. 영상, 쇼츠, 생방 링크 대조
-        // Firestore나 JSON을 새로 호출하지 않고, 기존에 로드된 logsArray(메모리 데이터)와만 대조합니다.
+        // 1. 영상, 쇼츠, 생방 링크 대조 (유튜브 Video ID 11자리 파싱 및 LIKE 매칭 완벽 지원)
         if (isUrl) {
-          if (ytId) {
-            if (log.vods?.some(v => (typeof v === 'string' ? v : v?.url)?.includes(ytId))) return true;
-            if (log.shorts?.some(s => (typeof s === 'string' ? s : s?.url)?.includes(ytId))) return true;
-            if (log.edited?.some(e => (typeof e === 'string' ? e : e?.url)?.includes(ytId))) return true;
-            if (log.games?.some(g => (g?.vodUrl && g.vodUrl.includes(ytId)) || (g?.link && g.link.includes(ytId)))) return true;
-            if (log.youtubeUrl && log.youtubeUrl.includes(ytId)) return true;
-          }
-          if (chzzkId) {
-            if (log.vods?.some(v => (typeof v === 'string' ? v : v?.url)?.includes(chzzkId))) return true;
-            if (log.shorts?.some(s => (typeof s === 'string' ? s : s?.url)?.includes(chzzkId))) return true;
-            if (log.edited?.some(e => (typeof e === 'string' ? e : e?.url)?.includes(chzzkId))) return true;
-            if (log.games?.some(g => (g?.vodUrl && g.vodUrl.includes(chzzkId)) || (g?.link && g.link.includes(chzzkId)))) return true;
-            if (log.chzzkUrl && log.chzzkUrl.includes(chzzkId)) return true;
-          }
-          // matchMediaUrl을 통한 정밀 URL / ID 대조 (vods, shorts, edited, games, youtubeUrl, chzzkUrl, liveUrl, vodUrl)
-          if (log.vods?.some(v => matchMediaUrl(typeof v === 'string' ? v : v?.url, rawTerm))) return true;
-          if (log.shorts?.some(s => matchMediaUrl(typeof s === 'string' ? s : s?.url, rawTerm))) return true;
-          if (log.edited?.some(e => matchMediaUrl(typeof e === 'string' ? e : e?.url, rawTerm))) return true;
-          if (log.games?.some(g => matchMediaUrl(g?.vodUrl, rawTerm) || matchMediaUrl(g?.link, rawTerm))) return true;
-          if (matchMediaUrl(log.youtubeUrl, rawTerm) || matchMediaUrl(log.chzzkUrl, rawTerm) || matchMediaUrl((log as any).liveUrl, rawTerm) || matchMediaUrl((log as any).vodUrl, rawTerm)) return true;
+          if (matchLogMedia(log, rawTerm)) return true;
           return false;
         }
 
-        // 2. 일반 텍스트 및 초성 매칭
+        // 2. 일반 텍스트, 날짜, 미디어 링크 및 초성 매칭
+        if (matchLogMedia(log, rawTerm)) return true;
         if (fuzzyDateMatch(rawTerm, log.date)) return true;
         if (log.game && fuzzyKoreanMatch(rawTerm, log.game)) return true;
         if (log.category && fuzzyKoreanMatch(rawTerm, log.category)) return true;
         if (log.games?.some(g => fuzzyKoreanMatch(rawTerm, g.name) || fuzzyKoreanMatch(rawTerm, g.category))) return true;
-        if (log.vods?.some(v => (v.title && fuzzyKoreanMatch(rawTerm, v.title)) || (v.url && v.url.includes(rawTerm)))) return true;
-        if (log.shorts?.some(s => (s.title && fuzzyKoreanMatch(rawTerm, s.title)) || (s.url && s.url.includes(rawTerm)))) return true;
-        if (log.edited?.some(e => (e.title && fuzzyKoreanMatch(rawTerm, e.title)) || (e.url && e.url.includes(rawTerm)))) return true;
+        if (log.vods?.some(v => (v.title && fuzzyKoreanMatch(rawTerm, v.title)) || matchMediaUrl(typeof v === 'string' ? v : v?.url, rawTerm))) return true;
+        if (log.shorts?.some(s => (s.title && fuzzyKoreanMatch(rawTerm, s.title)) || matchMediaUrl(typeof s === 'string' ? s : s?.url, rawTerm))) return true;
+        if (log.edited?.some(e => (e.title && fuzzyKoreanMatch(rawTerm, e.title)) || matchMediaUrl(typeof e === 'string' ? e : e?.url, rawTerm))) return true;
         return false;
       });
     }

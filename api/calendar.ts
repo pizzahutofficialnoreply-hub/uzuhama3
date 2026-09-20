@@ -116,6 +116,7 @@ function logToVEvent(log: BroadcastLog, nowStr: string, index: number, origin: s
   }
 
   descLines.push('');
+  descLines.push(`🌐 구독한 페이지 링크: ${origin}`);
   descLines.push(`📌 우주하마 방송 통계: ${origin}`);
 
   const description = descLines.join('\n');

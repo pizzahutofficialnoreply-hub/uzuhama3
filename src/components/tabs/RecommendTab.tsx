@@ -5,7 +5,7 @@ import { db } from '../../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { useFirebaseData } from '../../hooks/useFirebaseData';
 import { fuzzyKoreanMatch, fuzzyDateMatch, cn } from '../../utils';
-import { extractYoutubeId, extractChzzkId, isVideoUrl, matchMediaUrl } from '../../utils/urlUtils';
+import { extractYoutubeId, extractChzzkId, isVideoUrl, matchMediaUrl, matchLogMedia } from '../../utils/urlUtils';
 import { formatRecommendShareText, shareTextOrClipboard } from '../../utils/shareUtils';
 import { ShareBoxArrowIcon } from '../common/ShareIcon';
 import { BroadcastDetailModal } from './BroadcastDetailModal';
@@ -643,12 +643,6 @@ export function RecommendTab({
 
   const allVideos = useMemo(() => {
     if (!data || !data.logs) return [];
-    
-    const getYoutubeId = (url: string) => {
-      if (!url) return null;
-      const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([^&?]+)/);
-      return match ? match[1] : null;
-    };
 
     // 각 영상의 관련 게임 추출 함수 (몰아보기: 등록된 모든 게임 취합 / 일반 영상: 해당 영상 관련 게임만 추출)
     const extractRelevantGames = (edit: any, log: any) => {
@@ -761,7 +755,7 @@ export function RecommendTab({
     Object.values(data.logs).forEach((log: any) => {
       if (log.edited && Array.isArray(log.edited)) {
         log.edited.forEach((edit: any) => {
-          const id = getYoutubeId(edit.url);
+          const id = extractYoutubeId(edit.url);
           if (id) {
             if (baseWeights.current[id] === undefined) {
               baseWeights.current[id] = Math.random();
@@ -905,13 +899,7 @@ export function RecommendTab({
       // 1. 영상, 쇼츠, 생방 링크 대조 함수
       // Firestore나 JSON을 새로 호출하지 않고, 기존에 로드된 data.logs와 allVideos 메모리 데이터와만 대조합니다.
       const checkLogMedia = (log: any): boolean => {
-        if (!log) return false;
-        if (log.vods?.some((vod: any) => matchMediaUrl(typeof vod === 'string' ? vod : vod?.url, term))) return true;
-        if (log.shorts?.some((s: any) => matchMediaUrl(typeof s === 'string' ? s : s?.url, term))) return true;
-        if (log.edited?.some((e: any) => matchMediaUrl(typeof e === 'string' ? e : e?.url, term))) return true;
-        if (log.games?.some((g: any) => matchMediaUrl(g?.vodUrl, term) || matchMediaUrl(g?.link, term))) return true;
-        if (matchMediaUrl(log.youtubeUrl, term) || matchMediaUrl(log.chzzkUrl, term) || matchMediaUrl(log.liveUrl, term) || matchMediaUrl(log.vodUrl, term)) return true;
-        return false;
+        return matchLogMedia(log, term);
       };
 
       // 만약 term이 미디어 링크라면, 전체 logs 중 매칭되는 방송일 집합을 미리 구해둡니다.
@@ -921,7 +909,7 @@ export function RecommendTab({
           ? data.logs 
           : Object.entries(data.logs).map(([date, val]) => ({ ...(val as any), date }));
         for (const log of logEntries) {
-          if (checkLogMedia(log) && log.date) {
+          if (matchLogMedia(log, term) && log.date) {
             matchingDatesFromLogs.add(log.date);
           }
         }
@@ -931,10 +919,10 @@ export function RecommendTab({
       const searchTarget = isUrl ? allVideos : vids;
 
       vids = searchTarget.filter(v => {
-        // 1. 영상, 쇼츠, 생방 링크 대조
+        // 1. 영상, 쇼츠, 생방 링크 대조 (11자리 Video ID 고유 식별자 파싱 및 LIKE 대조)
         if (isUrl) {
-          // (1-1) 영상 자체 ID 및 URL 대조
-          if (ytId && (v.id === ytId || matchMediaUrl(v.videoUrl, term))) return true;
+          // (1-1) 영상 자체 ID 및 URL 대조 (풀링크/단축/라이브/쇼츠/임베드 무관 100% 식별)
+          if (ytId && (v.id === ytId || extractYoutubeId(v.videoUrl) === ytId || v.videoUrl?.includes(ytId))) return true;
           if (matchMediaUrl(v.videoUrl, term)) return true;
 
           // (1-2) 영상 내 games의 link / vodUrl 대조
@@ -972,12 +960,11 @@ export function RecommendTab({
         if (fuzzyKoreanMatch(term, v.videoTitle)) return true;
         
         // 4. 카테고리 및 게임명 검색
-        if (v.category) {
-          if (fuzzyKoreanMatch(term, v.category)) return true;
-        } else {
-          if (v.parentLog?.games?.some((g: any) => fuzzyKoreanMatch(term, g.name) || fuzzyKoreanMatch(term, g.category))) return true;
-          if (fuzzyKoreanMatch(term, v.parentLog?.game || '')) return true;
-        }
+        if (v.category && fuzzyKoreanMatch(term, v.category)) return true;
+        if (v.games?.some((g: any) => fuzzyKoreanMatch(term, g.name) || (g.category && fuzzyKoreanMatch(term, g.category)))) return true;
+        if (v.parentLog?.games?.some((g: any) => fuzzyKoreanMatch(term, g.name) || (g.category && fuzzyKoreanMatch(term, g.category)))) return true;
+        if (v.parentLog?.game && fuzzyKoreanMatch(term, v.parentLog.game)) return true;
+        if (v.parentLog?.category && fuzzyKoreanMatch(term, v.parentLog.category)) return true;
         return false;
       });
     }
@@ -1029,10 +1016,18 @@ export function RecommendTab({
          const primaryGame = (v.parentLog?.game || '').toLowerCase();
          const category = (v.category || v.parentLog?.category || '').toLowerCase();
 
-         // 1. URL / ID 일치 (최고 확률)
+         // 1. URL / Video ID 일치 (최고 우선순위: 검색한 바로 그 유튜브 영상 1위)
          if (isUrl) {
-           matchScore = 100;
-           isHighConfidence = true;
+           if (ytId && (v.id === ytId || extractYoutubeId(v.videoUrl) === ytId)) {
+             matchScore = 150;
+             isHighConfidence = true;
+           } else if (matchMediaUrl(v.videoUrl, rawTerm)) {
+             matchScore = 130;
+             isHighConfidence = true;
+           } else {
+             matchScore = 100;
+             isHighConfidence = true;
+           }
          }
          // 2. 제목 완전 일치 또는 직접 포함
          else if (aTitle === q) {

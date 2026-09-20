@@ -106,9 +106,10 @@ export function buildCalendarEventDetails(log: BroadcastLog): CalendarEventDetai
     });
   }
 
+  const pageOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://uzuhama-prediction.web.app';
   descLines.push('');
-  descLines.push('우주하마 방송 예측:');
-  descLines.push(typeof window !== 'undefined' ? window.location.origin : 'https://uzuhama-prediction.web.app');
+  descLines.push(`🌐 구독한 페이지 링크: ${pageOrigin}`);
+  descLines.push(`📌 우주하마 방송 통계: ${pageOrigin}`);
 
   const description = descLines.join('\n');
 

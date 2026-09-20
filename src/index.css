@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-/* 배달의민족 한나체 Pro (BM HANNA Pro) - 경량 최적화 웹폰트 CDN */
+/* 배달의민족 한나체 Pro (BM HANNA Pro) - 경량 최적화 웹폰트 CDN 
+   한자(CJK) 및 미지원 특수문자는 시스템 기본 서체로 자동 폴백되도록 unicode-range 지정 */
 @font-face {
   font-family: 'BMHANNAPro';
   src: local('배달의민족 한나체 Pro'), local('BM HANNA Pro'), local('BMHANNAPro'),
@@ -9,6 +10,7 @@
   font-weight: 400;
   font-style: normal;
   font-display: swap;
+  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+3130-318F, U+AC00-D7A3;
 }
 
 @font-face {
@@ -19,9 +21,11 @@
   font-weight: 400;
   font-style: normal;
   font-display: swap;
+  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+3130-318F, U+AC00-D7A3;
 }
 
-/* 배달의민족 한나체 Air (BM HANNA Air) - 본문/줄글 전용 경량 서체 */
+/* 배달의민족 한나체 Air (BM HANNA Air) - 본문/줄글 전용 경량 서체 
+   한자(CJK) 및 미지원 특수문자는 시스템 기본 서체로 자동 폴백되도록 unicode-range 지정 */
 @font-face {
   font-family: 'BMHANNAAir';
   src: local('배달의민족 한나체 Air'), local('BM HANNA Air'), local('BMHANNAAir'),
@@ -29,6 +33,7 @@
   font-weight: 300;
   font-style: normal;
   font-display: swap;
+  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+3130-318F, U+AC00-D7A3;
 }
 
 @font-face {
@@ -38,18 +43,19 @@
   font-weight: 300;
   font-style: normal;
   font-display: swap;
+  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+3130-318F, U+AC00-D7A3;
 }
 
 @theme {
-  --font-sans: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
-  --font-hanna: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
-  --font-air: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  --font-sans: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Noto Sans CJK KR', 'Noto Sans JP', 'Segoe UI', Roboto, sans-serif;
+  --font-hanna: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Noto Sans CJK KR', 'Noto Sans JP', 'Segoe UI', Roboto, sans-serif;
+  --font-air: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Noto Sans CJK KR', 'Noto Sans JP', 'Segoe UI', Roboto, sans-serif;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 html, body {
-  font-family: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  font-family: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Noto Sans CJK KR', 'Noto Sans JP', 'Segoe UI', Roboto, sans-serif;
   font-weight: 400;
   background-color: #ffffff;
   color: #18181b;

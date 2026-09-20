@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   CheckCircle2, ChevronDown, ChevronUp, 
   RotateCcw, RefreshCw, Lock, Share2, AlertCircle,
-  ChevronLeft, ChevronRight, Download, Copy, Check, X, ExternalLink
+  ChevronLeft, ChevronRight, Download, Copy, Check, X, ExternalLink, ShieldCheck, HelpCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, setDoc, getDoc, deleteDoc, runTransaction, collection, onSnapshot } from 'firebase/firestore';
@@ -11,7 +11,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Poll, SystemConfig } from '../types';
 import { format, isAfter, isBefore } from 'date-fns';
 import { generatePollResultImage } from '../utils/generatePollImage';
-import { useBodyScrollLock } from '../utils';
+import { useBodyScrollLock, cn } from '../utils';
 
 interface AnonymousPollCardProps {
   system?: SystemConfig;
@@ -60,6 +60,58 @@ export function AnonymousPollCard({ system, polls: propsPolls }: AnonymousPollCa
 
   // 배너 수동 조작 시 일시정지 타이머 (timestamp)
   const [manualPauseUntil, setManualPauseUntil] = useState<number>(0);
+
+  // 동일 IP 안내 팝오버 상태
+  const [showIpTooltip, setShowIpTooltip] = useState<boolean>(false);
+  const [ipTooltipPos, setIpTooltipPos] = useState<{ top: number; left: number; arrowLeft: number; showAbove: boolean } | null>(null);
+  const ipHelpButtonRef = useRef<HTMLButtonElement>(null);
+
+  const updateIpTooltipPosition = () => {
+    if (!ipHelpButtonRef.current) return;
+    const rect = ipHelpButtonRef.current.getBoundingClientRect();
+    const popupWidth = Math.min(320, typeof window !== 'undefined' ? window.innerWidth - 32 : 320);
+
+    let left = rect.left + rect.width / 2 - popupWidth / 2;
+    const minLeft = 16;
+    const maxLeft = typeof window !== 'undefined' ? window.innerWidth - popupWidth - 16 : 16;
+    left = Math.max(minLeft, Math.min(left, maxLeft));
+
+    const buttonCenter = rect.left + rect.width / 2;
+    const arrowLeft = Math.max(16, Math.min(popupWidth - 16, buttonCenter - left));
+
+    const popupHeight = 150;
+    const showAbove = typeof window !== 'undefined' && rect.bottom + popupHeight + 16 > window.innerHeight && rect.top > popupHeight + 16;
+    const top = showAbove ? (rect.top - 8) : (rect.bottom + 8);
+
+    setIpTooltipPos({ top, left, arrowLeft, showAbove });
+  };
+
+  const handleToggleIpTooltip = () => {
+    if (!showIpTooltip) {
+      updateIpTooltipPosition();
+      setShowIpTooltip(true);
+    } else {
+      setShowIpTooltip(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showIpTooltip) return;
+    const handleScrollOrResize = () => {
+      updateIpTooltipPosition();
+    };
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowIpTooltip(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showIpTooltip]);
 
   const hasVoted = Boolean(hasVotedLocally || ipLocked);
 
@@ -684,10 +736,32 @@ export function AnonymousPollCard({ system, polls: propsPolls }: AnonymousPollCa
                   투표 완료
                 </span>
               ) : ipLocked ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
-                  <Lock className="w-3 h-3" />
-                  참여 완료 (동일 IP)
-                </span>
+                <div className="inline-flex items-center gap-1">
+                  <span 
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300"
+                  >
+                    <Lock className="w-3 h-3" />
+                    참여 완료 (동일 IP)
+                  </span>
+                  <button
+                    ref={ipHelpButtonRef}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleIpTooltip();
+                    }}
+                    className={cn(
+                      "p-1 rounded-full transition-colors",
+                      showIpTooltip 
+                        ? "text-zinc-900 dark:text-white bg-zinc-200 dark:bg-zinc-700" 
+                        : "text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    )}
+                    title="동일 IP 안내 보기"
+                    aria-label="동일 IP 안내 보기"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ) : (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
                   미참여
@@ -911,8 +985,79 @@ export function AnonymousPollCard({ system, polls: propsPolls }: AnonymousPollCa
                 </div>
               </div>
 
+              {/* IP 사용 목적 및 개인정보 보호 안내 */}
+              <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500">
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" />
+                  <span>IP 주소는 1인 1투표 중복 방지 식별 용도로만 사용되며, 위치 추적 등은 일절 불가능합니다.</span>
+                </span>
+              </div>
+
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 동일 IP 참여 안내 팝오버 팝업 (상세분석 ? 팝업과 동일한 인터랙션) */}
+      <AnimatePresence>
+        {showIpTooltip && ipTooltipPos && (
+          <div className="fixed inset-0 z-50 pointer-events-auto">
+            <div 
+              className="fixed inset-0 bg-black/15 dark:bg-black/40 backdrop-blur-[0.5px]"
+              onClick={() => setShowIpTooltip(false)}
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: ipTooltipPos.showAbove ? 6 : -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: ipTooltipPos.showAbove ? 6 : -6 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              style={{
+                top: ipTooltipPos.top,
+                left: ipTooltipPos.left,
+                width: Math.min(320, typeof window !== 'undefined' ? window.innerWidth - 32 : 320),
+                transform: ipTooltipPos.showAbove ? 'translateY(-100%)' : undefined,
+              }}
+              className="fixed z-50 bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200/90 dark:border-zinc-800 p-4 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed"
+            >
+              {/* 말풍선 핀 */}
+              <div 
+                className={cn(
+                  "absolute w-3 h-3 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 transform rotate-45",
+                  ipTooltipPos.showAbove 
+                    ? "-bottom-1.5 border-t-0 border-l-0" 
+                    : "-top-1.5 border-b-0 border-r-0"
+                )}
+                style={{ left: ipTooltipPos.arrowLeft - 6 }}
+              />
+
+              <div className="relative z-10">
+                <div className="flex justify-between items-center mb-2 pb-1.5 border-b border-zinc-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-1.5 font-bold text-zinc-900 dark:text-white">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span>동일 IP 참여 안내</span>
+                  </div>
+                  <button 
+                    onClick={() => setShowIpTooltip(false)} 
+                    className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    aria-label="닫기"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <p className="text-zinc-600 dark:text-zinc-300 mb-3 leading-relaxed">
+                  현재 접속 환경(동일 Wi-Fi 등)에서 이미 투표가 완료되었습니다. IP 정보는 <strong>1인 1투표 중복 방지 식별 용도로만</strong> 안전하게 사용되며, 위치 추적이나 개인 신원 조회 등은 일절 불가능합니다.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowIpTooltip(false)}
+                  className="w-full py-1.5 px-3 rounded-lg bg-zinc-100 hover:bg-amber-50 hover:text-amber-700 dark:bg-zinc-800 dark:hover:bg-amber-950/40 dark:hover:text-amber-300 text-zinc-700 dark:text-zinc-300 font-semibold text-xs transition-colors text-center border border-zinc-200 dark:border-zinc-700 hover:border-amber-200 dark:hover:border-amber-800"
+                >
+                  확인
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

@@ -59,7 +59,9 @@ export default async function handler(req: any, res: any) {
 
     const validOptionIds = new Set(currentOptions.map(o => o.id));
 
-    // 클라이언트 IP 추출 (비로그인 식별 및 중복 방지 강화)
+    // 클라이언트 IP 추출 (비로그인 1인 1투표 중복 방지 식별 용도)
+    // [개인정보 보호 원칙]: IP 주소는 오직 공정한 중복 투표 방지 식별 키로만 사용되며,
+    // 위치 추적, 개인 신원 조회 등은 일절 수행하지 않으며 시스템상 불가능합니다.
     const forwarded = req.headers['x-forwarded-for'];
     let clientIp = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : (req.socket?.remoteAddress || '127.0.0.1');
     if (clientIp.startsWith('::ffff:')) clientIp = clientIp.substring(7);

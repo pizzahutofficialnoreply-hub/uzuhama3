@@ -53,7 +53,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList } from 'recharts';
 import { format, startOfYear, startOfMonth, endOfMonth, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, subDays, subYears, formatISO } from 'date-fns';
 import { AppData, BroadcastLog } from '../../types';
-import { CustomTooltip } from '../CustomTooltip';
+import { CustomTooltip, DottedBarCursor } from '../CustomTooltip';
 import { parseTimeString, parseTimeTo24, cn, useBodyScrollLock } from '../../utils';
 import { Download, FileText, AlertCircle, X, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -966,7 +966,7 @@ export function DetailedStatsTab({
                     {insights.dailySummary}
                   </StatInsightSummary>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm flex flex-col">
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
                       <h4 className="font-bold mb-4">요일별 방송 빈도 그래프</h4>
                       <div className="h-[300px] w-full">
                         {isActive && (
@@ -975,7 +975,13 @@ export function DetailedStatsTab({
                               <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                               <XAxis dataKey="day" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                               <YAxis stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`} />
-                              <Tooltip cursor={false} content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} />
+                              <Tooltip 
+                                cursor={<DottedBarCursor />} 
+                                position={{ y: 0 }}
+                                wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
+                                allowEscapeViewBox={{ x: false, y: true }}
+                                content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} 
+                              />
                               <ReferenceLine y={stats.avgDaily} stroke="#f43f5e" strokeDasharray="3 3" label={{ position: 'top', value: `평균(${stats.avgDaily.toFixed(1)}%)`, fill: '#f43f5e', fontSize: 10 }} />
                               <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
                                 {stats.dailyStatsArray.map((entry, index) => (
@@ -988,7 +994,7 @@ export function DetailedStatsTab({
                       </div>
                     </div>
 
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm flex flex-col">
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
                       <h4 className="font-bold mb-4">요일별 방송 확률 표</h4>
                       <div className="overflow-x-auto custom-scrollbar flex-1 w-full">
                         <table className="w-full min-w-[280px] text-left text-xs sm:text-sm whitespace-nowrap table-auto lg:table-fixed">
@@ -1032,7 +1038,7 @@ export function DetailedStatsTab({
           <>
             {activeSubTab === 'trend' && (
               <div className="space-y-6">
-                <div id="detailed-trend-weekly-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm relative space-y-4">
+                <div id="detailed-trend-weekly-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold">주간 방송 횟수 추이</h4>
                     <WidgetShareButton targetId="detailed-trend-weekly-card" title="주간 방송 횟수 추이" />
@@ -1067,7 +1073,7 @@ export function DetailedStatsTab({
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div id="detailed-day-times-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm col-span-1 lg:col-span-2 relative space-y-4">
+                  <div id="detailed-day-times-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm col-span-1 lg:col-span-2 relative space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="font-bold">요일별 자주 오는 시간</h4>
                       <WidgetShareButton targetId="detailed-day-times-card" title="요일별 자주 오는 시간" />
@@ -1090,7 +1096,7 @@ export function DetailedStatsTab({
                     </div>
                   </div>
                   
-                  <div id="detailed-start-hour-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm flex flex-col relative space-y-4">
+                  <div id="detailed-start-hour-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col relative space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="font-bold">시작 시간대별 그래프 & 순위</h4>
                       <WidgetShareButton targetId="detailed-start-hour-card" title="시작 시간대별 분석" />
@@ -1104,7 +1110,13 @@ export function DetailedStatsTab({
                           <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                           <XAxis dataKey="label" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                           <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`} />
-                          <Tooltip cursor={false} content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} />
+                          <Tooltip 
+                            cursor={<DottedBarCursor />} 
+                            position={{ y: 0 }}
+                            wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
+                            allowEscapeViewBox={{ x: false, y: true }}
+                            content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} 
+                          />
                           <Bar dataKey="probability" radius={[4, 4, 0, 0]} fill="#3b82f6" animationDuration={300} animationEasing="ease-out">
                             <LabelList dataKey="probability" position="top" fill="#2563eb" fontSize={10} offset={4} fontWeight="bold" className="chart-capture-only-label" formatter={(val: number) => val > 0 ? `${val.toFixed(1)}%` : ''} />
                           </Bar>
@@ -1188,7 +1200,7 @@ export function DetailedStatsTab({
                     {insights.dailySummary}
                   </StatInsightSummary>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm flex flex-col">
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
                       <h4 className="font-bold mb-4">요일별 방송 빈도 그래프</h4>
                       <div className="h-[300px] w-full">
                         {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
@@ -1196,7 +1208,13 @@ export function DetailedStatsTab({
                             <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                             <XAxis dataKey="day" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                             <YAxis stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`} />
-                            <Tooltip cursor={false} content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} />
+                            <Tooltip 
+                              cursor={<DottedBarCursor />} 
+                              position={{ y: 0 }}
+                              wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
+                              allowEscapeViewBox={{ x: false, y: true }}
+                              content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} 
+                            />
                             <ReferenceLine y={stats.avgDaily} stroke="#f43f5e" strokeDasharray="3 3" label={{ position: 'top', value: `평균(${stats.avgDaily.toFixed(1)}%)`, fill: '#f43f5e', fontSize: 10 }} />
                             <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
                               <LabelList dataKey="probability" position="top" fill="#4b5563" fontSize={11} offset={4} fontWeight="bold" className="chart-capture-only-label" formatter={(val: number) => `${val.toFixed(1)}%`} />
@@ -1209,7 +1227,7 @@ export function DetailedStatsTab({
                       </div>
                     </div>
 
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm flex flex-col">
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
                       <h4 className="font-bold mb-4">요일별 방송 확률 표</h4>
                       <div className="overflow-x-auto custom-scrollbar flex-1 w-full">
                         <table className="w-full min-w-[280px] text-left text-xs sm:text-sm whitespace-nowrap table-auto lg:table-fixed">
@@ -1252,7 +1270,7 @@ export function DetailedStatsTab({
       </div>
 
       {/* 푸터 바로 윗부분: 레거시 데이터 안내문구 */}
-      <div className="mt-8 p-4 rounded-[20px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2 leading-relaxed">
+      <div className="mt-8 p-4 rounded-[24px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2 leading-relaxed">
         <div>
           <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 {firstYear}~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 파일 변환 시에 누락된 데이터나 잘못된 정보가 포함되어 있을 수 있습니다.
         </div>
@@ -1271,7 +1289,7 @@ export function DetailedStatsTab({
           {isLegacyRange ? (
             <div className="space-y-8">
               {/* 주간 방송 횟수 추이 */}
-              <div className="bg-white border border-zinc-200 rounded-[20px] p-6">
+              <div className="bg-white border border-zinc-200 rounded-[24px] p-6">
                 <h4 className="font-bold mb-4 text-zinc-900">주간 방송 횟수 추이</h4>
                 <div className="w-full flex justify-center">
                   {isActive && (
@@ -1289,7 +1307,7 @@ export function DetailedStatsTab({
 
               {/* 요일별 방송 빈도 그래프 & 요일별 방송 확률 표 */}
               <div className="grid grid-cols-2 gap-6">
-                <div className="bg-white border border-zinc-200 rounded-[20px] p-6">
+                <div className="bg-white border border-zinc-200 rounded-[24px] p-6">
                   <h4 className="font-bold mb-4 text-zinc-900">요일별 방송 빈도 그래프</h4>
                   <div className="w-full flex justify-center">
                     {isActive && (
@@ -1309,7 +1327,7 @@ export function DetailedStatsTab({
                   </div>
                 </div>
 
-                <div className="bg-white border border-zinc-200 rounded-[20px] p-6">
+                <div className="bg-white border border-zinc-200 rounded-[24px] p-6">
                   <h4 className="font-bold mb-4 text-zinc-900">요일별 방송 확률 표</h4>
                   <table className="w-full text-left text-sm">
                     <thead className="bg-zinc-50 text-zinc-500 font-semibold border-y border-zinc-200">
@@ -1594,7 +1612,7 @@ export function DetailedStatsTab({
           <div className="space-y-6">
             <h3 className="text-2xl font-bold text-zinc-900 border-l-4 border-purple-500 pl-3">방송 추이 및 시간대 분석</h3>
             
-            <div className="bg-white border border-zinc-200 rounded-[20px] p-6">
+            <div className="bg-white border border-zinc-200 rounded-[24px] p-6">
               <h4 className="font-bold mb-4 text-zinc-900">주간 방송 횟수 추이</h4>
               <div className="w-full flex justify-center">
                 {isActive && (
@@ -1622,7 +1640,7 @@ export function DetailedStatsTab({
             </div>
 
             <div className="grid grid-cols-2 gap-6">
-              <div className="bg-white border border-zinc-200 rounded-[20px] p-6">
+              <div className="bg-white border border-zinc-200 rounded-[24px] p-6">
                 <h4 className="font-bold mb-4 text-zinc-900">시작 시간대별 확률</h4>
                 <div className="w-full flex justify-center mb-4">
                   {isActive && (
@@ -1656,7 +1674,7 @@ export function DetailedStatsTab({
                 </table>
               </div>
 
-              <div className="bg-white border border-zinc-200 rounded-[20px] p-6">
+              <div className="bg-white border border-zinc-200 rounded-[24px] p-6">
                 <h4 className="font-bold mb-4 text-zinc-900">1회당 방송 진행 시간</h4>
                 <table className="w-full text-left text-sm">
                   <thead className="bg-zinc-50 text-zinc-500 font-semibold border-y border-zinc-200">
@@ -1684,7 +1702,7 @@ export function DetailedStatsTab({
           <div className="space-y-6 pt-6">
             <h3 className="text-2xl font-bold text-zinc-900 border-l-4 border-blue-500 pl-3">요일별 상세 분석</h3>
             
-            <div className="bg-white border border-zinc-200 rounded-[20px] p-6">
+            <div className="bg-white border border-zinc-200 rounded-[24px] p-6">
               <h4 className="font-bold mb-4 text-zinc-900">요일별 자주 오는 시간</h4>
               <div className="flex justify-between gap-2">
                 {['월', '화', '수', '목', '금', '토', '일'].map(day => {
@@ -1702,7 +1720,7 @@ export function DetailedStatsTab({
             </div>
 
             <div className="grid grid-cols-2 gap-6">
-              <div className="bg-white border border-zinc-200 rounded-[20px] p-6">
+              <div className="bg-white border border-zinc-200 rounded-[24px] p-6">
                 <h4 className="font-bold mb-4 text-zinc-900">요일별 방송 확률 차트</h4>
                 <div className="w-full flex justify-center">
                   {isActive && (
@@ -1722,7 +1740,7 @@ export function DetailedStatsTab({
                 </div>
               </div>
 
-              <div className="bg-white border border-zinc-200 rounded-[20px] p-6">
+              <div className="bg-white border border-zinc-200 rounded-[24px] p-6">
                 <h4 className="font-bold mb-4 text-zinc-900">요일별 방송 확률 표</h4>
                 <table className="w-full text-left text-sm">
                   <thead className="bg-zinc-50 text-zinc-500 font-semibold border-y border-zinc-200">

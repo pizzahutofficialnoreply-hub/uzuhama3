@@ -1,8 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { 
   initializeFirestore, 
-  persistentLocalCache, 
-  persistentMultipleTabManager 
+  memoryLocalCache
 } from "firebase/firestore";
 import { 
   getAuth, 
@@ -25,11 +24,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
+// Safari 및 PWA 환경에서 IndexedDB 꼬임 방지를 위해 Memory Cache 적용
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  }),
-  experimentalForceLongPolling: true,
+  localCache: memoryLocalCache()
 });
 
 export const auth = getAuth(app);
@@ -49,7 +46,6 @@ export const messaging = async () => {
 };
 
 export const googleProvider = new GoogleAuthProvider();
-
 
 export const loginWithGoogle = () => signInWithPopup(auth, googleProvider);
 export const logout = () => signOut(auth);

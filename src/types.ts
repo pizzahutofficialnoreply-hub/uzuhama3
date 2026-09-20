@@ -252,3 +252,18 @@ export interface SavedDraft {
   data: any;
 }
 
+export type PatchCategory = 'patch' | 'hotfix' | 'update' | 'dev';
+
+export interface PatchNote {
+  id: string;
+  version: string; // e.g., '0.0.1', '1.0.0'
+  title: string;
+  category: PatchCategory; // 'patch' (패치노트), 'hotfix' (핫픽스 노트), 'update' (업데이트 공지), 'dev' (개발자 노트)
+  date: string; // YYYY-MM-DD
+  content: string; // Markdown or formatted text
+  highlights?: string[];
+  author?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

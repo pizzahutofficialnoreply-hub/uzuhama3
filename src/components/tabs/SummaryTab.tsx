@@ -4,7 +4,7 @@ import { WidgetShareButton } from '../common/WidgetShareButton';
 import { AppData } from '../../types';
 import { format, startOfMonth, endOfMonth, parseISO, startOfWeek, isSameDay, addDays } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, Cell, LabelList } from 'recharts';
-import { CustomTooltip } from '../CustomTooltip';
+import { CustomTooltip, DottedBarCursor } from '../CustomTooltip';
 import { SmartTrendLabel } from '../stats/SmartTrendLabel';
 import { parseTimeString, parseTimeTo24 } from '../../utils';
 
@@ -254,7 +254,13 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                 <XAxis dataKey="day" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                 <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
-                <RechartsTooltip cursor={false} content={<CustomTooltip formatter={(value: number) => [`${value}회`, '방송 횟수']} />} />
+                <RechartsTooltip 
+                  cursor={<DottedBarCursor />} 
+                  position={{ y: 0 }}
+                  wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
+                  allowEscapeViewBox={{ x: false, y: true }}
+                  content={<CustomTooltip formatter={(value: number) => [`${value}회`, '방송 횟수']} />} 
+                />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="#3b82f6" animationDuration={300} animationEasing="ease-out">
                   <LabelList dataKey="count" position="top" fill="#2563eb" fontSize={11} offset={4} fontWeight="bold" className="chart-capture-only-label" formatter={(val: number) => `${val}회`} />
                 </Bar>

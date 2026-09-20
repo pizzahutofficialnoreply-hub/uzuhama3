@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { AppData, BroadcastLog, GameItem, LinkItem, GameGroup } from '../../../types';
+import { extractYoutubeId, matchLogMedia, matchMediaUrl } from '../../../utils/urlUtils';
+import { fuzzyKoreanMatch, fuzzyDateMatch } from '../../../utils';
 import { db } from '../../../lib/firebase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { 
@@ -128,15 +130,27 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
 
   // 검색된 생방 목록 필터링
   const filteredLogs = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = searchTerm.trim();
     if (!q) {
       return allLogs.slice(0, 20);
     }
     return allLogs.filter(log => {
-      if (log.date.toLowerCase().includes(q)) return true;
-      if (log.category && log.category.toLowerCase().includes(q)) return true;
-      if (log.game && log.game.toLowerCase().includes(q)) return true;
-      if (log.games && log.games.some(g => g.name.toLowerCase().includes(q))) return true;
+      // 1. 미디어 링크 및 Video ID 대조
+      if (matchLogMedia(log, q)) return true;
+
+      // 2. 날짜 대조 (YYYY-MM-DD, M/D, M월 D일 등)
+      if (log.date && (log.date.includes(q) || fuzzyDateMatch(q, log.date))) return true;
+
+      // 3. 게임명 및 카테고리 초성/퍼지 매칭
+      if (log.game && fuzzyKoreanMatch(q, log.game)) return true;
+      if (log.category && fuzzyKoreanMatch(q, log.category)) return true;
+      if (log.games && log.games.some(g => (g.name && fuzzyKoreanMatch(q, g.name)) || (g.category && fuzzyKoreanMatch(q, g.category)))) return true;
+
+      // 4. 영상 제목 매칭
+      if (log.vods?.some(v => (v.title && fuzzyKoreanMatch(q, v.title)) || matchMediaUrl(typeof v === 'string' ? v : v?.url, q))) return true;
+      if (log.shorts?.some(s => (s.title && fuzzyKoreanMatch(q, s.title)) || matchMediaUrl(typeof s === 'string' ? s : s?.url, q))) return true;
+      if (log.edited?.some(e => (e.title && fuzzyKoreanMatch(q, e.title)) || matchMediaUrl(typeof e === 'string' ? e : e?.url, q))) return true;
+
       return false;
     });
   }, [allLogs, searchTerm]);
@@ -1042,11 +1056,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
           ) : (
             <div className="grid grid-cols-1 gap-3.5">
               {existingCompilations.map(comp => {
-                const getYoutubeId = (url: string) => {
-                  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([^&?]+)/);
-                  return match ? match[1] : null;
-                };
-                const yId = getYoutubeId(comp.url);
+                const yId = extractYoutubeId(comp.url);
 
                 return (
                   <div

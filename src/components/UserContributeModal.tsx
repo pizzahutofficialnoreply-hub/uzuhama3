@@ -8,7 +8,8 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { BroadcastLog, SavedDraft } from '../types';
 import { useAuth } from '../hooks/useAuth';
-import { useBodyScrollLock, cn } from '../utils';
+import { useBodyScrollLock, cn, fuzzyKoreanMatch, fuzzyDateMatch } from '../utils';
+import { extractYoutubeId, matchLogMedia } from '../utils/urlUtils';
 import { DraftsListModal } from './modals/DraftsListModal';
 
 interface UserContributeModalProps {
@@ -314,9 +315,7 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
   };
 
   const getYoutubeVideoId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|shorts\/)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+    return extractYoutubeId(url);
   };
 
   const getTitle = () => {
@@ -590,13 +589,14 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
             /* Video / Shorts Blocks */
             <div className="space-y-6">
               {videoBlocks.map((block, bIdx) => {
-                const query = block.searchQuery.toLowerCase().trim();
+                const query = block.searchQuery.trim();
                 const matchingLogs = (!logs || !query) ? [] : Object.values(logs)
                   .filter(log => {
-                    if (!log.date) return false;
-                    if (log.date.includes(query)) return true;
-                    if (log.game?.toLowerCase().includes(query)) return true;
-                    if (log.games?.some(g => g.name?.toLowerCase().includes(query))) return true;
+                    if (matchLogMedia(log, query)) return true;
+                    if (log.date && (log.date.includes(query) || fuzzyDateMatch(query, log.date))) return true;
+                    if (log.game && fuzzyKoreanMatch(query, log.game)) return true;
+                    if (log.category && fuzzyKoreanMatch(query, log.category)) return true;
+                    if (log.games?.some(g => (g.name && fuzzyKoreanMatch(query, g.name)) || (g.category && fuzzyKoreanMatch(query, g.category)))) return true;
                     return false;
                   })
                   .sort((a, b) => new Date(b.date || '').getTime() - new Date(a.date || '').getTime())
