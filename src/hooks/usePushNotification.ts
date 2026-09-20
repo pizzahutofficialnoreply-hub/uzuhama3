@@ -7,12 +7,11 @@ export interface PushSettings {
   notifyLive: boolean;
   notifyAbsence: boolean;
   notifyPeakProb?: boolean;
-  leadTimeMinutes?: number; // 최고 확률 시간 기준 몇 분 전 사전 알림
+  leadTimeMinutes?: number;
 }
 
 const STORAGE_KEY = 'uzuhama_push_settings';
 
-// Vercel 푸시 구독 API 전체 엔드포인트 URL (Vercel 배포 시 Same-Origin 우선 활용 및 슬래시 정규화)
 const RAW_API_BASE = import.meta.env.VITE_VERCEL_API_URL || 
   (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app');
 const VERCEL_API_BASE = (RAW_API_BASE || '').replace(/\/+$/, '');
@@ -39,7 +38,6 @@ function saveStoredSettings(settings: PushSettings) {
   } catch {}
 }
 
-// Web Push VAPID Public Key (환경변수 fallback 지원)
 const DEFAULT_VAPID_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || 
   'BPMd-q_ZR3_u-Sk2XN5B5KnGO1fKostrYW76tUHtYCefh6KSnh-1Fp9lfiOEjcwyO-TGErUq63lJZoX7MNISBas';
 
@@ -58,14 +56,6 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
-function getSubDocId(endpoint: string): string {
-  try {
-    return btoa(endpoint).slice(-50).replace(/[^a-zA-Z0-9]/g, '_');
-  } catch {
-    return encodeURIComponent(endpoint.slice(-50)).replace(/[^a-zA-Z0-9]/g, '_');
-  }
-}
-
 const checkIsIOS = () => {
   if (typeof navigator === 'undefined') return false;
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -76,21 +66,23 @@ const checkIsStandalone = () => {
   return ('standalone' in window.navigator && (window.navigator as any).standalone) || window.matchMedia('(display-mode: standalone)').matches;
 };
 
-// 서비스 워커 Registration 객체 안전 획득 (무한 대기 방지 타임아웃 포함)
+// 서비스 워커 등록 상태 탐색 및 신규 등록 함수
 async function getReadyServiceWorker(timeoutMs: number = 3500): Promise<ServiceWorkerRegistration | null> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return null;
 
   try {
-    // 1. 이미 등록되어 활성화된 Registration 우선 조회 (/sw.js 또는 /sw-push.js)
-    const existingSw = await navigator.serviceWorker.getRegistration('/sw.js');
+    // 1. firebase-messaging-sw.js 우선 탐색
+    let existingSw = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
     if (existingSw && existingSw.active) return existingSw;
 
-    const existing = await navigator.serviceWorker.getRegistration('/sw-push.js');
-    if (existing && existing.active) {
-      return existing;
-    }
+    // 2. sw.js 및 sw-push.js 탐색
+    existingSw = await navigator.serviceWorker.getRegistration('/sw.js');
+    if (existingSw && existingSw.active) return existingSw;
 
-    // 2. navigator.serviceWorker.ready를 타임아웃과 함께 대기
+    existingSw = await navigator.serviceWorker.getRegistration('/sw-push.js');
+    if (existingSw && existingSw.active) return existingSw;
+
+    // 3. navigator.serviceWorker.ready 대기
     const readyPromise = navigator.serviceWorker.ready;
     const timeoutPromise = new Promise<null>((resolve) => 
       setTimeout(() => resolve(null), timeoutMs)
@@ -98,19 +90,20 @@ async function getReadyServiceWorker(timeoutMs: number = 3500): Promise<ServiceW
     const reg = await Promise.race([readyPromise, timeoutPromise]);
     if (reg) return reg;
 
-    // 3. 만약 ready 대기시간이 초과되었으나 getRegistration으로 조회되는 경우
-    const regFallback = (await navigator.serviceWorker.getRegistration('/sw.js')) || (await navigator.serviceWorker.getRegistration('/sw-push.js'));
+    // 4. 기존 등록 워커 재확인 Fallback
+    const regFallback = (await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js')) ||
+                        (await navigator.serviceWorker.getRegistration('/sw.js')) || 
+                        (await navigator.serviceWorker.getRegistration('/sw-push.js'));
     if (regFallback) return regFallback;
 
-    // 4. 최후의 수단으로 등록 시도
-    return await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    // 5. 신규 서비스 워커 등록 (/firebase-messaging-sw.js 등록)
+    return await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
   } catch (err) {
     console.debug('Service Worker Registration 획득 실패 (안내):', err);
     return null;
   }
 }
 
-// iOS WebKit 및 표준 브라우저 호환 권한 요청 래퍼
 async function requestPermissionDirectly(): Promise<NotificationPermission> {
   if (typeof window === 'undefined' || !('Notification' in window)) return 'denied';
   try {
@@ -135,15 +128,10 @@ export function usePushNotification() {
   const [loading, setLoading] = useState(true);
   const subscriptionRef = useRef<PushSubscription | null>(null);
 
-  // [앱 초기화 단계] 순수 읽기 전용 상태 점검:
-  // 절대 Notification.requestPermission()이나 showNotification()을 호출하지 않음 (iOS 차단 원천 방지)
   const checkSubscription = useCallback(async () => {
     if (typeof window === 'undefined') return;
 
     const isIOS = checkIsIOS();
-    const isStandalone = checkIsStandalone();
-
-    // iOS 일반 브라우저에서는 Notification이 숨겨져 있을 수 있으나 안내를 위해 isSupported=true 처리
     const supported = isIOS || ('Notification' in window && 'serviceWorker' in navigator);
     setIsSupported(supported);
 
@@ -158,7 +146,8 @@ export function usePushNotification() {
 
     try {
       if ('serviceWorker' in navigator) {
-        const registration = (await navigator.serviceWorker.getRegistration('/sw.js')) || 
+        const registration = (await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js')) ||
+                             (await navigator.serviceWorker.getRegistration('/sw.js')) || 
                              (await navigator.serviceWorker.getRegistration('/sw-push.js')) || 
                              (await navigator.serviceWorker.ready);
         if (registration && 'pushManager' in registration) {
@@ -167,7 +156,6 @@ export function usePushNotification() {
             subscriptionRef.current = sub;
             setIsSubscribed(true);
 
-            // 이미 구독된 브라우저 기기인 경우 서버 DB 동기화 확인
             try {
               let syncToken: string | null = null;
               if (sub.endpoint.includes('/fcm/send/')) {
@@ -203,7 +191,6 @@ export function usePushNotification() {
     checkSubscription();
   }, [checkSubscription]);
 
-  // [사용자 제스처 단계] 사용자가 직접 버튼이나 토글을 클릭했을 때만 호출되는 권한 요청 및 구독 로직
   const subscribe = async (initialSettings?: Partial<PushSettings>): Promise<boolean> => {
     const isIOS = checkIsIOS();
     const isStandalone = checkIsStandalone();
@@ -231,13 +218,12 @@ export function usePushNotification() {
 
       const registration = await getReadyServiceWorker();
       if (!registration) {
-        throw new Error('Service Worker not ready');
+        throw new Error('Service Worker 준비에 실패했습니다.');
       }
 
       let token: string | null = null;
       let pushSub: PushSubscription | null = null;
 
-      // 1. 네이티브 PushManager 구독 확인 및 생성
       try {
         if ('pushManager' in registration) {
           pushSub = await registration.pushManager.getSubscription();
@@ -255,7 +241,6 @@ export function usePushNotification() {
         console.warn('PushManager 구독 시도 안내:', pushErr);
       }
 
-      // 2. Firebase FCM Messaging 토큰 획득 시도 (VAPID 키 및 fallback 모드)
       try {
         const msg = await messaging();
         if (msg) {
@@ -272,10 +257,9 @@ export function usePushNotification() {
           }
         }
       } catch (fcmErr: any) {
-        console.warn('FCM 토큰 획득 안내 (브라우저 로컬 알림으로 대체 활성화):', fcmErr);
+        console.warn('FCM 토큰 획득 실패:', fcmErr);
       }
 
-      // 3. 토큰이 없는 경우 pushSub의 endpoint에서 FCM 토큰 추출
       if (!token && pushSub?.endpoint && pushSub.endpoint.includes('/fcm/send/')) {
         token = pushSub.endpoint.split('/fcm/send/')[1];
       }
@@ -286,7 +270,6 @@ export function usePushNotification() {
       };
       setSettings(newSettings);
       saveStoredSettings(newSettings);
-      setIsSubscribed(true);
 
       // FCM 토큰 또는 Web Push 엔드포인트를 Vercel 백엔드 API로 서버 등록 동기화
       if (token || pushSub?.endpoint) {
@@ -300,7 +283,7 @@ export function usePushNotification() {
           }
           const rawSub = pushSub ? JSON.parse(JSON.stringify(pushSub)) : null;
 
-          await fetch(SUBSCRIBE_URL, {
+          const response = await fetch(SUBSCRIBE_URL, {
             method: 'POST',
             headers,
             body: JSON.stringify({
@@ -310,9 +293,23 @@ export function usePushNotification() {
               settings: newSettings
             })
           });
-        } catch (e) {
-          console.debug('Failed to sync subscription via Vercel API:', e);
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            console.error('Vercel API 구독 등록 실패:', response.status, errData);
+            throw new Error(`서버 구독 등록 실패 (Status: ${response.status})`);
+          }
+
+          console.log('✅ FCM 토큰 서버 등록 성공:', token || pushSub?.endpoint);
+          setIsSubscribed(true);
+        } catch (e: any) {
+          console.error('Failed to sync subscription via Vercel API:', e);
+          alert(`서버 토큰 동기화 실패: ${e.message}`);
+          setIsSubscribed(false);
+          return false;
         }
+      } else {
+        throw new Error('유효한 푸시 토큰이나 엔드포인트를 생성하지 못했습니다.');
       }
 
       try {
@@ -325,7 +322,7 @@ export function usePushNotification() {
           } as any);
         }
       } catch (notifyErr) {
-        console.debug('초기 알림 발송 안내 (무시 가능):', notifyErr);
+        console.debug('초기 알림 발송 안내:', notifyErr);
       }
 
       return true;
@@ -333,7 +330,6 @@ export function usePushNotification() {
       console.error('푸시 구독 실패:', err);
       const errMsg = String(err?.message || err);
       if (errMsg.includes('installations') || errMsg.includes('PERMISSION_DENIED')) {
-        // 이미 권한이 허용되어 있다면 성공으로 간주
         setIsSubscribed(true);
         return true;
       }
@@ -344,13 +340,11 @@ export function usePushNotification() {
     }
   };
 
-  // 구독 해제
   const unsubscribe = async (): Promise<boolean> => {
     setLoading(true);
     try {
       const msg = await messaging();
       if (msg) {
-        // 서버에서도 해당 토큰 구독 삭제 시도
         try {
           const registration = await getReadyServiceWorker();
           if (registration) {
@@ -382,25 +376,20 @@ export function usePushNotification() {
     }
   };
 
-  // 설정 업데이트
   const updateSettings = async (newSettings: Partial<PushSettings>) => {
     const updated: PushSettings = {
       ...settings,
       ...newSettings
     };
-    // 방송/휴방 알림은 로컬 스토리지에 즉시 반영
     setSettings(updated);
     saveStoredSettings(updated);
 
-    // 아직 브라우저 알림 구독이 아니라면 사용자 제스처를 통해 구독 먼저 수행
     if (!isSubscribed) {
       await subscribe(updated);
       return;
     }
   };
 
-  // 브라우저 네이티브 알림 즉시 팝업 트리거
-  // 🚨 중요: 권한이 'granted'가 아닐 때 절대 requestPermission()을 부르지 않음 (iOS 차단 방지)
   const triggerLocalNotification = async (title: string, body: string, url: string = '/') => {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (Notification.permission !== 'granted') {
@@ -409,7 +398,6 @@ export function usePushNotification() {
     }
 
     try {
-      // 1. Service Worker registration.showNotification 최우선 시도 (iOS 필수 방식)
       if ('serviceWorker' in navigator) {
         const reg = await getReadyServiceWorker();
         if (reg && 'showNotification' in reg) {
@@ -423,7 +411,6 @@ export function usePushNotification() {
         }
       }
 
-      // 2. Controller postMessage fallback
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
           type: 'SHOW_NOTIFICATION',
@@ -438,7 +425,6 @@ export function usePushNotification() {
         return;
       }
 
-      // 3. iOS 외 데스크톱 브라우저를 위한 new Notification fallback
       if (!checkIsIOS()) {
         try {
           new Notification(title, {
