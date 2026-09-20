@@ -41,21 +41,6 @@ function saveStoredSettings(settings: PushSettings) {
 const DEFAULT_VAPID_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || 
   'BPMd-q_ZR3_u-Sk2XN5B5KnGO1fKostrYW76tUHtYCefh6KSnh-1Fp9lfiOEjcwyO-TGErUq63lJZoX7MNISBas';
 
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/');
-
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
 const checkIsIOS = () => {
   if (typeof navigator === 'undefined') return false;
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -66,16 +51,14 @@ const checkIsStandalone = () => {
   return ('standalone' in window.navigator && (window.navigator as any).standalone) || window.matchMedia('(display-mode: standalone)').matches;
 };
 
-// 서비스 워커 등록 상태 탐색 및 신규 등록 함수 (단일 /firebase-messaging-sw.js 사용)
+// 서비스 워커 등록 상태 탐색 및 신규 등록 함수
 async function getReadyServiceWorker(timeoutMs: number = 3500): Promise<ServiceWorkerRegistration | null> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return null;
 
   try {
-    // 1. firebase-messaging-sw.js 등록 확인
     let existingSw = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
     if (existingSw && existingSw.active) return existingSw;
 
-    // 2. navigator.serviceWorker.ready 대기
     const readyPromise = navigator.serviceWorker.ready;
     const timeoutPromise = new Promise<null>((resolve) => 
       setTimeout(() => resolve(null), timeoutMs)
@@ -83,10 +66,9 @@ async function getReadyServiceWorker(timeoutMs: number = 3500): Promise<ServiceW
     const reg = await Promise.race([readyPromise, timeoutPromise]);
     if (reg) return reg;
 
-    // 3. 신규 서비스 워커 등록
     return await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
   } catch (err) {
-    console.debug('Service Worker Registration 획득 실패 (안내):', err);
+    console.debug('Service Worker Registration 획득 실패:', err);
     return null;
   }
 }
@@ -113,7 +95,7 @@ export function usePushNotification() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [settings, setSettings] = useState<PushSettings>(loadStoredSettings);
   const [loading, setLoading] = useState(true);
-  const subscriptionRef = useRef<PushSubscription | null>(null);
+  const currentTokenRef = useRef<string | null>(null);
 
   const checkSubscription = useCallback(async () => {
     if (typeof window === 'undefined') return;
@@ -126,47 +108,42 @@ export function usePushNotification() {
       setPermission(Notification.permission);
     }
 
-    if (!supported) {
+    if (!supported || Notification.permission !== 'granted') {
+      setIsSubscribed(false);
       setLoading(false);
       return;
     }
 
     try {
-      if ('serviceWorker' in navigator) {
-        const registration = (await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js')) ||
-                             (await navigator.serviceWorker.ready);
-        if (registration && 'pushManager' in registration) {
-          const sub = await registration.pushManager.getSubscription();
-          if (sub) {
-            subscriptionRef.current = sub;
-            setIsSubscribed(true);
+      const reg = await getReadyServiceWorker();
+      const msg = await messaging();
 
-            try {
-              let syncToken: string | null = null;
-              if (sub.endpoint.includes('/fcm/send/')) {
-                syncToken = sub.endpoint.split('/fcm/send/')[1];
-              }
-              const rawSub = JSON.parse(JSON.stringify(sub));
-              fetch(SUBSCRIBE_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  token: syncToken,
-                  endpoint: sub.endpoint,
-                  keys: rawSub?.keys || null,
-                  settings: loadStoredSettings()
-                })
-              }).catch(() => {});
-            } catch {}
-          } else {
-            setIsSubscribed(false);
-          }
+      if (reg && msg) {
+        const token = await getToken(msg, {
+          vapidKey: DEFAULT_VAPID_KEY,
+          serviceWorkerRegistration: reg
+        }).catch(() => null);
+
+        if (token) {
+          currentTokenRef.current = token;
+          setIsSubscribed(true);
+
+          // 백엔드 상태 동기화
+          fetch(SUBSCRIBE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              token,
+              settings: loadStoredSettings()
+            })
+          }).catch(() => {});
         } else {
           setIsSubscribed(false);
         }
       }
     } catch (err) {
       console.warn('푸시 알림 상태 확인 중 오류:', err);
+      setIsSubscribed(false);
     } finally {
       setLoading(false);
     }
@@ -206,48 +183,28 @@ export function usePushNotification() {
         throw new Error('Service Worker 준비에 실패했습니다.');
       }
 
+      const msg = await messaging();
+      if (!msg) {
+        throw new Error('Firebase Messaging 객체를 불러올 수 없습니다.');
+      }
+
+      // 정식 FCM 토큰 획득
       let token: string | null = null;
-      let pushSub: PushSubscription | null = null;
-
       try {
-        if ('pushManager' in registration) {
-          pushSub = await registration.pushManager.getSubscription();
-          if (!pushSub && DEFAULT_VAPID_KEY) {
-            pushSub = await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(DEFAULT_VAPID_KEY)
-            });
-          }
-          if (pushSub) {
-            subscriptionRef.current = pushSub;
-          }
-        }
-      } catch (pushErr) {
-        console.warn('PushManager 구독 시도 안내:', pushErr);
+        token = await getToken(msg, {
+          vapidKey: DEFAULT_VAPID_KEY,
+          serviceWorkerRegistration: registration
+        });
+      } catch (fcmErr) {
+        console.error('FCM Token 발급 실패:', fcmErr);
+        throw new Error('FCM 토큰 발급에 실패했습니다. VAPID Key 설정을 확인하세요.');
       }
 
-      try {
-        const msg = await messaging();
-        if (msg) {
-          try {
-            token = await getToken(msg, {
-              vapidKey: DEFAULT_VAPID_KEY,
-              serviceWorkerRegistration: registration
-            });
-          } catch (vapidErr) {
-            console.warn('VAPID 지정 FCM 토큰 획득 실패, 기본 모드로 재시도:', vapidErr);
-            token = await getToken(msg, {
-              serviceWorkerRegistration: registration
-            });
-          }
-        }
-      } catch (fcmErr: any) {
-        console.warn('FCM 토큰 획득 실패:', fcmErr);
+      if (!token) {
+        throw new Error('유효한 푸시 토큰을 얻지 못했습니다.');
       }
 
-      if (!token && pushSub?.endpoint && pushSub.endpoint.includes('/fcm/send/')) {
-        token = pushSub.endpoint.split('/fcm/send/')[1];
-      }
+      currentTokenRef.current = token;
 
       const newSettings: PushSettings = {
         notifyLive: initialSettings?.notifyLive ?? settings.notifyLive ?? true,
@@ -256,46 +213,33 @@ export function usePushNotification() {
       setSettings(newSettings);
       saveStoredSettings(newSettings);
 
-      if (token || pushSub?.endpoint) {
-        try {
-          const idToken = user?.uid ? await firebaseAuth.currentUser?.getIdToken() : null;
-          const headers: Record<string, string> = {
-            'Content-Type': 'application/json'
-          };
-          if (idToken) {
-            headers['Authorization'] = `Bearer ${idToken}`;
-          }
-          const rawSub = pushSub ? JSON.parse(JSON.stringify(pushSub)) : null;
-
-          const response = await fetch(SUBSCRIBE_URL, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              token: token || null,
-              endpoint: pushSub?.endpoint || null,
-              keys: rawSub?.keys || null,
-              settings: newSettings
-            })
-          });
-
-          if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            console.error('Vercel API 구독 등록 실패:', response.status, errData);
-            throw new Error(`서버 구독 등록 실패 (Status: ${response.status})`);
-          }
-
-          console.log('✅ FCM 토큰 서버 등록 성공:', token || pushSub?.endpoint);
-          setIsSubscribed(true);
-        } catch (e: any) {
-          console.error('Failed to sync subscription via Vercel API:', e);
-          alert(`서버 토큰 동기화 실패: ${e.message}`);
-          setIsSubscribed(false);
-          return false;
-        }
-      } else {
-        throw new Error('유효한 푸시 토큰이나 엔드포인트를 생성하지 못했습니다.');
+      const idToken = user?.uid ? await firebaseAuth.currentUser?.getIdToken() : null;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (idToken) {
+        headers['Authorization'] = `Bearer ${idToken}`;
       }
 
+      const response = await fetch(SUBSCRIBE_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          token,
+          settings: newSettings
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        console.error('Vercel API 구독 등록 실패:', response.status, errData);
+        throw new Error(`서버 구독 등록 실패 (Status: ${response.status})`);
+      }
+
+      console.log('✅ FCM 토큰 서버 등록 성공:', token);
+      setIsSubscribed(true);
+
+      // 테스트 수신용 초기 로컬 알림
       try {
         if (registration && 'showNotification' in registration) {
           await registration.showNotification('[우주하마] 알림 설정 완료', {
@@ -313,11 +257,7 @@ export function usePushNotification() {
     } catch (err: any) {
       console.error('푸시 구독 실패:', err);
       const errMsg = String(err?.message || err);
-      if (errMsg.includes('installations') || errMsg.includes('PERMISSION_DENIED')) {
-        setIsSubscribed(true);
-        return true;
-      }
-      alert(`알림 권한 허용 중 오류가 발생했습니다: ${errMsg}`);
+      alert(`알림 설정 중 오류가 발생했습니다: ${errMsg}`);
       return false;
     } finally {
       setLoading(false);
@@ -328,28 +268,21 @@ export function usePushNotification() {
     setLoading(true);
     try {
       const msg = await messaging();
-      if (msg) {
-        try {
-          const registration = await getReadyServiceWorker();
-          if (registration) {
-            const token = await getToken(msg, {
-              vapidKey: DEFAULT_VAPID_KEY,
-              serviceWorkerRegistration: registration
-            });
-            if (token) {
-              await fetch(SUBSCRIBE_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, action: 'unsubscribe' })
-              }).catch(() => {});
-            }
-          }
-        } catch (delErr) {
-          console.debug('서버 구독 삭제 호출 안내:', delErr);
-        }
+      const token = currentTokenRef.current;
 
+      if (token) {
+        await fetch(SUBSCRIBE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, action: 'unsubscribe' })
+        }).catch(() => {});
+      }
+
+      if (msg) {
         await deleteToken(msg);
       }
+      
+      currentTokenRef.current = null;
       setIsSubscribed(false);
       return true;
     } catch (err) {
@@ -376,10 +309,7 @@ export function usePushNotification() {
 
   const triggerLocalNotification = async (title: string, body: string, url: string = '/') => {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (Notification.permission !== 'granted') {
-      console.debug('알림 권한이 허용되지 않아 로컬 알림을 건너뜁니다.');
-      return;
-    }
+    if (Notification.permission !== 'granted') return;
 
     try {
       if ('serviceWorker' in navigator) {
@@ -393,20 +323,6 @@ export function usePushNotification() {
           } as any);
           return;
         }
-      }
-
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'SHOW_NOTIFICATION',
-          title,
-          options: {
-            body,
-            icon: '/icon.png',
-            badge: '/icon.png',
-            data: { url }
-          }
-        });
-        return;
       }
 
       if (!checkIsIOS()) {
