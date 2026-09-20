@@ -1,14 +1,15 @@
 importScripts('https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.1/firebase-messaging-compat.js');
 
-// 1. Firebase 초기화
 firebase.initializeApp({
   apiKey: "AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM",
   authDomain: "uzuhama.firebaseapp.com",
+  databaseURL: "https://uzuhama-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "uzuhama",
   storageBucket: "uzuhama.firebasestorage.app",
-  messagingSenderId: "542360533089",
-  appId: "1:542360533089:web:355d9d9ff7b36f0db5c102"
+  messagingSenderId: "8322844637",
+  appId: "1:8322844637:web:85ed5c72a675f66adad834",
+  measurementId: "G-3FTG5M6WX9"
 });
 
 const messaging = firebase.messaging();
