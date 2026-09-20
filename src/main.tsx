@@ -11,7 +11,7 @@ initThemeListener();
 // Register Service Worker for PWA and Push Notifications
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw-push.js', { scope: '/' }).catch((err) => {
+    navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' }).catch((err) => {
       console.debug('SW registration notice:', err);
     });
   });

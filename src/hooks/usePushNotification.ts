@@ -66,23 +66,16 @@ const checkIsStandalone = () => {
   return ('standalone' in window.navigator && (window.navigator as any).standalone) || window.matchMedia('(display-mode: standalone)').matches;
 };
 
-// 서비스 워커 등록 상태 탐색 및 신규 등록 함수
+// 서비스 워커 등록 상태 탐색 및 신규 등록 함수 (단일 /firebase-messaging-sw.js 사용)
 async function getReadyServiceWorker(timeoutMs: number = 3500): Promise<ServiceWorkerRegistration | null> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return null;
 
   try {
-    // 1. firebase-messaging-sw.js 우선 탐색
+    // 1. firebase-messaging-sw.js 등록 확인
     let existingSw = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
     if (existingSw && existingSw.active) return existingSw;
 
-    // 2. sw.js 및 sw-push.js 탐색
-    existingSw = await navigator.serviceWorker.getRegistration('/sw.js');
-    if (existingSw && existingSw.active) return existingSw;
-
-    existingSw = await navigator.serviceWorker.getRegistration('/sw-push.js');
-    if (existingSw && existingSw.active) return existingSw;
-
-    // 3. navigator.serviceWorker.ready 대기
+    // 2. navigator.serviceWorker.ready 대기
     const readyPromise = navigator.serviceWorker.ready;
     const timeoutPromise = new Promise<null>((resolve) => 
       setTimeout(() => resolve(null), timeoutMs)
@@ -90,13 +83,7 @@ async function getReadyServiceWorker(timeoutMs: number = 3500): Promise<ServiceW
     const reg = await Promise.race([readyPromise, timeoutPromise]);
     if (reg) return reg;
 
-    // 4. 기존 등록 워커 재확인 Fallback
-    const regFallback = (await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js')) ||
-                        (await navigator.serviceWorker.getRegistration('/sw.js')) || 
-                        (await navigator.serviceWorker.getRegistration('/sw-push.js'));
-    if (regFallback) return regFallback;
-
-    // 5. 신규 서비스 워커 등록 (/firebase-messaging-sw.js 등록)
+    // 3. 신규 서비스 워커 등록
     return await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
   } catch (err) {
     console.debug('Service Worker Registration 획득 실패 (안내):', err);
@@ -147,8 +134,6 @@ export function usePushNotification() {
     try {
       if ('serviceWorker' in navigator) {
         const registration = (await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js')) ||
-                             (await navigator.serviceWorker.getRegistration('/sw.js')) || 
-                             (await navigator.serviceWorker.getRegistration('/sw-push.js')) || 
                              (await navigator.serviceWorker.ready);
         if (registration && 'pushManager' in registration) {
           const sub = await registration.pushManager.getSubscription();
@@ -271,7 +256,6 @@ export function usePushNotification() {
       setSettings(newSettings);
       saveStoredSettings(newSettings);
 
-      // FCM 토큰 또는 Web Push 엔드포인트를 Vercel 백엔드 API로 서버 등록 동기화
       if (token || pushSub?.endpoint) {
         try {
           const idToken = user?.uid ? await firebaseAuth.currentUser?.getIdToken() : null;

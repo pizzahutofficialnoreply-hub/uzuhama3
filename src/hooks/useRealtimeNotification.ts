@@ -18,7 +18,7 @@ export function useRealtimeNotification(logs: BroadcastLog[]) {
     try {
       if ('serviceWorker' in navigator) {
         try {
-          let reg = await navigator.serviceWorker.getRegistration('/sw-push.js');
+          let reg = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
           if (!reg || !reg.active) {
             const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
             reg = await Promise.race([navigator.serviceWorker.ready, timeoutPromise]);
