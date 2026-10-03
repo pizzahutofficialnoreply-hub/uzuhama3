@@ -32,8 +32,12 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.2",
     "recharts": "^3.10.1",
-    "tailwind-merge": "^3.6.0",
-    "vite": "^6.2.3"
+    "tailwind-merge": "^3.6.0"
+  },
+  "overrides": {
+    "jwks-rsa": {
+      "jose": "4.15.9"
+    }
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

@@ -1,10 +1,10 @@
-import { setCorsHeaders, db } from '../_firebase';
+import { setCorsHeaders } from '../_cors.js';
 
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return res.status(204).end();
   }
 
   if (req.method !== 'POST') {
@@ -12,6 +12,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    const { db } = await import('../_firebase.js');
     let payload = req.body;
     if (typeof payload === 'string') {
       try {

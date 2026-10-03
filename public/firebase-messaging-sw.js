@@ -83,15 +83,16 @@ self.addEventListener('fetch', (event) => {
 messaging.onBackgroundMessage(function(payload) {
   console.log('[firebase-messaging-sw.js] Received background push message:', payload);
 
-  // FCM에서 notification 객체가 있으면 브라우저가 자동 표시하므로 중복 방지
-  if (payload.notification && !payload.data?.forceCustomNotification) {
+  // payload.notification이 존재하면 브라우저/FCM 기본 처리에 맡겨 중복 알림 방지
+  if (payload.notification) {
     return;
   }
 
-  let notificationTitle = payload.notification?.title || payload.data?.title || '우주하마 방송 예측';
+  // payload.notification 없음 -> data payload 기반으로 직접 showNotification 처리
+  let notificationTitle = payload.data?.title || '우주하마 방송 예측';
   notificationTitle = notificationTitle.replace(/^(from\s*우주하마\s*예측[:\s]*|\[from\s*우주하마\s*예측\]\s*)/i, '').trim() || '우주하마 방송 예측';
 
-  let body = payload.notification?.body || payload.data?.body || '';
+  let body = payload.data?.body || '';
   body = body.replace(/^(from\s*우주하마\s*예측[:\s]*|\[from\s*우주하마\s*예측\]\s*)/i, '').trim();
 
   const targetUrl = payload.data?.url || payload.fcmOptions?.link || '/';

@@ -1,11 +1,10 @@
-import { setCorsHeaders, verifyAdmin, db } from '../_firebase.js';
-import { FieldValue } from 'firebase-admin/firestore';
+import { setCorsHeaders } from '../_cors.js';
 
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return res.status(204).end();
   }
 
   if (req.method !== 'POST') {
@@ -13,7 +12,11 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // 관리자 토큰 검증
+    // 실제 POST 요청에서 Firebase Admin 모듈 안전 로드
+    const { verifyAdmin, db } = await import('../_firebase.js');
+    const { FieldValue } = await import('firebase-admin/firestore');
+
+    // 관리자 토큰 검증 (보안 필수)
     const adminUser = await verifyAdmin(req);
     console.log(`[Admin Mutate] Authorized request by ${adminUser.email}`);
 

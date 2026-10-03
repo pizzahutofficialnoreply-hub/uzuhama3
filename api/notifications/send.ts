@@ -1,88 +1,11 @@
-import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getMessaging } from 'firebase-admin/messaging';
+import { setCorsHeaders } from '../_cors.js';
 
-// --- [Firebase Admin 초기화 (auth 제거로 ERR_REQUIRE_ESM 원천 차단)] ---
-let app: App;
-
-if (getApps().length > 0) {
-  app = getApps()[0];
-} else {
-  let serviceAccount: any = null;
-  const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT;
-
-  if (rawKey) {
-    try {
-      serviceAccount = JSON.parse(rawKey);
-    } catch {
-      try {
-        const decoded = Buffer.from(rawKey, 'base64').toString('utf-8');
-        serviceAccount = JSON.parse(decoded);
-      } catch {
-        try {
-          serviceAccount = JSON.parse(rawKey.replace(/[\r\n\t]/g, ' '));
-        } catch (error) {
-          console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT:', error);
-        }
-      }
-    }
-
-    if (serviceAccount?.private_key) {
-      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-    }
-  } else if (process.env.FIREBASE_PRIVATE_KEY) {
-    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
-    if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
-      privateKey = privateKey.slice(1, -1);
-    }
-    privateKey = privateKey.replace(/\\n/g, '\n');
-
-    serviceAccount = {
-      projectId: process.env.FIREBASE_PROJECT_ID || 'uzuhama',
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey,
-    };
-  }
-
-  app = serviceAccount?.private_key
-    ? initializeApp({ credential: cert(serviceAccount) })
-    : initializeApp();
-}
-
-const db = getFirestore(app);
-const messaging = getMessaging(app);
-
-function setCorsHeaders(req: any, res: any) {
-  const origin = req?.headers?.origin;
-  const method = req?.method;
-  const url = req?.url;
-
-  if (process.env.DEBUG_CORS || process.env.NODE_ENV !== 'production') {
-    console.log(`[CORS Request] ${method} ${url} | Origin: ${origin || '(same-origin/no-origin)'}`);
-  }
-
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Vary', 'Origin');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, x-cron-secret, X-Cron-Secret'
-  );
-  res.setHeader('Access-Control-Max-Age', '86400');
-}
-
-// --- [API 핸들러] ---
+// --- [API 핸들러: FCM 푸시 알림 발송] ---
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return res.status(204).end();
   }
 
   if (req.method !== 'POST') {
@@ -90,7 +13,44 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // 1. 요청 페이로드 파싱
+    const { db, messaging, verifyAdmin } = await import('../_firebase.js');
+
+    // 1. 보안 검증: cron secret 또는 관리자 토큰 검증
+    const cronSecretHeader = req.headers['x-cron-secret'] || req.headers['x-api-secret'];
+    const authHeader = req.headers['authorization'] || '';
+    const configuredSecret = process.env.NOTIFICATION_API_SECRET || process.env.CRON_SECRET;
+
+    let isAuthorized = false;
+
+    // A. Secret 기반 인증 (백엔드 Cron / 스크립트 자동화)
+    if (configuredSecret && configuredSecret.length > 8) {
+      if (cronSecretHeader === configuredSecret) {
+        isAuthorized = true;
+      } else if (authHeader.startsWith('Bearer ') && authHeader.substring(7).trim() === configuredSecret) {
+        isAuthorized = true;
+      }
+    }
+
+    // B. 관리자 ID 토큰 기반 인증 (관리자 UI에서 직접 발송)
+    if (!isAuthorized && authHeader.startsWith('Bearer ')) {
+      try {
+        const adminUser = await verifyAdmin(req);
+        if (adminUser) {
+          isAuthorized = true;
+          console.log(`[Notification Send] Authorized by admin ${adminUser.email}`);
+        }
+      } catch (authErr: any) {
+        console.warn('[Notification Send] Admin auth verification failed:', authErr?.message || authErr);
+      }
+    }
+
+    if (!isAuthorized) {
+      return res.status(403).json({
+        error: '알림 발송 권한이 없습니다. 관리자 로그인 세션이 필요하거나 올바른 X-Cron-Secret 헤더가 요구됩니다.'
+      });
+    }
+
+    // 2. 요청 페이로드 파싱
     let reqPayload = req.body;
     if (typeof reqPayload === 'string') {
       try {
@@ -99,7 +59,7 @@ export default async function handler(req: any, res: any) {
     }
     const { title, body, url } = reqPayload || {};
 
-    // 2. 푸시 토큰 조회 (token, fcmToken, 및 endpoint의 /fcm/send/ 토큰 완벽 지원)
+    // 3. 푸시 토큰 조회 (push_subscriptions 컬렉션)
     const tokensSnapshot = await db.collection('push_subscriptions').get();
     const tokenDocMap = new Map<string, string>(); // token -> docId
     const tokens: string[] = [];
@@ -113,7 +73,7 @@ export default async function handler(req: any, res: any) {
       if (t && typeof t === 'string') {
         const cleanT = t.trim();
         // 실제 유효한 FCM 토큰만 수집 (local_dev_ 가상 토큰 제외, 길이 20자 이상)
-        if (cleanT.length > 20 && !cleanT.startsWith('local_dev_') && !tokens.includes(cleanT)) {
+        if (cleanT.length >= 20 && !cleanT.startsWith('local_dev_') && !tokens.includes(cleanT)) {
           tokens.push(cleanT);
           tokenDocMap.set(cleanT, docSnap.id);
         }
@@ -125,6 +85,10 @@ export default async function handler(req: any, res: any) {
         success: false,
         successCount: 0,
         failureCount: 0,
+        totalCount: 0,
+        cleanedTokens: 0,
+        sampleErrors: [],
+        errorSummary: {},
         message: '등록된 유효 FCM 푸시 구독 기기가 없습니다. 사용자 브라우저나 PWA 앱의 [설정 > 알림 설정]에서 알림을 허용해주세요.'
       });
     }
@@ -136,67 +100,76 @@ export default async function handler(req: any, res: any) {
       .replace(/^(from\s*우주하마\s*예측[:\s]*|\[from\s*우주하마\s*예측\]\s*)/i, '')
       .trim();
 
-    // 3. 알림 멀티캐스트 발송
-    const response = await messaging.sendEachForMulticast({
-      tokens,
-      notification: {
-        title: cleanTitle,
-        body: cleanBody,
-      },
-      data: {
-        url: url || '/',
-        title: cleanTitle,
-        body: cleanBody,
-      },
-      webpush: {
-        notification: {
-          icon: '/icon.png',
-          badge: '/icon.png',
-        },
-        fcmOptions: {
-          link: url || '/'
-        }
-      }
-    });
-
-    // 4. 만료/무효 토큰 정리 및 상세 에러 진단 수집
+    // 4. 알림 멀티캐스트 발송 (최대 500개씩 청크 처리)
+    const CHUNK_SIZE = 500;
+    let totalSuccess = 0;
+    let totalFailure = 0;
     let cleanedTokens = 0;
     const cleanupPromises: Promise<any>[] = [];
     const errorSummary: Record<string, number> = {};
     const sampleErrors: string[] = [];
 
-    response.responses.forEach((resp, idx) => {
-      if (!resp.success && resp.error) {
-        const code = resp.error.code || 'unknown';
-        const msg = resp.error.message || '';
-        errorSummary[code] = (errorSummary[code] || 0) + 1;
-        if (sampleErrors.length < 5) {
-          sampleErrors.push(`[${code}] ${msg}`);
-        }
-
-        if (
-          code === 'messaging/registration-token-not-registered' ||
-          code === 'messaging/invalid-argument' ||
-          code === 'messaging/invalid-registration-token'
-        ) {
-          const badToken = tokens[idx];
-          const docId = tokenDocMap.get(badToken);
-          if (docId) {
-            cleanedTokens++;
-            cleanupPromises.push(db.collection('push_subscriptions').doc(docId).delete().catch(() => {}));
+    for (let i = 0; i < tokens.length; i += CHUNK_SIZE) {
+      const chunkTokens = tokens.slice(i, i + CHUNK_SIZE);
+      const response = await messaging.sendEachForMulticast({
+        tokens: chunkTokens,
+        notification: {
+          title: cleanTitle,
+          body: cleanBody,
+        },
+        data: {
+          url: url || '/',
+          title: cleanTitle,
+          body: cleanBody,
+        },
+        webpush: {
+          notification: {
+            icon: '/icon.png',
+            badge: '/icon.png',
+          },
+          fcmOptions: {
+            link: url || '/'
           }
         }
-      }
-    });
+      });
+
+      totalSuccess += response.successCount;
+      totalFailure += response.failureCount;
+
+      response.responses.forEach((resp: any, idx: number) => {
+        if (!resp.success && resp.error) {
+          const code = resp.error.code || 'unknown';
+          const msg = resp.error.message || '';
+          errorSummary[code] = (errorSummary[code] || 0) + 1;
+          if (sampleErrors.length < 5) {
+            sampleErrors.push(`[${code}] ${msg}`);
+          }
+
+          // 무효 및 만료 토큰 정리
+          if (
+            code === 'messaging/registration-token-not-registered' ||
+            code === 'messaging/invalid-registration-token' ||
+            code === 'messaging/invalid-argument'
+          ) {
+            const badToken = chunkTokens[idx];
+            const docId = tokenDocMap.get(badToken);
+            if (docId) {
+              cleanedTokens++;
+              cleanupPromises.push(db.collection('push_subscriptions').doc(docId).delete().catch(() => {}));
+            }
+          }
+        }
+      });
+    }
 
     if (cleanupPromises.length > 0) {
       await Promise.all(cleanupPromises);
     }
 
     return res.status(200).json({
-      success: response.successCount > 0,
-      successCount: response.successCount,
-      failureCount: response.failureCount,
+      success: totalSuccess > 0,
+      successCount: totalSuccess,
+      failureCount: totalFailure,
       totalCount: tokens.length,
       cleanedTokens,
       sampleErrors,

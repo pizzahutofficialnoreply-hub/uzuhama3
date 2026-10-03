@@ -82,6 +82,11 @@ export function useRealtimeNotification(logs: BroadcastLog[]) {
       const lastSentDate = localStorage.getItem(DAILY_NOTIF_KEY);
       if (lastSentDate === todayStr) return;
 
+      // 포그라운드 활성 탭에서만 동작하도록 분리 (백그라운드/앱 종료 시에는 서버 FCM이 전담)
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
+
       // 사용자 설정 불러오기 (기본값 30분 전)
       let leadTime = 30;
       let notifyPeak = true;

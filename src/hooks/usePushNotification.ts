@@ -125,10 +125,15 @@ export function usePushNotification() {
       const msg = await messaging();
 
       if (reg && msg) {
-        const token = await getToken(msg, {
+        let token = await getToken(msg, {
           vapidKey: DEFAULT_VAPID_KEY,
           serviceWorkerRegistration: reg
         }).catch(() => null);
+
+        // 이전 가짜 토큰(local_dev_) 정리
+        if (token && (token.startsWith('local_dev_') || token.length < 20)) {
+          token = null;
+        }
 
         if (token) {
           currentTokenRef.current = token;
@@ -144,11 +149,13 @@ export function usePushNotification() {
             })
           }).catch(() => {});
         } else {
+          currentTokenRef.current = null;
           setIsSubscribed(false);
         }
       }
     } catch (err) {
       console.warn('푸시 알림 상태 확인 중 오류:', err);
+      currentTokenRef.current = null;
       setIsSubscribed(false);
     } finally {
       setLoading(false);
@@ -156,6 +163,10 @@ export function usePushNotification() {
   }, [user]);
 
   useEffect(() => {
+    // 이전 로컬 가짜 디바이스 토큰 잔재 정리
+    try {
+      localStorage.removeItem('uzuhama_local_device_token');
+    } catch {}
     checkSubscription();
   }, [checkSubscription]);
 
@@ -180,14 +191,14 @@ export function usePushNotification() {
       setPermission(perm);
 
       if (perm !== 'granted') {
-        alert('알림 권한이 허용되지 않았습니다.');
+        alert('알림 권한이 허용되지 않았습니다. 브라우저 설정에서 알림을 허용해주세요.');
         setLoading(false);
         return false;
       }
 
       const registration = await getReadyServiceWorker();
       if (!registration) {
-        throw new Error('Service Worker 준비에 실패했습니다.');
+        throw new Error('Service Worker 준비에 실패했습니다. 페이지를 새로고침 후 다시 시도해주세요.');
       }
 
       const msg = await messaging();
@@ -195,62 +206,21 @@ export function usePushNotification() {
         throw new Error('Firebase Messaging 객체를 불러올 수 없습니다.');
       }
 
-      // 정식 FCM 토큰 획득 (다단계 안전 폴백 적용)
+      // 정식 FCM 토큰 획득 (가짜 토큰 발급 금지)
       let token: string | null = null;
       try {
-        if (DEFAULT_VAPID_KEY && DEFAULT_VAPID_KEY.length > 20) {
-          token = await getToken(msg, {
-            vapidKey: DEFAULT_VAPID_KEY,
-            serviceWorkerRegistration: registration
-          });
-        }
-      } catch (fcmErr) {
-        console.warn('VAPID 기반 FCM Token 발급 실패, 기본 옵션으로 재시도:', fcmErr);
+        token = await getToken(msg, {
+          vapidKey: DEFAULT_VAPID_KEY,
+          serviceWorkerRegistration: registration
+        });
+      } catch (fcmErr: any) {
+        console.error('FCM Token 발급 실패:', fcmErr);
+        throw new Error(`FCM 푸시 토큰 발급에 실패했습니다: ${fcmErr?.message || fcmErr}`);
       }
 
-      // VAPID 키 오류 시 프로젝트 기본 발신자 기반 토큰 발급 시도
-      if (!token) {
-        try {
-          token = await getToken(msg, {
-            serviceWorkerRegistration: registration
-          });
-        } catch (fcmErr2) {
-          console.warn('기본 FCM Token 발급 시도 경고:', fcmErr2);
-        }
+      if (!token || typeof token !== 'string' || token.trim().length < 20 || token.startsWith('local_dev_')) {
+        throw new Error('유효한 FCM 토큰을 발급받지 못했습니다.');
       }
-
-      // 여전히 토큰이 없으면 브라우저 PushManager 구독 확인 또는 생성
-      if (!token && registration.pushManager) {
-        try {
-          let pushSub = await registration.pushManager.getSubscription();
-          if (!pushSub && DEFAULT_VAPID_KEY) {
-            try {
-              pushSub = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: DEFAULT_VAPID_KEY
-              });
-            } catch {}
-          }
-          if (pushSub) {
-            token = pushSub.endpoint;
-          }
-        } catch (pushErr) {
-          console.warn('PushManager 구독 조회 실패:', pushErr);
-        }
-      }
-
-      // 최종적으로 외부 FCM 서비스가 일시 차단되거나 키가 맞지 않는 경우에도, 
-      // 브라우저 Notification 권한이 허용되어 있으므로 로컬/서비스워커 알림 수신이 가능하도록 가상 디바이스 토큰 부여
-      if (!token) {
-        let storedDevId = localStorage.getItem('uzuhama_local_device_token');
-        if (!storedDevId) {
-          storedDevId = `local_dev_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-          localStorage.setItem('uzuhama_local_device_token', storedDevId);
-        }
-        token = storedDevId;
-      }
-
-      currentTokenRef.current = token;
 
       const newSettings: PushSettings = {
         notifyLive: initialSettings?.notifyLive ?? settings.notifyLive ?? true,
@@ -259,8 +229,6 @@ export function usePushNotification() {
         leadTimeMinutes: initialSettings?.leadTimeMinutes ?? settings.leadTimeMinutes ?? 30,
         notifyReports: initialSettings?.notifyReports ?? settings.notifyReports ?? true,
       };
-      setSettings(newSettings);
-      saveStoredSettings(newSettings);
 
       const idToken = user?.uid ? await firebaseAuth.currentUser?.getIdToken() : null;
       const headers: Record<string, string> = {
@@ -281,11 +249,15 @@ export function usePushNotification() {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        console.warn('Vercel API 구독 등록 주의 (로컬 알림은 정상 동작):', response.status, errData);
+        throw new Error(errData.error || `서버 구독 등록에 실패했습니다 (상태 코드: ${response.status})`);
       }
 
-      console.log('✅ 푸시 설정 완료:', token);
+      currentTokenRef.current = token;
+      setSettings(newSettings);
+      saveStoredSettings(newSettings);
       setIsSubscribed(true);
+
+      console.log('✅ FCM 푸시 구독 완료:', token);
 
       // 테스트 수신용 초기 로컬 알림
       try {
@@ -304,8 +276,10 @@ export function usePushNotification() {
       return true;
     } catch (err: any) {
       console.error('푸시 구독 실패:', err);
+      currentTokenRef.current = null;
+      setIsSubscribed(false);
       const errMsg = String(err?.message || err);
-      alert(`알림 설정 중 오류가 발생했습니다: ${errMsg}`);
+      alert(`알림 설정 실패: ${errMsg}`);
       return false;
     } finally {
       setLoading(false);
@@ -327,7 +301,9 @@ export function usePushNotification() {
       }
 
       if (msg) {
-        await deleteToken(msg);
+        try {
+          await deleteToken(msg);
+        } catch {}
       }
       
       currentTokenRef.current = null;
@@ -352,6 +328,17 @@ export function usePushNotification() {
     if (!isSubscribed) {
       await subscribe(updated);
       return;
+    }
+
+    if (currentTokenRef.current) {
+      fetch(SUBSCRIBE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: currentTokenRef.current,
+          settings: updated
+        })
+      }).catch(() => {});
     }
   };
 
