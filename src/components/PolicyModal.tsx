@@ -23,7 +23,10 @@ export function PolicyModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 w-full max-w-2xl shadow-2xl relative flex flex-col max-h-[85vh]">
+      <div 
+        style={{ WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)' }}
+        className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] p-6 w-full max-w-2xl shadow-2xl relative flex flex-col max-h-[85vh]"
+      >
         <button onClick={onClose} className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
           <X className="w-5 h-5" />
         </button>

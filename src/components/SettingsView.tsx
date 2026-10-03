@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  MessageSquare, Flag, User, Bell, Palette, Database, Megaphone, 
+  MessageSquare, User, Bell, Palette, Database, Megaphone, 
   BookOpen, FileText, ExternalLink, Mail, AlertCircle, Gavel, 
   ShieldCheck, Trash2, LogOut, ChevronRight, Check, RefreshCw,
   Copy, Smartphone, Sun, Moon, Laptop, Sparkles, Youtube, X, Share2, Type,
-  FileCode2
+  FileCode2, Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { deleteUser } from 'firebase/auth';
-import { auth } from '../lib/firebase';
 import { usePushNotification, PushSettings } from '../hooks/usePushNotification';
 import { SystemConfig } from '../types';
 import { cn } from '../utils';
 import { ThemeMode, getThemeMode, applyTheme } from '../utils/theme';
+import { useNavigate } from 'react-router-dom';
+import { AdminVerificationModal } from './AdminVerificationModal';
+import { useTabGlass } from '../hooks/useTabGlass';
 
 interface SettingsViewProps {
   user: any;
   system?: SystemConfig;
   firstYear: string;
   onLogout: () => void;
-  onInitiateLogin: () => void;
   onClose?: () => void;
   onOpenFeedback: () => void;
   onOpenNotice: () => void;
@@ -34,7 +34,6 @@ export function SettingsView({
   system,
   firstYear,
   onLogout,
-  onInitiateLogin,
   onClose,
   onOpenFeedback,
   onOpenNotice,
@@ -48,17 +47,24 @@ export function SettingsView({
     isSubscribed, 
     loading: pushLoading, 
     settings, 
+    permission,
     subscribe, 
-    updateSettings 
+    updateSettings,
+    triggerLocalNotification
   } = usePushNotification();
 
   // 하위 설정 모달/아코디언 상태
-  const [activeSection, setActiveSection] = useState<'notification' | 'theme' | 'share' | 'channels' | 'disclaimer' | 'adminEmail' | 'fontLicense' | null>(null);
-  const [copiedEmail, setCopiedEmail] = useState(false);
-  const [mailFeedback, setMailFeedback] = useState(false);
+  const navigate = useNavigate();
+  const isAdmin = Boolean(
+    user?.email?.toLowerCase() === 'saramoriyo@gmail.com' || 
+    (typeof window !== 'undefined' && localStorage.getItem('admin_verified_session') === 'true')
+  );
+  const [showAdminVerifyModal, setShowAdminVerifyModal] = useState(false);
+  const [activeSection, setActiveSection] = useState<'notification' | 'theme' | 'share' | 'channels' | 'disclaimer' | 'fontLicense' | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getThemeMode());
+  const tabGlass = useTabGlass();
 
   // 그래프 및 데이터 공유 설정 상태 (기본값 둘 다 true)
   const [enableWidgetShare, setEnableWidgetShare] = useState<boolean>(() => {
@@ -161,57 +167,10 @@ export function SettingsView({
     window.location.reload();
   };
 
-  const handleDeleteAccount = async () => {
-    if (!window.confirm('정말 회원탈퇴를 진행하시겠습니까? 계정과 관련된 정보가 영구히 삭제됩니다.')) {
-      return;
-    }
-
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      onLogout();
-      return;
-    }
-
-    try {
-      await deleteUser(currentUser);
-      localStorage.clear();
-      sessionStorage.clear();
-      onLogout();
-      alert('회원탈퇴 처리가 완료되었습니다.');
-    } catch (error: any) {
-      if (error?.code === 'auth/requires-recent-login') {
-        alert('보안을 위해 최근 로그인 이력이 필요합니다. 다시 로그인 후 회원탈퇴를 시도해 주세요.');
-      } else {
-        alert(`회원탈퇴 처리 중 오류가 발생했습니다: ${error?.message || error}`);
-      }
-    }
-  };
-
-  const adminEmail = system?.adminEmail || 'saramoriyo@gmail.com';
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedEmail(true);
-    setTimeout(() => setCopiedEmail(false), 2000);
-  };
-
-  // 메일 쓰기 핸들러: 클립보드 자동 복사와 동시에 기본 메일 클라이언트 호출
-  const handleMailWrite = (e: React.MouseEvent) => {
-    copyToClipboard(adminEmail);
-    setMailFeedback(true);
-    setTimeout(() => setMailFeedback(false), 3000);
-
-    try {
-      window.location.href = `mailto:${adminEmail}`;
-    } catch {
-      window.open(`mailto:${adminEmail}`, '_self');
-    }
-  };
-
   return (
     <div className="w-full max-w-2xl mx-auto py-2 pb-24 space-y-6 animate-in fade-in duration-200">
-      {/* 1. 의견 섹션 */}
-      <section className="space-y-1.5">
+      {/* 1. 의견 섹션: 상단 여백 추가 */}
+      <section className="space-y-1.5 pt-4 sm:pt-6">
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
           의견
         </h3>
@@ -230,65 +189,115 @@ export function SettingsView({
             </div>
             <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />
           </button>
-
-          <div className="p-3.5 sm:p-4 flex items-center justify-between">
-            <div className="flex items-start gap-3 min-w-0 pr-2">
-              <Flag className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-white">데이터 제보 안내</p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">화면 우측 하단 <b>+ 버튼</b>을 통해 생방송, 유튜브 영상, 쇼츠를 제보할 수 있습니다.</p>
-              </div>
-            </div>
-          </div>
-
         </div>
       </section>
 
-      {/* 2. 계정 섹션 */}
-      <section className="space-y-1.5">
-        <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
-          계정
-        </h3>
-        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
-          
-          {user ? (
-            <div className="p-3.5 sm:p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-2xl bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                  <User className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">{user.email}</p>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    가입일: {user?.metadata?.creationTime ? new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(user.metadata.creationTime)) : '확인 불가'}
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 font-semibold shrink-0">
-                로그인됨
-              </span>
-            </div>
-          ) : (
+      {/* 1. 관리자 전용 섹션 */}
+      {isAdmin && (
+        <section className="space-y-1.5">
+          <h3 className="text-xs font-semibold text-purple-600 dark:text-purple-400 px-3 tracking-wider flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            관리자 전용
+          </h3>
+          <div className="bg-purple-500/5 dark:bg-purple-950/20 border border-purple-500/20 dark:border-purple-800/40 rounded-[24px] overflow-hidden divide-y divide-purple-500/10 dark:divide-purple-800/20">
             <button 
               type="button"
-              onClick={onInitiateLogin}
-              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 active:bg-zinc-200/50 dark:active:bg-zinc-800 transition-colors"
+              onClick={() => {
+                try {
+                  localStorage.setItem('admin_verified_session', 'true');
+                  localStorage.setItem('admin_verified_time', Date.now().toString());
+                  sessionStorage.setItem('admin_verified_session', 'true');
+                  sessionStorage.setItem('admin_verified_time', Date.now().toString());
+                } catch {}
+                onClose?.();
+                navigate('/admin');
+              }}
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-purple-500/10 active:bg-purple-500/20 transition-colors cursor-pointer group"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-2xl bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 flex items-center justify-center shrink-0">
-                  <User className="w-5 h-5" />
+              <div className="flex items-center gap-3 min-w-0 pr-2">
+                <div className="w-10 h-10 rounded-2xl bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <ShieldCheck className="w-5 h-5 stroke-[2.2]" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-white">프로필</p>
-                  <p className="text-xs text-purple-600 dark:text-purple-400 mt-0.5 font-medium">로그인이 필요합니다 (클릭하여 로그인)</p>
+                  <p className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                    관리자 대시보드
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-600 text-white font-semibold">인앱 이동</span>
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">시스템 설정 및 방송 데이터 관리 대시보드로 이동합니다.</p>
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />
+              <ChevronRight className="w-4 h-4 text-purple-500 shrink-0 group-hover:translate-x-0.5 transition-transform" />
             </button>
-          )}
 
-        </div>
-      </section>
+            {/* PWA / 브라우저 새 창에서 /admin 직접 열기 */}
+            <a 
+              href="/admin"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                try {
+                  localStorage.setItem('admin_verified_session', 'true');
+                  localStorage.setItem('admin_verified_time', Date.now().toString());
+                  sessionStorage.setItem('admin_verified_session', 'true');
+                  sessionStorage.setItem('admin_verified_time', Date.now().toString());
+                } catch {}
+
+                const isStandalone = typeof window !== 'undefined' && (
+                  window.matchMedia('(display-mode: standalone)').matches ||
+                  (window.navigator as any).standalone === true ||
+                  document.referrer.includes('android-app://')
+                );
+
+                if (isStandalone) {
+                  // PWA 환경에서는 새 창이 내부 웹뷰에 의해 막힐 수 있으므로
+                  // 1. window.open 시도 후 실패 시 인앱 즉시 이동
+                  try {
+                    const newWin = window.open('/admin', '_blank');
+                    if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+                      e.preventDefault();
+                      onClose?.();
+                      navigate('/admin');
+                    }
+                  } catch {
+                    e.preventDefault();
+                    onClose?.();
+                    navigate('/admin');
+                  }
+                }
+              }}
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-purple-500/10 active:bg-purple-500/20 transition-colors text-purple-700 dark:text-purple-300 group cursor-pointer"
+            >
+              <div className="flex items-center gap-3 min-w-0 pr-2">
+                <div className="w-10 h-10 rounded-2xl bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <ExternalLink className="w-5 h-5 stroke-[2.2]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                    관리자 모드 (새 페이지로 열기)
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 font-semibold">PWA 지원</span>
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">새 브라우저 탭 또는 독립 창에서 /admin 관리자 페이지를 엽니다.</p>
+                </div>
+              </div>
+              <ExternalLink className="w-4 h-4 text-purple-500 shrink-0" />
+            </a>
+
+            {user?.email?.toLowerCase() === 'saramoriyo@gmail.com' && (
+              <button 
+                type="button"
+                onClick={onLogout}
+                className="w-full flex items-center justify-between p-3 sm:p-3.5 px-4 text-left hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-colors text-red-600 dark:text-red-400 text-xs font-semibold cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <LogOut className="w-4 h-4" />
+                  <span>관리자 계정 로그아웃</span>
+                </div>
+                <span className="text-[10px] text-zinc-400 font-normal">{user.email}</span>
+              </button>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* 3. 환경설정 섹션 */}
       <section className="space-y-1.5">
@@ -404,6 +413,63 @@ export function SettingsView({
                         </div>
                       </div>
                     )}
+
+                    {/* 관리자 전용: 새 제보 알림 받기 */}
+                    {user?.email === 'saramoriyo@gmail.com' && (
+                      <div className="flex items-center justify-between py-1.5 border-t border-purple-200/40 dark:border-purple-800/40 pt-2.5">
+                        <div className="pr-2">
+                          <p className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                            <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                            새 제보 알림 받기
+                          </p>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">새로운 시청자 데이터 제보 등록 시 푸시 알림 수신</p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          disabled={pushLoading}
+                          onClick={() => handleTogglePush('notifyReports')}
+                          className={cn(
+                            "w-10 h-6 flex items-center rounded-full p-0.5 transition-colors shrink-0 cursor-pointer",
+                            isSubscribed && (settings.notifyReports ?? true) ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700"
+                          )}
+                        >
+                          <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", isSubscribed && (settings.notifyReports ?? true) ? "translate-x-4" : "translate-x-0")} />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* 테스트 알림 발송 및 기기 안내 */}
+                    <div className="pt-2.5 border-t border-zinc-200/60 dark:border-zinc-800/60 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">내 기기 테스트 알림</p>
+                          <p className="text-[11px] text-zinc-400">현재 브라우저에 알림이 제대로 뜨는지 즉시 확인</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (permission !== 'granted') {
+                              const ok = await subscribe();
+                              if (!ok) return;
+                            }
+                            await triggerLocalNotification(
+                              '[우주하마] 테스트 알림',
+                              '알림이 정상적으로 수신됩니다. 방송 시작 및 휴방 공지를 실시간으로 받아보실 수 있습니다!'
+                            );
+                          }}
+                          className="px-3 py-1.5 text-xs font-bold rounded-xl bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 transition-colors shrink-0 cursor-pointer"
+                        >
+                          테스트 알림 받기
+                        </button>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-800/50 text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1 leading-relaxed">
+                        <p className="font-semibold text-zinc-700 dark:text-zinc-300">💡 알림이 오지 않는 경우 체크리스트:</p>
+                        <p>• <strong>아이폰(iOS)</strong>: 사파리 공유 버튼 &gt; <strong>'홈 화면에 추가'</strong> 후 실행해야 웹 푸시가 작동합니다.</p>
+                        <p>• <strong>안드로이드/PC</strong>: 브라우저 주소창 좌측 자물쇠(설정) 아이콘에서 <strong>알림 '허용'</strong>인지 확인해주세요.</p>
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -489,6 +555,58 @@ export function SettingsView({
                           <div className="w-1.5 h-1.5 rounded-full bg-purple-600 dark:bg-purple-400" />
                         )}
                       </button>
+                    </div>
+
+                    {/* 하단 탭바 글래스모피즘 (투명도 및 블러) 슬라이더 */}
+                    <div className="mt-4 pt-3.5 border-t border-zinc-200/60 dark:border-zinc-800/60 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          <span className="text-xs font-bold text-zinc-900 dark:text-white">
+                            하단 탭바 투명도 및 블러 효과
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-800/60">
+                            {tabGlass.sliderValue === 30 ? '기본값' : `${tabGlass.sliderValue}%`}
+                          </span>
+                          {tabGlass.sliderValue !== 30 && (
+                            <button
+                              type="button"
+                              onClick={tabGlass.resetToDefault}
+                              className="text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 underline cursor-pointer"
+                            >
+                              기본값 복원
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 안내 문구 */}
+                      <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                        왼쪽으로 갈수록 블러가 많아지고 더 투명해지며, 오른쪽으로 갈수록 블러가 적어지고 더 불투명해집니다.
+                      </p>
+
+                      {/* 슬라이더 트랙 및 좌우 라벨 */}
+                      <div className="space-y-1.5 pt-1">
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          value={tabGlass.sliderValue}
+                          onChange={(e) => tabGlass.updateGlassValue(parseInt(e.target.value, 10))}
+                          className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-purple-600 dark:accent-purple-500 focus:outline-none"
+                        />
+                        <div className="flex items-center justify-between text-[10.5px] font-medium text-zinc-500 dark:text-zinc-400">
+                          <span className="flex items-center gap-1">
+                            ← 블러 많음 · 더 투명
+                          </span>
+                          <span className="flex items-center gap-1">
+                            블러 적음 · 더 불투명 →
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -618,18 +736,17 @@ export function SettingsView({
             <ChevronRight className="w-4 h-4 text-zinc-400" />
           </button>
 
-          {/* 패치노트 & 업데이트 공지 아카이브 바로가기 (새 탭으로 열기) */}
-          <a 
-            href="/patch"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
+          {/* 패치노트 & 업데이트 공지 아카이브 바로가기 (세션 유지 인앱 라우팅) */}
+          <button 
+            type="button"
+            onClick={() => {
               if (onOpenPatchNotes) {
-                e.preventDefault();
                 onOpenPatchNotes();
+              } else {
+                window.location.href = '/patch';
               }
             }}
-            className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
+            className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <FileCode2 className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
@@ -638,8 +755,8 @@ export function SettingsView({
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">버전별 패치노트, 핫픽스, 개발자 노트</p>
               </div>
             </div>
-            <ExternalLink className="w-4 h-4 text-zinc-400" />
-          </a>
+            <ChevronRight className="w-4 h-4 text-zinc-400" />
+          </button>
 
           <a 
             href="https://hushed-sailboat-ece.notion.site/d176b75d9cf94efbb96f5e5168bbe18a?source=copy_link"
@@ -775,33 +892,7 @@ export function SettingsView({
             </AnimatePresence>
           </div>
 
-          {/* 지원 및 문의 (관리자 이메일) */}
-          <div className="p-3.5 sm:p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0 pr-2">
-              <Mail className="w-5 h-5 text-zinc-600 dark:text-zinc-300 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-white">지원 및 문의</p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">{adminEmail}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => copyToClipboard(adminEmail)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-700 transition-colors active:scale-95 cursor-pointer"
-              >
-                {copiedEmail ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedEmail ? '복사됨' : '복사'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleMailWrite}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-700 active:scale-95 text-white transition-all cursor-pointer shadow-sm"
-              >
-                {mailFeedback ? '복사 및 앱 실행 중' : '메일 쓰기'}
-              </button>
-            </div>
-          </div>
+
 
           {/* 폰트 출처 및 라이선스 안내 */}
           <div>
@@ -899,42 +990,24 @@ export function SettingsView({
             <ExternalLink className="w-4 h-4 text-zinc-400" />
           </a>
 
-          {user && (
-            <>
-              <button 
-                type="button"
-                onClick={handleDeleteAccount}
-                className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <Trash2 className="w-5 h-5 text-red-500 dark:text-red-400" />
-                  <span className="text-sm font-semibold text-red-600 dark:text-red-400">회원탈퇴</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-red-400" />
-              </button>
-
-              <button 
-                type="button"
-                onClick={onLogout}
-                className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <LogOut className="w-5 h-5 text-red-500 dark:text-red-400" />
-                  <span className="text-sm font-semibold text-red-600 dark:text-red-400">로그아웃</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-red-400" />
-              </button>
-            </>
-          )}
-
         </div>
       </section>
 
-      {/* 최하단 버전 정보 */}
+      {/* 최하단 버전 정보 및 관리자 검증 진입점 */}
       <div className="pt-4 text-center">
-        <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wider">
-          v{system?.appVersion || '1.0.0'}
-        </p>
+        <button
+          type="button"
+          onClick={() => {
+            if (!isAdmin) {
+              setShowAdminVerifyModal(true);
+            }
+          }}
+          className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wider hover:text-purple-500 transition-colors cursor-pointer inline-flex items-center gap-1"
+          title={isAdmin ? `v${system?.appVersion || '1.0.0'} (관리자 활성화됨)` : `v${system?.appVersion || '1.0.0'}`}
+        >
+          <span>v{system?.appVersion || '1.0.0'}</span>
+          {!isAdmin && <Lock className="w-3 h-3 opacity-30 hover:opacity-100" />}
+        </button>
       </div>
 
       {/* 캐시 삭제 확인 모달 (공지사항 형태의 구조로 디자인 일관성 통일) */}
@@ -946,7 +1019,8 @@ export function SettingsView({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 12 }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-5 sm:p-7 max-w-lg w-full shadow-2xl relative flex flex-col overflow-hidden"
+              style={{ WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)' }}
+              className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] p-5 sm:p-7 max-w-lg w-full shadow-2xl relative flex flex-col overflow-hidden"
             >
               {/* 우측 상단 닫기 버튼 */}
               <button
@@ -1004,6 +1078,18 @@ export function SettingsView({
           </div>
         )}
       </AnimatePresence>
+
+      {/* 관리자 검증 모달 */}
+      {showAdminVerifyModal && (
+        <AdminVerificationModal
+          onClose={() => setShowAdminVerifyModal(false)}
+          onSuccess={() => {
+            setShowAdminVerifyModal(false);
+            onClose?.();
+            navigate('/admin');
+          }}
+        />
+      )}
 
     </div>
   );

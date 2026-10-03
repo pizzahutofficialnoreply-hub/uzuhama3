@@ -120,6 +120,9 @@ export function useFirebaseData() {
   const [data, setData] = useState<AppData | null>(null);
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(15);
+  const [loadingStatusText, setLoadingStatusText] = useState('초기 환경 구성 및 세션 확인 중...');
+  const [isFirstRun, setIsFirstRun] = useState(false);
   
   const isFirstLiveCheckRef = useRef(true);
   const prevStatusRef = useRef<string | null>(null);
@@ -313,11 +316,38 @@ export function useFirebaseData() {
     return () => unsubscribeLive();
   }, [fetchLatestLogs]);
 
-  // 3. [트리거 3] 첫 실행 시 데이터 호출 및 초기화
+  // 3. [트리거 3] 첫 실행 시 데이터 호출 및 초기화 (SWR 캐싱 적용)
   useEffect(() => {
     const initializeData = async () => {
       try {
-        setLoading(true);
+        const cachedLogsStr = localStorage.getItem('uzuhama_logs_cache_v4');
+        const hasExistingCache = Boolean(cachedLogsStr);
+
+        // 이미 로컬 캐시가 있으면 즉시 화면을 띄워 대기 시간 0초 (stale-while-revalidate)
+        if (hasExistingCache) {
+          try {
+            const cachedLogs = JSON.parse(cachedLogsStr!);
+            const fastInitialData: AppData = {
+              logs: cachedLogs,
+              dailyStats: defaultDaily.reduce((acc, stat) => ({ ...acc, [stat.day]: stat }), {} as any),
+              timeStats: defaultTime.reduce((acc, stat) => ({ ...acc, [stat.time]: stat }), {} as any),
+              durationStats: defaultDuration.reduce((acc, stat) => ({ ...acc, [stat.label]: stat }), {} as any),
+              monthlyStats: defaultMonthly.reduce((acc, stat) => ({ ...acc, [stat.month]: stat }), {} as any),
+              patternGuides: defaultGuides.reduce((acc, guide) => ({ ...acc, [guide.id]: guide }), {} as any),
+              videoStats: {},
+              system: { maintenance: false, noticeType: 'none', noticeContent: '' }
+            };
+            setData(fastInitialData);
+            setLoading(false);
+          } catch {}
+        } else {
+          setIsFirstRun(true);
+          setLoading(true);
+        }
+
+        setLoadingProgress(20);
+        setLoadingStatusText('시스템 설정 및 통계 지표 불러오는 중...');
+
         const sysRef = doc(db, 'config', 'system');
         const videoStatsRef = doc(db, 'config', 'videoStats');
         const statsRef = doc(db, 'config', 'dailyStats');
@@ -342,6 +372,9 @@ export function useFirebaseData() {
           console.warn('Failed to fetch config from Firebase, using defaults. Error:', e.message);
         }
         
+        setLoadingProgress(55);
+        setLoadingStatusText('과거 방송 아카이브 및 일지 분석 중...');
+
         const initialData: AppData = {
           logs: {}, 
           dailyStats: valStats ? (valStats as Record<string, DailyStat>) : defaultDaily.reduce((acc, stat) => ({ ...acc, [stat.day]: stat }), {} as any),
@@ -357,8 +390,7 @@ export function useFirebaseData() {
         const historicalLogs = await loadHistoricalLogs();
         initialData.logs = { ...historicalLogs };
 
-        // 2. 로컬 캐시 확인하여 화면에 즉시 선표시
-        const cachedLogsStr = localStorage.getItem('uzuhama_logs_cache_v4');
+        // 2. 로컬 캐시 확인하여 화면에 반영
         if (cachedLogsStr) {
           try {
             const cachedLogs = JSON.parse(cachedLogsStr);
@@ -369,9 +401,14 @@ export function useFirebaseData() {
         }
         setData(initialData);
 
+        setLoadingProgress(85);
+        setLoadingStatusText('최신 방송 일지 동기화 중...');
+
         // 3. 첫 실행 시 Firestore 최신 데이터 호출 및 병합
         await fetchLatestLogs();
 
+        setLoadingProgress(100);
+        setLoadingStatusText('준비 완료!');
       } catch (e) {
         console.error(e);
       } finally {
@@ -606,6 +643,9 @@ export function useFirebaseData() {
   return { 
     data, 
     loading, 
+    loadingProgress,
+    loadingStatusText,
+    isFirstRun,
     addLog, 
     updateLog, 
     deleteLog, 

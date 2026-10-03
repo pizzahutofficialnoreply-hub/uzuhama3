@@ -73,10 +73,6 @@ export function buildCalendarEventDetails(log: BroadcastLog): CalendarEventDetai
     descLines.push(`⏰ 방송 시간: ${timeRange}${duration}`);
   }
 
-  if (log.category) {
-    descLines.push(`📂 카테고리: ${log.category}`);
-  }
-
   descLines.push('');
   descLines.push('📺 다시보기 및 방송 링크:');
   if (log.chzzkUrl) descLines.push(`- 치지직 생방송/다시보기: ${log.chzzkUrl}`);
@@ -106,10 +102,10 @@ export function buildCalendarEventDetails(log: BroadcastLog): CalendarEventDetai
     });
   }
 
-  const pageOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://uzuhama-prediction.web.app';
+  const rawOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://uzuhama.web.app';
+  const pageOrigin = (!rawOrigin || rawOrigin.includes('vercel.app')) ? 'https://uzuhama.web.app' : rawOrigin;
   descLines.push('');
-  descLines.push(`🌐 구독한 페이지 링크: ${pageOrigin}`);
-  descLines.push(`📌 우주하마 방송 통계: ${pageOrigin}`);
+  descLines.push(`우주하마 방송 예측: ${pageOrigin}`);
 
   const description = descLines.join('\n');
 

@@ -111,6 +111,13 @@ export interface BroadcastLog {
   durationHours: number;
   isAbsence?: boolean;
   absenceReasons?: string[];
+  illnessName?: string;
+  illnessInfo?: {
+    name: string;
+    summary: string;
+    source?: string;
+    sourceUrl?: string;
+  };
   youtubeUrl?: string;
   chzzkUrl?: string;
 }
@@ -119,6 +126,10 @@ export interface PatternGuide {
   id: string;
   title: string;
   content: string;
+  illnessName?: string;
+  illnessSummary?: string;
+  illnessSource?: string;
+  illnessSourceUrl?: string;
 }
 
 export interface NoticeLink {
@@ -161,6 +172,14 @@ export interface SystemConfig {
   noticeContent: string;
   absenceReason?: string;
   customAbsenceReason?: string;
+  illnessName?: string;
+  illnessSummary?: string;
+  illnessSource?: string;
+  illnessSourceUrl?: string;
+  diseaseName?: string;
+  diseaseSummary?: string;
+  diseaseSource?: string;
+  diseaseSourceUrl?: string;
   absenceDuration?: string;
   adminEmail?: string;
   maintenanceStart?: string;
@@ -183,6 +202,7 @@ export interface SystemConfig {
   archiveSourceUrl?: string;
   activePoll?: Poll | null;
   compilations?: CompilationVideo[];
+  feedbackTabs?: string[];
 }
 
 export interface AppData {

@@ -16,5 +16,21 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "관리자 모드",
+      "short_name": "관리자",
+      "description": "시스템 및 방송 기록 관리자 대시보드",
+      "url": "/admin",
+      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "패치노트",
+      "short_name": "패치노트",
+      "description": "업데이트 및 패치노트 아카이브",
+      "url": "/patch",
+      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
+    }
   ]
 }

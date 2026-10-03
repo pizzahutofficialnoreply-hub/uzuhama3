@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AppData, SystemConfig, NoticeItem, NoticeLink, TermsRevision } from '../../../types';
-import { Settings, Plus, Edit2, Trash2, Check, X, Database, Loader2, AlertCircle, Link as LinkIcon, ExternalLink, Shield, Eye, Calendar, AlertTriangle } from 'lucide-react';
+import { Settings, Plus, Edit2, Trash2, Check, X, Database, Loader2, AlertCircle, Link as LinkIcon, ExternalLink, Shield, Eye, Calendar, AlertTriangle, Bell, MessageSquare } from 'lucide-react';
+import { auth } from '../../../lib/firebase';
 import { format, addDays, differenceInCalendarDays } from 'date-fns';
 import { migrateLogsToMonthly, MigrationProgress } from '../../../utils/migrateLogs';
 import { TermsRevisionModal } from '../../TermsRevisionModal';
@@ -17,6 +18,11 @@ export function AdminSystemTab({
   const [systemEdit, setSystemEdit] = useState<Partial<SystemConfig>>({
     noticeContent: data.system?.noticeContent || '',
     absenceReason: data.system?.absenceReason || '',
+    customAbsenceReason: data.system?.customAbsenceReason || '',
+    illnessName: data.system?.illnessName || '',
+    illnessSummary: data.system?.illnessSummary || '',
+    illnessSource: data.system?.illnessSource || '',
+    illnessSourceUrl: data.system?.illnessSourceUrl || '',
     absenceDuration: data.system?.absenceDuration || '',
     maintenance: data.system?.maintenance || false,
     maintenanceTitle: data.system?.maintenanceTitle || '',
@@ -47,6 +53,16 @@ export function AdminSystemTab({
       "가족 행사/일정",
       "지각",
       "기타 (직접 입력)"
+    ],
+    feedbackTabs: data.system?.feedbackTabs || [
+      "요약 탭",
+      "기록 탭",
+      "분석 탭",
+      "검색 탭",
+      "데이터 제보 (+)",
+      "설정",
+      "패치노트",
+      "기타"
     ]
   });
   
@@ -54,6 +70,7 @@ export function AdminSystemTab({
   const [noticeForm, setNoticeForm] = useState<Partial<NoticeItem>>({ title: '', content: '', type: 'big' });
   const [noticeLinks, setNoticeLinks] = useState<NoticeLink[]>([]);
   const [newReason, setNewReason] = useState('');
+  const [newFeedbackTab, setNewFeedbackTab] = useState('');
   const [migrationProgress, setMigrationProgress] = useState<MigrationProgress | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
 
@@ -89,11 +106,85 @@ export function AdminSystemTab({
     }
   };
 
+  const [isSendingNotification, setIsSendingNotification] = useState(false);
+
+  const handleSendTestNotification = async () => {
+    if (!window.confirm('모든 웹 푸시 구독 기기에 테스트 알림을 발송하시겠습니까?')) {
+      return;
+    }
+
+    setIsSendingNotification(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        alert('관리자 인증 세션이 만료되었습니다. 다시 로그인해주세요.');
+        return;
+      }
+
+      const RAW_VERCEL_API = import.meta.env.VITE_VERCEL_API_URL || 
+        (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app');
+      const VERCEL_API_BASE = (RAW_VERCEL_API || '').replace(/\/+$/, '');
+      const SEND_NOTIFICATION_URL = `${VERCEL_API_BASE}/api/notifications/send`;
+
+      const res = await fetch(SEND_NOTIFICATION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          title: '[우주하마 방송 예측] 테스트 전체 알림',
+          body: '푸시 알림 수신이 정상적으로 연결되어 있습니다.',
+          url: '/'
+        })
+      });
+
+      const resData = await res.json();
+      if (!res.ok) {
+        throw new Error(resData.error || '알림 발송 서버 응답 오류');
+      }
+
+      if (resData.message && !resData.success && (resData.failureCount === undefined || resData.failureCount === 0)) {
+        alert(`⚠️ 알림 발송 안내\n\n${resData.message}`);
+        return;
+      }
+
+      let alertMsg = `🔔 전체 기기 테스트 알림 발송 결과\n\n- 성공: ${resData.successCount ?? 0}대\n- 실패: ${resData.failureCount ?? 0}대`;
+      if (resData.cleanedTokens) {
+        alertMsg += `\n- 만료/무효 자동 정리: ${resData.cleanedTokens}개`;
+      }
+
+      if (resData.sampleErrors && resData.sampleErrors.length > 0) {
+        alertMsg += `\n\n⚠️ 실패 상세 원인:\n${resData.sampleErrors.join('\n')}`;
+      }
+
+      if (resData.errorSummary && Object.keys(resData.errorSummary).length > 0) {
+        alertMsg += `\n\n[에러 코드 요약]: ${Object.entries(resData.errorSummary).map(([k, v]) => `${k}: ${v}건`).join(', ')}`;
+      }
+
+      if ((resData.successCount ?? 0) === 0 && (resData.failureCount ?? 0) > 0) {
+        alertMsg += `\n\n💡 조치 가이드:\n- 만료된 토큰인 경우 DB에서 자동 정리되었습니다.\n- 현재 기기에서 [설정 > 알림 설정]을 껐다 켜서 최신 토큰을 등록한 후 다시 테스트해보세요.`;
+      }
+
+      alert(alertMsg);
+    } catch (err: any) {
+      console.error('테스트 알림 발송 오류:', err);
+      alert(`테스트 알림 발송 중 오류: ${err?.message || err}`);
+    } finally {
+      setIsSendingNotification(false);
+    }
+  };
+
   useEffect(() => {
     if (data.system) {
       setSystemEdit({
         noticeContent: data.system?.noticeContent || '',
         absenceReason: data.system?.absenceReason || '',
+        customAbsenceReason: data.system?.customAbsenceReason || '',
+        illnessName: data.system?.illnessName || '',
+        illnessSummary: data.system?.illnessSummary || '',
+        illnessSource: data.system?.illnessSource || '',
+        illnessSourceUrl: data.system?.illnessSourceUrl || '',
         absenceDuration: data.system?.absenceDuration || '',
         maintenance: data.system?.maintenance || false,
         maintenanceTitle: data.system?.maintenanceTitle || '',
@@ -399,7 +490,7 @@ export function AdminSystemTab({
           <div>
             <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-2">휴방 사유</label>
             <select
-              value={systemEdit.absenceReason === '기타 (직접 입력)' ? '기타 (직접 입력)' : (systemEdit.absenceReason || '')}
+              value={systemEdit.absenceReason || ''}
               onChange={e => {
                 const val = e.target.value;
                 handleChange('absenceReason', val);
@@ -407,9 +498,11 @@ export function AdminSystemTab({
               className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
             >
               <option value="">설정 안함</option>
+              <option value="병명">병명 (직접 입력 및 의학 정보 제공)</option>
+              <option value="직접 입력">직접 입력</option>
               <option value="건강 문제">건강 문제 (휴방 확률 증가)</option>
-              <option value="휴식">휴식</option>
               <option value="컨디션 난조">컨디션 난조 (휴방 확률 증가)</option>
+              <option value="휴식">휴식</option>
               <option value="개인 일정">개인 일정</option>
               <option value="여행">여행 (휴방 확률 증가)</option>
               <option value="장비 문제">장비 문제</option>
@@ -418,43 +511,113 @@ export function AdminSystemTab({
           </div>
         </div>
 
-        {/* 장기 휴방 중 유튜브 영상 업로드일 (확률 가산점 반영) */}
-        <div className="mt-4 p-4 rounded-xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-800/60">
-          <label className="block text-sm font-bold text-purple-900 dark:text-purple-300 mb-1 flex items-center gap-1.5">
-            <span>🎬 장기 휴방(7일 이상) 중 유튜브 영상 업로드일 설정</span>
-            <span className="text-xs font-normal text-purple-600 dark:text-purple-400">(확률 소폭 가산점 부여)</span>
-          </label>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-2">
-            <input 
-              type="date"
-              value={systemEdit.recentVideoUploadDate || ''}
-              onChange={e => handleChange('recentVideoUploadDate', e.target.value)}
-              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-            />
-            {systemEdit.recentVideoUploadDate && (
-              <button
-                type="button"
-                onClick={() => handleChange('recentVideoUploadDate', '')}
-                className="px-3 py-2 text-xs text-zinc-500 hover:text-red-500 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl transition-colors shrink-0"
-              >
-                초기화
-              </button>
-            )}
-            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-              * 마지막 생방송 이후 7일 이상 휴방 상태일 때, 이 날짜에 새 영상이 올라오면 복귀 기대감으로 방송 예측 확률에 소폭 가산점이 자동 반영됩니다. (미입력 시에도 최근 등록 영상 로그를 자동 감지)
-            </p>
-          </div>
-        </div>
-        {systemEdit.absenceReason === '기타 (직접 입력)' && (
-          <div className="mt-4">
-            <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-2">기타 사유 입력</label>
+        {/* 직접 입력 선택 시 */}
+        {(systemEdit.absenceReason === '직접 입력' || systemEdit.absenceReason === '기타 (직접 입력)') && (
+          <div className="mt-4 p-4 rounded-xl bg-zinc-100/70 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700">
+            <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-2">
+              직접 입력할 휴방 사유
+            </label>
             <input
               type="text"
               value={systemEdit.customAbsenceReason || ''}
               onChange={e => handleChange('customAbsenceReason', e.target.value)}
-              placeholder="직접 입력할 사유를 적어주세요."
-              className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+              placeholder="예: 이사 일정, 병원 방문, 학업 일정 등"
+              className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none text-zinc-900 dark:text-white"
             />
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5">
+              * 요약 탭의 예측 가이드에 '직접 입력' 대신 여기에 작성한 내용이 그대로 표시됩니다.
+            </p>
+          </div>
+        )}
+
+        {/* 병명 선택 시 */}
+        {systemEdit.absenceReason === '병명' && (
+          <div className="mt-4 p-4.5 rounded-2xl bg-red-50/60 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-red-900 dark:text-red-300 flex items-center gap-1.5">
+                <span>🩺 병명 및 공식 의학 정보 설정</span>
+              </label>
+              <span className="text-[11px] text-red-700 dark:text-red-400 font-medium">
+                사용자 클릭 시 의학 정보 모달 & Google 검색 연동
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">병명 직접 입력</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={systemEdit.illnessName || ''}
+                  onChange={e => {
+                    const name = e.target.value;
+                    handleChange('illnessName', name);
+                    if (!systemEdit.illnessSummary) {
+                      handleChange('illnessSummary', `**${name}** 증상으로 인한 치료와 절대 안정이 필요하여 휴방합니다. <u>충분한 휴식 및 수분 섭취</u>와 전문의 처방을 따르고 있습니다.`);
+                    }
+                    if (!systemEdit.illnessSource) {
+                      handleChange('illnessSource', '질병관리청 국가건강정보포털');
+                    }
+                  }}
+                  placeholder="예: 독감, 감기, 장염, 성대결절, 손목터널증후군 등"
+                  className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 dark:text-white font-medium"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const name = (systemEdit.illnessName || '').trim();
+                    if (!name) return alert('병명을 먼저 입력해주세요.');
+                    handleChange('illnessSummary', `**${name}** 증상으로 인한 신체 컨디션 저하 및 회복을 위해 일정이 조정되었습니다. <u>충분한 휴식과 안정</u>을 취하고 전문의 진단 및 치료를 병행하고 있습니다.`);
+                    handleChange('illnessSource', '질병관리청 국가건강정보포털 / 대한의학회');
+                  }}
+                  className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0"
+                >
+                  기본 요약 생성
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                병명 핵심 설명 요약 (노트 형식, **볼드** 및 &lt;u&gt;밑줄&lt;/u&gt; 서식 지원)
+              </label>
+              <textarea
+                rows={3}
+                value={systemEdit.illnessSummary || ''}
+                onChange={e => handleChange('illnessSummary', e.target.value)}
+                placeholder="예: **급성 호흡기 감염 질환**으로, <u>38도 이상의 고열</u>과 전신 근육통이 동반됩니다."
+                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 text-xs sm:text-sm focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 dark:text-white"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">정보 출처 (공식 의료기관)</label>
+                <input
+                  type="text"
+                  value={systemEdit.illnessSource || '질병관리청 국가건강정보포털'}
+                  onChange={e => handleChange('illnessSource', e.target.value)}
+                  placeholder="예: 질병관리청 국가건강정보포털"
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-red-500 outline-none text-zinc-900 dark:text-white"
+                />
+              </div>
+              <div className="flex items-end">
+                {systemEdit.illnessName && (
+                  <a
+                    href={`https://www.google.com/search?q=${encodeURIComponent((systemEdit.illnessName || '') + ' 증상 치료')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2 px-3 text-xs font-bold bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Google 검색 결과 미리보기</span>
+                  </a>
+                )}
+              </div>
+            </div>
+
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              * 병명 등록 시 1회 저장되며, 사이트 접속자에게는 별도 추가 API 호출 없이 저장된 요약 노트와 Google 검색 버튼이 제공됩니다.
+            </p>
           </div>
         )}
       </div>
@@ -833,7 +996,40 @@ export function AdminSystemTab({
         </div>
       </div>
 
-      {/* 4. 시스템 버전 및 약관 버전 설정 */}
+      {/* 4. 웹 푸시 알림 점검 및 테스트 발송 */}
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+              <Bell className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              웹 푸시 알림 발송 및 점검
+            </h3>
+            <p className="text-xs text-zinc-500 mt-1">
+              FCM 푸시 알림을 구독한 모든 기기와 현재 브라우저에 실시간 테스트 알림을 발송하여 알림 인프라 연결 상태를 점검합니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSendTestNotification}
+            disabled={isSendingNotification}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm shrink-0 cursor-pointer active:scale-95"
+          >
+            {isSendingNotification ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>발송 중...</span>
+              </>
+            ) : (
+              <>
+                <Bell className="w-4 h-4" />
+                <span>전체 기기 테스트 알림 발송</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* 5. 시스템 버전 및 약관 버전 설정 */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm space-y-6">
         <h3 className="text-lg font-bold text-zinc-900 dark:text-white">버전 및 데이터 표시 설정</h3>
         
@@ -1116,7 +1312,7 @@ export function AdminSystemTab({
                 이의 제기 방법 및 거부권 안내 문구 (미입력 시 기본 문구 사용)
               </label>
               <textarea
-                placeholder={`개정 약관에 동의하지 않으시는 경우 회원 탈퇴 또는 서비스 이용 중단을 요청하실 수 있으며, 관리자 문의(${systemEdit.adminEmail || 'admin@example.com'})를 통해 이의를 제기하실 수 있습니다. 시행일 전까지 별도의 거부 의사를 표시하지 아니한 경우 본 개정안에 동의한 것으로 간주됩니다.`}
+                placeholder="개정 약관에 동의하지 않으시는 경우 서비스 회원 탈퇴 또는 이용 중단을 요청하실 수 있으며, 서비스 내 문의 기능을 통해 이의를 제기하실 수 있습니다. 시행일 전까지 별도의 거부 의사를 표시하지 아니한 경우 본 개정안에 동의한 것으로 간주됩니다."
                 value={revisionForm.objectionGuide || ''}
                 onChange={e => setRevisionForm(prev => ({ ...prev, objectionGuide: e.target.value }))}
                 className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-purple-500 min-h-[80px] outline-none"
@@ -1244,6 +1440,112 @@ export function AdminSystemTab({
         )}
       </div>
 
+      {/* 5-2. 의견 보내기 관련 탭/위치 목록 관리 */}
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-4 mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              의견 보내기 위치(탭) 목록 설정
+            </h3>
+            <p className="text-xs text-zinc-500 mt-1">
+              사용자가 의견/버그를 제보할 때 선택하는 위치(탭) 목록을 동적으로 추가, 수정, 삭제할 수 있습니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              handleChange('feedbackTabs', [
+                "요약 탭",
+                "기록 탭",
+                "분석 탭",
+                "검색 탭",
+                "데이터 제보 (+)",
+                "설정",
+                "패치노트",
+                "기타"
+              ]);
+            }}
+            className="text-xs text-purple-600 dark:text-purple-400 font-bold hover:underline"
+          >
+            기본값 복원
+          </button>
+        </div>
+
+        {/* 새 항목 추가 입력폼 */}
+        <div className="flex items-center gap-2 mb-4">
+          <input 
+            type="text"
+            value={newFeedbackTab}
+            onChange={e => setNewFeedbackTab(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                const val = newFeedbackTab.trim();
+                if (val && !systemEdit.feedbackTabs?.includes(val)) {
+                  handleChange('feedbackTabs', [...(systemEdit.feedbackTabs || []), val]);
+                  setNewFeedbackTab('');
+                }
+              }
+            }}
+            placeholder="새 위치/탭 이름 입력 (예: 헤더 확률 위젯)..."
+            className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-purple-500"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const val = newFeedbackTab.trim();
+              if (val && !systemEdit.feedbackTabs?.includes(val)) {
+                handleChange('feedbackTabs', [...(systemEdit.feedbackTabs || []), val]);
+                setNewFeedbackTab('');
+              }
+            }}
+            className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>추가</span>
+          </button>
+        </div>
+
+        {/* 현재 등록된 탭 목록 칩 리스트 */}
+        <div className="flex flex-wrap gap-2">
+          {(systemEdit.feedbackTabs || []).map((tabName, idx) => (
+            <div 
+              key={idx}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-semibold border border-zinc-200 dark:border-zinc-700"
+            >
+              <span>{tabName}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const updated = prompt('탭/위치 이름 수정:', tabName);
+                  if (updated && updated.trim()) {
+                    const current = [...(systemEdit.feedbackTabs || [])];
+                    current[idx] = updated.trim();
+                    handleChange('feedbackTabs', current);
+                  }
+                }}
+                className="p-0.5 text-zinc-400 hover:text-purple-600 transition-colors cursor-pointer"
+                title="수정"
+              >
+                <Edit2 className="w-3 h-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const current = systemEdit.feedbackTabs || [];
+                  handleChange('feedbackTabs', current.filter((_, i) => i !== idx));
+                }}
+                className="p-0.5 text-zinc-400 hover:text-red-500 transition-colors cursor-pointer"
+                title="삭제"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* 6. 약관 및 방침 관리 */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-6 shadow-sm">
         <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-4">서비스 이용약관 및 개인정보처리방침</h3>
@@ -1282,7 +1584,6 @@ export function AdminSystemTab({
       {previewRevision && (
         <TermsRevisionModal
           revision={previewRevision}
-          adminEmail={systemEdit.adminEmail}
           isPreview={true}
           onClose={() => setPreviewRevision(null)}
           onAcknowledge={() => {

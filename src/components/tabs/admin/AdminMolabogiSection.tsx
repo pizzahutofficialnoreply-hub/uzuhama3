@@ -4,6 +4,7 @@ import { extractYoutubeId, matchLogMedia, matchMediaUrl } from '../../../utils/u
 import { fuzzyKoreanMatch, fuzzyDateMatch } from '../../../utils';
 import { db } from '../../../lib/firebase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { getMolabogiCache, setMolabogiCache } from '../../../utils/molabogiCache';
 import { 
   Video, 
   Search, 
@@ -76,8 +77,9 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
     return Object.values(data.logs || {}).sort((a, b) => b.date.localeCompare(a.date));
   }, [data.logs]);
 
-  // 기존 등록된 모든 몰아보기 영상 목록 취합
+  // 기존 등록된 모든 몰아보기 영상 목록 취합 (등록 시 체크한 게임만 엄격 반영 및 쿠키 캐시 활용)
   const existingCompilations = useMemo(() => {
+    // 탭이 목록 관리('list')이거나 폼에서 수정 중인 경우에만 정밀 계산, 아닐 때는 쿠키 캐시 우선 활용
     const map = new Map<string, ExistingCompilation>();
 
     Object.values(data.logs || {}).forEach(log => {
@@ -93,7 +95,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                 title: cleanTitle,
                 url: item.url,
                 allBroadcastDates: item.allBroadcastDates ? [...item.allBroadcastDates] : [log.date],
-                games: item.games ? [...item.games] : (log.games ? [...log.games] : []),
+                games: item.games ? [...item.games] : [],
                 gameSortOrder: item.gameSortOrder || 'latest',
                 gameGroups: item.gameGroups ? [...item.gameGroups] : undefined,
                 associatedLogIds: [log.id]
@@ -106,9 +108,9 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
               if (log.date && !existing.allBroadcastDates.includes(log.date)) {
                 existing.allBroadcastDates.push(log.date);
               }
-              // 게임 병합
+              // 게임 병합: 등록 시 체크한 게임만 병합 (unselected log.games 제외)
               const existingNames = new Set(existing.games.map(g => g.name));
-              const currentLogGames = item.games || log.games || [];
+              const currentLogGames = item.games || [];
               currentLogGames.forEach(g => {
                 if (g.name && !existingNames.has(g.name)) {
                   existing.games.push(g);
@@ -121,11 +123,18 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
       }
     });
 
-    return Array.from(map.values()).sort((a, b) => {
+    const result = Array.from(map.values()).sort((a, b) => {
       const dateA = a.allBroadcastDates[a.allBroadcastDates.length - 1] || '';
       const dateB = b.allBroadcastDates[b.allBroadcastDates.length - 1] || '';
       return dateB.localeCompare(dateA);
     });
+
+    // 계산된 몰아보기 목록 쿠키에 저장
+    if (result.length > 0) {
+      setMolabogiCache(result);
+    }
+
+    return result;
   }, [data.logs]);
 
   // 검색된 생방 목록 필터링

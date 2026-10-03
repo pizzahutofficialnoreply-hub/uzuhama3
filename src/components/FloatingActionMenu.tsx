@@ -3,17 +3,14 @@ import { Plus, Video, PlaySquare, Youtube } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../hooks/useAuth';
 import { UserContributeModal } from './UserContributeModal';
-import { LoginOnboardingModal } from './LoginOnboardingModal';
 import { SystemConfig, BroadcastLog } from '../types';
 
 export function FloatingActionMenu({ system, logs }: { system?: SystemConfig, logs?: Record<string, BroadcastLog> }) {
   const [isOpen, setIsOpen] = useState(false);
   const [modalType, setModalType] = useState<'live' | 'video' | 'shorts' | null>(null);
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'live' | 'video' | 'shorts' | null>(null);
   
   const menuRef = useRef<HTMLDivElement>(null);
-  const { user, loginWithGoogle } = useAuth();
+  const { user } = useAuth();
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
 
@@ -79,28 +76,6 @@ export function FloatingActionMenu({ system, logs }: { system?: SystemConfig, lo
   }, [isOpen]);
 
   const handleAction = async (type: 'live' | 'video' | 'shorts') => {
-    if (!user) {
-      setPendingAction(type);
-      setIsOpen(false);
-      const hasLoggedInBefore = localStorage.getItem('has_logged_in_before') === 'true';
-      if (hasLoggedInBefore) {
-        try {
-          const result = await loginWithGoogle();
-          if (result && result.user) {
-            localStorage.setItem('has_logged_in_before', 'true');
-            localStorage.setItem(`consent_${result.user.uid}`, 'true');
-            setModalType(type);
-            setPendingAction(null);
-          }
-        } catch (e) {
-          console.error('Login error:', e);
-        }
-      } else {
-        setShowLoginModal(true);
-      }
-      return;
-    }
-    
     setIsOpen(false);
     setModalType(type);
   };
@@ -171,8 +146,10 @@ export function FloatingActionMenu({ system, logs }: { system?: SystemConfig, lo
             </AnimatePresence>
 
             <button 
-              onClick={() => setIsOpen(!isOpen)}
-              className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 ${isOpen ? 'bg-zinc-800/80 backdrop-blur-lg text-white rotate-45 dark:bg-zinc-200/80 dark:text-zinc-900' : 'bg-purple-600/50 saturate-[0.7] backdrop-blur-xl text-white hover:bg-purple-600/70 hover:scale-105'}`}
+              type="button"
+              onClick={() => handleAction('live')}
+              className="w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 bg-purple-600 hover:bg-purple-700 text-white hover:scale-105 active:scale-95 cursor-pointer"
+              title="새 콘텐츠 제보"
             >
               <Plus className="w-6 h-6" />
             </button>
@@ -197,26 +174,6 @@ export function FloatingActionMenu({ system, logs }: { system?: SystemConfig, lo
           type={modalType} 
           onClose={() => setModalType(null)} 
           logs={logs}
-        />
-      )}
-      
-      {showLoginModal && (
-        <LoginOnboardingModal 
-          onClose={() => setShowLoginModal(false)}
-          onLogin={async () => {
-            setShowLoginModal(false);
-            try {
-              const result = await loginWithGoogle();
-              if (result && result.user) {
-                localStorage.setItem('has_logged_in_before', 'true');
-                localStorage.setItem(`consent_${result.user.uid}`, 'true');
-                if (pendingAction) {
-                  setModalType(pendingAction);
-                  setPendingAction(null);
-                }
-              }
-            } catch(e) {}
-          }}
         />
       )}
     </>

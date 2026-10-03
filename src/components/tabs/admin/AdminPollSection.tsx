@@ -871,7 +871,10 @@ export function AdminPollSection({ system, polls: propsPolls, onUpdateSystemConf
       {/* 인라인 확인 다이얼로그 (아이프레임 호환: window.confirm 대체) */}
       {confirmDialog && confirmDialog.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+          <div 
+            style={{ WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)' }}
+            className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl"
+          >
             <div className="flex items-center gap-2.5 text-zinc-900 dark:text-white font-bold">
               <AlertCircle className="w-5 h-5 text-amber-500" />
               <span>{confirmDialog.title}</span>

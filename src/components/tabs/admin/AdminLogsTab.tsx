@@ -29,20 +29,40 @@ export function AdminLogsTab({
   const currentYear = new Date().getFullYear();
   const [filterStartDate, setFilterStartDate] = useState(`${currentYear}-01-01`);
   const [filterEndDate, setFilterEndDate] = useState(`${currentYear}-12-31`);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const allLogs = Object.values(data.logs || {}).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   
-  const filteredLogs = allLogs.filter(log => {
-    if (!log.date) return false;
-    return log.date >= filterStartDate && log.date <= filterEndDate;
-  });
+  const filteredLogs = useMemo(() => {
+    return allLogs.filter(log => {
+      if (!log.date) return false;
+      const withinDate = log.date >= filterStartDate && log.date <= filterEndDate;
+      if (!withinDate) return false;
+
+      if (!searchTerm.trim()) return true;
+
+      const q = searchTerm.trim().toLowerCase();
+      if (fuzzyDateMatch(q, log.date)) return true;
+      if (log.date.includes(q)) return true;
+      if (log.time && log.time.includes(q)) return true;
+      if (fuzzyKoreanMatch(q, log.game || '')) return true;
+      if (fuzzyKoreanMatch(q, log.category || '')) return true;
+      if (log.games?.some(g => fuzzyKoreanMatch(q, g.name) || fuzzyKoreanMatch(q, g.category || ''))) return true;
+      if (log.absenceReasons?.some(r => fuzzyKoreanMatch(q, r))) return true;
+      if (log.vods?.some(v => fuzzyKoreanMatch(q, v.title || ''))) return true;
+      if (log.edited?.some(v => fuzzyKoreanMatch(q, v.title || ''))) return true;
+      if (log.shorts?.some(v => fuzzyKoreanMatch(q, v.title || ''))) return true;
+
+      return false;
+    });
+  }, [allLogs, filterStartDate, filterEndDate, searchTerm]);
 
   const [editingLogs, setEditingLogs] = useState<Record<string, Partial<BroadcastLog>>>({});
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-4 sm:p-6 shadow-sm">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
           <List className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           방송 기록 ({filteredLogs.length}개)
@@ -70,12 +90,34 @@ export function AdminLogsTab({
                 await onDeleteAllLogs();
               }
             }}
-            className="px-3 py-2 sm:py-1.5 text-xs sm:text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20 rounded-lg transition-colors flex items-center justify-center gap-1.5 w-full sm:w-auto"
+            className="px-3 py-2 sm:py-1.5 text-xs sm:text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20 rounded-lg transition-colors flex items-center justify-center gap-1.5 w-full sm:w-auto cursor-pointer"
           >
             <Trash2 className="w-4 h-4" />
             전체 초기화
           </button>
         </div>
+      </div>
+
+      {/* 관리자 검색 바 */}
+      <div className="relative mb-5">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+        <input 
+          type="text"
+          placeholder="게임명, 날짜(YYYY-MM-DD), 카테고리, 결방 사유 검색..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-10 pr-10 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+        {searchTerm && (
+          <button 
+            type="button" 
+            onClick={() => setSearchTerm('')} 
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-md cursor-pointer"
+            title="검색어 지우기"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       <div className="space-y-3 sm:space-y-4">

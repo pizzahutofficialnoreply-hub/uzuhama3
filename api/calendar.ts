@@ -87,10 +87,6 @@ function logToVEvent(log: BroadcastLog, nowStr: string, index: number, origin: s
     descLines.push(`⏰ 방송 시간: ${timeInfo}${duration}`);
   }
 
-  if (log.category) {
-    descLines.push(`📂 카테고리: ${log.category}`);
-  }
-
   descLines.push('');
   descLines.push('📺 다시보기 및 방송 링크:');
   if (log.chzzkUrl) descLines.push(`- 치지직 생방송/다시보기: ${log.chzzkUrl}`);
@@ -115,9 +111,10 @@ function logToVEvent(log: BroadcastLog, nowStr: string, index: number, origin: s
     });
   }
 
+  const siteOrigin = (!origin || origin.includes('vercel.app')) ? 'https://uzuhama.web.app' : origin;
   descLines.push('');
-  descLines.push(`🌐 구독한 페이지 링크: ${origin}`);
-  descLines.push(`📌 우주하마 방송 통계: ${origin}`);
+  descLines.push(`🌐 구독한 페이지 링크: ${siteOrigin}`);
+  descLines.push(`📌 우주하마 방송 통계: ${siteOrigin}`);
 
   const description = descLines.join('\n');
   const uid = `uzuhama-${dateStr}-${index}@uzuhama-prediction`;
@@ -328,9 +325,13 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    const queryOrigin = req.query?.siteUrl;
     const proto = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers['x-forwarded-host'] || req.headers.host || 'uzuhama.vercel.app';
-    const origin = `${proto}://${host}`;
+    const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+    let origin = queryOrigin || (host ? `${proto}://${host}` : 'https://uzuhama.web.app');
+    if (!origin || origin.includes('vercel.app')) {
+      origin = 'https://uzuhama.web.app';
+    }
 
     const icsContent = await buildFullCalendarFeed(origin);
 

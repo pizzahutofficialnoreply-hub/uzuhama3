@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useState } from 'react';
 import { PatternAnalysis } from '../PatternAnalysis';
 import { WidgetShareButton } from '../common/WidgetShareButton';
+import { IllnessInfoModal } from '../IllnessInfoModal';
 import { AppData } from '../../types';
 import { format, startOfMonth, endOfMonth, parseISO, startOfWeek, isSameDay, addDays } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, Cell, LabelList } from 'recharts';
@@ -179,12 +180,35 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
     };
   }, [logsArray]);
 
+  const [selectedIllness, setSelectedIllness] = useState<{
+    name: string;
+    summary?: string;
+    source?: string;
+    sourceUrl?: string;
+  } | null>(null);
+
+  const rawAbsenceReason = data.system?.absenceReason || '';
+  const isDirectInput = rawAbsenceReason === '직접 입력' || rawAbsenceReason === '기타 (직접 입력)';
+  const isIllness = rawAbsenceReason === '병명' || Boolean(data.system?.illnessName);
+
+  const displayAbsenceReason = isDirectInput
+    ? (data.system?.customAbsenceReason || '직접 입력한 사유')
+    : isIllness
+    ? (data.system?.illnessName || data.system?.customAbsenceReason || '병명')
+    : rawAbsenceReason;
+
+  const illnessNameForGuide = isIllness ? displayAbsenceReason : undefined;
+
   // Dynamically generate guides based on actual data
   const dynamicGuides = [
     ...(data.system?.absenceReason ? [{
       id: 'guide-0',
       title: '⚠️ 장기 휴방 사유 안내',
-      content: `현재 우주하마님은 **${data.system.absenceReason}** 사유로 휴방 중입니다.${data.system.absenceDuration ? ` (예상 기간: **${data.system.absenceDuration}**)` : ''} 이로 인해 평소 패턴과 다르게 당분간 휴방이 지속될 가능성이 높으니 참고하시기 바랍니다.`
+      content: `현재 우주하마님은 **${displayAbsenceReason}** 사유로 휴방 중입니다.${data.system.absenceDuration ? ` (예상 기간: **${data.system.absenceDuration}**)` : ''} 이로 인해 평소 패턴과 다르게 당분간 휴방이 지속될 가능성이 높으니 참고하시기 바랍니다.`,
+      illnessName: illnessNameForGuide,
+      illnessSummary: isIllness ? data.system?.illnessSummary : undefined,
+      illnessSource: isIllness ? data.system?.illnessSource : undefined,
+      illnessSourceUrl: isIllness ? data.system?.illnessSourceUrl : undefined,
     }] : []),
     {
       id: 'guide-1',
@@ -204,7 +228,7 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div id="summary-weekly-trend-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative">
           <div className="flex items-center justify-between mb-4">
@@ -270,7 +294,17 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
         </div>
       </div>
 
-      <PatternAnalysis guides={dynamicGuides} />
+      <PatternAnalysis guides={dynamicGuides} onIllnessClick={setSelectedIllness} />
+
+      {selectedIllness && (
+        <IllnessInfoModal
+          illnessName={selectedIllness.name}
+          summary={selectedIllness.summary}
+          source={selectedIllness.source}
+          sourceUrl={selectedIllness.sourceUrl}
+          onClose={() => setSelectedIllness(null)}
+        />
+      )}
     </div>
   );
 }

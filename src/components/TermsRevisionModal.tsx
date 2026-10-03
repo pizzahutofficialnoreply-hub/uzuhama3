@@ -14,7 +14,6 @@ interface TermsRevisionModalProps {
 
 export function TermsRevisionModal({
   revision,
-  adminEmail = 'admin@example.com',
   onAcknowledge,
   onClose,
   isPreview = false,
@@ -44,7 +43,7 @@ export function TermsRevisionModal({
 
   const daysRemainingText = getDaysRemaining();
 
-  const defaultObjection = `개정 약관에 동의하지 않으시는 경우 서비스 회원 탈퇴 또는 이용 중단을 요청하실 수 있으며, 관리자 문의(${adminEmail})를 통해 이의를 제기하실 수 있습니다. 시행일 전까지 별도의 거부 의사를 표시하지 아니한 경우 본 개정 약관에 동의한 것으로 간주됩니다.`;
+  const defaultObjection = `개정 약관에 동의하지 않으시는 경우 서비스 회원 탈퇴 또는 이용 중단을 요청하실 수 있으며, 서비스 내 문의 기능을 통해 이의를 제기하실 수 있습니다. 시행일 전까지 별도의 거부 의사를 표시하지 아니한 경우 본 개정 약관에 동의한 것으로 간주됩니다.`;
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
@@ -52,7 +51,8 @@ export function TermsRevisionModal({
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] max-w-xl w-full shadow-2xl overflow-hidden flex flex-col my-auto max-h-[90vh]"
+        style={{ WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)' }}
+        className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] max-w-xl w-full shadow-2xl overflow-hidden flex flex-col my-auto max-h-[90vh]"
       >
         {/* Header */}
         <div className="p-5 sm:p-6 border-b border-zinc-200 dark:border-zinc-800 flex items-start justify-between gap-4 bg-zinc-50/70 dark:bg-zinc-950/40">

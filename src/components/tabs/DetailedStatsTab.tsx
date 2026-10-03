@@ -406,11 +406,59 @@ export function DetailedStatsTab({
       trendMap[weekStart].dates.add(format(dateObj, 'M/d'));
     });
 
-    const dailyStatsArray = Object.keys(dailyMap).map(day => ({
-      day,
-      count: dailyMap[day],
-      probability: total > 0 ? (dailyMap[day] / total) * 100 : 0
-    }));
+    // 조회 기간 내 각 요일이 실제로 몇 번 존재했는지 산출하여 요일별 실제 방송 확률 및 평균 계산
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+    const weekdayOccurrenceMap: Record<string, number> = { '일': 0, '월': 0, '화': 0, '수': 0, '목': 0, '금': 0, '토': 0 };
+
+    let rangeStart = parseISO(startDate);
+    let rangeEnd = parseISO(endDate);
+    const now = new Date();
+    if (rangeEnd > now) rangeEnd = now;
+
+    if (!isNaN(rangeStart.getTime()) && !isNaN(rangeEnd.getTime()) && rangeStart <= rangeEnd) {
+      const cur = new Date(rangeStart);
+      while (cur <= rangeEnd) {
+        const dName = dayNames[cur.getDay()];
+        weekdayOccurrenceMap[dName]++;
+        cur.setDate(cur.getDate() + 1);
+      }
+    } else if (logsArray.length > 0) {
+      const dates = logsArray.map(l => l.date).sort();
+      const minD = parseISO(dates[0]);
+      const maxD = parseISO(dates[dates.length - 1]);
+      const cur = new Date(minD);
+      while (cur <= maxD) {
+        const dName = dayNames[cur.getDay()];
+        weekdayOccurrenceMap[dName]++;
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+
+    // 요일별 실제 방송 진행 일수 집계 (하루에 여러 번 켜도 해당 일자 방송 여부는 1일로 반영)
+    const uniqueDatesByWeekday: Record<string, Set<string>> = {
+      '일': new Set(), '월': new Set(), '화': new Set(), '수': new Set(), '목': new Set(), '금': new Set(), '토': new Set()
+    };
+    logsArray.forEach(log => {
+      const dateObj = parseISO(log.date);
+      const dayName = dayNames[dateObj.getDay()];
+      uniqueDatesByWeekday[dayName].add(log.date);
+    });
+
+    const dailyStatsArray = dayNames.map(day => {
+      const totalWeekdayOccurrences = weekdayOccurrenceMap[day] || 0;
+      const broadcastDays = uniqueDatesByWeekday[day].size;
+      const probability = totalWeekdayOccurrences > 0
+        ? Math.min(100, (broadcastDays / totalWeekdayOccurrences) * 100)
+        : (total > 0 ? (dailyMap[day] / total) * 100 : 0);
+
+      return {
+        day,
+        count: dailyMap[day],
+        broadcastDays,
+        totalDays: totalWeekdayOccurrences,
+        probability
+      };
+    });
 
     const hourStatsArray = Object.keys(hourMap).map(time => {
       const h = parseInt(time);
@@ -456,10 +504,14 @@ export function DetailedStatsTab({
       };
     });
 
-    const avgDaily = total > 0 ? 100 / 7 : 0;
+    // 요일별 실제 방송 확률의 평균값 (고정 14.3%가 아닌 조회 기간의 실질 일평균 확률 반영)
+    const validProbabilities = dailyStatsArray.map(d => d.probability);
+    const avgDaily = validProbabilities.length > 0
+      ? validProbabilities.reduce((acc, p) => acc + p, 0) / validProbabilities.length
+      : 0;
 
     return { dailyStatsArray, hourStatsArray, exactTimeStatsArray, durationStatsArray, dailyTimeMap, trendStatsArray, avgDaily, total };
-  }, [logsArray]);
+  }, [logsArray, startDate, endDate]);
 
   const insights = useMemo(() => {
     // 1. 주간 방송 횟수 추이 한줄 정리
@@ -487,7 +539,7 @@ export function DetailedStatsTab({
     // 2. 요일별 방송 확률 및 빈도 한줄 정리
     let dailySummary: React.ReactNode = null;
     if (stats.dailyStatsArray.length > 0 && stats.total > 0) {
-      const sortedDaily = [...stats.dailyStatsArray].sort((a, b) => b.count - a.count);
+      const sortedDaily = [...stats.dailyStatsArray].sort((a, b) => b.probability !== a.probability ? b.probability - a.probability : b.count - a.count);
       const topDay = sortedDaily[0];
       const bottomDay = sortedDaily[sortedDaily.length - 1];
       dailySummary = (
@@ -758,7 +810,7 @@ export function DetailedStatsTab({
   }, [logsArray]);
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6">
       
       {/* Filters */}
       <div id="detailed-main-card" className="w-full max-w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4 xl:gap-6 box-border overflow-hidden relative">
@@ -980,7 +1032,7 @@ export function DetailedStatsTab({
                                 position={{ y: 0 }}
                                 wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
                                 allowEscapeViewBox={{ x: false, y: true }}
-                                content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} 
+                                content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '방송 확률']} />} 
                               />
                               <ReferenceLine y={stats.avgDaily} stroke="#f43f5e" strokeDasharray="3 3" label={{ position: 'top', value: `평균(${stats.avgDaily.toFixed(1)}%)`, fill: '#f43f5e', fontSize: 10 }} />
                               <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
@@ -1213,7 +1265,7 @@ export function DetailedStatsTab({
                               position={{ y: 0 }}
                               wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
                               allowEscapeViewBox={{ x: false, y: true }}
-                              content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} 
+                              content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '방송 확률']} />} 
                             />
                             <ReferenceLine y={stats.avgDaily} stroke="#f43f5e" strokeDasharray="3 3" label={{ position: 'top', value: `평균(${stats.avgDaily.toFixed(1)}%)`, fill: '#f43f5e', fontSize: 10 }} />
                             <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
@@ -1968,8 +2020,11 @@ export function DetailedStatsTab({
 
       {/* Download Confirm Modal */}
       {downloadConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-[24px] w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 border border-zinc-200 dark:border-zinc-800 relative">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div 
+            style={{ WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)' }}
+            className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-[24px] w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 border border-zinc-200/80 dark:border-zinc-800/80 relative"
+          >
             <button 
               onClick={() => setDownloadConfirm(null)}
               className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"

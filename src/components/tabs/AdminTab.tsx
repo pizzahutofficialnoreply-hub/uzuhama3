@@ -3,7 +3,7 @@ import {
   PlusCircle, 
   FileEdit, 
   Settings, 
-  CheckCircle2,
+  MessageSquare,
   FileCode2
 } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -33,7 +33,7 @@ export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAll
     { id: 'add', label: '등록', fullLabel: '신규 기록 추가', icon: PlusCircle },
     { id: 'edit', label: '수정', fullLabel: '전체 기록 수정', icon: FileEdit },
     { id: 'system', label: '시스템', fullLabel: '시스템/공지사항 관리', icon: Settings },
-    { id: 'suggestions', label: '승인', fullLabel: '피드백 (제안/버그)', icon: CheckCircle2 },
+    { id: 'suggestions', label: '피드백', fullLabel: '피드백 (제안/버그)', icon: MessageSquare },
     { id: 'patches', label: '패치', fullLabel: '패치노트 등록/관리', icon: FileCode2 },
   ];
 

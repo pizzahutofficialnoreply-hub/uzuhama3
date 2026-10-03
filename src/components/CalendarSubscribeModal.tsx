@@ -14,20 +14,42 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
 }) => {
   useBodyScrollLock(isOpen);
   const [copied, setCopied] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(() => {
+    try {
+      return localStorage.getItem('uzuhama_calendar_subscribed') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   if (!isOpen) return null;
 
-  // 현재 호스트 기준 구독 피드 주소 산출
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://uzuhama.vercel.app';
-  const webcalBase = origin.replace(/^https?:\/\//i, '');
-  const httpsFeedUrl = `${origin}/api/calendar.ics`;
-  const webcalFeedUrl = `webcal://${webcalBase}/api/calendar.ics`;
+  // 현재 호스트 기준 구독 피드 주소 산출 (버튼 누른 사이트 링크 반영, vercel.app일 경우 https://uzuhama.web.app)
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://uzuhama.web.app';
+  const resolvedOrigin = (!currentOrigin || currentOrigin.includes('vercel.app')) ? 'https://uzuhama.web.app' : currentOrigin;
+  const webcalBase = resolvedOrigin.replace(/^https?:\/\//i, '');
+  const httpsFeedUrl = `${resolvedOrigin}/api/calendar.ics?siteUrl=${encodeURIComponent(resolvedOrigin)}`;
+  const webcalFeedUrl = `webcal://${webcalBase}/api/calendar.ics?siteUrl=${encodeURIComponent(resolvedOrigin)}`;
 
   // 구글 캘린더 등록 링크 (https:// 스킴을 넘겨야 구글 서버가 정상 처리)
   const googleCalendarSubscribeUrl = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(httpsFeedUrl)}`;
 
+  const markAsSubscribed = (val: boolean = true) => {
+    try {
+      if (val) {
+        localStorage.setItem('uzuhama_calendar_subscribed', 'true');
+        setIsSubscribed(true);
+      } else {
+        localStorage.removeItem('uzuhama_calendar_subscribed');
+        setIsSubscribed(false);
+      }
+      window.dispatchEvent(new Event('calendar_subscription_changed'));
+    } catch {}
+  };
+
   // 애플 캘린더 자동 등록 핸들러 (PWA 및 모바일 브라우저 100% 호환)
   const handleAppleSubscribe = () => {
+    markAsSubscribed();
     try {
       // 1. webcal 스킴 직접 호출 (기기 기본 캘린더 앱 바로 열림)
       window.location.href = webcalFeedUrl;
@@ -38,12 +60,14 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
 
   // 구글 캘린더 자동 등록 핸들러
   const handleGoogleSubscribe = () => {
+    markAsSubscribed();
     // 새 창/새 탭에서 구글 캘린더 등록 페이지 열기
     window.open(googleCalendarSubscribeUrl, '_blank', 'noopener,noreferrer');
   };
 
   // 주소 복사
   const handleCopyUrl = async () => {
+    markAsSubscribed();
     try {
       await navigator.clipboard.writeText(httpsFeedUrl);
       setCopied(true);
@@ -102,7 +126,6 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
 
           {/* Modal Body */}
           <div className="p-5 sm:p-6 overflow-y-auto space-y-4 custom-scrollbar">
-            
             {/* 구독 방식 버튼 목록 */}
             <div className="space-y-2.5">
               {/* 1. Apple 캘린더 / iPhone / Mac 등록 버튼 */}

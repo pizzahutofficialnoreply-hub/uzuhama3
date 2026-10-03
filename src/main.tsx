@@ -4,9 +4,11 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.tsx';
 import './index.css';
 import { initThemeListener } from './utils/theme';
+import { setupGlobalHaptics } from './utils/haptics';
 
 // Initialize global theme listener (system/light/dark)
 initThemeListener();
+setupGlobalHaptics();
 
 // Register Service Worker for PWA and Push Notifications
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {

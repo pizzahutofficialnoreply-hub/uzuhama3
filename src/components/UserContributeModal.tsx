@@ -1,9 +1,11 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   X, Loader2, Image as ImageIcon, 
   Save, Download, Check, Plus, Trash2, 
-  List, AlertCircle, Film
+  List, AlertCircle, Film, Radio, Video,
+  Maximize2, Minimize2
 } from 'lucide-react';
+import { motion, PanInfo } from 'motion/react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { BroadcastLog, SavedDraft } from '../types';
@@ -13,7 +15,7 @@ import { extractYoutubeId, matchLogMedia } from '../utils/urlUtils';
 import { DraftsListModal } from './modals/DraftsListModal';
 
 interface UserContributeModalProps {
-  type: 'live' | 'video' | 'shorts';
+  type?: 'live' | 'video' | 'shorts';
   onClose: () => void;
   logs?: Record<string, BroadcastLog>;
 }
@@ -40,10 +42,13 @@ export interface VideoBlock {
   videos: VideoSubItem[];
 }
 
-export function UserContributeModal({ type, onClose, logs }: UserContributeModalProps) {
+export function UserContributeModal({ type = 'live', onClose, logs }: UserContributeModalProps) {
   useBodyScrollLock(true);
   const { user } = useAuth();
+  const [currentType, setCurrentType] = useState<'live' | 'video' | 'shorts'>(type);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Live entries
   const [liveEntries, setLiveEntries] = useState<LiveEntry[]>([
@@ -68,13 +73,15 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
 
   // 1. Initial Load: Load saved drafts list & auto-draft recovery
   useEffect(() => {
-    const draftsKey = `uzuhama_contribute_saved_drafts_${type}`;
-    const autoKey = `uzuhama_contribute_auto_draft_${type}`;
+    const draftsKey = `uzuhama_contribute_saved_drafts_${currentType}`;
+    const autoKey = `uzuhama_contribute_auto_draft_${currentType}`;
 
     try {
       const storedDrafts = localStorage.getItem(draftsKey);
       if (storedDrafts) {
         setSavedDrafts(JSON.parse(storedDrafts));
+      } else {
+        setSavedDrafts([]);
       }
     } catch (e) {
       console.error('Failed to load saved drafts:', e);
@@ -85,13 +92,13 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
       if (autoDraftRaw) {
         const d = JSON.parse(autoDraftRaw);
         let restored = false;
-        if (type === 'live' && Array.isArray(d.liveEntries) && d.liveEntries.length > 0) {
+        if (currentType === 'live' && Array.isArray(d.liveEntries) && d.liveEntries.length > 0) {
           const hasVal = d.liveEntries.some((e: LiveEntry) => e.liveDate || e.gameName || e.startTime || e.endTime);
           if (hasVal) {
             setLiveEntries(d.liveEntries);
             restored = true;
           }
-        } else if ((type === 'video' || type === 'shorts') && Array.isArray(d.videoBlocks) && d.videoBlocks.length > 0) {
+        } else if ((currentType === 'video' || currentType === 'shorts') && Array.isArray(d.videoBlocks) && d.videoBlocks.length > 0) {
           const hasVal = d.videoBlocks.some((b: VideoBlock) => 
             b.linkedLogIds.length > 0 || b.videos.some(v => v.videoLink || v.videoTitle)
           );
@@ -107,12 +114,12 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
     } catch (err) {
       console.error('Failed to parse auto draft:', err);
     }
-  }, [type]);
+  }, [currentType]);
 
   // 2. Continuous Auto-save for emergency crash/accidental exit
   useEffect(() => {
-    const autoKey = `uzuhama_contribute_auto_draft_${type}`;
-    if (type === 'live') {
+    const autoKey = `uzuhama_contribute_auto_draft_${currentType}`;
+    if (currentType === 'live') {
       const hasVal = liveEntries.some(e => e.liveDate.trim() || e.gameName.trim() || e.startTime || e.endTime || e.gameCategory);
       if (hasVal) {
         localStorage.setItem(autoKey, JSON.stringify({ liveEntries }));
@@ -123,14 +130,39 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
         localStorage.setItem(autoKey, JSON.stringify({ videoBlocks }));
       }
     }
-  }, [type, liveEntries, videoBlocks]);
+  }, [currentType, liveEntries, videoBlocks]);
 
   // Check if there is actual content to save
   const checkHasContent = () => {
-    if (type === 'live') {
+    if (currentType === 'live') {
       return liveEntries.some(e => e.liveDate.trim() || e.gameName.trim() || e.gameCategory.trim() || e.startTime.trim() || e.endTime.trim());
     } else {
       return videoBlocks.some(b => b.linkedLogIds.length > 0 || b.videos.some(v => v.videoLink.trim() || v.videoTitle.trim()));
+    }
+  };
+
+  // Safe Close with draft save
+  const handleSafeClose = () => {
+    if (checkHasContent()) {
+      const autoKey = `uzuhama_contribute_auto_draft_${currentType}`;
+      if (currentType === 'live') {
+        localStorage.setItem(autoKey, JSON.stringify({ liveEntries }));
+      } else {
+        localStorage.setItem(autoKey, JSON.stringify({ videoBlocks }));
+      }
+    }
+    onClose();
+  };
+
+  // Handle Drag Gesture on handle / sheet header
+  const handleDragEnd = (_: any, info: PanInfo) => {
+    // If dragged downward significantly, close sheet
+    if (info.offset.y > 110 || info.velocity.y > 350) {
+      handleSafeClose();
+    } 
+    // If dragged upward significantly, expand to full screen
+    else if (info.offset.y < -60 || info.velocity.y < -250) {
+      setIsExpanded(true);
     }
   };
 
@@ -318,17 +350,9 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
     return extractYoutubeId(url);
   };
 
-  const getTitle = () => {
-    switch (type) {
-      case 'live': return '생방송 정보 추가';
-      case 'video': return '영상 정보 추가';
-      case 'shorts': return '쇼츠 정보 추가';
-    }
-  };
-
   // Submit all entries
   const handleSubmit = async () => {
-    if (type === 'live') {
+    if (currentType === 'live') {
       const validEntries = liveEntries.filter(e => e.liveDate.trim() && e.gameName.trim());
       if (validEntries.length === 0) {
         alert('최소 한 개 이상의 생방송 항목에 날짜와 게임 이름을 입력해주세요.');
@@ -351,7 +375,7 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
         }));
 
         await Promise.all(promises);
-        localStorage.removeItem(`uzuhama_contribute_auto_draft_${type}`);
+        localStorage.removeItem(`uzuhama_contribute_auto_draft_${currentType}`);
         alert(`총 ${validEntries.length}건의 생방송 추가 요청이 접수되었습니다! 관리자 승인 후 반영됩니다.`);
         onClose();
       } catch (e) {
@@ -382,7 +406,7 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
       setIsSubmitting(true);
       try {
         const promises = validItems.map(item => addDoc(collection(db, 'contributions'), {
-          type,
+          type: currentType,
           uid: user?.uid || null,
           email: user?.email || null,
           status: 'pending',
@@ -393,8 +417,8 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
         }));
 
         await Promise.all(promises);
-        localStorage.removeItem(`uzuhama_contribute_auto_draft_${type}`);
-        alert(`총 ${validItems.length}건의 ${type === 'shorts' ? '쇼츠' : '영상'} 추가 요청이 접수되었습니다! 관리자 승인 후 반영됩니다.`);
+        localStorage.removeItem(`uzuhama_contribute_auto_draft_${currentType}`);
+        alert(`총 ${validItems.length}건의 ${currentType === 'shorts' ? '쇼츠' : '영상'} 추가 요청이 접수되었습니다! 관리자 승인 후 반영됩니다.`);
         onClose();
       } catch (e) {
         console.error(e);
@@ -405,88 +429,179 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
     }
   };
 
-  const totalCount = type === 'live' 
+  const totalCount = currentType === 'live' 
     ? liveEntries.length 
     : videoBlocks.reduce((acc, b) => acc + b.videos.length, 0);
 
-  // Full Screen Modal View
+  const getTitle = () => {
+    switch (currentType) {
+      case 'live': return '생방송 기록 제보';
+      case 'video': return '유튜브 영상 등록';
+      case 'shorts': return '쇼츠 영상 등록';
+    }
+  };
+
+  // Bottom Sheet Modal View
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-5 sm:p-6 shadow-2xl max-w-lg w-full max-h-[90vh] relative flex flex-col">
+    <div className="fixed inset-0 z-[115] flex flex-col justify-end">
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={handleSafeClose}
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+      />
+
+      {/* Bottom Sheet */}
+      <motion.div
+        initial={{ opacity: 0, y: '100%' }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 300, mass: 0.8 }}
+        className={cn(
+          "relative z-10 w-full max-w-2xl mx-auto bg-white dark:bg-zinc-900 border-t border-x border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden transition-all duration-300",
+          isExpanded ? "h-[100dvh] rounded-t-none" : "h-[85dvh] max-h-[92dvh] rounded-t-[28px]"
+        )}
+      >
+        {/* Top Drag Handle Line (당기면 화면 채우고, 내리면 닫기) */}
+        <div 
+          className="w-full flex items-center justify-center pt-2.5 pb-1 cursor-grab active:cursor-grabbing touch-none select-none shrink-0"
+          onClick={() => setIsExpanded(prev => !prev)}
+          title={isExpanded ? "축소하기" : "전체화면으로 확장하기"}
+        >
+          <div className="w-12 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-700 hover:bg-zinc-400 dark:hover:bg-zinc-600 transition-colors" />
+        </div>
+
         {/* Modal Header */}
-        <div className="flex items-center justify-between gap-2 pb-3 mb-2 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
+        <div className="flex items-center justify-between gap-2 px-5 sm:px-6 pb-2.5 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white truncate">
+            <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white truncate">
               {getTitle()}
             </h2>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
               총 {totalCount}건
             </span>
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsExpanded(prev => !prev)}
+              className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              title={isExpanded ? "축소" : "전체 화면"}
+            >
+              {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
             <button 
               type="button"
-              onClick={onClose} 
+              onClick={handleSafeClose} 
               className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-              title="닫기"
+              title="닫기 (자동 임시저장)"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Notices */}
-        {autoRestoredNotice && (
-          <div className="mb-2.5 px-3 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200/80 dark:border-purple-800/60 flex items-center justify-between text-xs text-purple-700 dark:text-purple-300">
-            <span className="font-medium">이전 작성 중이던 내용이 자동 복원되었습니다.</span>
+        {/* In-Sheet Tab Switcher: 생방송 / 영상 / 쇼츠 */}
+        <div className="px-5 sm:px-6 shrink-0">
+          <div className="grid grid-cols-3 p-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-2xl mb-2">
             <button
               type="button"
-              onClick={handleClearAutoDraft}
-              className="text-[11px] underline text-purple-600 dark:text-purple-400 hover:text-purple-800 cursor-pointer ml-2"
+              onClick={() => setCurrentType('live')}
+              className={cn(
+                "py-2 px-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                currentType === 'live'
+                  ? "bg-white dark:bg-zinc-900 text-purple-600 dark:text-purple-400 shadow-sm"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+              )}
             >
-              새로 쓰기
+              <Radio className="w-3.5 h-3.5 text-red-500" />
+              <span>생방송 등록</span>
             </button>
-          </div>
-        )}
-
-        {manualSavedNotice && (
-          <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300">
-            <Check className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="font-semibold">작성 내용이 임시 저장 목록에 저장되었습니다.</span>
-          </div>
-        )}
-
-        {/* Draft Actions Toolbar */}
-        <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-zinc-100 dark:border-zinc-800/80 text-xs shrink-0">
-          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleManualSave}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-semibold transition-colors cursor-pointer"
-              title="작성 중인 내용을 임시 저장 목록에 추가합니다"
+              onClick={() => setCurrentType('video')}
+              className={cn(
+                "py-2 px-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                currentType === 'video'
+                  ? "bg-white dark:bg-zinc-900 text-purple-600 dark:text-purple-400 shadow-sm"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+              )}
             >
-              <Save className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-              <span>임시 저장</span>
+              <Video className="w-3.5 h-3.5 text-purple-500" />
+              <span>영상 등록</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setCurrentType('shorts')}
+              className={cn(
+                "py-2 px-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                currentType === 'shorts'
+                  ? "bg-white dark:bg-zinc-900 text-purple-600 dark:text-purple-400 shadow-sm"
+                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+              )}
+            >
+              <Film className="w-3.5 h-3.5 text-pink-500" />
+              <span>쇼츠 등록</span>
+            </button>
+          </div>
+        </div>
 
-            {savedDrafts.length > 0 && (
+        <div className="px-5 sm:px-6 shrink-0">
+          {/* Notices */}
+          {autoRestoredNotice && (
+            <div className="mb-2.5 px-3 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200/80 dark:border-purple-800/60 flex items-center justify-between text-xs text-purple-700 dark:text-purple-300">
+              <span className="font-medium">이전 작성 중이던 내용이 자동 복원되었습니다.</span>
               <button
                 type="button"
-                onClick={() => setShowDraftListModal(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-semibold border border-purple-200/70 dark:border-purple-800/60 transition-colors cursor-pointer"
-                title="임시 저장 목록을 열어 원하는 내용을 불러옵니다"
+                onClick={handleClearAutoDraft}
+                className="text-[11px] underline text-purple-600 dark:text-purple-400 hover:text-purple-800 cursor-pointer ml-2"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>임시 저장 목록 ({savedDrafts.length})</span>
+                새로 쓰기
               </button>
-            )}
+            </div>
+          )}
+
+          {manualSavedNotice && (
+            <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300">
+              <Check className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="font-semibold">작성 내용이 임시 저장 목록에 저장되었습니다.</span>
+            </div>
+          )}
+
+          {/* Draft Actions Toolbar */}
+          <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-zinc-100 dark:border-zinc-800/80 text-xs shrink-0">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleManualSave}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-semibold transition-colors cursor-pointer"
+                title="작성 중인 내용을 임시 저장 목록에 추가합니다"
+              >
+                <Save className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                <span>임시 저장</span>
+              </button>
+
+              {savedDrafts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowDraftListModal(true)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-semibold border border-purple-200/70 dark:border-purple-800/60 transition-colors cursor-pointer"
+                  title="임시 저장 목록을 열어 원하는 내용을 불러옵니다"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>임시 저장 목록 ({savedDrafts.length})</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="flex-1 overflow-y-auto pr-1 space-y-4 custom-scrollbar">
-          {type === 'live' ? (
+        <div className="flex-1 overflow-y-auto px-5 sm:px-6 space-y-4 custom-scrollbar">
+          {currentType === 'live' ? (
             /* Live Entries */
             <div className="space-y-4">
               {liveEntries.map((entry, idx) => (
@@ -696,7 +811,7 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
-                                {type === 'shorts' ? '쇼츠' : '영상'} #{vIdx + 1}
+                                {currentType === 'shorts' ? '쇼츠' : '영상'} #{vIdx + 1}
                               </span>
                               {block.videos.length > 1 && (
                                 <button
@@ -742,7 +857,7 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
 
                             <div>
                               <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
-                                {type === 'shorts' ? '쇼츠 제목 *' : '영상 제목 *'}
+                                {currentType === 'shorts' ? '쇼츠 제목 *' : '영상 제목 *'}
                               </label>
                               <input 
                                 type="text"
@@ -763,7 +878,7 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
                         className="w-full py-2 px-3 border border-dashed border-purple-300 dark:border-purple-800 rounded-xl text-xs font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>{type === 'shorts' ? '쇼츠 링크 및 제목 추가 (+)' : '영상 링크 및 제목 추가 (+)'}</span>
+                        <span>{currentType === 'shorts' ? '쇼츠 링크 및 제목 추가 (+)' : '영상 링크 및 제목 추가 (+)'}</span>
                       </button>
                     </div>
                   </div>
@@ -786,11 +901,11 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
         </div>
 
         {/* Modal Submit Footer */}
-        <div className="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800 shrink-0">
+        <div className="mt-2 px-5 sm:px-6 py-3 border-t border-zinc-200 dark:border-zinc-800 shrink-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xs">
           <button 
             onClick={handleSubmit} 
             disabled={isSubmitting}
-            className="w-full py-2.5 text-sm font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-md shadow-purple-600/20 active:scale-[0.99]"
+            className="w-full py-3 text-sm font-bold bg-purple-600 hover:bg-purple-700 active:scale-[0.99] text-white rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-md shadow-purple-600/20"
           >
             {isSubmitting ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> 처리 중...</>
@@ -799,7 +914,7 @@ export function UserContributeModal({ type, onClose, logs }: UserContributeModal
             )}
           </button>
         </div>
-      </div>
+      </motion.div>
 
       <DraftsListModal
         isOpen={showDraftListModal}

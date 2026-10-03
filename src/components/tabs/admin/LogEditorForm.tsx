@@ -5,6 +5,7 @@ import { useState } from "react";
 const COMMON_ABSENCE_REASONS = [
   "개인 사정",
   "건강 문제/컨디션 난조",
+  "병명 (직접 입력/구글 검색)",
   "인터넷/장비 이슈",
   "가족 행사/일정",
   "지각",

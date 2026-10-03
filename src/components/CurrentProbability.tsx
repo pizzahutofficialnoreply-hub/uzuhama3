@@ -12,11 +12,14 @@ import {
   Radio,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
+  Activity,
 } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { cn, attachKoreanParticle, autoFixKoreanParticles } from "../utils";
 import { motion, AnimatePresence } from "motion/react";
+import { IllnessInfoModal } from "./IllnessInfoModal";
 
 import { WidgetShareButton } from "./common/WidgetShareButton";
 
@@ -45,6 +48,7 @@ export function CurrentProbability({
   const [currentTime, setCurrentTime] = useState(new Date());
   const [liveData, setLiveData] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [showIllnessModal, setShowIllnessModal] = useState(false);
 
     const handleViewDetails = () => {
     setShowDetails(!showDetails);
@@ -451,7 +455,10 @@ export function CurrentProbability({
       } else {
         // 완만한 감쇄 적용 (기존 5씩 떨어지던 것을 2.5로 줄임, 최대치도 줄여서 0.1로 급락 방지)
         patternModifier -= Math.min(15, (overDays - 3) * 2.5);
-        const displayReason = system?.absenceReason === '기타 (직접 입력)' ? system?.customAbsenceReason : system?.absenceReason;
+        const activeIllnessName = system?.illnessName || system?.diseaseName;
+        const displayReason = (system?.absenceReason === '기타 (직접 입력)' || system?.absenceReason === '직접 입력')
+          ? (system?.customAbsenceReason || '직접 입력한 사유') 
+          : (system?.absenceReason === '병명' ? (activeIllnessName || '건강 문제') : system?.absenceReason);
         if (displayReason) {
           const reasonWithParticle = attachKoreanParticle(displayReason, '으로/로');
           patternMessage = `${daysSinceLastStream}일째 ${reasonWithParticle} 인한 휴방 중입니다.${system?.absenceDuration ? ` (예상 기간: ${system?.absenceDuration})` : ""}`;
@@ -677,6 +684,42 @@ export function CurrentProbability({
           </p>
         )}
 
+        {(system?.absenceReason === '병명' || Boolean(system?.illnessName || system?.diseaseName)) && (system?.illnessName || system?.diseaseName) && (
+          <div className="flex flex-col items-center gap-1.5 mt-0.5 mb-2 w-full max-w-md">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">병명 상세:</span>
+              <button
+                type="button"
+                onClick={() => setShowIllnessModal(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 px-2.5 py-1 rounded-lg border border-red-200 dark:border-red-800 transition-colors shadow-2xs cursor-pointer active:scale-95"
+                title="클릭 시 병명 의학 정보 및 구글 검색 결과 확인"
+              >
+                <Activity className="w-3.5 h-3.5 text-red-500 animate-pulse" />
+                <span>{system.illnessName || system.diseaseName}</span>
+                <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.2 rounded font-semibold ml-0.5">상세 보기</span>
+              </button>
+              <a
+                href={`https://www.google.com/search?q=${encodeURIComponent((system.illnessName || system.diseaseName) + ' 증상 치료')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                title="Google에서 검색하기"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+            {(system?.illnessSummary || system?.diseaseSummary) && (
+              <p 
+                onClick={() => setShowIllnessModal(true)}
+                className="text-[11px] text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-200/80 dark:border-zinc-700/80 w-full text-center leading-relaxed cursor-pointer transition-colors"
+                title="클릭하여 상세 정보 보기"
+              >
+                {system.illnessSummary || system.diseaseSummary}
+              </p>
+            )}
+          </div>
+        )}
+
         <div
           className={cn(
             "px-5 py-2 mt-2 rounded-full border flex items-center gap-2 font-bold text-sm sm:text-base",
@@ -774,6 +817,16 @@ export function CurrentProbability({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {showIllnessModal && (system?.illnessName || system?.diseaseName) && (
+          <IllnessInfoModal
+            illnessName={(system.illnessName || system.diseaseName)!}
+            summary={system.illnessSummary || system.diseaseSummary}
+            source={system.illnessSource || system.diseaseSource}
+            sourceUrl={system.illnessSourceUrl || system.diseaseSourceUrl}
+            onClose={() => setShowIllnessModal(false)}
+          />
+        )}
       </div>
     </div>
   );

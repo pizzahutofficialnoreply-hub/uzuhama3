@@ -8,7 +8,8 @@ export function useRealtimeNotification(logs: BroadcastLog[]) {
   const triggerNativeNotification = async (title: string, body: string, url: string = '/', tag?: string) => {
     if (typeof window === 'undefined') return;
 
-    if (!('Notification' in window) || Notification.permission !== 'granted') {
+    const hasNotification = 'Notification' in window && typeof window.Notification !== 'undefined';
+    if (!hasNotification || window.Notification.permission !== 'granted') {
       return;
     }
 
@@ -54,9 +55,9 @@ export function useRealtimeNotification(logs: BroadcastLog[]) {
         return;
       }
 
-      if (!isIOS) {
+      if (!isIOS && hasNotification) {
         try {
-          new Notification(title, {
+          new window.Notification(title, {
             body,
             icon: '/icon.png',
             tag: notificationTag

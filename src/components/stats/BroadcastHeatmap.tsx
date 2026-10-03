@@ -428,16 +428,19 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
               setSelectedLegendLevel(null);
             }
           }}
-          className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 rounded-xl p-2 sm:p-4 overflow-x-auto custom-scrollbar cursor-default select-none"
+          className={cn(
+            "bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 rounded-xl p-2 sm:p-4 select-none cursor-default",
+            isZoomed ? "overflow-x-auto custom-scrollbar" : "overflow-hidden sm:overflow-x-auto"
+          )}
         >
-          <div className={cn("flex flex-col", isZoomed ? "min-w-max pb-2" : "w-full min-w-[620px] sm:min-w-0")}>
+          <div className={cn("flex flex-col", isZoomed ? "min-w-max pb-2" : "w-full min-w-0")}>
             
             {/* 그리드 바디: 요일 레이블 + 주(컬럼)들 */}
             <div className="flex items-start w-full">
               {/* 좌측 요일 라벨 (일~토) - 셀 높이와 1:1 정렬 */}
               <div className={cn(
-                "flex flex-col gap-[2px] sm:gap-[3px] pr-1 sm:pr-2 select-none shrink-0",
-                isZoomed ? "w-5 sm:w-7" : "w-3.5 sm:w-6"
+                "flex flex-col select-none shrink-0",
+                isZoomed ? "w-5 sm:w-7 gap-[2px] sm:gap-[3px] pr-1 sm:pr-2" : "w-2.5 sm:w-5 gap-[1px] sm:gap-[2px] pr-0.5 sm:pr-1.5"
               )}>
                 {[
                   { label: '일', color: 'text-red-500/90 dark:text-red-400/90 font-medium' },
@@ -452,7 +455,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                     key={idx}
                     className={cn(
                       "flex items-center justify-center leading-none",
-                      isZoomed ? "h-6 sm:h-7 text-xs font-semibold" : "h-3.5 sm:h-[18px] text-[9px] sm:text-[11px]",
+                      isZoomed ? "h-6 sm:h-7 text-xs font-semibold" : "h-2.5 sm:h-[18px] text-[7.5px] sm:text-[10px]",
                       day.color
                     )}
                   >
@@ -463,15 +466,15 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
 
               {/* 주 컬럼 목록 */}
               <div className={cn(
-                "flex gap-[2px] sm:gap-[3px]",
-                isZoomed ? "justify-start" : "flex-1 justify-between w-full min-w-0"
+                "flex",
+                isZoomed ? "gap-[2px] sm:gap-[3px] justify-start" : "gap-[1px] sm:gap-[2px] flex-1 justify-between w-full min-w-0"
               )}>
                 {weeks.map((week, weekIdx) => (
                   <div
                     key={weekIdx}
                     className={cn(
-                      "flex flex-col gap-[2px] sm:gap-[3px]",
-                      isZoomed ? "w-6 sm:w-7 shrink-0" : "flex-1 min-w-[13px] max-w-[36px]"
+                      "flex flex-col",
+                      isZoomed ? "w-6 sm:w-7 shrink-0 gap-[2px] sm:gap-[3px]" : "flex-1 min-w-0 max-w-[36px] gap-[1px] sm:gap-[2px]"
                     )}
                   >
                     {week.map((cell) => {
@@ -536,10 +539,10 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                             handleSelect();
                           }}
                           className={cn(
-                            "rounded-[2px] sm:rounded-[3px] border transition-all touch-manipulation select-none relative focus:outline-none",
+                            "rounded-[1px] sm:rounded-[3px] border transition-all touch-manipulation select-none relative focus:outline-none",
                             isZoomed 
                               ? "h-6 w-6 sm:h-7 sm:w-7 min-w-[24px] sm:min-w-[28px]" 
-                              : "h-3.5 sm:h-[18px] w-full min-w-[13px] sm:min-w-[16px]",
+                              : "h-2.5 sm:h-[18px] w-full min-w-0",
                             cellStyle,
                             isSelected && "ring-2 ring-purple-600 dark:ring-purple-400 z-20 scale-110 shadow-sm",
                             isLegendMatch && "ring-2 ring-purple-600 dark:ring-purple-300 ring-offset-1 ring-offset-zinc-50 dark:ring-offset-zinc-950 z-20 scale-105 shadow-md",
@@ -556,8 +559,8 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
 
             {/* 하단 월 라벨 (1월~12월 등) */}
             <div className={cn(
-              "flex mt-1.5 sm:mt-2 text-[8px] sm:text-[11px] font-medium text-zinc-400 dark:text-zinc-500 select-none h-3 sm:h-4",
-              isZoomed ? "pl-5 sm:pl-7" : "pl-3.5 sm:pl-6 w-full justify-between"
+              "flex mt-1 sm:mt-2 text-[7.5px] sm:text-[11px] font-medium text-zinc-400 dark:text-zinc-500 select-none h-3 sm:h-4",
+              isZoomed ? "pl-5 sm:pl-7" : "pl-2.5 sm:pl-5 w-full justify-between"
             )}>
               {weeks.map((_, idx) => {
                 const matchedLabel = monthLabels.find(l => l.weekIndex === idx);
@@ -566,7 +569,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                     key={idx}
                     className={cn(
                       "text-center",
-                      isZoomed ? "w-6 sm:w-7 shrink-0" : "flex-1 min-w-[13px] max-w-[36px]"
+                      isZoomed ? "w-6 sm:w-7 shrink-0" : "flex-1 min-w-0 max-w-[36px]"
                     )}
                   >
                     {matchedLabel ? (

@@ -17,12 +17,13 @@ import {
   parseISO
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, PlaySquare, Smartphone, Video, Calendar as CalendarIcon, ChevronDown, X, CalendarPlus, ExternalLink, Check, CalendarDays, Sparkles, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlaySquare, Smartphone, Video, Calendar as CalendarIcon, ChevronDown, X, CalendarPlus, Check, CalendarDays, Sparkles, Search, Play, Bell, CheckSquare, Square, CalendarCheck } from 'lucide-react';
 import { AppData, BroadcastLog } from '../../types';
 import { cn, formatDuration, formatTo12Hour, parseTimeTo24, fuzzyKoreanMatch, fuzzyDateMatch } from '../../utils';
 import { extractYoutubeId, extractChzzkId, isVideoUrl, matchMediaUrl, matchLogMedia } from '../../utils/urlUtils';
-import { getKoreanHoliday, isKoreanHoliday } from '../../utils/koreanHolidays';
+import { isKoreanHoliday } from '../../utils/koreanHolidays';
 import { exportToDeviceCalendar, exportMultipleToDeviceCalendar, getGoogleCalendarUrl } from '../../utils/calendarExport';
+import { triggerHaptic } from '../../utils/haptics';
 import { CalendarSubscribeModal } from '../CalendarSubscribeModal';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -38,73 +39,351 @@ const VideoIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-
-
-interface CalendarTabProps {
-  data: AppData;
-  fetchLogs?: (startDate: string, endDate: string) => Promise<void>;
-  selectedDateStr?: string | null;
-  onClearSelectedDate?: () => void;
+interface VideoLinkCardProps {
+  url?: string;
+  title?: string;
+  category?: string;
+  categories?: string[];
+  icon?: React.ElementType;
+  borderClass?: string;
+  bgClass?: string;
+  textClass?: string;
+  showThumbnail?: boolean;
+  isShorts?: boolean;
+  isShortsPair?: boolean;
+  isPlaying?: boolean;
+  onPlay?: () => void;
+  onStop?: () => void;
+  vodUrl?: string;
+  editedUrl?: string;
+  shortsList?: { title?: string; url: string }[];
+  type?: 'edited' | 'vod' | 'shorts';
 }
 
-
-const VideoLinkCard = ({ url, title, category, categories, icon: Icon, borderClass, bgClass, textClass }: any) => {
-  const ytId = extractYoutubeId(url);
+const VideoLinkCard = ({ 
+  url, 
+  title, 
+  category, 
+  categories, 
+  borderClass = "border-zinc-200 dark:border-zinc-800", 
+  bgClass = "bg-white dark:bg-zinc-900", 
+  textClass = "text-zinc-900 dark:text-white",
+  showThumbnail = true,
+  isShorts = false,
+  isShortsPair = false,
+  isPlaying = false,
+  onPlay,
+  onStop,
+  vodUrl,
+  editedUrl,
+  shortsList,
+  type
+}: VideoLinkCardProps) => {
+  const [showShortsMenu, setShowShortsMenu] = useState(false);
+  const ytId = extractYoutubeId(url || editedUrl || vodUrl);
   const catList: string[] = (() => {
     if (Array.isArray(categories) && categories.length > 0) return categories;
     if (category) return category.split(',').map((c: string) => c.trim()).filter(Boolean);
     return [];
   })();
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (ytId && onPlay && !isPlaying) {
+      e.preventDefault();
+      onPlay();
+    }
+  };
+
+  const primaryVideoUrl = editedUrl || (type === 'vod' ? vodUrl : url);
+  const secondaryVodUrl = (primaryVideoUrl !== vodUrl && vodUrl) ? vodUrl : undefined;
+
   return (
-    <a href={url || '#'} target="_blank" rel="noopener noreferrer" className={`flex flex-col overflow-hidden rounded-xl border ${borderClass} ${bgClass} hover:shadow-md transition-all group`}>
-      {ytId && (
-        <div className="w-full aspect-video relative overflow-hidden bg-zinc-900 border-b border-black/10 dark:border-white/10">
-          <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+    <div className={cn(
+      "flex flex-col overflow-hidden rounded-[22px] border transition-all duration-200 group bg-white dark:bg-zinc-900 shadow-xs hover:shadow-md",
+      borderClass,
+      bgClass,
+      isShortsPair && "h-full"
+    )}>
+      {/* 1. 영상 재생 영역 (인라인 브라우저 재생 중일 때) */}
+      {isPlaying && ytId ? (
+        <div className={cn("relative w-full bg-black overflow-hidden", isShorts ? "aspect-[9/16]" : "aspect-video")}>
+          <iframe
+            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&enablejsapi=1&rel=0`}
+            title={title || '영상 재생'}
+            className="w-full h-full border-0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onStop?.();
+            }}
+            className="absolute top-2 left-2 z-30 px-2.5 py-1 rounded-lg bg-black/85 hover:bg-black text-white text-xs font-semibold flex items-center gap-1 shadow-md transition-colors cursor-pointer"
+            title="플레이어 닫기"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>닫기</span>
+          </button>
         </div>
-      )}
-      <div className={`flex flex-col p-3 gap-1.5 ${textClass}`}>
-        <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4 shrink-0" />
-          <span className="font-bold text-sm truncate">{title}</span>
-        </div>
-        {catList.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {catList.map((cat, idx) => (
-              <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 font-medium">
-                {cat}
-              </span>
-            ))}
+      ) : showThumbnail && ytId ? (
+        /* 2. 썸네일 영역 + 브라우저 바로 재생 지원 (생방송도 16:9 썸네일 지원) */
+        <div 
+          onClick={handleCardClick}
+          className={cn(
+            "relative w-full overflow-hidden bg-zinc-950 border-b border-black/10 dark:border-white/10 cursor-pointer select-none group/thumb",
+            isShortsPair ? "aspect-[9/16]" : "aspect-video"
+          )}
+          title="클릭하여 브라우저에서 바로 재생"
+        >
+          <img 
+            src={isShortsPair ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} 
+            alt={title || ''} 
+            className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-500" 
+          />
+          <div className="absolute inset-0 bg-black/25 group-hover/thumb:bg-black/15 transition-colors flex items-center justify-center">
+            <div className="w-11 h-11 rounded-full bg-red-600/90 group-hover/thumb:bg-red-600 text-white flex items-center justify-center shadow-lg group-hover/thumb:scale-110 transition-transform">
+              <Play className="w-5 h-5 fill-current ml-0.5" />
+            </div>
           </div>
-        )}
+        </div>
+      ) : null}
+
+      {/* 3. 콘텐츠 정보 및 하단 액션 영역 */}
+      <div className={cn("flex flex-col p-3.5 gap-2.5 flex-1 justify-between", textClass)}>
+        <div>
+          <div className="font-bold text-zinc-900 dark:text-white leading-snug line-clamp-2 text-sm sm:text-base mb-1.5" title={title}>
+            {title}
+          </div>
+
+          {catList.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {catList.map((cat, idx) => (
+                <span key={idx} className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-medium">
+                  {cat}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 4. 검색탭 카드 레이아웃 형태 버튼들 (외부 재생 아이콘 제외, 기존 아이콘 적용) */}
+        <div className="mt-auto pt-2.5 flex flex-col gap-2 relative border-t border-black/5 dark:border-white/5">
+          {/* 상단 메인 버튼: 영상 보기 / 생방송 보기 */}
+          {editedUrl || (!editedUrl && !vodUrl && url && !isShorts) ? (
+            <a 
+              href={editedUrl || url} 
+              target="_blank"
+              rel="noreferrer"
+              className="w-full flex justify-center items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 shadow-2xs hover:scale-[1.01]"
+            >
+              <VideoIcon className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
+              <span>영상 보기</span>
+            </a>
+          ) : vodUrl || (!editedUrl && !vodUrl && url && !isShorts) ? (
+            <a 
+              href={vodUrl || url} 
+              target="_blank"
+              rel="noreferrer"
+              className="w-full flex justify-center items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/10 text-purple-700 dark:text-purple-400 border border-purple-200/80 dark:border-purple-800/60 shadow-2xs hover:scale-[1.01]"
+            >
+              <PlaySquare className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <span>생방송 보기</span>
+            </a>
+          ) : isShorts && url ? (
+            <a 
+              href={url} 
+              target="_blank"
+              rel="noreferrer"
+              className="w-full flex justify-center items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all bg-red-50 hover:bg-red-100 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-200/80 dark:border-red-800/60 shadow-2xs hover:scale-[1.01]"
+            >
+              <ShortsIcon className="w-4 h-4 text-red-500" />
+              <span>쇼츠 보기</span>
+            </a>
+          ) : null}
+
+          {/* 하단 2열 버튼: 생방송 보기 및 쇼츠 보기 */}
+          {(Boolean(secondaryVodUrl) || Boolean(shortsList && shortsList.length > 0)) && (
+            <div className="flex items-center gap-2">
+              {secondaryVodUrl && (
+                <a 
+                  href={secondaryVodUrl} 
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 flex justify-center items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/10 text-purple-700 dark:text-purple-400"
+                >
+                  <PlaySquare className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                  <span>생방송 보기</span>
+                </a>
+              )}
+
+              {shortsList && shortsList.length === 1 && (
+                <a 
+                  href={shortsList[0].url} 
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 flex justify-center items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors bg-red-50 hover:bg-red-100 dark:bg-red-900/10 text-red-600 dark:text-red-400"
+                >
+                  <ShortsIcon className="w-3.5 h-3.5 text-red-500" />
+                  <span>쇼츠 보기</span>
+                </a>
+              )}
+
+              {shortsList && shortsList.length > 1 && (
+                <div className="flex-1 relative">
+                  <button 
+                    type="button"
+                    onClick={() => setShowShortsMenu(prev => !prev)} 
+                    className="w-full flex justify-center items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors bg-red-50 hover:bg-red-100 dark:bg-red-900/10 text-red-600 dark:text-red-400 cursor-pointer"
+                  >
+                    <ShortsIcon className="w-3.5 h-3.5 text-red-500" />
+                    <span>쇼츠 ({shortsList.length})</span>
+                    <ChevronDown className="w-3 h-3 opacity-70" />
+                  </button>
+                  {showShortsMenu && (
+                    <div className="absolute bottom-full left-0 right-0 mb-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden z-30 flex flex-col">
+                      <div className="px-3 py-1.5 text-[10px] font-bold text-zinc-500 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-700">
+                        쇼츠 선택
+                      </div>
+                      {shortsList.map((s, idx) => (
+                        <a 
+                          key={idx} 
+                          href={s.url} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="px-3 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 border-b border-zinc-100 dark:border-zinc-700 last:border-0 truncate"
+                        >
+                          {s.title || `쇼츠 ${idx + 1}`}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </a>
+    </div>
   );
 };
 
-export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActive = true }: CalendarTabProps & { isActive?: boolean }) {
+export interface CalendarTabProps {
+  data: AppData;
+  fetchLogs?: (startDate?: string, endDate?: string) => Promise<void>;
+  selectedDateStr?: string | null;
+  onClearSelectedDate?: () => void;
+  isActive?: boolean;
+}
+
+export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActive = true }: CalendarTabProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isSubscribeModalOpen, setIsSubscribeModalOpen] = useState(false);
+  const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+  const [playingModalVideo, setPlayingModalVideo] = useState<{ url: string; title: string } | null>(null);
 
-  // 외부(히트맵 등)에서 링크를 통해 이동해온 임시 날짜 선택인지 여부
+  // 외부(몰아보기, 히트맵 등)에서 링크를 통해 이동해온 임시 날짜 선택인지 여부
   const isNavigatedFromExternalRef = useRef<boolean>(false);
+  // 외부 이동 전 사용자가 보고 있던 상태(현재 월, 선택 날짜, 테이블 시작/종료일, 커스텀 필터 여부) 백업
+  const savedStateBeforeExternalNavRef = useRef<{
+    currentDate: Date;
+    selectedDate: Date | null;
+    inputStartDate: string;
+    inputEndDate: string;
+    appliedStartDate: string;
+    appliedEndDate: string;
+    hasCustomFilter: boolean;
+  } | null>(null);
 
-  // 탭 재진입 감지: 다른 탭으로 이동했다가 다시 방송 기록(달력) 탭으로 돌아왔을 때
+  // Date Range for Table
+  const [inputStartDate, setInputStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [inputEndDate, setInputEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [appliedStartDate, setAppliedStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [appliedEndDate, setAppliedEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<'desc'|'asc'>('desc');
+  const [hasCustomFilter, setHasCustomFilter] = useState(false);
+  const [exportedLogId, setExportedLogId] = useState<string | null>(null);
+  const [isExportingBatch, setIsExportingBatch] = useState(false);
+  const [batchExportSuccess, setBatchExportSuccess] = useState(false);
+
+  // 캘린더 선택 등록 모드 상태
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
+
+  // 캘린더 구독 실시간 반영 상태
+  const [isSubscribed, setIsSubscribed] = useState(() => {
+    try {
+      return localStorage.getItem('uzuhama_calendar_subscribed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handleSubChanged = () => {
+      try {
+        setIsSubscribed(localStorage.getItem('uzuhama_calendar_subscribed') === 'true');
+      } catch {}
+    };
+    window.addEventListener('storage', handleSubChanged);
+    window.addEventListener('calendar_subscription_changed', handleSubChanged);
+    return () => {
+      window.removeEventListener('storage', handleSubChanged);
+      window.removeEventListener('calendar_subscription_changed', handleSubChanged);
+    };
+  }, []);
+
+  // 탭 재진입 감지: 다른 탭으로 이동했다가 다시 방송 기록(기록) 탭으로 돌아왔을 때
+  // 외부 자동 이동 전 사용자가 보고 있던 상태로 원상 복구
   const prevIsActiveRef = useRef(isActive);
   useEffect(() => {
     if (!prevIsActiveRef.current && isActive) {
       if (isNavigatedFromExternalRef.current) {
-        setSelectedDate(null);
+        if (savedStateBeforeExternalNavRef.current) {
+          const saved = savedStateBeforeExternalNavRef.current;
+          setCurrentDate(saved.currentDate);
+          setSelectedDate(saved.selectedDate);
+          setInputStartDate(saved.inputStartDate);
+          setInputEndDate(saved.inputEndDate);
+          setAppliedStartDate(saved.appliedStartDate);
+          setAppliedEndDate(saved.appliedEndDate);
+          setHasCustomFilter(saved.hasCustomFilter);
+          savedStateBeforeExternalNavRef.current = null;
+        } else {
+          setSelectedDate(null);
+          const mStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
+          const mEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
+          setInputStartDate(mStart);
+          setInputEndDate(mEnd);
+          setAppliedStartDate(mStart);
+          setAppliedEndDate(mEnd);
+          setHasCustomFilter(false);
+        }
         isNavigatedFromExternalRef.current = false;
-        onClearSelectedDate?.();
       }
     }
     prevIsActiveRef.current = isActive;
-  }, [isActive, onClearSelectedDate]);
+  }, [isActive, currentDate]);
 
   useEffect(() => {
     if (selectedDateStr) {
+      // 자동 이동 전의 상태를 아직 백업하지 않았다면 백업 저장
+      if (!isNavigatedFromExternalRef.current) {
+        savedStateBeforeExternalNavRef.current = {
+          currentDate,
+          selectedDate,
+          inputStartDate,
+          inputEndDate,
+          appliedStartDate,
+          appliedEndDate,
+          hasCustomFilter
+        };
+      }
+
       isNavigatedFromExternalRef.current = true;
       const parsed = parseISO(selectedDateStr);
       if (!isNaN(parsed.getTime())) {
@@ -126,20 +405,10 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
           }
         }, 150);
       }
+      // 소비 후 즉시 부모 state를 비워 prop이 영구 잔존하지 않도록 처리
+      onClearSelectedDate?.();
     }
-  }, [selectedDateStr]);
-  
-  // Date Range for Table
-  const [inputStartDate, setInputStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [inputEndDate, setInputEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [appliedStartDate, setAppliedStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [appliedEndDate, setAppliedEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortOrder, setSortOrder] = useState<'desc'|'asc'>('desc');
-  const [hasCustomFilter, setHasCustomFilter] = useState(false);
-  const [exportedLogId, setExportedLogId] = useState<string | null>(null);
-  const [isExportingBatch, setIsExportingBatch] = useState(false);
-  const [batchExportSuccess, setBatchExportSuccess] = useState(false);
+  }, [selectedDateStr, onClearSelectedDate, currentDate, selectedDate, inputStartDate, inputEndDate, appliedStartDate, appliedEndDate, hasCustomFilter]);
 
   const handleExportLogToCalendar = async (log: BroadcastLog) => {
     const success = await exportToDeviceCalendar(log);
@@ -166,6 +435,44 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
     if (success) {
       setBatchExportSuccess(true);
       setTimeout(() => setBatchExportSuccess(false), 3000);
+    }
+  };
+
+  const handleToggleSelectDate = (dateStr: string) => {
+    setSelectedDates(prev => {
+      const next = new Set(prev);
+      if (next.has(dateStr)) next.delete(dateStr);
+      else next.add(dateStr);
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    const visibleDates = tableLogs.map(l => l.date).filter(Boolean);
+    const isAll = visibleDates.length > 0 && visibleDates.every(d => selectedDates.has(d));
+    if (isAll) {
+      setSelectedDates(new Set());
+    } else {
+      setSelectedDates(new Set(visibleDates));
+    }
+  };
+
+  const handleExportSelectedToCalendar = async () => {
+    if (selectedDates.size === 0) {
+      alert('등록할 방송 일정을 하나 이상 선택해주세요.');
+      return;
+    }
+    const targetLogs = logsArray.filter(l => selectedDates.has(l.date));
+    if (targetLogs.length === 0) return;
+
+    setIsExportingBatch(true);
+    const success = await exportMultipleToDeviceCalendar(targetLogs, `선택 일정 ${targetLogs.length}건`);
+    setIsExportingBatch(false);
+    if (success) {
+      setBatchExportSuccess(true);
+      setTimeout(() => setBatchExportSuccess(false), 3000);
+      setIsSelectMode(false);
+      setSelectedDates(new Set());
     }
   };
 
@@ -217,7 +524,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
 
   const previousRangeBeforePresetRef = useRef<{ start: string; end: string } | null>(null);
 
-  const handleApplyPreset = (preset: '30d' | '1y' | '5y' | 'all') => {
+  const handleApplyPreset = (preset: '7d' | '30d' | '90d' | '1y' | '5y' | 'all') => {
     // 이미 선택된 프리셋을 한 번 더 클릭하면 프리셋 누르기 전 상태로 취소 복귀
     if (activePreset === preset) {
       if (previousRangeBeforePresetRef.current) {
@@ -241,8 +548,12 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
     let newStart = '';
     let newEnd = todayStr;
 
-    if (preset === '30d') {
+    if (preset === '7d') {
+      newStart = format(subDays(today, 7), 'yyyy-MM-dd');
+    } else if (preset === '30d') {
       newStart = format(subDays(today, 30), 'yyyy-MM-dd');
+    } else if (preset === '90d') {
+      newStart = format(subDays(today, 90), 'yyyy-MM-dd');
     } else if (preset === '1y') {
       newStart = format(subYears(today, 1), 'yyyy-MM-dd');
     } else if (preset === '5y') {
@@ -259,15 +570,19 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
     setHasCustomFilter(true);
   };
 
-  const activePreset = useMemo<'30d' | '1y' | '5y' | 'all' | null>(() => {
+  const activePreset = useMemo<'7d' | '30d' | '90d' | '1y' | '5y' | 'all' | null>(() => {
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd');
+    const d7Start = format(subDays(today, 7), 'yyyy-MM-dd');
     const d30Start = format(subDays(today, 30), 'yyyy-MM-dd');
+    const d90Start = format(subDays(today, 90), 'yyyy-MM-dd');
     const y1Start = format(subYears(today, 1), 'yyyy-MM-dd');
     const y5Start = format(subYears(today, 5), 'yyyy-MM-dd');
     const allEnd = maxDateStr > todayStr ? maxDateStr : todayStr;
 
+    if (appliedStartDate === d7Start && appliedEndDate === todayStr) return '7d';
     if (appliedStartDate === d30Start && appliedEndDate === todayStr) return '30d';
+    if (appliedStartDate === d90Start && appliedEndDate === todayStr) return '90d';
     if (appliedStartDate === y1Start && appliedEndDate === todayStr) return '1y';
     if (appliedStartDate === y5Start && appliedEndDate === todayStr) return '5y';
     if (appliedStartDate === minDateStr && (appliedEndDate === todayStr || appliedEndDate === allEnd)) return 'all';
@@ -357,24 +672,47 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
 
   const handleClearDateFilter = () => {
     isNavigatedFromExternalRef.current = false;
-    setSelectedDate(null);
+    setPlayingVideoUrl(null);
     onClearSelectedDate?.();
-    const mStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
-    const mEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
-    setInputStartDate(mStart);
-    setInputEndDate(mEnd);
-    setAppliedStartDate(mStart);
-    setAppliedEndDate(mEnd);
-    setHasCustomFilter(false);
+
+    if (savedStateBeforeExternalNavRef.current) {
+      const saved = savedStateBeforeExternalNavRef.current;
+      setCurrentDate(saved.currentDate);
+      setSelectedDate(saved.selectedDate);
+      setInputStartDate(saved.inputStartDate);
+      setInputEndDate(saved.inputEndDate);
+      setAppliedStartDate(saved.appliedStartDate);
+      setAppliedEndDate(saved.appliedEndDate);
+      setHasCustomFilter(saved.hasCustomFilter);
+      savedStateBeforeExternalNavRef.current = null;
+    } else {
+      setSelectedDate(null);
+      const mStart = format(startOfMonth(currentDate), 'yyyy-MM-dd');
+      const mEnd = format(endOfMonth(currentDate), 'yyyy-MM-dd');
+      setInputStartDate(mStart);
+      setInputEndDate(mEnd);
+      setAppliedStartDate(mStart);
+      setAppliedEndDate(mEnd);
+      setHasCustomFilter(false);
+    }
   };
 
   const handleDayClick = (date: Date) => {
     isNavigatedFromExternalRef.current = false;
+    const formatted = format(date, 'yyyy-MM-dd');
+
+    if (isSelectMode) {
+      const log = getLogForDate(date);
+      if (log) {
+        handleToggleSelectDate(formatted);
+      }
+      return;
+    }
+
     if (selectedDate && isSameDay(date, selectedDate)) {
       handleClearDateFilter();
     } else {
       setSelectedDate(date);
-      const formatted = format(date, 'yyyy-MM-dd');
       setInputStartDate(formatted);
       setInputEndDate(formatted);
       setAppliedStartDate(formatted);
@@ -415,26 +753,42 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
             )}>
               {(() => {
                 const cloneDateStr = format(cloneDay, 'yyyy-MM-dd');
-                const holidayName = getKoreanHoliday(cloneDateStr);
-                const isHoliday = Boolean(holidayName);
+                const isHoliday = isKoreanHoliday(cloneDateStr);
                 const isSun = isSunday(cloneDay);
                 const isSat = isSaturday(cloneDay);
                 const isToday = isSameDay(cloneDay, new Date());
+                const isSelected = selectedDates.has(cloneDateStr);
 
                 return (
-                  <div className="flex items-center gap-1 mb-0.5 sm:mb-1 overflow-hidden">
-                    <span className={cn(
-                      "text-[11px] sm:text-sm font-semibold w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full shrink-0",
-                      isToday ? "bg-purple-600 text-white" : "",
-                      !isToday && (isSun || isHoliday) ? "text-red-500 font-bold" : "",
-                      !isToday && !isHoliday && isSat ? "text-blue-500" : ""
-                    )}>
-                      {formattedDate}
-                    </span>
-                    {holidayName && (
-                      <span className="hidden sm:inline-block text-[10px] text-red-500 font-semibold truncate leading-none" title={holidayName}>
-                        {holidayName}
+                  <div className="flex items-center justify-between mb-0.5 sm:mb-1 overflow-hidden">
+                    <div className="flex items-center gap-1">
+                      <span className={cn(
+                        "text-[11px] sm:text-sm font-semibold w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full shrink-0",
+                        isToday ? "bg-purple-600 text-white" : "",
+                        !isToday && (isSun || isHoliday) ? "text-red-500 font-bold" : "",
+                        !isToday && !isHoliday && isSat ? "text-blue-500" : ""
+                      )}>
+                        {formattedDate}
                       </span>
+                    </div>
+
+                    {isSelectMode && log && (
+                      <div 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleSelectDate(cloneDateStr);
+                        }}
+                        className="p-0.5 cursor-pointer z-10"
+                      >
+                        <div className={cn(
+                          "w-4 h-4 rounded-md flex items-center justify-center border transition-all",
+                          isSelected
+                            ? "bg-purple-600 border-purple-600 text-white shadow-xs"
+                            : "bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 hover:border-purple-400"
+                        )}>
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                      </div>
                     )}
                   </div>
                 );
@@ -530,7 +884,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
   }, [searchTerm, tableLogs]);
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6">
       
       {/* Calendar & Detail Overlay Wrapper (달력이 줄어들거나 밀리지 않도록 relative 래퍼 적용) */}
       <div className="relative w-full">
@@ -647,6 +1001,65 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
               </div>
             ))}
           </div>
+
+          {/* 달력 선택 등록 모드 실행 중일 때 달력 상단 전체 선택 바 */}
+          {isSelectMode && (
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-purple-50/80 dark:bg-purple-950/40 border-b border-purple-200/80 dark:border-purple-800/60 text-xs">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(10);
+                    const monthDates = logsArray
+                      .filter(l => l.date && isSameMonth(parseISO(l.date), currentDate))
+                      .map(l => l.date);
+                    const allSelected = monthDates.length > 0 && monthDates.every(d => selectedDates.has(d));
+                    setSelectedDates(prev => {
+                      const next = new Set(prev);
+                      if (allSelected) {
+                        monthDates.forEach(d => next.delete(d));
+                      } else {
+                        monthDates.forEach(d => next.add(d));
+                      }
+                      return next;
+                    });
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 text-purple-700 dark:text-purple-300 font-bold border border-purple-200 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-zinc-700 text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <CheckSquare className="w-3.5 h-3.5" />
+                  <span>이번 달 전체 선택</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(10);
+                    setSelectedDates(new Set());
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-xs cursor-pointer"
+                >
+                  선택 해제
+                </button>
+                <span className="text-zinc-600 dark:text-zinc-300 font-semibold text-xs ml-1">
+                  {selectedDates.size}개 날짜 선택됨
+                </span>
+              </div>
+              {selectedDates.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(15);
+                    setIsSubscribeModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 transition-all"
+                  title="체크 버튼 누르면 기존 등록 기기 모달로 이동"
+                >
+                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>기기 등록 모달로 이동</span>
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="border-l border-t border-zinc-200 dark:border-zinc-800 flex flex-col">
             {rows}
           </div>
@@ -683,14 +1096,6 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                         <h3 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">
                           {format(selectedDate, 'M월 d일')} <span className="text-base sm:text-lg font-medium text-zinc-500 dark:text-zinc-400">{format(selectedDate, 'EEEE', { locale: ko })}</span>
                         </h3>
-                        {(() => {
-                          const hName = getKoreanHoliday(format(selectedDate, 'yyyy-MM-dd'));
-                          return hName ? (
-                            <span className="text-xs px-2 py-0.5 font-bold rounded-full bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-400 border border-red-200 dark:border-red-800/80">
-                              {hName}
-                            </span>
-                          ) : null;
-                        })()}
                       </div>
                       {(Boolean(selectedLog.time) || (selectedLog.durationHours && selectedLog.durationHours > 0)) && (
                         <div className="text-purple-600 dark:text-purple-400 font-medium flex items-center gap-2 text-sm sm:text-base">
@@ -727,7 +1132,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                           className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-semibold text-xs sm:text-sm transition-all border border-zinc-200 dark:border-zinc-700 shrink-0"
                           title="구글 캘린더(웹/앱)에 일정 추가"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
+                          <CalendarIcon className="w-3.5 h-3.5 text-blue-500" />
                           <span>구글 캘린더</span>
                         </a>
                       </div>
@@ -764,35 +1169,208 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                       </div>
                     </div>
 
-                    {(selectedLog.vods?.length > 0 || selectedLog.edited?.length > 0 || selectedLog.shorts?.length > 0) && (
-                      <div className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 border-t border-zinc-200 dark:border-zinc-800">
-                        <h4 className="text-xs sm:text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">업로드된 영상</h4>
-                        
-                        {selectedLog.vods?.length > 0 && (
-                          <div className="flex flex-col gap-2">
-                            {selectedLog.vods.map((v, i) => (
-                              <VideoLinkCard key={i} url={v.url} title={v.title} category={v.category} categories={v.categories} icon={PlaySquare} borderClass="border-purple-100 dark:border-purple-800/30" bgClass="bg-purple-50 dark:bg-purple-900/10 hover:bg-purple-100 dark:hover:bg-purple-900/20" textClass="text-purple-700 dark:text-purple-300" />
-                            ))}
-                          </div>
-                        )}
+                    {(() => {
+                      const validVods = selectedLog.vods?.filter(v => !v.isCompilation && !v.compilationId && !v.title?.includes('몰아보기')) || [];
+                      const validEdited = selectedLog.edited?.filter(v => !v.isCompilation && !v.compilationId && !v.title?.includes('몰아보기')) || [];
+                      const validShorts = selectedLog.shorts?.filter(v => !v.isCompilation && !v.compilationId && !v.title?.includes('몰아보기')) || [];
+                      const hasAnyVideos = validVods.length > 0 || validEdited.length > 0 || validShorts.length > 0;
 
-                        {selectedLog.edited?.length > 0 && (
-                          <div className="flex flex-col gap-2">
-                            {selectedLog.edited.map((v, i) => (
-                              <VideoLinkCard key={i} url={v.url} title={v.title} category={v.category} categories={v.categories} icon={VideoIcon} borderClass="border-blue-100 dark:border-blue-800/30" bgClass="bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20" textClass="text-blue-700 dark:text-blue-300" />
-                            ))}
-                          </div>
-                        )}
+                      if (!hasAnyVideos) return null;
 
-                        {selectedLog.shorts?.length > 0 && (
-                          <div className="flex flex-col gap-2">
-                            {selectedLog.shorts.map((v, i) => (
-                              <VideoLinkCard key={i} url={v.url} title={v.title} category={v.category} categories={v.categories} icon={ShortsIcon} borderClass="border-red-100 dark:border-red-800/30" bgClass="bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20" textClass="text-red-700 dark:text-red-300" />
-                            ))}
+                      const renderVideoCard = (
+                        video: { url?: string; title?: string; category?: string; categories?: string[] },
+                        type: 'vod' | 'edited' | 'shorts',
+                        isVertical = false
+                      ) => {
+                        const ytId = extractYoutubeId(video.url);
+                        const isPlaying = Boolean(video.url && playingVideoUrl === video.url);
+                        const title = video.title || (type === 'vod' ? '생방송 다시보기' : type === 'edited' ? '유튜브 편집본' : '유튜브 쇼츠');
+                        const cats = Array.isArray(video.categories) && video.categories.length > 0
+                          ? video.categories
+                          : (video.category ? video.category.split(',').map(c => c.trim()).filter(Boolean) : []);
+
+                        return (
+                          <div className={cn(
+                            "flex flex-col overflow-hidden rounded-2xl border bg-white dark:bg-zinc-900 shadow-2xs hover:shadow-md transition-all duration-200 border-zinc-200 dark:border-zinc-800",
+                            isVertical && "h-full justify-between"
+                          )}>
+                            {/* 썸네일 또는 인라인 브라우저 재생 ("팝업이 아니라 그 상태로 재생") */}
+                            {isPlaying && ytId ? (
+                              <div className={cn("relative w-full bg-black overflow-hidden", isVertical ? "aspect-[9/16]" : "aspect-video")}>
+                                <iframe
+                                  src={`https://www.youtube.com/embed/${ytId}?autoplay=1&enablejsapi=1&rel=0`}
+                                  title={title}
+                                  className="w-full h-full border-0"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setPlayingVideoUrl(null);
+                                  }}
+                                  className="absolute top-2 left-2 z-30 px-2.5 py-1 rounded-lg bg-black/85 hover:bg-black text-white text-xs font-semibold flex items-center gap-1 shadow-md transition-colors cursor-pointer"
+                                  title="플레이어 닫기"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                  <span>닫기</span>
+                                </button>
+                              </div>
+                            ) : ytId ? (
+                              <div
+                                onClick={() => setPlayingVideoUrl(video.url || null)}
+                                className={cn(
+                                  "relative w-full overflow-hidden bg-zinc-950 border-b border-black/10 dark:border-white/10 cursor-pointer select-none group/thumb",
+                                  isVertical ? "aspect-[9/16]" : "aspect-video"
+                                )}
+                                title="클릭하여 바로 재생"
+                              >
+                                <img
+                                  src={isVertical ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`}
+                                  alt={title}
+                                  className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-500"
+                                  loading="lazy"
+                                />
+                                <div className="absolute inset-0 bg-black/25 group-hover/thumb:bg-black/15 transition-colors flex items-center justify-center">
+                                  <div className={cn(
+                                    "rounded-full bg-red-600/90 group-hover/thumb:bg-red-600 text-white flex items-center justify-center shadow-lg group-hover/thumb:scale-110 transition-transform",
+                                    isVertical ? "w-9 h-9" : "w-11 h-11"
+                                  )}>
+                                    <Play className={cn("fill-current ml-0.5", isVertical ? "w-4 h-4" : "w-5 h-5")} />
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {/* 콘텐츠 정보 */}
+                            <div className={cn("p-3.5 flex flex-col gap-2 flex-1 justify-between", isVertical && "p-2.5 gap-1.5")}>
+                              <div>
+                                <div className={cn(
+                                  "font-bold text-zinc-900 dark:text-white leading-snug line-clamp-2 mb-1",
+                                  isVertical ? "text-xs" : "text-sm sm:text-base"
+                                )} title={title}>
+                                  {title}
+                                </div>
+                                {cats.length > 0 && !isVertical && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {cats.map((c, idx) => (
+                                      <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                                        {c}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* 각각 개체당 하나씩만 위치하는 단일 액션 버튼 */}
+                              <div className="mt-auto pt-2 border-t border-black/5 dark:border-white/5">
+                                {type === 'vod' ? (
+                                  <a
+                                    href={video.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="w-full flex justify-center items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/60 shadow-2xs hover:scale-[1.01]"
+                                  >
+                                    <PlaySquare className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                    <span>생방송 보기</span>
+                                  </a>
+                                ) : type === 'edited' ? (
+                                  <a
+                                    href={video.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="w-full flex justify-center items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 shadow-2xs hover:scale-[1.01]"
+                                  >
+                                    <VideoIcon className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
+                                    <span>영상 보기</span>
+                                  </a>
+                                ) : (
+                                  <a
+                                    href={video.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="w-full flex justify-center items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all bg-red-50 hover:bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200/80 dark:border-red-800/60 shadow-2xs hover:scale-[1.01]"
+                                  >
+                                    <ShortsIcon className="w-3.5 h-3.5 text-red-500" />
+                                    <span>쇼츠 보기</span>
+                                  </a>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        )}
-                  </div>
-                )}
+                        );
+                      };
+
+                      return (
+                        <div className="space-y-5 pt-3 sm:pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                          {/* 1. 생방송 다시보기 섹션 */}
+                          {validVods.length > 0 && (
+                            <div className="space-y-3">
+                              <h4 className="text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                                <PlaySquare className="w-4 h-4 shrink-0" />
+                                <span>생방송 다시보기</span>
+                                <span className="text-[11px] font-normal text-zinc-400">({validVods.length})</span>
+                              </h4>
+                              <div className="flex flex-col gap-3">
+                                {validVods.map((v, i) => (
+                                  <React.Fragment key={`vod-${i}`}>
+                                    {renderVideoCard(v, 'vod', false)}
+                                  </React.Fragment>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 2. 유튜브 편집본 영상 섹션 */}
+                          {validEdited.length > 0 && (
+                            <div className="space-y-3">
+                              <h4 className="text-xs sm:text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                                <VideoIcon className="w-4 h-4 shrink-0 text-red-500" />
+                                <span>유튜브 편집본 (영상)</span>
+                                <span className="text-[11px] font-normal text-zinc-400">({validEdited.length})</span>
+                              </h4>
+                              <div className="flex flex-col gap-3">
+                                {validEdited.map((v, i) => (
+                                  <React.Fragment key={`edited-${i}`}>
+                                    {renderVideoCard(v, 'edited', false)}
+                                  </React.Fragment>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 3. 쇼츠 영상 섹션 (2개 이상이면 세로로 2개 || 모양으로 배치) */}
+                          {validShorts.length > 0 && (
+                            <div className="space-y-3">
+                              <h4 className="text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                                <ShortsIcon className="w-4 h-4 text-red-500 shrink-0" />
+                                <span>쇼츠 영상</span>
+                                <span className="text-[11px] font-normal text-zinc-400">({validShorts.length})</span>
+                              </h4>
+                              {validShorts.length >= 2 ? (
+                                <div className="grid grid-cols-2 gap-2.5">
+                                  {validShorts.map((v, i) => (
+                                    <React.Fragment key={`shorts-${i}`}>
+                                      {renderVideoCard(v, 'shorts', true)}
+                                    </React.Fragment>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="flex flex-col gap-3">
+                                  {validShorts.map((v, i) => (
+                                    <React.Fragment key={`shorts-${i}`}>
+                                      {renderVideoCard(v, 'shorts', false)}
+                                    </React.Fragment>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-zinc-400 py-8 sm:py-12 mt-2 sm:mt-4">
@@ -811,22 +1389,151 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
       {/* 전체 방송 기록 표 */}
       <div id="calendar-table-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden shadow-sm mt-8">
         <div className="p-5 sm:p-6 lg:p-7 border-b border-zinc-200 dark:border-zinc-800 flex flex-col gap-4">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <h3 className="text-xl font-bold text-zinc-900 dark:text-white shrink-0">전체 방송 기록</h3>
-            
-            {/* 나머지 칸띄움 자동: 날짜 범위, 프리셋, 정렬, 캘린더 추가, 자동 구독 */}
-            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full lg:w-auto justify-between lg:justify-end">
-              {/* 첫 번째 칸: 날짜 설정 (시작일 ~ 종료일) */}
-              <div className="flex items-center gap-1.5 text-sm">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div className="flex items-center gap-2.5">
+              <h3 className="text-xl font-bold text-zinc-900 dark:text-white">전체 방송 기록</h3>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
+                {tableLogs.length}건
+              </span>
+            </div>
+            {isSelectMode && (
+              <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                선택 모드: {selectedDates.size}개 방송일 선택됨
+              </span>
+            )}
+          </div>
+          
+          {/* [1:1 길이 캘린더 선택 등록 버튼 및 구독 버튼] - 검색창 바로 위에 각각 1:1 너비 배치 */}
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full">
+            {/* 1. 캘린더 선택 등록 버튼 */}
+            <button 
+              type="button"
+              onClick={() => {
+                triggerHaptic(12);
+                setIsSelectMode(prev => !prev);
+              }}
+              className={cn(
+                "w-full py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs border active:scale-[0.99]",
+                isSelectMode
+                  ? "bg-purple-600 text-white border-purple-600 shadow-purple-500/20"
+                  : "bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/80"
+              )}
+              title="달력 및 목록에서 원하는 방송 일정을 체크하여 기기 캘린더에 일괄 등록"
+            >
+              <CalendarCheck className="w-4 h-4 shrink-0" />
+              <span>{isSelectMode ? `선택 등록 종료 (${selectedDates.size})` : '캘린더 선택 등록'}</span>
+            </button>
+
+            {/* 2. 구독 버튼 */}
+            <button 
+              type="button"
+              id="btn-calendar-subscribe-table"
+              onClick={() => {
+                triggerHaptic(12);
+                setIsSubscribeModalOpen(true);
+              }}
+              className="w-full py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs border bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 active:scale-[0.99]"
+              title="스마트폰 캘린더에 방송 일정 자동 동기화"
+            >
+              <Bell className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+              <span>캘린더 구독</span>
+            </button>
+          </div>
+
+          {/* 선택 모드 활성화 시 전체 선택/해제 및 기기 등록 체크 버튼 툴바 */}
+          {isSelectMode && (
+            <div className="flex flex-wrap items-center justify-between gap-2.5 p-3.5 bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200/80 dark:border-purple-800/60 rounded-2xl animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(10);
+                    handleToggleSelectAll();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-bold border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                >
+                  <CheckSquare className="w-3.5 h-3.5 text-purple-600" />
+                  <span>전체 선택</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(10);
+                    setSelectedDates(new Set());
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-xs font-medium border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+                >
+                  선택 해제
+                </button>
+                <span className="text-xs font-bold text-purple-700 dark:text-purple-300 ml-1">
+                  {selectedDates.size}개 방송일 선택됨
+                </span>
+              </div>
+
+              {/* 전체 선택 후 체크 버튼 누르면 기존 등록 기기 모달로 이동 */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedDates.size === 0) {
+                    alert('등록할 방송 일정을 먼저 선택해주세요.');
+                    return;
+                  }
+                  triggerHaptic(15);
+                  setIsSubscribeModalOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95 transition-all"
+                title="기기 등록 모달 열기"
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>기기 등록 모달로 이동 ({selectedDates.size})</span>
+              </button>
+            </div>
+          )}
+
+          {/* [상세 분석 조회 스타일 필터: 며칠 전 등 선택하는 것 옆에 최신순 등 선택하는 것] */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            {/* 며칠 전 등 선택 (기간 프리셋) */}
+            <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar shrink-0">
+              {[
+                { key: '7d' as const, label: '7일 전' },
+                { key: '30d' as const, label: '30일 전' },
+                { key: '90d' as const, label: '90일 전' },
+                { key: '1y' as const, label: '1년 전' },
+                { key: 'all' as const, label: '전체' },
+              ].map((p) => {
+                const isSelected = activePreset === p.key;
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(10);
+                      handleApplyPreset(p.key);
+                    }}
+                    className={cn(
+                      "px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer",
+                      isSelected
+                        ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs"
+                        : "bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300"
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2 justify-between sm:justify-end">
+              {/* 날짜 직접 입력 */}
+              <div className="hidden sm:flex items-center gap-1 text-xs">
                 <input 
                   type="date" 
                   min={minDateStr}
                   max={maxDateStr}
                   value={inputStartDate} 
                   onChange={(e) => handleStartDateChange(e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
+                  className="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 py-1.5 text-zinc-900 dark:text-white text-xs focus:outline-none"
                   title="시작 날짜 설정"
-                  aria-label="조회 시작 날짜"
                 />
                 <span className="text-zinc-400 font-medium">~</span>
                 <input 
@@ -835,96 +1542,32 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                   max={maxDateStr}
                   value={inputEndDate} 
                   onChange={(e) => handleEndDateChange(e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-xs sm:text-sm"
+                  className="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 py-1.5 text-zinc-900 dark:text-white text-xs focus:outline-none"
                   title="종료 날짜 설정"
-                  aria-label="조회 종료 날짜"
                 />
               </div>
 
-              {/* 기간 프리셋 버튼 그룹 */}
-              <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar shrink-0">
-                {[
-                  { key: '30d' as const, label: '최근 30일' },
-                  { key: '1y' as const, label: '최근 1년' },
-                  { key: '5y' as const, label: '최근 5년' },
-                  { key: 'all' as const, label: '전체' },
-                ].map((p) => {
-                  const isSelected = activePreset === p.key;
-                  return (
-                    <button
-                      key={p.key}
-                      type="button"
-                      onClick={() => handleApplyPreset(p.key)}
-                      className={cn(
-                        "px-2.5 sm:px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer",
-                        isSelected
-                          ? "bg-purple-600 text-white shadow-xs"
-                          : "bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300"
-                      )}
-                    >
-                      {p.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* 정렬 옵션 */}
+              {/* 며칠 전 등 선택하는 것 옆에 위치한 최신순/오래된순 정렬 옵션 */}
               <select
                 value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')}
-                className="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm font-medium text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                onChange={(e) => {
+                  triggerHaptic(10);
+                  setSortOrder(e.target.value as 'desc' | 'asc');
+                }}
+                className="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none cursor-pointer"
               >
                 <option value="desc">최신순</option>
                 <option value="asc">오래된순</option>
               </select>
-
-              {/* 달력 일괄 추가 */}
-              <button 
-                type="button"
-                onClick={handleExportBatchToCalendar}
-                disabled={isExportingBatch || tableLogs.length === 0}
-                className={cn(
-                  "px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 border",
-                  batchExportSuccess 
-                    ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 shadow-sm"
-                    : "bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/80 shadow-sm hover:shadow active:scale-[0.98]"
-                )}
-                title="선택한 기간의 전체 방송 일정을 기기 캘린더(.ics)에 추가"
-              >
-                {batchExportSuccess ? (
-                  <>
-                    <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>캘린더 등록 완료 ({tableLogs.length}건)</span>
-                  </>
-                ) : isExportingBatch ? (
-                  <span>생성 중...</span>
-                ) : (
-                  <>
-                    <CalendarDays className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    <span>달력에 추가 ({tableLogs.length}건)</span>
-                  </>
-                )}
-              </button>
-
-              {/* 캘린더 자동 구독 */}
-              <button 
-                type="button"
-                id="btn-calendar-subscribe-table"
-                onClick={() => setIsSubscribeModalOpen(true)}
-                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center cursor-pointer shrink-0 border border-zinc-300 dark:border-zinc-700 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 active:scale-[0.98]"
-                title="스마트폰 캘린더에 방송 일정 자동 동기화"
-              >
-                <span>캘린더 자동 구독</span>
-              </button>
             </div>
           </div>
 
-          {/* 대형 실시간 검색창: 전체 너비로 확장 및 크기 확대 */}
+          {/* [상세 분석 조회 버튼 자리를 검색창으로 바꾼 대형 실시간 검색창] */}
           <div className="relative w-full">
             <Search className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-400 absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
-              placeholder="게임명, 날짜, 링크 검색…"
+              placeholder="방송 제목, 게임명, 카테고리, 날짜, URL 검색…"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-zinc-50 dark:bg-zinc-800/90 border border-zinc-200 dark:border-zinc-700 rounded-2xl pl-10 sm:pl-12 pr-10 py-3 sm:py-3.5 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm sm:text-base shadow-2xs placeholder:text-zinc-400 dark:placeholder:text-zinc-500 transition-all"
@@ -932,7 +1575,10 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
             {searchTerm && (
               <button
                 type="button"
-                onClick={() => setSearchTerm('')}
+                onClick={() => {
+                  triggerHaptic(10);
+                  setSearchTerm('');
+                }}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
                 title="검색어 지우기"
               >
@@ -964,6 +1610,29 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
           <table className="w-full min-w-[500px] sm:min-w-[760px] text-left text-xs sm:text-sm table-fixed lg:table-auto">
             <thead className="bg-zinc-50 dark:bg-black/40 text-zinc-500 dark:text-zinc-400 font-semibold whitespace-nowrap">
               <tr>
+                {isSelectMode && (
+                  <th className="w-[45px] sm:w-[50px] px-2.5 sm:px-4 py-3.5 sm:py-4 lg:py-5 text-center">
+                    <div 
+                      onClick={() => {
+                        triggerHaptic(10);
+                        handleToggleSelectAll();
+                      }} 
+                      className="p-1 cursor-pointer inline-flex items-center justify-center"
+                      title="전체 선택 / 해제"
+                    >
+                      <div className={cn(
+                        "w-4 h-4 rounded-md flex items-center justify-center border transition-all",
+                        tableLogs.length > 0 && tableLogs.every(l => selectedDates.has(l.date))
+                          ? "bg-purple-600 border-purple-600 text-white shadow-xs"
+                          : "bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600"
+                      )}>
+                        {tableLogs.length > 0 && tableLogs.every(l => selectedDates.has(l.date)) && (
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        )}
+                      </div>
+                    </div>
+                  </th>
+                )}
                 <th className="w-[120px] sm:w-[170px] lg:w-[200px] px-3 sm:px-6 lg:px-7 py-3.5 sm:py-4 lg:py-5">방송 날짜 / 시간</th>
                 <th className="w-[150px] sm:w-[230px] lg:w-[270px] px-3 sm:px-6 lg:px-7 py-3.5 sm:py-4 lg:py-5"><span className="hidden sm:inline">카테고리 / </span>게임 이름</th>
                 <th className="w-[65px] sm:min-w-[190px] lg:min-w-[270px] px-2.5 sm:px-6 lg:px-7 py-3.5 sm:py-4 lg:py-5">다시보기</th>
@@ -982,6 +1651,27 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                     id={`table-row-${log.date}`}
                     className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors"
                   >
+                    {isSelectMode && (
+                      <td className="w-[45px] sm:w-[50px] px-2.5 sm:px-4 py-3.5 sm:py-4 lg:py-5 align-top text-center">
+                        <div 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            triggerHaptic(10);
+                            handleToggleSelectDate(log.date);
+                          }}
+                          className="p-1 cursor-pointer inline-flex items-center justify-center mt-0.5"
+                        >
+                          <div className={cn(
+                            "w-4 h-4 rounded-md flex items-center justify-center border transition-all",
+                            selectedDates.has(log.date)
+                              ? "bg-purple-600 border-purple-600 text-white shadow-xs"
+                              : "bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 hover:border-purple-400"
+                          )}>
+                            {selectedDates.has(log.date) && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                        </div>
+                      </td>
+                    )}
                     <td className="px-3 sm:px-6 lg:px-7 py-3.5 sm:py-4 lg:py-5 align-top whitespace-nowrap">
                       <div className="font-semibold text-zinc-900 dark:text-zinc-200">
                         {log.date}
@@ -1025,22 +1715,36 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                   <td className="px-2.5 sm:px-6 lg:px-7 py-3.5 sm:py-4 lg:py-5 align-top">
                     <div className="flex flex-col gap-2">
                       {log.vods?.length > 0 ? log.vods.map((v, i) => {
+                        const ytId = extractYoutubeId(v.url);
                         const cats = Array.isArray(v.categories) && v.categories.length > 0
                           ? v.categories
                           : (v.category ? v.category.split(',').map(c => c.trim()).filter(Boolean) : []);
                         return (
                           <div key={i} className="flex flex-col gap-1">
-                            <a 
-                              href={v.url || '#'} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              title={v.title || '생방송 다시보기'}
-                              aria-label={v.title || '생방송 다시보기'}
-                              className="inline-flex items-center sm:items-start gap-1.5 p-1 -m-1 sm:p-0 sm:m-0 text-zinc-700 dark:text-zinc-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-                            >
-                              <PlaySquare className="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400 sm:mt-0.5" />
-                              <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed">{v.title}</span>
-                            </a>
+                            <div className="inline-flex items-center gap-1.5 p-1 -m-1 sm:p-0 sm:m-0 text-zinc-700 dark:text-zinc-300">
+                              {ytId ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setPlayingModalVideo({ url: v.url, title: v.title || '생방송 다시보기' })}
+                                  className="inline-flex items-center gap-1.5 text-left hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer group/btn"
+                                  title="브라우저에서 바로 재생"
+                                >
+                                  <PlaySquare className="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400 group-hover/btn:scale-110 transition-transform" />
+                                  <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed group-hover/btn:underline">{v.title}</span>
+                                </button>
+                              ) : (
+                                <a 
+                                  href={v.url || '#'} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  title={v.title || '생방송 다시보기'}
+                                  className="inline-flex items-center gap-1.5 text-left hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                                >
+                                  <PlaySquare className="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400" />
+                                  <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed">{v.title}</span>
+                                </a>
+                              )}
+                            </div>
                             {cats.length > 0 && (
                               <div className="hidden sm:flex flex-wrap gap-1 pl-5">
                                 {cats.map((c, cIdx) => (
@@ -1057,58 +1761,89 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                   </td>
                   <td className="px-2.5 sm:px-6 lg:px-7 py-3.5 sm:py-4 lg:py-5 align-top">
                     <div className="flex flex-col gap-2">
-                      {log.edited?.length > 0 ? log.edited.map((v, i) => {
-                        const cats = Array.isArray(v.categories) && v.categories.length > 0
-                          ? v.categories
-                          : (v.category ? v.category.split(',').map(c => c.trim()).filter(Boolean) : []);
-                        return (
-                          <div key={i} className="flex flex-col gap-1">
-                            <a 
-                              href={v.url || '#'} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              title={v.title || '유튜브 편집본'}
-                              aria-label={v.title || '유튜브 편집본'}
-                              className={`inline-flex items-center sm:items-start gap-1.5 p-1 -m-1 sm:p-0 sm:m-0 transition-colors ${
-                                v.url ? 'text-red-600 dark:text-red-400 font-semibold hover:underline' : 'text-zinc-400 dark:text-zinc-600 cursor-default'
-                              }`}
-                            >
-                              <VideoIcon className={`w-4 h-4 shrink-0 sm:mt-0.5 ${v.url ? 'text-red-500' : 'text-zinc-400'}`} />
-                              <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed">{v.title}</span>
-                            </a>
-                            {cats.length > 0 && (
-                              <div className="hidden sm:flex flex-wrap gap-1 pl-5">
-                                {cats.map((c, cIdx) => (
-                                  <span key={cIdx} className="text-[10px] px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium">
-                                    {c}
-                                  </span>
-                                ))}
+                      {(() => {
+                        const individualVideos = log.edited?.filter(v => !v.isCompilation && !v.compilationId && !v.title?.includes('몰아보기')) || [];
+                        return individualVideos.length > 0 ? individualVideos.map((v, i) => {
+                          const ytId = extractYoutubeId(v.url);
+                          const cats = Array.isArray(v.categories) && v.categories.length > 0
+                            ? v.categories
+                            : (v.category ? v.category.split(',').map(c => c.trim()).filter(Boolean) : []);
+                          return (
+                            <div key={i} className="flex flex-col gap-1">
+                              <div className="inline-flex items-center gap-1.5 p-1 -m-1 sm:p-0 sm:m-0">
+                                {ytId ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPlayingModalVideo({ url: v.url, title: v.title || '유튜브 편집본' })}
+                                    className="inline-flex items-center gap-1.5 text-left text-red-600 dark:text-red-400 font-semibold hover:underline cursor-pointer group/btn"
+                                    title="브라우저에서 바로 재생"
+                                  >
+                                    <VideoIcon className="w-4 h-4 shrink-0 text-red-500 group-hover/btn:scale-110 transition-transform" />
+                                    <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed">{v.title}</span>
+                                  </button>
+                                ) : (
+                                  <a 
+                                    href={v.url || '#'} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    title={v.title || '유튜브 편집본'}
+                                    className={`inline-flex items-center gap-1.5 ${
+                                      v.url ? 'text-red-600 dark:text-red-400 font-semibold hover:underline' : 'text-zinc-400 dark:text-zinc-600 cursor-default'
+                                    }`}
+                                  >
+                                    <VideoIcon className={`w-4 h-4 shrink-0 ${v.url ? 'text-red-500' : 'text-zinc-400'}`} />
+                                    <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed">{v.title}</span>
+                                  </a>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        );
-                      }) : <span className="text-zinc-300 dark:text-zinc-700">-</span>}
+                              {cats.length > 0 && (
+                                <div className="hidden sm:flex flex-wrap gap-1 pl-5">
+                                  {cats.map((c, cIdx) => (
+                                    <span key={cIdx} className="text-[10px] px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium">
+                                      {c}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }) : <span className="text-zinc-300 dark:text-zinc-700">-</span>;
+                      })()}
                     </div>
                   </td>
                   <td className="px-2.5 sm:px-6 lg:px-7 py-3.5 sm:py-4 lg:py-5 align-top">
                     <div className="flex flex-col gap-2">
                       {log.shorts?.length > 0 ? log.shorts.map((v, i) => {
+                        const ytId = extractYoutubeId(v.url);
                         const cats = Array.isArray(v.categories) && v.categories.length > 0
                           ? v.categories
                           : (v.category ? v.category.split(',').map(c => c.trim()).filter(Boolean) : []);
                         return (
                           <div key={i} className="flex flex-col gap-1">
-                            <a 
-                              href={v.url || '#'} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              title={v.title || '유튜브 쇼츠'}
-                              aria-label={v.title || '유튜브 쇼츠'}
-                              className="inline-flex items-center sm:items-start gap-1.5 p-1 -m-1 sm:p-0 sm:m-0 text-zinc-700 dark:text-zinc-300 hover:text-red-500 transition-colors"
-                            >
-                              <ShortsIcon className="w-4 h-4 shrink-0 sm:mt-0.5" />
-                              <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed">{v.title}</span>
-                            </a>
+                            <div className="inline-flex items-center gap-1.5 p-1 -m-1 sm:p-0 sm:m-0 text-zinc-700 dark:text-zinc-300">
+                              {ytId ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setPlayingModalVideo({ url: v.url, title: v.title || '유튜브 쇼츠' })}
+                                  className="inline-flex items-center gap-1.5 text-left hover:text-red-500 transition-colors cursor-pointer group/btn"
+                                  title="브라우저에서 바로 재생"
+                                >
+                                  <ShortsIcon className="w-4 h-4 shrink-0 text-red-500 group-hover/btn:scale-110 transition-transform" />
+                                  <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed group-hover/btn:underline">{v.title}</span>
+                                </button>
+                              ) : (
+                                <a 
+                                  href={v.url || '#'} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  title={v.title || '유튜브 쇼츠'}
+                                  className="inline-flex items-center gap-1.5 text-left hover:text-red-500 transition-colors"
+                                >
+                                  <ShortsIcon className="w-4 h-4 shrink-0 text-red-500" />
+                                  <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed">{v.title}</span>
+                                </a>
+                              )}
+                            </div>
                             {cats.length > 0 && (
                               <div className="hidden sm:flex flex-wrap gap-1 pl-5">
                                 {cats.map((c, cIdx) => (
@@ -1152,6 +1887,45 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
         isOpen={isSubscribeModalOpen}
         onClose={() => setIsSubscribeModalOpen(false)}
       />
+
+      {/* 방송 기록 브라우저 재생 모달 */}
+      <AnimatePresence>
+        {playingModalVideo && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="relative w-full max-w-2xl bg-zinc-900 rounded-2xl overflow-hidden shadow-2xl border border-zinc-800">
+              <div className="flex items-center justify-between px-4 py-3 bg-zinc-950 border-b border-zinc-800 text-white">
+                <span className="text-sm font-bold truncate pr-4">{playingModalVideo.title}</span>
+                <button
+                  type="button"
+                  onClick={() => setPlayingModalVideo(null)}
+                  className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                  title="닫기"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="relative w-full aspect-video bg-black">
+                {(() => {
+                  const ytId = extractYoutubeId(playingModalVideo.url);
+                  return ytId ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${ytId}?autoplay=1&enablejsapi=1&rel=0`}
+                      title={playingModalVideo.title}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-zinc-400 text-sm">
+                      재생 가능한 영상 링크가 아닙니다.
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

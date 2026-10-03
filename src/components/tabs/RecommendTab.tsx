@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { RefreshCw, ChevronDown, ThumbsUp, ThumbsDown, Star, CheckCircle, Search, Filter, Cloud, CloudDownload, X, Loader2, AlertCircle, Calendar, Layers } from 'lucide-react';
+import { RefreshCw, ChevronDown, ThumbsUp, ThumbsDown, Star, CheckCircle, Search, Filter, Cloud, CloudDownload, X, Loader2, AlertCircle, Calendar, Layers, Play, Sparkles, Clock } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -9,6 +9,7 @@ import { extractYoutubeId, extractChzzkId, isVideoUrl, matchMediaUrl, matchLogMe
 import { formatRecommendShareText, shareTextOrClipboard } from '../../utils/shareUtils';
 import { ShareBoxArrowIcon } from '../common/ShareIcon';
 import { BroadcastDetailModal } from './BroadcastDetailModal';
+import { getMolabogiCache, setMolabogiCache } from '../../utils/molabogiCache';
 
 const YoutubeLogo = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -34,11 +35,13 @@ const VideoCard = ({
   allLogs,
   onNavigateToCalendar,
   onOpenBroadcastModal,
+  isCompact = false,
 }: { 
   video: any;
   allLogs?: Record<string, any>;
   onNavigateToCalendar?: (dateStr: string) => void;
   onOpenBroadcastModal?: (video: any) => void;
+  isCompact?: boolean;
 }) => {
   const [showShortsMenu, setShowShortsMenu] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -49,6 +52,7 @@ const VideoCard = ({
   const dateBadgeRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [isPlayingInline, setIsPlayingInline] = useState(false);
 
   const shorts = video.parentLog?.shorts || [];
   const vods = video.parentLog?.vods || [];
@@ -158,76 +162,120 @@ const VideoCard = ({
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-        <a href={video.videoUrl} target="_blank" rel="noreferrer" className="block w-full h-full">
-          <img 
-            src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`} 
-            alt={video.videoTitle} 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-          />
-          <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-300"></div>
-        </a>
-
-        {/* 생방일 뱃지: 몰아보기인 경우 특별 강조색, 일반 다중 생방인 경우 심플 모던 뱃지 */}
-        {isMultiBroadcastOrCompilation ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onOpenBroadcastModal?.(video);
-            }}
-            className={cn(
-              "absolute bottom-2 right-2 z-20 text-xs font-semibold px-2.5 py-1 rounded-lg backdrop-blur-md flex items-center gap-1.5 cursor-pointer shadow-md transition-all hover:scale-105",
-              video.isCompilation
-                ? "bg-purple-900/90 hover:bg-purple-950 text-purple-100 border border-purple-400/50 shadow-purple-950/40"
-                : "bg-zinc-900/85 hover:bg-black text-zinc-100 border border-white/20"
-            )}
-            title="클릭하여 연동 생방 펼치기"
-          >
-            {video.isCompilation ? (
-              <Layers className="w-3.5 h-3.5 text-purple-300" />
-            ) : (
-              <PlaySquare className="w-3.5 h-3.5 text-zinc-300" />
-            )}
-            <span>{video.isCompilation ? `몰아보기 (${broadcastDates.length}개)` : `${broadcastDates.length}개 생방`}</span>
-          </button>
-        ) : (mostRecentDate || displayDate) ? (
-          <div 
-            ref={dateBadgeRef}
-            className="absolute bottom-2 right-2 z-20"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-          >
+        {isPlayingInline ? (
+          <div className="relative w-full h-full bg-black z-20">
+            <iframe
+              src={`https://www.youtube.com/embed/${video.id}?autoplay=1&enablejsapi=1&rel=0`}
+              title={video.videoTitle}
+              className="w-full h-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
             <button
               type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (mostRecentDate || displayDate) {
-                  onNavigateToCalendar?.(mostRecentDate || displayDate);
-                }
+                setIsPlayingInline(false);
               }}
-              className="bg-black/80 hover:bg-black/95 text-white text-xs font-medium px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-colors shadow-sm select-none"
-              title="클릭하여 방송 목록 해당일로 이동"
+              className="absolute top-2 left-2 z-30 px-2.5 py-1 rounded-lg bg-black/80 hover:bg-black text-white text-xs font-semibold flex items-center gap-1 shadow-md transition-colors cursor-pointer"
+              title="플레이어 닫기"
             >
-              <span>생방일: {mostRecentDate || displayDate}</span>
+              <X className="w-3.5 h-3.5" />
+              <span>닫기</span>
             </button>
           </div>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsPlayingInline(true);
+            }}
+            className="group/thumb block w-full h-full relative text-left cursor-pointer border-0 p-0 m-0 bg-transparent"
+            title="클릭하여 화면 내에서 바로 영상 재생"
+          >
+            <img 
+              src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`} 
+              alt={video.videoTitle} 
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+            />
+            <div className="absolute inset-0 bg-black/25 group-hover/thumb:bg-black/10 transition-colors flex items-center justify-center">
+              <div className={cn(
+                "rounded-full bg-red-600/90 group-hover/thumb:bg-red-600 text-white flex items-center justify-center shadow-lg group-hover/thumb:scale-110 transition-transform",
+                isCompact ? "w-9 h-9 sm:w-12 sm:h-12" : "w-12 h-12"
+              )}>
+                <Play className={cn("fill-current ml-0.5", isCompact ? "w-4 h-4 sm:w-5 sm:h-5" : "w-5 h-5")} />
+              </div>
+            </div>
+          </button>
+        )}
+
+        {/* 생방일 뱃지: 브라우저 재생 중일 때는 닫기를 제외하고 완전히 숨김 */}
+        {!isPlayingInline && (
+          isMultiBroadcastOrCompilation ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onOpenBroadcastModal?.(video);
+              }}
+              className={cn(
+                "absolute bottom-2 right-2 z-20 font-semibold rounded-lg backdrop-blur-md flex items-center gap-1.5 cursor-pointer shadow-md transition-all hover:scale-105",
+                isCompact ? "text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1" : "text-xs px-2.5 py-1",
+                video.isCompilation
+                  ? "bg-purple-900/90 hover:bg-purple-950 text-purple-100 border border-purple-400/50 shadow-purple-950/40"
+                  : "bg-zinc-900/85 hover:bg-black text-zinc-100 border border-white/20"
+              )}
+              title="클릭하여 연동 생방 펼치기"
+            >
+              {video.isCompilation ? (
+                <Layers className="w-3.5 h-3.5 text-purple-300" />
+              ) : (
+                <PlaySquare className="w-3.5 h-3.5 text-zinc-300" />
+              )}
+              <span>{video.isCompilation ? `몰아보기 (${video.games?.length || broadcastDates.length}개 게임)` : `${broadcastDates.length}개 생방`}</span>
+            </button>
+          ) : (mostRecentDate || displayDate) ? (
+            <div 
+              ref={dateBadgeRef}
+              className="absolute bottom-2 right-2 z-20"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (mostRecentDate || displayDate) {
+                    onNavigateToCalendar?.(mostRecentDate || displayDate);
+                  }
+                }}
+                className="bg-black/80 hover:bg-black/95 text-white text-xs font-medium px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-colors shadow-sm select-none"
+                title="클릭하여 방송 목록 해당일로 이동"
+              >
+                <span>생방일: {mostRecentDate || displayDate}</span>
+              </button>
+            </div>
+          ) : null
+        )}
       </div>
       
-      <div className="p-4 flex-1 flex flex-col">
-        <div className="flex items-start justify-between gap-2">
-          <a href={video.videoUrl} target="_blank" rel="noreferrer" className="font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex-1">
+      <div className={cn("p-4 flex-1 flex flex-col", isCompact && "p-2.5 sm:p-4")}>
+        <div className="flex items-start justify-between gap-1.5 sm:gap-2">
+          <a href={video.videoUrl} target="_blank" rel="noreferrer" className={cn("font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex-1", isCompact ? "text-xs sm:text-base" : "text-sm sm:text-base")}>
             {video.videoTitle}
           </a>
           <button
             type="button"
             onClick={handleShare}
             disabled={isSharing}
-            className="p-1.5 -mr-1 -mt-0.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0 cursor-pointer disabled:opacity-50 flex items-center justify-center"
+            className={cn("rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0 cursor-pointer disabled:opacity-50 flex items-center justify-center", isCompact ? "p-1 -mr-0.5" : "p-1.5 -mr-1 -mt-0.5")}
             title="방송 및 영상 정보 공유"
             aria-label="공유"
           >
@@ -272,7 +320,7 @@ const VideoCard = ({
                   ? "bg-purple-200/90 dark:bg-purple-900/90 text-purple-800 dark:text-purple-200"
                   : "bg-zinc-200/80 dark:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300"
               )}>
-                {broadcastDates.length}개 생방
+                {video.isCompilation ? `${video.games?.length || broadcastDates.length}개 게임` : `${broadcastDates.length}개 생방`}
               </span>
             </button>
           </div>
@@ -416,6 +464,8 @@ export function RecommendTab({
   onClearTarget,
   isActive = true,
   onNavigateToCalendar,
+  searchTerm: propSearchTerm,
+  onSearchTermChange,
 }: { 
   data: AppData | null; 
   rateVideo?: (id: string, score: number) => void;
@@ -424,9 +474,19 @@ export function RecommendTab({
   onClearTarget?: () => void;
   isActive?: boolean;
   onNavigateToCalendar?: (dateStr: string) => void;
+  searchTerm?: string;
+  onSearchTermChange?: (term: string) => void;
 }) {
 // const { data } = useFirebaseData();
-  const [searchTerm, setSearchTerm] = useState(() => sessionStorage.getItem('rec_searchTerm') || '');
+  const [internalSearchTerm, setInternalSearchTerm] = useState(() => sessionStorage.getItem('rec_searchTerm') || '');
+  const searchTerm = propSearchTerm !== undefined ? propSearchTerm : internalSearchTerm;
+  const setSearchTerm = (term: string) => {
+    setInternalSearchTerm(term);
+    onSearchTermChange?.(term);
+    try {
+      sessionStorage.setItem('rec_searchTerm', term);
+    } catch {}
+  };
   const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
 
   // 사용자가 직접 선택하여 저장된 카테고리
@@ -463,11 +523,29 @@ export function RecommendTab({
     prevIsActiveRef.current = isActive;
   }, [isActive]);
 
+  const [hasSearched, setHasSearched] = useState<boolean>(() => {
+    try {
+      return Boolean(sessionStorage.getItem('rec_hasSearched') === 'true') ||
+        Boolean(sessionStorage.getItem('rec_searchTerm')?.trim()) ||
+        Boolean(targetCategory) ||
+        Boolean(targetSearchTerm);
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('rec_hasSearched', hasSearched ? 'true' : 'false');
+    } catch {}
+  }, [hasSearched]);
+
   useEffect(() => {
     if (targetCategory) {
       isNavigatedFromExternalRef.current = true;
       setSelectedCategories([targetCategory]);
       setSearchTerm('');
+      setHasSearched(true);
       onClearTarget?.();
     }
   }, [targetCategory]);
@@ -477,6 +555,7 @@ export function RecommendTab({
       isNavigatedFromExternalRef.current = true;
       setSearchTerm(targetSearchTerm);
       setSelectedCategories(['전체']);
+      setHasSearched(true);
       onClearTarget?.();
     }
   }, [targetSearchTerm]);
@@ -529,7 +608,71 @@ export function RecommendTab({
 
     prevSearchTermRef.current = searchTerm;
   }, [searchTerm, sortOrder]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('uzuhama_recent_searches');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const saveRecentSearch = (term: string) => {
+    const clean = term.trim();
+    if (!clean || clean.length < 2) return;
+    setRecentSearches(prev => {
+      const filtered = prev.filter(s => s.toLowerCase() !== clean.toLowerCase());
+      const next = [clean, ...filtered].slice(0, 10);
+      try {
+        localStorage.setItem('uzuhama_recent_searches', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const removeRecentSearch = (term: string) => {
+    setRecentSearches(prev => {
+      const next = prev.filter(s => s !== term);
+      try {
+        localStorage.setItem('uzuhama_recent_searches', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const clearAllRecentSearches = () => {
+    setRecentSearches([]);
+    try {
+      localStorage.removeItem('uzuhama_recent_searches');
+    } catch {}
+  };
+
+  const [showAllWithoutSearch, setShowAllWithoutSearch] = useState(false);
+
+  // 검색 화면 진입 시 검색창 자동 포커스
+  useEffect(() => {
+    if (isActive) {
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [isActive]);
+
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [mobileViewMode, setMobileViewMode] = useState<'1' | '2'>(() => {
+    if (typeof window === 'undefined') return '1';
+    return (localStorage.getItem('uzuhama_recommend_view_mode') as '1' | '2') || '1';
+  });
+
+  const handleViewModeChange = (mode: '1' | '2') => {
+    setMobileViewMode(mode);
+    try {
+      localStorage.setItem('uzuhama_recommend_view_mode', mode);
+    } catch {}
+  };
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -648,7 +791,7 @@ export function RecommendTab({
     const extractRelevantGames = (edit: any, log: any) => {
       const isComp = !!(edit.isCompilation || edit.compilationId);
 
-      // 1. 몰아보기: 등록된 모든 게임 가져오기
+      // 1. 몰아보기: 등록 시 체크된 게임만 정확히 가져오기
       if (isComp) {
         const compGames: any[] = [];
         const seenNames = new Set<string>();
@@ -663,9 +806,8 @@ export function RecommendTab({
         };
 
         if (Array.isArray(edit.games)) edit.games.forEach(addGame);
-        if (Array.isArray(log.games)) log.games.forEach(addGame);
-        if (compGames.length === 0 && (log.game || edit.game || edit.category)) {
-          addGame({ name: edit.game || log.game || edit.category, category: '' });
+        if (compGames.length === 0 && (edit.game || edit.category)) {
+          addGame({ name: edit.game || edit.category, category: '' });
         }
         return compGames;
       }
@@ -796,7 +938,6 @@ export function RecommendTab({
                 };
 
                 if (Array.isArray(edit.games)) edit.games.forEach(addGame);
-                if (Array.isArray(log.games)) log.games.forEach(addGame);
               }
             } else {
               const initialGames = extractRelevantGames(edit, log);
@@ -830,7 +971,7 @@ export function RecommendTab({
       if (v.isCompilation && Array.isArray(v.allBroadcastDates)) {
         const existingNames = new Set(v.games.map((g: any) => g.name?.trim().toLowerCase()));
         v.allBroadcastDates.forEach((dateStr: string) => {
-          const matchedLog = Object.values(data.logs).find((l: any) => l.date === dateStr);
+          const matchedLog = (data.logs as any)[dateStr] || Object.values(data.logs).find((l: any) => l.date === dateStr);
           if (matchedLog) {
             if (Array.isArray(matchedLog.edited)) {
               matchedLog.edited.forEach((e: any) => {
@@ -1180,146 +1321,213 @@ export function RecommendTab({
   }, [isAccuracySort, recommended]);
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-            <YoutubeLogo className="w-6 h-6 text-red-600 dark:text-red-500" />
-            우주하마 맞춤 영상
-          </h2>
-          <p className="text-zinc-500 dark:text-zinc-400 mt-1">방송 기록에 기반한 맞춤 추천 영상입니다.</p>
-        </div>
-      </div>
-
-      <div id="recommend-main-card" className="flex flex-col sm:flex-row gap-3 bg-white dark:bg-zinc-900 p-5 sm:p-6 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-          <input
-            type="text"
-            placeholder="게임명, 날짜, 링크 검색…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-9 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm dark:text-zinc-200"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-md cursor-pointer"
-              title="검색어 지우기"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-        
-        <div className="relative min-w-[150px] sm:w-[200px]">
-          <button 
-            onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
-            className="w-full flex items-center justify-between pl-4 pr-3 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm dark:text-zinc-200 font-medium cursor-pointer"
-          >
-            <div className="flex items-center gap-2 truncate">
-              <Filter className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-              <span className="truncate">{selectedCategories.includes('전체') ? '전체 카테고리' : `${selectedCategories.length}개 선택됨`}</span>
-            </div>
-            <ChevronDown className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-          </button>
-          
-          <AnimatePresence>
-            {isCatDropdownOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setIsCatDropdownOpen(false)}></div>
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl z-20 max-h-60 overflow-y-auto custom-scrollbar p-2 flex flex-col gap-1"
-                >
-                  {categories.map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => {
-                        isNavigatedFromExternalRef.current = false;
-                        let next: string[];
-                        if (cat === '전체') {
-                          next = ['전체'];
-                        } else {
-                          next = selectedCategories.includes('전체') ? [] : [...selectedCategories];
-                          if (next.includes(cat)) {
-                            next = next.filter(c => c !== cat);
-                            if (next.length === 0) next = ['전체'];
-                          } else {
-                            next.push(cat);
-                          }
-                        }
-                        userChosenCategoriesRef.current = next;
-                        sessionStorage.setItem('rec_user_categories', JSON.stringify(next));
-                        setSelectedCategories(next);
-                      }}
-                      className={`flex items-center gap-2 w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                        selectedCategories.includes(cat) 
-                          ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 font-bold' 
-                          : 'hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
-                      }`}
-                    >
-                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${
-                        selectedCategories.includes(cat)
-                          ? 'bg-purple-500 border-purple-500 text-white'
-                          : 'border-zinc-300 dark:border-zinc-600'
-                      }`}>
-                        {selectedCategories.includes(cat) && <CheckCircle className="w-3 h-3" />}
-                      </div>
-                      {cat}
-                    </button>
-                  ))}
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <div className="relative min-w-[110px]">
-          <select
-            value={sortOrder}
-            onChange={(e) => {
-              const newOrder = e.target.value;
-              setSortOrder(newOrder);
-              if (searchTerm.trim()) {
-                if (newOrder !== 'accuracy') {
-                  userSelectedOtherSortDuringSearchRef.current = true;
-                  previousNonAccuracySortRef.current = newOrder;
-                } else {
-                  userSelectedOtherSortDuringSearchRef.current = false;
-                }
-              } else {
-                previousNonAccuracySortRef.current = newOrder;
-              }
-            }}
-            className="w-full pl-4 pr-8 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm appearance-none dark:text-zinc-200 font-medium cursor-pointer"
-          >
-            {Boolean(searchTerm.trim()) && <option value="accuracy">정확도순</option>}
-            <option value="desc">최신순</option>
-            <option value="asc">과거순 (첫 기록부터)</option>
-            <option value="recommend">추천순 (랜덤)</option>
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-        </div>
-        
-        {sortOrder === 'recommend' && (
+    <div className="space-y-6 pb-28 sm:pb-12">
+      {/* 필터 카드 (최상단 배치: 실시간 연관 검색어 대신 필터가 맨 위에 위치) */}
+      <div
+        id="recommend-filter-card"
+        className="flex flex-col gap-3.5 bg-white dark:bg-zinc-900 p-4 sm:p-5 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
+            <span className="text-xs sm:text-sm font-bold text-zinc-800 dark:text-zinc-200">
+              {searchTerm.trim() ? (
+                <>
+                  '<span className="text-purple-600 dark:text-purple-400 font-extrabold">{searchTerm}</span>' 검색 결과: <b className="text-zinc-900 dark:text-white font-black">{recommended.length}개</b> 영상
+                </>
+              ) : (
+                <>
+                  전체 추천 영상: <b className="text-zinc-900 dark:text-white font-black">{recommended.length}개</b>
+                </>
+              )}
+            </span>
+            {searchTerm.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 underline cursor-pointer"
+              >
+                검색 초기화
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* 데스크톱 전용 검색창 (모바일은 하단 키보드 위 플로팅 검색창 사용) */}
+            <div className="hidden sm:flex relative items-center min-w-[200px] max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="게임명, 제목 검색…"
+                className="w-full pl-8.5 pr-7 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-1.5 focus:ring-zinc-400 dark:focus:ring-zinc-600 focus:border-zinc-400 dark:focus:border-zinc-600 text-xs dark:text-zinc-200 font-medium"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded cursor-pointer"
+                  title="검색어 지우기"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* 카테고리 드롭다운 (선택형 컴포넌트) */}
+            <div className="relative min-w-[130px] flex-1 sm:flex-initial">
+              <button
+                type="button"
+                onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
+                className="w-full flex items-center justify-between pl-3 pr-2.5 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-1.5 focus:ring-zinc-400 dark:focus:ring-zinc-600 text-xs dark:text-zinc-200 font-medium cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <Filter className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+                  <span className="truncate">
+                    {selectedCategories.includes('전체') 
+                      ? '카테고리 전체' 
+                      : selectedCategories.length === 1 
+                        ? selectedCategories[0] 
+                        : `${selectedCategories[0]} 외 ${selectedCategories.length - 1}개`}
+                  </span>
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+              </button>
+
+              <AnimatePresence>
+                {isCatDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsCatDropdownOpen(false)}></div>
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      className="absolute right-0 top-full mt-2 w-52 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200 dark:border-zinc-700/80 rounded-2xl shadow-2xl z-20 max-h-64 overflow-y-auto custom-scrollbar p-1.5 flex flex-col gap-0.5"
+                    >
+                      {categories.map(cat => (
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            isNavigatedFromExternalRef.current = false;
+                            let next: string[];
+                            if (cat === '전체') {
+                              next = ['전체'];
+                            } else {
+                              next = selectedCategories.includes('전체') ? [] : [...selectedCategories];
+                              if (next.includes(cat)) {
+                                next = next.filter(c => c !== cat);
+                                if (next.length === 0) next = ['전체'];
+                              } else {
+                                next.push(cat);
+                              }
+                            }
+                            userChosenCategoriesRef.current = next;
+                            sessionStorage.setItem('rec_user_categories', JSON.stringify(next));
+                            setSelectedCategories(next);
+                          }}
+                          className={`flex items-center gap-2 w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                            selectedCategories.includes(cat)
+                              ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-bold'
+                              : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                          }`}
+                        >
+                          <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
+                            selectedCategories.includes(cat)
+                              ? 'bg-purple-500 border-purple-500 text-white'
+                              : 'border-zinc-300 dark:border-zinc-600'
+                          }`}>
+                            {selectedCategories.includes(cat) && <CheckCircle className="w-2.5 h-2.5" />}
+                          </div>
+                          <span className="truncate">{cat}</span>
+                        </button>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* 정렬 옵션 */}
+            <div className="relative min-w-[105px]">
+              <select
+                value={sortOrder}
+                onChange={(e) => {
+                  const newOrder = e.target.value;
+                  setSortOrder(newOrder);
+                  if (searchTerm.trim()) {
+                    if (newOrder !== 'accuracy') {
+                      userSelectedOtherSortDuringSearchRef.current = true;
+                      previousNonAccuracySortRef.current = newOrder;
+                    } else {
+                      userSelectedOtherSortDuringSearchRef.current = false;
+                    }
+                  } else {
+                    previousNonAccuracySortRef.current = newOrder;
+                  }
+                }}
+                className="w-full pl-3 pr-7 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-1.5 focus:ring-zinc-400 dark:focus:ring-zinc-600 text-xs appearance-none dark:text-zinc-200 font-medium cursor-pointer"
+              >
+                {Boolean(searchTerm.trim()) && <option value="accuracy">정확도순</option>}
+                <option value="desc">최신순</option>
+                <option value="asc">과거순 (첫 기록부터)</option>
+                <option value="recommend">추천순 (랜덤)</option>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+            </div>
+
+            {sortOrder === 'recommend' && (
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-xl hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors font-medium text-xs whitespace-nowrap border border-purple-100 dark:border-purple-900/50 cursor-pointer"
+                title="추천 새로고침"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 최근 검색어 칩 목록 */}
+        {recentSearches.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1.5 border-t border-zinc-100 dark:border-zinc-800/60">
+            <span className="text-[11px] text-zinc-400 shrink-0 font-medium mr-1 flex items-center gap-1">
+              <Clock className="w-3 h-3 text-zinc-400" /> 최근 검색:
+            </span>
+            {recentSearches.map((s) => (
+              <div 
+                key={s} 
+                className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-700 dark:text-zinc-300 shrink-0 border border-zinc-200/60 dark:border-zinc-700/60 transition-colors"
+              >
+                <button 
+                  type="button" 
+                  onClick={() => setSearchTerm(s)} 
+                  className="hover:text-purple-600 dark:hover:text-purple-400 font-medium cursor-pointer"
+                >
+                  {s}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => removeRecentSearch(s)} 
+                  className="text-zinc-400 hover:text-red-500 ml-0.5 cursor-pointer"
+                  title="검색어 삭제"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
             <button 
-              onClick={handleRefresh}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors font-medium text-sm whitespace-nowrap border border-indigo-100 dark:border-indigo-900/50 cursor-pointer"
+              type="button" 
+              onClick={clearAllRecentSearches} 
+              className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 underline shrink-0 ml-1 cursor-pointer"
             >
-              <RefreshCw className="w-4 h-4" />
-              추천 새로고침
+              전체 삭제
             </button>
           </div>
         )}
       </div>
 
-      {/* 영상 카드 영역: 연동 생방 펼치기 시 나머지 영상 카드들을 덮는 커버 뷰로 전환 */}
+      {/* 검색 결과 영상 카드 영역 (기존대로 카드로 표시) */}
       <div id="recommend-cards-container" className="min-h-[400px]">
         {selectedBroadcastModalVideo ? (
           <BroadcastDetailModal
@@ -1330,7 +1538,47 @@ export function RecommendTab({
           />
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* 모바일 전용 1개씩 보기 / 2개씩 보기 (두 줄) 전환 탭 */}
+            {recommended.length > 0 && (
+              <div className="flex sm:hidden items-center justify-between gap-2 px-1 mb-3">
+                <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+                  총 <strong className="text-purple-600 dark:text-purple-400 font-bold">{recommended.length}</strong>개 영상
+                </span>
+                <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60">
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange('1')}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer",
+                      mobileViewMode === '1'
+                        ? "bg-white dark:bg-zinc-700 text-purple-600 dark:text-purple-300 shadow-2xs font-bold"
+                        : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+                    )}
+                  >
+                    1개씩 보기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange('2')}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer",
+                      mobileViewMode === '2'
+                        ? "bg-white dark:bg-zinc-700 text-purple-600 dark:text-purple-300 shadow-2xs font-bold"
+                        : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+                    )}
+                  >
+                    2개씩 보기
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className={cn(
+              "grid",
+              mobileViewMode === '2' 
+                ? "grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-6" 
+                : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            )}>
               {paginatedVids.map((video, idx) => {
                 // 일치 확률이 낮은 결과 구분선 표시 조건:
                 // 정확도순 검색 중이고 일치 확률이 비교적 낮은(isHighConfidence === false) 항목인 경우
@@ -1358,6 +1606,7 @@ export function RecommendTab({
                       allLogs={data?.logs} 
                       onNavigateToCalendar={onNavigateToCalendar} 
                       onOpenBroadcastModal={(v) => setSelectedBroadcastModalVideo(v)}
+                      isCompact={mobileViewMode === '2'}
                     />
                   </React.Fragment>
                 );

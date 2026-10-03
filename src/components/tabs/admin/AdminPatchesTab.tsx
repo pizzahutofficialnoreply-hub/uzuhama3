@@ -548,17 +548,8 @@ export function AdminPatchesTab() {
 
                   <button
                     type="button"
-                    onClick={() => handleCopyLink(note.version, note.id)}
-                    className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 transition-colors"
-                    title="링크 복사"
-                  >
-                    {copiedId === note.id ? <Check className="w-4 h-4 text-emerald-500" /> : <Share2 className="w-4 h-4" />}
-                  </button>
-
-                  <button
-                    type="button"
                     onClick={() => handleEditClick(note)}
-                    className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 transition-colors"
+                    className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 transition-colors cursor-pointer"
                     title="수정"
                   >
                     <Edit3 className="w-4 h-4" />

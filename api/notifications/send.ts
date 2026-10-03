@@ -101,6 +101,7 @@ export default async function handler(req: any, res: any) {
 
     // 2. 푸시 토큰 조회 (token, fcmToken, 및 endpoint의 /fcm/send/ 토큰 완벽 지원)
     const tokensSnapshot = await db.collection('push_subscriptions').get();
+    const tokenDocMap = new Map<string, string>(); // token -> docId
     const tokens: string[] = [];
 
     tokensSnapshot.docs.forEach((docSnap: any) => {
@@ -109,8 +110,13 @@ export default async function handler(req: any, res: any) {
       if (!t && data.endpoint && typeof data.endpoint === 'string' && data.endpoint.includes('/fcm/send/')) {
         t = data.endpoint.split('/fcm/send/')[1];
       }
-      if (t && typeof t === 'string' && t.trim().length > 0 && !tokens.includes(t.trim())) {
-        tokens.push(t.trim());
+      if (t && typeof t === 'string') {
+        const cleanT = t.trim();
+        // 실제 유효한 FCM 토큰만 수집 (local_dev_ 가상 토큰 제외, 길이 20자 이상)
+        if (cleanT.length > 20 && !cleanT.startsWith('local_dev_') && !tokens.includes(cleanT)) {
+          tokens.push(cleanT);
+          tokenDocMap.set(cleanT, docSnap.id);
+        }
       }
     });
 
@@ -119,7 +125,7 @@ export default async function handler(req: any, res: any) {
         success: false,
         successCount: 0,
         failureCount: 0,
-        message: '등록된 유효 FCM 푸시 구독 토큰이 없습니다. 기기 설정에서 알림을 허용한 후 앱을 새로고침하여 기기 토큰을 재등록해주세요.'
+        message: '등록된 유효 FCM 푸시 구독 기기가 없습니다. 사용자 브라우저나 PWA 앱의 [설정 > 알림 설정]에서 알림을 허용해주세요.'
       });
     }
 
@@ -153,15 +159,58 @@ export default async function handler(req: any, res: any) {
       }
     });
 
+    // 4. 만료/무효 토큰 정리 및 상세 에러 진단 수집
+    let cleanedTokens = 0;
+    const cleanupPromises: Promise<any>[] = [];
+    const errorSummary: Record<string, number> = {};
+    const sampleErrors: string[] = [];
+
+    response.responses.forEach((resp, idx) => {
+      if (!resp.success && resp.error) {
+        const code = resp.error.code || 'unknown';
+        const msg = resp.error.message || '';
+        errorSummary[code] = (errorSummary[code] || 0) + 1;
+        if (sampleErrors.length < 5) {
+          sampleErrors.push(`[${code}] ${msg}`);
+        }
+
+        if (
+          code === 'messaging/registration-token-not-registered' ||
+          code === 'messaging/invalid-argument' ||
+          code === 'messaging/invalid-registration-token'
+        ) {
+          const badToken = tokens[idx];
+          const docId = tokenDocMap.get(badToken);
+          if (docId) {
+            cleanedTokens++;
+            cleanupPromises.push(db.collection('push_subscriptions').doc(docId).delete().catch(() => {}));
+          }
+        }
+      }
+    });
+
+    if (cleanupPromises.length > 0) {
+      await Promise.all(cleanupPromises);
+    }
+
     return res.status(200).json({
-      success: true,
+      success: response.successCount > 0,
       successCount: response.successCount,
       failureCount: response.failureCount,
+      totalCount: tokens.length,
+      cleanedTokens,
+      sampleErrors,
+      errorSummary
     });
   } catch (error: any) {
     console.error('FCM notification send failed:', error);
+    const msg = error?.message || '';
+    let guide = msg;
+    if (msg.includes('credential') || msg.includes('certificate') || msg.includes('service_account')) {
+      guide = 'Vercel 환경 변수에 FIREBASE_SERVICE_ACCOUNT (또는 FIREBASE_PRIVATE_KEY 및 FIREBASE_CLIENT_EMAIL)이 올바르게 설정되어 있는지 확인해주세요.';
+    }
     return res.status(500).json({
-      error: error?.message || '알림 발송 중 오류가 발생했습니다.',
+      error: guide,
     });
   }
 }

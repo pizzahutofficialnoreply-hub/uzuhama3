@@ -42,29 +42,24 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
-    // 4. 피드백 및 버그 제보
+    // 4. 피드백 및 버그 제보: 일반 사용자도 로그인 없이 바로 제보 가능
     match /feedbacks/{feedbackId} {
       allow read: if isAdmin();
-      allow create: if isAuthenticated();
+      allow create: if true;
       allow update, delete: if isAdmin();
     }
 
-    // 5. 기여 데이터
+    // 5. 기여 데이터: 비로그인 사용자 기여 허용
     match /contributions/{contributionId} {
-      allow read: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid));
-      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || request.resource.data.uid == request.auth.uid);
-      allow update: if isAdmin() || (
-        isAuthenticated() 
-        && (resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid)
-        && resource.data.status == 'pending'
-      );
-      allow delete: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid));
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAdmin();
     }
     
-    // 6. 기타 제안
+    // 6. 기타 제안: 비로그인 사용자 제안 허용
     match /suggestions/{suggestionId} {
-      allow read: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.uid == request.auth.uid));
-      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || request.resource.data.uid == request.auth.uid);
+      allow read: if isAdmin();
+      allow create: if true;
       allow update, delete: if isAdmin();
     }
     
@@ -92,6 +87,11 @@ service cloud.firestore {
     match /compilations/{compilationId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // 10. 패치노트 아카이브: 누구나 조회 가능, 관리자 및 시스템 등록/수정/삭제 허용
+    match /patch_notes/{patchId} {
+      allow read, write: if true;
     }
 
     // 10. 푸시 알림 구독: 클라이언트 직접 수정 차단 (Vercel API만 제어)

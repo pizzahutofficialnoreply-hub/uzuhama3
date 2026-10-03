@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Layers, Calendar, ExternalLink, ArrowLeft } from 'lucide-react';
+import { X, Layers, Calendar, ExternalLink, ArrowLeft, Play } from 'lucide-react';
 import { cn } from '../../utils';
 import { extractYoutubeId } from '../../utils/urlUtils';
 
@@ -93,6 +93,14 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
     return [];
   }, [video, isCompilation, logsList]);
 
+  // 몰아보기 총 게임 개수 산출 (사용자 요청: 개수는 생방 개수가 아닌 게임 개수 - 총개수 표시의 경우)
+  const totalGamesCount = useMemo(() => {
+    if (isCompilation && Array.isArray(video.games) && video.games.length > 0) {
+      return video.games.length;
+    }
+    return broadcastDates.length;
+  }, [isCompilation, video.games, broadcastDates.length]);
+
   // 화면 크기 감지: 모바일 5개, PC 8개
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -100,6 +108,9 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
     }
     return false;
   });
+
+  // 몰아보기 안 카드 브라우저 인라인 재생 상태
+  const [playingDateStr, setPlayingDateStr] = useState<string | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -220,7 +231,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
                   ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800"
                   : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/70 dark:border-zinc-700/70"
               )}>
-                {isCompilation ? '몰아보기 연동' : '영상 연동'} · 총 {broadcastDates.length}개 생방송
+                {isCompilation ? `몰아보기 연동 · 총 ${totalGamesCount}개 게임` : `영상 연동 · 총 ${broadcastDates.length}개 생방송`}
               </span>
               <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 페이지당 9개씩 표시
@@ -294,7 +305,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
                 }
               }
 
-              // 2. 진행한 게임
+              // 2. 진행한 게임 (몰아보기인 경우 등록 시 체크한 게임만 엄격히 표시)
               const dayGames: Array<{ name: string; link?: string; category?: string }> = [];
               const seenGameNames = new Set<string>();
 
@@ -309,22 +320,23 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
                 }
               };
 
-              if (isCompilation && Array.isArray(video.games)) {
-                video.games.forEach((g: any) => {
-                  if (g.date === dateStr) addDayGame(g);
-                });
-              }
-              if (Array.isArray(matchedLog?.games)) {
-                matchedLog.games.forEach((g: any) => {
-                  let link = g.link;
-                  if (isCompilation && Array.isArray(video.games)) {
-                    const vg = video.games.find((x: any) => x.name === g.name);
-                    if (vg?.link) link = vg.link;
-                  }
-                  addDayGame({ ...g, link });
-                });
-              } else if (matchedLog?.game) {
-                addDayGame({ name: matchedLog.game, link: '', category: matchedLog.category });
+              if (isCompilation) {
+                // 몰아보기: 등록 시 체크된 게임만 표시
+                if (Array.isArray(video.games)) {
+                  video.games.forEach((g: any) => {
+                    if (!g) return;
+                    if (g.date ? g.date === dateStr : true) {
+                      addDayGame(g);
+                    }
+                  });
+                }
+              } else {
+                // 일반 영상: 해당 생방의 모든 진행 게임
+                if (Array.isArray(matchedLog?.games)) {
+                  matchedLog.games.forEach((g: any) => addDayGame(g));
+                } else if (matchedLog?.game) {
+                  addDayGame({ name: matchedLog.game, link: '', category: matchedLog.category });
+                }
               }
 
               // 3. 생방송 VOD 링크
@@ -359,61 +371,103 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
               const primaryYtId = primaryVideo?.ytId || (dayVods[0] ? extractYoutubeId(dayVods[0]) : null);
               const primaryUrl = primaryVideo?.url || dayVods[0] || (dayShorts[0]?.url) || '#';
               const displayTitle = primaryVideo?.title || (matchedLog?.game ? `${matchedLog.game} 방송` : `${formattedDate} 생방송`);
+              
+              // 페이지 당 1번부터 리셋이 아니라 각각 고유 1번부터 시작하는 연속 번호
+              const itemNumber = (currentPage - 1) * itemsPerPage + idx + 1;
 
               return (
                 <div
                   key={dateStr}
                   className="group flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1"
                 >
-                  {/* 상단 16:9 썸네일 영역 (추천 영상 카드와 동일한 규격 및 인터랙션) */}
+                  {/* 상단 16:9 썸네일 영역 (추천 영상 카드와 동일한 브라우저 인라인 재생 지원) */}
                   <div className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                    {/* 좌상단 순서 숫자 표기 (1, 2, 3...) */}
-                    <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none">
-                      <span className="flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-lg bg-black/80 backdrop-blur-xs text-white font-bold text-xs font-mono border border-white/15 shadow-md">
-                        {idx + 1}
-                      </span>
-                    </div>
-
-                    <a
-                      href={primaryUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block w-full h-full relative"
-                    >
-                      {primaryYtId ? (
-                        <img
-                          src={`https://img.youtube.com/vi/${primaryYtId}/mqdefault.jpg`}
-                          alt={displayTitle}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    {playingDateStr === dateStr && primaryYtId ? (
+                      <div className="relative w-full h-full bg-black z-20">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${primaryYtId}?autoplay=1&enablejsapi=1&rel=0`}
+                          title={displayTitle}
+                          className="w-full h-full border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
                         />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-purple-900/30 via-zinc-900 to-zinc-950 flex flex-col items-center justify-center text-purple-400 group-hover:scale-105 transition-transform duration-500">
-                          <PlaySquare className="w-10 h-10 opacity-70" />
-                          <span className="text-xs font-semibold mt-2 text-zinc-300">생방송 다시보기</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setPlayingDateStr(null);
+                          }}
+                          className="absolute top-2 left-2 z-30 px-2.5 py-1 rounded-lg bg-black/80 hover:bg-black text-white text-xs font-semibold flex items-center gap-1 shadow-md transition-colors cursor-pointer"
+                          title="플레이어 닫기"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>닫기</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {/* 좌상단 순서 숫자 표기 (재생 중이 아닐 때만 노출) */}
+                        <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none">
+                          <span className="flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-lg bg-black/80 backdrop-blur-xs text-white font-bold text-xs font-mono border border-white/15 shadow-md">
+                            {itemNumber}
+                          </span>
                         </div>
-                      )}
-                      <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors duration-300" />
-                    </a>
 
-                    {/* 우측 하단 생방일 뱃지 (추천 영상 카드와 동일한 배치 및 클릭 시 달력 이동) */}
-                    <div className="absolute bottom-2 right-2 z-20">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (onNavigateToCalendar) {
-                            onNavigateToCalendar(dateStr);
-                            onClose();
-                          }
-                        }}
-                        className="bg-black/80 hover:bg-black/95 text-white text-xs font-medium px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-colors shadow-sm select-none"
-                        title="해당 날짜 방송 기록으로 이동"
-                      >
-                        <Calendar className="w-3 h-3 text-purple-400" />
-                        <span>생방일: {formattedDate} {dayOfWeek ? `(${dayOfWeek})` : ''}</span>
-                      </button>
-                    </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            if (primaryYtId) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setPlayingDateStr(dateStr);
+                            }
+                          }}
+                          className="group/thumb block w-full h-full relative text-left cursor-pointer border-0 p-0 m-0 bg-transparent"
+                          title={primaryYtId ? "클릭하여 화면 내에서 바로 영상 재생" : displayTitle}
+                        >
+                          {primaryYtId ? (
+                            <img
+                              src={`https://img.youtube.com/vi/${primaryYtId}/mqdefault.jpg`}
+                              alt={displayTitle}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-purple-900/30 via-zinc-900 to-zinc-950 flex flex-col items-center justify-center text-purple-400 group-hover:scale-105 transition-transform duration-500">
+                              <PlaySquare className="w-10 h-10 opacity-70" />
+                              <span className="text-xs font-semibold mt-2 text-zinc-300">생방송 다시보기</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/25 group-hover/thumb:bg-black/10 transition-colors flex items-center justify-center">
+                            {primaryYtId && (
+                              <div className="w-11 h-11 rounded-full bg-red-600/90 group-hover/thumb:bg-red-600 text-white flex items-center justify-center shadow-lg group-hover/thumb:scale-110 transition-transform">
+                                <Play className="w-5 h-5 fill-current ml-0.5" />
+                              </div>
+                            )}
+                          </div>
+                        </button>
+
+                        {/* 우측 하단 생방일 뱃지 (재생 중이 아닐 때만 노출) */}
+                        <div className="absolute bottom-2 right-2 z-20">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onNavigateToCalendar) {
+                                onNavigateToCalendar(dateStr);
+                                onClose();
+                              }
+                            }}
+                            className="bg-black/80 hover:bg-black/95 text-white text-xs font-medium px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-colors shadow-sm select-none"
+                            title="해당 날짜 방송 기록으로 이동"
+                          >
+                            <Calendar className="w-3 h-3 text-purple-400" />
+                            <span>생방일: {formattedDate} {dayOfWeek ? `(${dayOfWeek})` : ''}</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* 카드 본문 (추천 영상 카드와 동일한 구조) */}

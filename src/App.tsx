@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink } from 'lucide-react';
 import { useFirebaseData } from './hooks/useFirebaseData';
@@ -14,21 +14,21 @@ import { RecommendTab } from './components/tabs/RecommendTab';
 import { AdminRoute } from './components/AdminRoute';
 import { NoticeModal } from './components/NoticeModal';
 import { FeedbackModal } from './components/FeedbackModal';
-import { LoginOnboardingModal } from './components/LoginOnboardingModal';
 import { PolicyModal } from './components/PolicyModal';
 import { PolicyPage } from './components/PolicyPage';
-import { ReAgreementModal } from './components/ReAgreementModal';
 import { TermsRevisionModal } from './components/TermsRevisionModal';
 import { FloatingBottomNav } from './components/FloatingBottomNav';
 import { LicensePage } from './components/LicensePage';
 import { PatchNotesPage } from './components/PatchNotesPage';
 import { CurrentProbability } from './components/CurrentProbability';
 import { AnonymousPollCard } from './components/AnonymousPollCard';
+import { LoadingScreen } from './components/LoadingScreen';
 import { cn, useBodyScrollLock, resetBodyScrollLock } from './utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './lib/firebase';
 import { Tab, NoticeLink } from './types';
+import { applyTabGlassCssVars, getSavedTabGlassValue } from './utils/tabGlass';
 
 export function formatNoticeText(text: string): React.ReactNode {
   if (!text) return null;
@@ -66,19 +66,26 @@ import { useAuth } from './hooks/useAuth';
 
 function MainApp() {
   const navigate = useNavigate();
-  const { data, loading, fetchLogsByDateRange, fetchLatestLogs, rateVideo } = useFirebaseData();
+  const { data, loading, loadingProgress, loadingStatusText, isFirstRun, fetchLogsByDateRange, fetchLatestLogs, rateVideo } = useFirebaseData();
   const { isInstallable, promptInstall } = useInstallPrompt();
   const { user, loginWithGoogle, logout } = useAuth();
   useRealtimeNotification(Object.values(data?.logs || {})); // 실시간 제보 심사 결과 및 최고 확률 안내 알림 수신 브릿지 활성화
   const [activeTab, setActiveTab] = useState<Tab>(() => {
-    return (localStorage.getItem('uzuhama_active_tab') as Tab) || 'summary';
+    const saved = (localStorage.getItem('uzuhama_active_tab') as Tab) || 'summary';
+    // 검색 탭을 마지막으로 앱을 종료했으면 요약 탭에서 시작하도록 강제 리셋
+    if (saved === 'recommend') {
+      return 'summary';
+    }
+    return saved;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
-  // iOS PWA 단독 실행 감지 (닫기 모션 버벅임 제거용)
-  const isIOSStandalone = typeof window !== 'undefined' && 
-    (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) &&
-    (('standalone' in window.navigator && (window.navigator as any).standalone) || window.matchMedia('(display-mode: standalone)').matches);
+  // 애플 기기 판별 (Apple 기기 제외 닫기 애니메이션 적용)
+  const isAppleDevice = typeof window !== 'undefined' && 
+    (/iPad|iPhone|iPod|Macintosh|Mac OS X/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+  const isIOSStandalone = isAppleDevice && 
+    (('standalone' in window.navigator && (window.navigator as any).standalone) || (typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches));
 
   
   // PWA 및 브라우저 기본 뒤로가기 버튼 지원 (새 탭 없이 / 경로 유지)
@@ -95,6 +102,12 @@ function MainApp() {
 
   const closeSettings = (isFromPopEvent = false) => {
     setIsSettingsOpen(false);
+    setShowFeedbackModal(false);
+    try {
+      if (window.location.search.includes('settings')) {
+        window.history.replaceState(null, '', '/');
+      }
+    } catch {}
     if (!isFromPopEvent) {
       try {
         if (window.history.state?.view === 'settings') {
@@ -104,9 +117,44 @@ function MainApp() {
     }
   };
 
+  const openFeedback = () => {
+    setShowFeedbackModal(true);
+    try {
+      window.history.pushState({ view: 'feedback' }, '', window.location.pathname);
+    } catch {}
+  };
+
+  const closeFeedback = (isFromPopEvent = false) => {
+    setShowFeedbackModal(false);
+    if (!isFromPopEvent) {
+      try {
+        if (window.history.state?.view === 'feedback') {
+          window.history.back();
+        }
+      } catch {}
+    }
+  };
+
+  useEffect(() => {
+    applyTabGlassCssVars(getSavedTabGlassValue());
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('settings') === 'true') {
+        setIsSettingsOpen(true);
+        window.history.replaceState(null, '', '/');
+      }
+    }
+  }, []);
+
   useEffect(() => {
     const handlePopState = () => {
-      // 기기 뒤로가기 버튼 또는 브라우저 뒤로가기 시 설정창 닫기
+      // 기기 뒤로가기 버튼 또는 브라우저 뒤로가기
+      // 1. 의견 보내기 모달이 열려있으면: 한 번 나가면 의견 보내기만 닫고 설정창 유지
+      if (showFeedbackModal) {
+        setShowFeedbackModal(false);
+        return;
+      }
+      // 2. 설정창이 열려있으면: 한 번 더 나가면 설정창 닫고 메인으로
       if (isSettingsOpen) {
         setIsSettingsOpen(false);
       }
@@ -114,7 +162,7 @@ function MainApp() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isSettingsOpen]);
+  }, [isSettingsOpen, showFeedbackModal]);
 
   useEffect(() => {
     localStorage.setItem('uzuhama_active_tab', activeTab);
@@ -135,8 +183,6 @@ function MainApp() {
   const [currentProb, setCurrentProb] = useState<number | null>(null);
   const [isProbVisible, setIsProbVisible] = useState(true);
   
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [hideSmallNotice, setHideSmallNotice] = useState(false);
   const [policyType, setPolicyType] = useState<'terms' | 'privacy' | null>(null);
   const [forceRender, setForceRender] = useState(0);
@@ -148,36 +194,33 @@ function MainApp() {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
   const [recommendTargetCategory, setRecommendTargetCategory] = useState<string | null>(null);
   const [recommendTargetSearchTerm, setRecommendTargetSearchTerm] = useState<string | null>(null);
+  const [globalSearchTerm, setGlobalSearchTerm] = useState(() => {
+    try {
+      return sessionStorage.getItem('rec_searchTerm') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const isAutoNavigatedRef = useRef<boolean>(false);
+  const autoNavSourceTabRef = useRef<Tab | null>(null);
 
   const handleNavigateToCalendar = (dateStr: string) => {
+    isAutoNavigatedRef.current = true;
+    autoNavSourceTabRef.current = activeTab;
     setSelectedCalendarDate(dateStr);
-    handleTabChange('calendar');
+    handleTabChange('calendar', false, true);
   };
 
   const handleNavigateToRecommend = (category?: string, searchTerm?: string) => {
+    isAutoNavigatedRef.current = true;
+    autoNavSourceTabRef.current = activeTab;
     if (category) setRecommendTargetCategory(category);
-    if (searchTerm) setRecommendTargetSearchTerm(searchTerm);
-    handleTabChange('recommend');
-  };
-
-  // 로그인 시도 핸들러: 기존 로그인 이력이 있는 사용자는 약관 동의 및 혜택 안내 팝업 없이 즉시 구글 로그인
-  const handleInitiateLogin = async () => {
-    const hasLoggedInBefore = localStorage.getItem('has_logged_in_before') === 'true';
-    if (hasLoggedInBefore) {
-      try {
-        const result = await loginWithGoogle();
-        if (result && result.user) {
-          localStorage.setItem('has_logged_in_before', 'true');
-          localStorage.setItem(`consent_${result.user.uid}`, 'true');
-          localStorage.setItem(`consent_version_${result.user.uid}`, String(data?.system?.termsVersion || 1));
-        }
-      } catch (e) {
-        console.error('Login error:', e);
-      }
-    } else {
-      // 첫 방문/기존 로그인 이력이 없는 경우에만 혜택 안내 및 약관 동의 팝업 표시
-      setShowLoginModal(true);
+    if (searchTerm) {
+      setRecommendTargetSearchTerm(searchTerm);
+      setGlobalSearchTerm(searchTerm);
     }
+    handleTabChange('recommend', false, true);
   };
 
   const probContainerRef = useRef<HTMLDivElement>(null);
@@ -190,8 +233,6 @@ function MainApp() {
         return;
       }
       const rect = probContainerRef.current.getBoundingClientRect();
-      // 헤더 높이(64px) 아래 화면 영역에 현재 방송 켜질 확률 위젯이 1px이라도 보이고 있는지 판정
-      // 위젯이 헤더 위로 스크롤 아웃되어 사라지면(rect.bottom <= 64) isVisible = false
       const isVisible = rect.bottom > 64 && rect.top < window.innerHeight;
       setIsProbVisible(isVisible);
     };
@@ -227,38 +268,144 @@ function MainApp() {
     }
   }, [data?.system?.maintenance]);
 
-  
-  const scrollToContent = (tab: Tab, forceTop = false) => {
-    if (tab === 'summary' || forceTop) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      document.documentElement.scrollTo({ top: 0, behavior: 'smooth' });
-      document.body.scrollTop = 0;
+  // 탭별 스크롤 위치 기억 맵 (다른 탭 이동 시 기존 스크롤 위치 복원)
+  const tabScrollPositions = useRef<Record<Tab, number>>({
+    summary: 0,
+    calendar: 0,
+    detailed: 0,
+    recommend: 0,
+  });
+
+  // 상단 헤더 스크롤 방향 및 자동 스크롤 오프셋 감지
+  const [isHeaderHidden, setIsHeaderHidden] = useState(false);
+  const lastScrollYRef = useRef(0);
+  const autoScrollBaseYRef = useRef(0);
+
+  // 모바일 전용 탭 제목 위치 산출
+  const computeMobileTabTitleY = () => {
+    if (typeof window === 'undefined') return 0;
+    if (window.innerWidth >= 640) return 0; // 모바일에서만 작동
+    if (tabContentRef.current) {
+      const rect = tabContentRef.current.getBoundingClientRect();
+      const currentY = window.pageYOffset || document.documentElement.scrollTop || 0;
+      return Math.max(0, currentY + rect.top - 62);
+    }
+    return 0;
+  };
+
+  // 스크롤 시 현재 탭의 스크롤 위치 실시간 기록 및 헤더 숨김/표시 처리
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+      tabScrollPositions.current[activeTab] = currentScrollY;
+
+      const deltaY = currentScrollY - lastScrollYRef.current;
+
+      // 최상단 근처에서는 항상 헤더 표시
+      if (currentScrollY <= 15) {
+        setIsHeaderHidden(false);
+        autoScrollBaseYRef.current = 0;
+      } else if (isSettingsOpen) {
+        setIsHeaderHidden(false);
+      } else {
+        // "자동 스크롤양을 제외한 어느 정도 스크롤이 이루어졌을 시" (사라지는 스크롤 정도를 약간 더 길게 조정: 110px)
+        const effectiveScroll = currentScrollY - (autoScrollBaseYRef.current || 0);
+
+        if (effectiveScroll > 110 && deltaY > 6) {
+          // 아래로 스크롤 시 상단 바 사라짐 (위로 사라지는 애니메이션)
+          setIsHeaderHidden(true);
+        } else if (deltaY < -4) {
+          // 위로 스크롤 시 다시 나타남
+          setIsHeaderHidden(false);
+        }
+      }
+      lastScrollYRef.current = currentScrollY;
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [activeTab, isSettingsOpen]);
+
+  // 탭 전환 시 스크롤 위치 제어:
+  // - 일반탭 <-> 일반탭: 탭 시작 지점으로 부드러운 자동 스크롤 애니메이션 ('smooth')
+  // - 검색탭 <-> 일반탭: 즉각 이동 및 애니메이션 없음 ('instant')
+  const previousTabRef = useRef<Tab>(activeTab);
+  const isFirstMountRef = useRef(true);
+
+  useLayoutEffect(() => {
+    const isFirstMount = isFirstMountRef.current;
+    isFirstMountRef.current = false;
+
+    const previousTab = previousTabRef.current;
+    previousTabRef.current = activeTab;
+
+    if (isFirstMount) {
       return;
     }
 
-    // 모바일 등에서 화면 최하단에 있더라도 새 탭이 마운트된 후 안전하게 시작 지점으로 스크롤
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        if (tabContentRef.current) {
-          const headerOffset = 68;
-          const rect = tabContentRef.current.getBoundingClientRect();
-          const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
-          const targetY = Math.max(0, rect.top + currentScrollTop - headerOffset);
-          window.scrollTo({ top: targetY, behavior: 'smooth' });
-          document.documentElement.scrollTo({ top: targetY, behavior: 'smooth' });
-        } else {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-          document.documentElement.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-      });
-    }, 50);
-  };
+    const isAutoNav = isAutoNavigatedRef.current;
+    let targetY = 0;
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
 
-  const handleTabChange = (tab: Tab, forceTop = false) => {
+    if (activeTab === 'recommend') {
+      targetY = isAutoNav ? (tabScrollPositions.current['recommend'] || 0) : 0;
+      tabScrollPositions.current['recommend'] = targetY;
+    } else {
+      const saved = tabScrollPositions.current[activeTab] || 0;
+      if (isMobile && saved === 0) {
+        // 모바일에서 아직 스크롤하지 않은 탭은 탭 시작 지점(제목 부분)으로 자동 스크롤
+        targetY = computeMobileTabTitleY();
+        autoScrollBaseYRef.current = targetY;
+      } else {
+        targetY = saved;
+      }
+    }
+
+    const isSearchTransition = previousTab === 'recommend' || activeTab === 'recommend';
+
+    if (isSearchTransition) {
+      // 검색탭->일반탭 또는 일반탭->검색탭일 경우 애니메이션 없음
+      window.scrollTo({ top: targetY, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = targetY;
+      document.body.scrollTop = targetY;
+    } else {
+      // 일반탭 간 전환일 경우 탭 시작 지점으로 부드러운 스크롤 애니메이션 적용
+      window.scrollTo({ top: targetY, left: 0, behavior: 'smooth' as ScrollBehavior });
+    }
+  }, [activeTab]);
+
+  const handleTabChange = (nextTab: Tab, forceTop = false, isAuto = false) => {
     closeSettings();
-    setActiveTab(tab);
-    if (window.innerWidth < 640 || forceTop) {
-      scrollToContent(tab, forceTop);
+    if (nextTab === activeTab && !forceTop) return;
+
+    const previousTab = activeTab;
+    const currentScrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+
+    // 1. "검색 탭은 검색 밑으로 내려간거 자신이 탭을 바꿨으면 검색결과 등 제외하고 스크롤 위치 저장X, 자동 이동이었으면 저장O."
+    if (previousTab === 'recommend') {
+      if (isAuto || isAutoNavigatedRef.current) {
+        tabScrollPositions.current['recommend'] = currentScrollY;
+      } else {
+        tabScrollPositions.current['recommend'] = 0;
+      }
+    } else {
+      tabScrollPositions.current[previousTab] = currentScrollY;
+    }
+
+    if (isAuto) {
+      isAutoNavigatedRef.current = true;
+    }
+
+    // 2. 탭 전환
+    setActiveTab(nextTab);
+    localStorage.setItem('uzuhama_active_tab', nextTab);
+
+    // 3. 강제 최상단 이동 요청 시
+    if (forceTop) {
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      isAutoNavigatedRef.current = false;
+      setIsHeaderHidden(false);
+      autoScrollBaseYRef.current = 0;
+      return;
     }
   };
 
@@ -279,12 +426,11 @@ function MainApp() {
 
   if (loading || isLoggingOut) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-black flex items-center justify-center text-zinc-500">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-          <p>{isLoggingOut ? '로그아웃 중입니다...' : '데이터를 불러오는 중입니다...'}</p>
-        </div>
-      </div>
+      <LoadingScreen 
+        progress={isLoggingOut ? 95 : loadingProgress} 
+        statusText={isLoggingOut ? '로그아웃 세션을 안전하게 정리하는 중입니다...' : loadingStatusText} 
+        isFirstRun={isFirstRun} 
+      />
     );
   }
 
@@ -406,7 +552,7 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans selection:bg-purple-500/30 flex flex-col overflow-x-clip w-full">
+    <div className="min-h-[100dvh] min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans selection:bg-purple-500/30 flex flex-col overflow-x-clip w-full">
       
       {/* System Big Notice Modal */}
       {data.system?.noticeType === 'big' && !dismissedSystemNotice && data.system.noticeList && data.system.noticeList.filter(n => n.active).length > 0 && (
@@ -417,7 +563,7 @@ function MainApp() {
       )}
 
       {showFeedbackModal && (
-        <FeedbackModal onClose={() => setShowFeedbackModal(false)} />
+        <FeedbackModal onClose={() => closeFeedback()} system={data.system} />
       )}
 
       {/* 약관 개정 안내 팝업 (일반 7일 사전 공지 / 중요 30일 사전 공지 및 필수 동의) */}
@@ -430,7 +576,6 @@ function MainApp() {
         return (
           <TermsRevisionModal 
             revision={rev}
-            adminEmail={data.system?.adminEmail || 'admin@example.com'}
             onAcknowledge={() => {
               localStorage.setItem(ackKey, 'true');
               if (user?.uid) {
@@ -445,34 +590,6 @@ function MainApp() {
           />
         );
       })()}
-
-      {user && data.system?.termsVersion && !data.system?.termsRevision && localStorage.getItem(`consent_version_${user.uid}`) !== String(data.system.termsVersion) && (
-        <ReAgreementModal 
-          onAgree={() => {
-            localStorage.setItem(`consent_version_${user.uid}`, String(data.system!.termsVersion));
-            // Force re-render
-            setForceRender(prev => prev + 1); 
-          }}
-          onLogout={handleLogout}
-        />
-      )}
-
-      {showLoginModal && (
-        <LoginOnboardingModal 
-          onClose={() => setShowLoginModal(false)}
-          onLogin={async () => {
-            setShowLoginModal(false);
-            try {
-              const result = await loginWithGoogle();
-              if (result && result.user) {
-                localStorage.setItem('has_logged_in_before', 'true');
-                localStorage.setItem(`consent_${result.user.uid}`, 'true');
-                localStorage.setItem(`consent_version_${result.user.uid}`, String(data.system?.termsVersion || 1));
-              }
-            } catch(e) {}
-          }}
-        />
-      )}
 
       {/* Notice Modal (Default disclaimer) */}
       {showNotice && data.system?.noticeType !== 'big' && (
@@ -506,9 +623,36 @@ function MainApp() {
           </div>
         </div>
       )}
+      {/* 상단 헤더 숨김 시 페이지 상단 고정 페이드 블러 레이어 (페이지 하단 고정 블러 효과와 동일한 블러) */}
+      <div 
+        aria-hidden="true"
+        style={{
+          height: 'calc(env(safe-area-inset-top, 0px) + 56px)',
+          WebkitBackdropFilter: 'blur(28px)',
+          backdropFilter: 'blur(28px)',
+          WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 35%, rgba(0,0,0,0.4) 70%, transparent 100%)',
+          maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 35%, rgba(0,0,0,0.4) 70%, transparent 100%)',
+        }}
+        className={cn(
+          "fixed inset-x-0 top-0 pointer-events-none z-40 transition-opacity duration-400 ease-out",
+          "bg-gradient-to-b from-white/85 via-white/45 to-transparent dark:from-zinc-950/90 dark:via-zinc-950/50 dark:to-transparent",
+          isHeaderHidden ? "opacity-100" : "opacity-0"
+        )}
+      />
+
       <header 
-        className="border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-black/70 backdrop-blur-3xl backdrop-saturate-180 sticky top-0 z-50 transition-all duration-300 pt-[calc(env(safe-area-inset-top,0px)+4px)] pb-0.5 sm:pt-1.5 sm:pb-0"
-        style={{ WebkitBackdropFilter: 'blur(28px) saturate(180%)', backdropFilter: 'blur(28px) saturate(180%)' }}
+        id="app-main-header"
+        style={{ 
+          transform: isHeaderHidden ? 'translateY(-100%)' : 'translateY(0)',
+          opacity: isHeaderHidden ? 0 : 1,
+          transition: 'transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.36s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s',
+          WebkitBackdropFilter: 'blur(28px) saturate(180%)', 
+          backdropFilter: 'blur(28px) saturate(180%)' 
+        }}
+        className={cn(
+          "border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-black/70 backdrop-blur-3xl backdrop-saturate-180 sticky top-0 z-50 pt-[calc(env(safe-area-inset-top,0px)+12px)] pb-1.5 sm:pt-3.5 sm:pb-1.5",
+          isHeaderHidden && "pointer-events-none shadow-none border-b-transparent"
+        )}
       >
         {data.system?.noticeType === 'small' && data.system.noticeContent && (
           <div className="bg-purple-600 text-white text-xs sm:text-sm font-medium py-2 px-3 sm:px-4 text-center leading-relaxed">
@@ -538,7 +682,7 @@ function MainApp() {
             </div>
           );
         })}
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-15 flex items-center justify-between gap-2">
+        <div className={cn("mx-auto px-3 sm:px-5 lg:px-8 h-14 sm:h-15 flex items-center justify-between gap-2 transition-all duration-300", isSettingsOpen ? "max-w-[1750px] 2xl:max-w-[1850px]" : "max-w-7xl 2xl:max-w-[1440px]")}>
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
             <button
               type="button"
@@ -557,7 +701,7 @@ function MainApp() {
 
           <div className="flex items-center gap-1.5 sm:gap-2 text-sm font-bold h-9 shrink-0">
             <AnimatePresence>
-              {!isProbVisible && currentProb !== null && !isSettingsOpen && (
+              {!isProbVisible && currentProb !== null && !isSettingsOpen && activeTab !== 'recommend' && (
                 <motion.div
                   initial={{ opacity: 0, scale: 1.1, y: 15 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -572,17 +716,6 @@ function MainApp() {
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {!user && (
-              <button 
-                onClick={handleInitiateLogin}
-                className="flex items-center justify-center min-w-[36px] min-h-[36px] p-1.5 sm:px-3 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-95 text-zinc-700 dark:text-zinc-300 rounded-xl transition-all touch-manipulation cursor-pointer shrink-0 border border-zinc-200/60 dark:border-zinc-700/60"
-                title="로그인"
-              >
-                <LogIn className="w-4 h-4" />
-                <span className="hidden sm:inline-block ml-1.5 text-xs font-bold">로그인</span>
-              </button>
-            )}
 
             <button 
               type="button"
@@ -609,20 +742,30 @@ function MainApp() {
       </header>
 
       <main className={cn(
-        "mx-auto px-4 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-32 sm:pb-36 flex-1 w-full transition-all duration-300",
-        isSettingsOpen ? "max-w-[1700px]" : "max-w-5xl"
+        "mx-auto px-3 sm:px-5 lg:px-8 pt-3 sm:pt-6 pb-32 sm:pb-36 flex-1 w-full transition-all duration-300",
+        isSettingsOpen ? "max-w-[1750px] 2xl:max-w-[1850px]" : "max-w-7xl 2xl:max-w-[1440px]"
       )}>
-        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start w-full">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start w-full relative">
           {/* Main Content Area: 데스크톱 및 모바일 기본 본문 */}
           <div className="flex-1 min-w-0 w-full transition-all duration-200">
-            {/* Main Realtime Indicator & Anonymous Poll (Always visible on top) */}
-            <div ref={probContainerRef} id="main-prob-container" className="mb-8 sm:mb-8 space-y-4">
+            {/* Main Realtime Indicator & Anonymous Poll (검색/추천 탭 활성 시에는 숨김 처리하되 DOM 위치 보존하여 헤더 흔들림 방지) */}
+            <div 
+              ref={probContainerRef} 
+              id="main-prob-container" 
+              className={cn("mb-8 sm:mb-8 space-y-4", activeTab === 'recommend' && "hidden")}
+            >
               <CurrentProbability logs={Object.values(data.logs)} onProbChange={setCurrentProb} system={data.system} />
               <AnonymousPollCard system={data.system} polls={data.polls} />
             </div>
 
-            {/* Desktop Tabs Navigation */}
-            <div className="hidden sm:flex items-center gap-6 overflow-x-auto border-b border-zinc-200 dark:border-zinc-800 mb-6">
+            {/* Desktop Tabs Navigation (상단 헤더와 유사한 블러 적용) */}
+            <div 
+              style={{
+                WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+                backdropFilter: 'blur(28px) saturate(180%)',
+              }}
+              className="hidden sm:flex items-center gap-6 overflow-x-auto border-b border-zinc-200/80 dark:border-zinc-800/80 mb-6 backdrop-blur-3xl backdrop-saturate-180 bg-white/70 dark:bg-black/70 px-4 py-0.5 rounded-2xl"
+            >
               <button
                 onClick={() => handleTabChange('summary')}
                 className={cn(
@@ -674,26 +817,10 @@ function MainApp() {
                 <PlaySquare className="w-4 h-4" />
                 추천 영상
               </button>
-
-              <button
-                onClick={() => {
-                  if (isSettingsOpen) closeSettings();
-                  else openSettings();
-                }}
-                className={cn(
-                  "flex items-center gap-2 py-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap cursor-pointer",
-                  isSettingsOpen 
-                    ? "border-purple-600 text-purple-600 dark:border-purple-500 dark:text-purple-400 font-bold" 
-                    : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-                )}
-              >
-                <SettingsIcon className="w-4 h-4" />
-                설정
-              </button>
             </div>
 
             {/* Tab Content */}
-            <div ref={tabContentRef} id="tab-content-container" className="pb-24 sm:pb-8 transition-all">
+            <div ref={tabContentRef} id="tab-content-container" className="pb-24 sm:pb-8">
               <div id="summary-tab-view" className={activeTab === 'summary' ? 'block' : 'hidden'}>
                 <SummaryTab data={data} fetchLogs={fetchLogsByDateRange} isActive={activeTab === 'summary'} />
               </div>
@@ -721,6 +848,8 @@ function MainApp() {
                   rateVideo={rateVideo} 
                   targetCategory={recommendTargetCategory}
                   targetSearchTerm={recommendTargetSearchTerm}
+                  searchTerm={globalSearchTerm}
+                  onSearchTermChange={setGlobalSearchTerm}
                   onClearTarget={() => {
                     setRecommendTargetCategory(null);
                     setRecommendTargetSearchTerm(null);
@@ -732,18 +861,22 @@ function MainApp() {
             </div>
           </div>
 
-          {/* 설정 뷰: PC에서는 우측 분할 패널(Split-Screen) 카드 슬라이드 인/아웃 */}
+          {/* 설정 뷰: PC에서는 우측 분할 패널(Split-Screen) 밀어내기 카드 슬라이드 인/아웃 */}
           <AnimatePresence>
             {isSettingsOpen && (
               <motion.div
                 key="settings-desktop-panel"
-                initial={{ opacity: 0, x: 30, scale: 0.98 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 30, scale: 0.96, transition: { duration: 0.22, ease: [0.32, 0, 0.67, 0] } }}
-                transition={{ type: 'spring', damping: 28, stiffness: 320, mass: 0.8 }}
-                className="hidden lg:block w-[450px] xl:w-[490px] 2xl:w-[530px] shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar"
+                initial={{ opacity: 0, x: 40, width: 0 }}
+                animate={{ opacity: 1, x: 0, width: '450px' }}
+                exit={
+                  isAppleDevice 
+                    ? { opacity: 0, width: 0, transition: { duration: 0.15 } }
+                    : { opacity: 0, x: 40, width: 0, transition: { duration: 0.24, ease: [0.32, 0, 0.67, 0] } }
+                }
+                transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+                className="hidden lg:block shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar overflow-x-hidden"
               >
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-5 sm:p-6 shadow-lg relative">
+                <div className="w-[450px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-5 sm:p-6 shadow-lg relative">
                   <div className="flex items-center justify-between pb-4 mb-5 border-b border-zinc-200 dark:border-zinc-800">
                     <div className="flex items-center gap-2.5">
                       <SettingsIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
@@ -763,9 +896,8 @@ function MainApp() {
                     system={data.system}
                     firstYear={firstYear}
                     onLogout={handleLogout}
-                    onInitiateLogin={handleInitiateLogin}
                     onClose={() => closeSettings()}
-                    onOpenFeedback={() => setShowFeedbackModal(true)}
+                    onOpenFeedback={openFeedback}
                     onOpenNotice={() => {
                       setShowNotice(true);
                       setDismissedSystemNotice(false);
@@ -773,7 +905,8 @@ function MainApp() {
                     onOpenTerms={() => setPolicyType('terms')}
                     onOpenPrivacy={() => setPolicyType('privacy')}
                     onOpenPatchNotes={() => {
-                      window.open('/patch', '_blank', 'noopener,noreferrer');
+                      setIsSettingsOpen(false);
+                      navigate('/patch', { state: { fromSettings: true } });
                     }}
                   />
                 </div>
@@ -783,23 +916,23 @@ function MainApp() {
         </div>
       </main>
 
-      {/* 모바일 설정창 (부드러운 슬라이드 인/아웃 닫기 모션, iOS PWA에서는 즉시 닫기) */}
+      {/* 모바일 설정창 (모든 기기 여는 애니메이션 적용, 애플 기기 제외 닫기 애니메이션 적용) */}
       <AnimatePresence>
         {isSettingsOpen && (
           <motion.div
             key="settings-mobile-drawer"
-            initial={isIOSStandalone ? false : { opacity: 0, x: '100%' }}
+            initial={{ opacity: 0, x: '100%' }}
             animate={{ opacity: 1, x: 0 }}
             exit={
-              isIOSStandalone 
+              isAppleDevice 
                 ? { opacity: 0, transition: { duration: 0 } } 
                 : { opacity: 0, x: '100%', transition: { duration: 0.24, ease: [0.32, 0, 0.67, 0] } }
             }
-            transition={isIOSStandalone ? { duration: 0 } : { type: 'spring', damping: 28, stiffness: 300, mass: 0.8 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300, mass: 0.8 }}
             className="lg:hidden fixed inset-0 z-50 bg-zinc-50 dark:bg-zinc-950 overflow-y-auto"
           >
-            {/* 모바일 설정 상단 헤더 (iOS Safe Area 노치 대응) */}
-            <div className="sticky top-0 z-20 bg-zinc-50/95 dark:bg-zinc-950/95 backdrop-blur-md px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between pt-[calc(env(safe-area-inset-top,0px)+0.75rem)]">
+            {/* 모바일 설정 상단 헤더: 메인 헤더와 동일한 Safe Area 패딩 및 높이 적용 */}
+            <div className="sticky top-0 z-20 bg-zinc-50/95 dark:bg-zinc-950/95 backdrop-blur-md px-4 sm:px-6 border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between pt-[calc(env(safe-area-inset-top,0px)+12px)] pb-1.5 sm:pt-3.5 sm:pb-1.5 min-h-[56px] sm:min-h-[60px]">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -827,9 +960,8 @@ function MainApp() {
                 system={data.system}
                 firstYear={firstYear}
                 onLogout={handleLogout}
-                onInitiateLogin={handleInitiateLogin}
                 onClose={() => closeSettings()}
-                onOpenFeedback={() => setShowFeedbackModal(true)}
+                onOpenFeedback={openFeedback}
                 onOpenNotice={() => {
                   setShowNotice(true);
                   setDismissedSystemNotice(false);
@@ -837,7 +969,8 @@ function MainApp() {
                 onOpenTerms={() => setPolicyType('terms')}
                 onOpenPrivacy={() => setPolicyType('privacy')}
                 onOpenPatchNotes={() => {
-                  window.open('/patch', '_blank', 'noopener,noreferrer');
+                  setIsSettingsOpen(false);
+                  navigate('/patch', { state: { fromSettings: true } });
                 }}
               />
             </div>
@@ -853,6 +986,8 @@ function MainApp() {
         onCloseSettings={() => closeSettings()}
         system={data.system}
         logs={data.logs}
+        searchTerm={globalSearchTerm}
+        onSearchTermChange={setGlobalSearchTerm}
       />
 
       {/* Policies & Modals */}
