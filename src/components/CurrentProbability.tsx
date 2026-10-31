@@ -22,6 +22,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { cn, attachKoreanParticle } from "../utils";
 import { computeBroadcastProbability, formatClockMinute, kstParts } from "../utils/probability";
+import { useStatusMessages } from "../hooks/useStatusMessages";
 import { extractYoutubeId } from "../utils/urlUtils";
 import { motion, AnimatePresence } from "motion/react";
 import { IllnessInfoModal } from "./IllnessInfoModal";
@@ -179,6 +180,7 @@ export function CurrentProbability({
     [logs, currentTime, system, isLive],
   );
   const finalProb = prob.finalProb;
+  const aiMessages = useStatusMessages();
   const daysSinceLastStream = prob.gap.daysSince ?? 0;
   const hasStreamedToday = prob.pattern.state === "streamedToday";
   const isAbsencePeriod = prob.pattern.state === "absence";
@@ -259,11 +261,25 @@ export function CurrentProbability({
 
   // 자연스럽고 따뜻한 멘트 목록 (우주하마 개인 사정 자의적 추측 배제, 너무 딱딱하지 않은 어조)
   let messageContent: React.ReactNode = "";
+  // AI 생성 문구가 있으면 우선 사용 (15분 단위로 바뀜), 없으면 아래 기본 문구
+  const pickAi = (list: string[] | undefined, withRecommend = false): React.ReactNode | null => {
+    if (!list || list.length === 0) return null;
+    const options: React.ReactNode[] = withRecommend ? [...list, renderRecommendSpan()] : list;
+    return options[timeSlotSeed % options.length];
+  };
 
   if (prob.pattern.state === "noData") {
     messageContent = "방송 기록이 없어 확률을 분석 중입니다.";
   } else if (hasStreamedToday) {
-    messageContent = renderRecommendSpan();
+    messageContent = pickAi(aiMessages?.streamedToday, true) ?? renderRecommendSpan();
+  } else if (isAbsencePeriod && aiMessages?.absence?.length) {
+    messageContent = pickAi(aiMessages.absence, true);
+  } else if (probabilityLevel === "high" && aiMessages?.high?.length) {
+    messageContent = pickAi(aiMessages.high);
+  } else if (probabilityLevel === "medium" && aiMessages?.medium?.length) {
+    messageContent = pickAi(aiMessages.medium, true);
+  } else if (probabilityLevel === "low" && (isLateNight ? aiMessages?.lowNight?.length : aiMessages?.lowDay?.length)) {
+    messageContent = pickAi(isLateNight ? aiMessages?.lowNight : aiMessages?.lowDay, true);
   } else if (probabilityLevel === "high") {
     const HIGH_OPTIONS = [
       "슬슬 기대해볼 만한 시간이에요! ✨",

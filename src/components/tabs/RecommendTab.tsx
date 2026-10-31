@@ -11,7 +11,7 @@ import { ShareBoxArrowIcon } from '../common/ShareIcon';
 import { BroadcastDetailModal } from './BroadcastDetailModal';
 import { getMolabogiCache, setMolabogiCache } from '../../utils/molabogiCache';
 import { GameTitle } from '../common/GameTitle';
-import { useVideoDuration, formatDuration } from '../../hooks/useVideoDuration';
+import { useVideoMeta, formatDuration, toKstDate } from '../../hooks/useVideoDuration';
 
 const YoutubeLogo = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -59,7 +59,9 @@ const VideoCard = ({
   const [isPlayingInline, setIsPlayingInline] = useState(false);
 
   const shorts = video.parentLog?.shorts || [];
-  const durationSec = useVideoDuration(video.id);
+  const videoMeta = useVideoMeta(video.id);
+  const durationSec = videoMeta?.durationSec ?? null;
+  const uploadDate = videoMeta?.publishedAt ? toKstDate(videoMeta.publishedAt) : '';
   const vods = video.parentLog?.vods || [];
 
   // 날짜 계산: 몰아보기의 경우 게임 정렬 순서에 맞춰 방송일 순서 엄격 적용, 일반 영상은 최신순
@@ -245,19 +247,18 @@ const VideoCard = ({
           </button>
         )}
 
-        {/* 영상 길이 */}
-        {!isPlayingInline && typeof durationSec === 'number' && durationSec > 0 && (
-          <span className={cn(
-            "absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded-md bg-black/75 text-white font-semibold tabular-nums pointer-events-none",
-            isCompact ? "text-[10px]" : "text-[11px]"
-          )}>
-            {formatDuration(durationSec)}
-          </span>
-        )}
-
-        {/* 생방일 뱃지: 브라우저 재생 중일 때는 닫기를 제외하고 완전히 숨김 */}
+        {/* 생방일 뱃지 + 영상 길이: 브라우저 재생 중일 때는 닫기를 제외하고 완전히 숨김 */}
         {!isPlayingInline && (
-          isMultiBroadcastOrCompilation ? (
+          <div className="absolute bottom-2 right-2 z-20 flex items-center gap-1 max-w-[calc(100%-1rem)]">
+          {typeof durationSec === 'number' && durationSec > 0 && (
+            <span className={cn(
+              "bg-black/80 text-white font-semibold tabular-nums rounded backdrop-blur-sm pointer-events-none shrink-0",
+              isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-1.5 py-1"
+            )}>
+              {formatDuration(durationSec)}
+            </span>
+          )}
+          {isMultiBroadcastOrCompilation ? (
             <button
               type="button"
               onClick={(e) => {
@@ -266,7 +267,7 @@ const VideoCard = ({
                 onOpenBroadcastModal?.(video);
               }}
               className={cn(
-                "absolute bottom-2 right-2 z-20 font-semibold rounded-lg backdrop-blur-md flex items-center gap-1.5 cursor-pointer shadow-md transition-all hover:scale-105",
+                "font-semibold rounded-lg backdrop-blur-md flex items-center gap-1.5 cursor-pointer shadow-md transition-all hover:scale-105 min-w-0",
                 isCompact ? "text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1" : "text-xs px-2.5 py-1",
                 video.isCompilation
                   ? "bg-purple-900/90 hover:bg-purple-950 text-purple-100 border border-purple-400/50 shadow-purple-950/40"
@@ -284,7 +285,7 @@ const VideoCard = ({
           ) : (mostRecentDate || displayDate) ? (
             <div 
               ref={dateBadgeRef}
-              className="absolute bottom-2 right-2 z-20"
+              className="min-w-0"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -305,7 +306,8 @@ const VideoCard = ({
                 <span>생방일: {mostRecentDate || displayDate}</span>
               </button>
             </div>
-          ) : null
+          ) : null}
+          </div>
         )}
       </div>
       
@@ -329,6 +331,22 @@ const VideoCard = ({
             )}
           </button>
         </div>
+
+        {/* 업로드일 (생방일과 비교) */}
+        {uploadDate && (() => {
+          const liveDate = !video.isCompilation && !isMultiBroadcastOrCompilation ? (mostRecentDate || displayDate) : '';
+          const gap = liveDate && /^\d{4}-\d{2}-\d{2}$/.test(liveDate)
+            ? Math.round((Date.parse(`${uploadDate}T00:00:00Z`) - Date.parse(`${liveDate}T00:00:00Z`)) / 86400000)
+            : null;
+          return (
+            <p className={cn("mt-1 text-zinc-500 dark:text-zinc-400 tabular-nums", isCompact ? "text-[10px] sm:text-xs" : "text-xs")}>
+              업로드 {uploadDate.replace(/-/g, '.')}
+              {gap !== null && gap >= 0 && (
+                <span className="text-zinc-400 dark:text-zinc-500"> · {gap === 0 ? '생방 당일' : `생방 ${gap}일 후`}</span>
+              )}
+            </p>
+          );
+        })()}
         
         {/* 생방이 여러개이거나 몰아보기의 경우 펼치기 UI (몰아보기에는 산뜻하고 감각적인 보라 강조색 적용) */}
         {isMultiBroadcastOrCompilation ? (
