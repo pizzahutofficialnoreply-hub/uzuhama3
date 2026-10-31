@@ -58,17 +58,31 @@ export default async function handler(req: any, res: any) {
     try {
       const r = await fetch(CHZZK_URL, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; uzuhama-notifier/1.0)' },
-        signal: AbortSignal.timeout(7000),
+        signal: AbortSignal.timeout(5000),
       });
-      content = (await r.json())?.content;
+      const json = await r.json().catch(() => null);
+      content = json?.content;
       liveStatus = content?.status === 'OPEN' ? 'OPEN' : content?.status === 'CLOSE' ? 'CLOSE' : 'UNKNOWN';
+      if (liveStatus === 'UNKNOWN') result.chzzkError = `HTTP ${r.status} code=${json?.code ?? '-'} ${String(json?.message ?? '').slice(0, 80)}`;
     } catch (e: any) {
       result.chzzkError = e?.message || String(e);
     }
-    result.live = liveStatus;
+
+    // 치지직 응답을 못 받으면 외부 기록기가 갱신하는 live_status 문서로 판단 (최근 15분 내 갱신된 경우만)
+    let fromDoc = false;
+    if (liveStatus === 'UNKNOWN') {
+      const doc = (await db.collection('live_status').doc(CHANNEL_ID).get()).data() || {};
+      const updated = Date.parse(doc.updatedAt?.toDate ? doc.updatedAt.toDate().toISOString() : doc.updatedAt || '');
+      if (Number.isFinite(updated) && now.getTime() - updated < 15 * 60000) {
+        liveStatus = doc.status === 'OPEN' || doc.isLive === true ? 'OPEN' : 'CLOSE';
+        content = { status: liveStatus, liveTitle: doc.liveTitle, liveCategoryValue: doc.liveCategoryValue, openDate: doc.openDate };
+        fromDoc = true;
+      }
+    }
+    result.live = liveStatus + (fromDoc ? ' (live_status)' : '');
 
     // 앱 화면의 실시간 카드가 쓰는 live_status 도 함께 최신화 (변경이 있을 때만)
-    if (liveStatus !== 'UNKNOWN') {
+    if (liveStatus !== 'UNKNOWN' && !fromDoc) {
       const liveRef = db.collection('live_status').doc(CHANNEL_ID);
       const prev = (await liveRef.get()).data() || {};
       const next = liveStatus === 'OPEN'
