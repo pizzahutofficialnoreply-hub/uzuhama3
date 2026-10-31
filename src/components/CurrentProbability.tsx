@@ -224,8 +224,8 @@ export function CurrentProbability({
         : `다음 유력 시간: 내일 ${peakFormattedTime}`;
 
   let probabilityLevel: "high" | "medium" | "low" = "low";
-  if (prob.next2hProb >= 25 || finalProb >= 50) probabilityLevel = "high";
-  else if (finalProb >= 25) probabilityLevel = "medium";
+  if (prob.next2hProb >= 30 || finalProb >= 50) probabilityLevel = "high";
+  else if (prob.next2hProb >= 12 || finalProb >= 20) probabilityLevel = "medium";
 
   // 시간대 구분 (한국 시간)
   const currentHour = Math.floor(kstParts(currentTime).minute / 60);
@@ -449,7 +449,7 @@ export function CurrentProbability({
 
         <div
           className={cn(
-            "px-5 py-2 mt-2 rounded-full border flex items-center gap-2 font-bold text-sm sm:text-base font-hanna font-pro",
+            "px-5 py-2 mt-2 rounded-2xl border flex items-center justify-center gap-2 font-bold text-sm sm:text-base font-hanna font-pro text-center max-w-full break-keep",
             getStatusColor(probabilityLevel),
           )}
         >
