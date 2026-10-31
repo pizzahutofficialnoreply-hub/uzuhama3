@@ -32,7 +32,7 @@ const PlaySquare = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const VideoCard = ({ 
+export const VideoCard = ({ 
   video,
   allLogs,
   onNavigateToCalendar,
@@ -250,7 +250,7 @@ const VideoCard = ({
         {/* 썸네일 배지: 우하단 재생 시간 / 좌하단 업로드일, 그 위에 생방일·몰아보기 (재생 중에는 숨김) */}
         {!isPlayingInline && typeof durationSec === 'number' && durationSec > 0 && (
           <span className={cn(
-            "absolute bottom-2 right-2 z-20 bg-black/80 text-white font-medium rounded backdrop-blur-sm shadow-sm select-none tabular-nums pointer-events-none",
+            "absolute bottom-2 right-2 z-20 bg-black/80 text-white font-bold rounded backdrop-blur-sm shadow-sm select-none tabular-nums pointer-events-none",
             isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-1.5 py-1"
           )}>
             {formatDuration(durationSec)}
@@ -300,7 +300,7 @@ const VideoCard = ({
                     onNavigateToCalendar?.(mostRecentDate || displayDate);
                   }
                 }}
-                className={cn("bg-black/80 hover:bg-black/95 text-white font-medium rounded backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-colors shadow-sm select-none whitespace-nowrap", isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-2 py-1")}
+                className={cn("bg-black/80 hover:bg-black/95 text-white font-normal rounded backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-colors shadow-sm select-none whitespace-nowrap", isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-2 py-1")}
                 title="클릭하여 방송 목록 해당일로 이동"
               >
                 <span>생방일: {mostRecentDate || displayDate}</span>
@@ -309,7 +309,7 @@ const VideoCard = ({
           ) : null}
           {uploadDate && (
             <span className={cn(
-              "bg-black/80 text-white font-medium rounded backdrop-blur-sm shadow-sm select-none pointer-events-none whitespace-nowrap",
+              "bg-black/80 text-white font-normal rounded backdrop-blur-sm shadow-sm select-none pointer-events-none whitespace-nowrap",
               isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"
             )}>
               업로드: {uploadDate}

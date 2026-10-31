@@ -99,14 +99,12 @@ export function FloatingBottomNav({
     (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
   const KB_GAP = 10;
   const KB_CURVE = 'transform 0.34s cubic-bezier(0.32, 0.72, 0, 1)'; // 키보드가 오르내릴 때 (iOS 키보드 곡선과 유사)
-  const KB_FOLLOW = 'transform 0.16s ease-out'; // 키보드가 떠 있는 동안 작은 위치 변화 추적
-  const SETTLE_MS = 620; // 키보드 애니메이션 동안 중간값은 무시하고 끝난 뒤 한 번만 맞춤
+  const RISE_WINDOW_MS = 420; // 키보드가 올라오는 동안: 같은 곡선으로 목표만 갱신, 이후엔 즉시(애니메이션 없음)
   const appliedOffsetRef = useRef(0);
   const appliedKbRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const keyboardUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const settleUntilRef = useRef(0);
-  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const risingUntilRef = useRef(0);
   const lastKbHeightRef = useRef<number>(-1);
   if (lastKbHeightRef.current < 0) {
     let saved = 0;
@@ -120,17 +118,20 @@ export function FloatingBottomNav({
     return parseFloat(getComputedStyle(el).bottom) || 0;
   }, []);
 
+  /** 도크와 하단 블러를 같은 양만큼 이동 (transform 전용) */
   const setDockOffset = useCallback((kbHeight: number, transition: string) => {
-    const el = dockRef.current;
-    if (!el) return;
     const kb = kbHeight > 40 ? kbHeight : 0;
     const target = kb > 0 ? Math.max(0, kb + KB_GAP - getDockBaseBottom()) : 0;
     appliedKbRef.current = kb;
     if (Math.abs(target - appliedOffsetRef.current) < 1) return;
     appliedOffsetRef.current = target;
-    el.style.willChange = 'transform';
-    el.style.transition = transition;
-    el.style.transform = target > 0 ? `translate3d(0, ${-target}px, 0)` : 'translate3d(0, 0, 0)';
+    const tf = target > 0 ? `translate3d(0, ${-target}px, 0)` : 'translate3d(0, 0, 0)';
+    [dockRef.current, blurRef.current].forEach((el) => {
+      if (!el) return;
+      el.style.willChange = 'transform';
+      el.style.transition = transition;
+      el.style.transform = tf;
+    });
   }, [getDockBaseBottom]);
 
   const measureKeyboard = useCallback(() => {
@@ -146,14 +147,21 @@ export function FloatingBottomNav({
     }
   };
 
+  /**
+   * 키보드 위치 반영 규칙
+   * - 올라오는 중(포커스 직후): 키보드와 같은 곡선으로 함께 이동, 실제 높이가 오면 같은 곡선으로 목표만 갱신
+   * - 올라온 뒤: 키보드 높이 변화·화면 스크롤은 애니메이션 없이 즉시 (도크는 키보드 위 고정)
+   * - 내려갈 때: 곡선 애니메이션 (resetKeyboardState)
+   */
   const syncToViewport = useCallback(() => {
     if (rafRef.current !== null) return;
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null;
-      if (Date.now() < settleUntilRef.current) return; // 키보드 애니메이션 중: 정착 타이머가 처리
-      const kb = document.activeElement === inputRef.current ? measureKeyboard() : 0;
-      if (Math.abs(kb - appliedKbRef.current) < 3) return;
-      setDockOffset(kb, Math.abs(kb - appliedKbRef.current) > 60 ? KB_CURVE : KB_FOLLOW);
+      if (document.activeElement !== inputRef.current) return;
+      const kb = measureKeyboard();
+      if (Math.abs(kb - appliedKbRef.current) < 2) return;
+      const rising = Date.now() < risingUntilRef.current;
+      setDockOffset(kb, rising ? KB_CURVE : 'none');
       rememberKb(kb);
     });
   }, [measureKeyboard, setDockOffset]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -171,31 +179,18 @@ export function FloatingBottomNav({
     };
   }, [isSearchActive, syncToViewport]);
 
-  /** 키보드 애니메이션이 끝난 뒤 실제 위치로 한 번만 부드럽게 맞춤 */
-  const settleAfter = useCallback((ms: number) => {
-    settleUntilRef.current = Date.now() + ms;
-    if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
-    settleTimerRef.current = setTimeout(() => {
-      settleUntilRef.current = 0;
-      const kb = document.activeElement === inputRef.current ? measureKeyboard() : 0;
-      if (Math.abs(kb - appliedKbRef.current) >= 3) setDockOffset(kb, KB_CURVE);
-      rememberKb(kb);
-    }, ms);
-  }, [measureKeyboard, setDockOffset]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const resetKeyboardState = useCallback(() => {
     if (keyboardUpTimerRef.current) clearTimeout(keyboardUpTimerRef.current);
+    risingUntilRef.current = 0;
     setIsKeyboardUp(false);
-    settleAfter(450);
     setDockOffset(0, KB_CURVE);
-  }, [setDockOffset, settleAfter]);
+  }, [setDockOffset]);
 
   // 검색 모드 해제 시 키보드 상태 및 위치 초기화
   useEffect(() => {
     if (!isSearchActive) {
       if (keyboardUpTimerRef.current) clearTimeout(keyboardUpTimerRef.current);
-      if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
-      settleUntilRef.current = 0;
+      risingUntilRef.current = 0;
       setIsKeyboardUp(false);
       setDockOffset(0, 'none');
     }
@@ -215,14 +210,16 @@ export function FloatingBottomNav({
   }, [isSearchActive, isIOSDevice]);
 
   const handleSearchFocus = () => {
-    // 키보드와 동시에 출발: iOS 는 지난번 키보드 높이로 바로 이동, 중간값은 무시하고 끝난 뒤 한 번만 보정
-    settleAfter(SETTLE_MS);
+    risingUntilRef.current = Date.now() + RISE_WINDOW_MS;
+    // iOS: 키보드가 뜨기 시작하는 순간 지난번 키보드 높이로 같이 출발 (실제 높이가 오면 같은 곡선으로 목표만 갱신)
     if (isIOSDevice && lastKbHeightRef.current > 100) {
       setDockOffset(lastKbHeightRef.current, KB_CURVE);
+    } else {
+      syncToViewport();
     }
-    // 폭 변화(왼쪽 버튼 접힘)는 위치 보정까지 끝난 뒤에 실행해 동시 레이아웃 계산을 피함
+    // 폭 변화(왼쪽 버튼 접힘)는 키보드가 다 올라온 뒤 실행해 이동과 겹치지 않게
     if (keyboardUpTimerRef.current) clearTimeout(keyboardUpTimerRef.current);
-    keyboardUpTimerRef.current = setTimeout(() => setIsKeyboardUp(true), SETTLE_MS + 60);
+    keyboardUpTimerRef.current = setTimeout(() => setIsKeyboardUp(true), RISE_WINDOW_MS);
   };
 
   const handleSearchBlur = () => {

@@ -127,67 +127,27 @@ export function usePatchNotes() {
       } catch {}
     };
 
+    // 패치노트는 서버 API 에서 읽음 (Firestore patch_notes + Notion 데이터베이스를 합친 목록)
+    // - 서버가 관리자 권한으로 읽어 Firestore 규칙과 무관하게 표시, 3분마다 새로 확인
+    const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
+      (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')
+    ).replace(/\/+$/, '');
+    let pollTimer: number | undefined;
     const fetchNotes = async () => {
       try {
-        const patchesRef = collection(db, 'patch_notes');
-        
-        unsubscribe = onSnapshot(patchesRef, (snapshot) => {
-          if (!isMounted) return;
-          if (!snapshot.empty) {
-            const firestoreList: PatchNote[] = snapshot.docs.map(docSnap => {
-              const d = docSnap.data();
-              return {
-                id: docSnap.id,
-                version: d.version || '0.0.0',
-                title: d.title || '패치노트',
-                category: (d.category as PatchCategory) || 'patch',
-                date: d.date || new Date().toISOString().split('T')[0],
-                content: d.content || '',
-                highlights: d.highlights || [],
-                author: d.author || '운영진',
-                createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt,
-                updatedAt: d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : d.updatedAt,
-              };
-            });
-            syncLists(firestoreList);
-          } else {
-            // Firestore가 비어있다면 기본 패치노트를 Firestore에 시드 등록
-            DEFAULT_PATCH_NOTES.forEach(async (note) => {
-              try {
-                await setDoc(doc(db, 'patch_notes', note.id), note, { merge: true });
-              } catch {}
-            });
-            syncLists([]);
-          }
-          setLoading(false);
-        }, async (err) => {
-          console.debug('Patch notes snapshot notice, attempting getDocs fallback:', err);
-          try {
-            const snap = await getDocs(patchesRef);
-            if (!snap.empty && isMounted) {
-              const list: PatchNote[] = snap.docs.map(docSnap => {
-                const d = docSnap.data();
-                return {
-                  id: docSnap.id,
-                  version: d.version || '0.0.0',
-                  title: d.title || '패치노트',
-                  category: (d.category as PatchCategory) || 'patch',
-                  date: d.date || new Date().toISOString().split('T')[0],
-                  content: d.content || '',
-                  highlights: d.highlights || [],
-                  author: d.author || '운영진',
-                };
-              });
-              syncLists(list);
-            }
-          } catch {}
-          setLoading(false);
-        });
+        const r = await fetch(`${API_BASE}/api/patch-notes`);
+        const json = await r.json();
+        if (isMounted && Array.isArray(json?.notes)) {
+          syncLists(json.notes as PatchNote[]);
+        }
       } catch (e) {
-        console.debug('Patch notes firestore init notice:', e);
-        setLoading(false);
+        console.debug('Patch notes API notice:', e);
+      } finally {
+        if (isMounted) setLoading(false);
       }
     };
+    pollTimer = window.setInterval(fetchNotes, 3 * 60 * 1000);
+    unsubscribe = () => { if (pollTimer) window.clearInterval(pollTimer); };
 
     fetchNotes();
 

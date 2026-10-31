@@ -27,6 +27,7 @@ import { triggerHaptic } from '../../utils/haptics';
 import { CalendarSubscribeModal } from '../CalendarSubscribeModal';
 import { SelectiveCalendarModal } from '../modals/SelectiveCalendarModal';
 import { GameTitle } from '../common/GameTitle';
+import { VideoCard } from './RecommendTab';
 import { motion, AnimatePresence } from 'motion/react';
 
 const ShortsIcon = ({ className }: { className?: string }) => (
@@ -1325,6 +1326,25 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
 
                           return cats.map(c => ({ name: c, link: '', category: '' }));
                         })();
+
+                        // 유튜브 영상은 추천 영상 탭과 같은 카드 컴포넌트로 표시 (치지직 다시보기 등은 아래 기존 카드)
+                        if (ytId) {
+                          return (
+                            <VideoCard
+                              video={{
+                                id: ytId,
+                                videoTitle: title,
+                                videoUrl: video.url,
+                                category: cats.join(', '),
+                                parentLog: selectedLog,
+                                allBroadcastDates: selectedLog?.date ? [selectedLog.date] : [],
+                                games: resolvedGames,
+                              }}
+                              allLogs={data.logs}
+                              isCompact={isVertical}
+                            />
+                          );
+                        }
 
                         return (
                           <div className={cn(
