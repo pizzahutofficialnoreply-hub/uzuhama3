@@ -8,7 +8,8 @@ import { isAbsencePeriodActive, kstParts } from '../src/utils/probability.js';
  * - 생성 실패 시 이전 묶음(있으면)을 그대로 돌려주고, 클라이언트는 기본 문구로 대체
  */
 
-const MODELS = ['gemini-flash-latest', 'gemini-2.5-flash'];
+// 첫 모델이 안 되면 다음 모델로 (모델 이름은 GEMINI_MODEL 환경 변수로 바꿀 수 있음)
+const MODELS = [process.env.GEMINI_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-2.5-flash'].filter(Boolean) as string[];
 const SET_KEYS = ['absence', 'high', 'medium', 'lowDay', 'lowNight', 'streamedToday'] as const;
 type SetKey = typeof SET_KEYS[number];
 
@@ -90,7 +91,7 @@ export default async function handler(req: any, res: any) {
     const { GoogleGenAI } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey });
     let sets: Record<SetKey, string[]> | null = null;
-    let lastError = '';
+    const errors: string[] = [];
     for (const model of MODELS) {
       try {
         const r = await ai.models.generateContent({
@@ -103,15 +104,15 @@ export default async function handler(req: any, res: any) {
           sets = parsed;
           break;
         }
-        lastError = `${model}: 응답 형식 부족`;
+        errors.push(`${model}: 응답 형식 부족`);
       } catch (e: any) {
-        lastError = `${model}: ${e?.message || e}`;
+        errors.push(`${model}: ${String(e?.message || e).slice(0, 160)}`);
       }
     }
 
     if (!sets) {
       await ref.set({ lockUntil: 0 }, { merge: true });
-      return send(current, { stale: true, error: lastError });
+      return send(current, { stale: true, error: errors.join(' / ') });
     }
 
     const doc = { key, reason, sets, generatedAt: now.toISOString(), lockUntil: 0 };
