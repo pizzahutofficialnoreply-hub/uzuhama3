@@ -72,28 +72,10 @@ export default async function handler(req: any, res: any) {
       ? url.slice(0, 2048)
       : '/';
 
-    // 3. 푸시 토큰 조회 (push_subscriptions 컬렉션)
-    const tokensSnapshot = await db.collection('push_subscriptions').get();
-    const tokenDocMap = new Map<string, string>(); // token -> docId
-    const tokens: string[] = [];
-
-    tokensSnapshot.docs.forEach((docSnap: any) => {
-      const data = docSnap.data();
-      let t = data.token || data.fcmToken;
-      if (!t && data.endpoint && typeof data.endpoint === 'string' && data.endpoint.includes('/fcm/send/')) {
-        t = data.endpoint.split('/fcm/send/')[1];
-      }
-      if (t && typeof t === 'string') {
-        const cleanT = t.trim();
-        // 실제 유효한 FCM 토큰만 수집 (local_dev_ 가상 토큰 제외, 길이 20자 이상)
-        if (cleanT.length >= 20 && !cleanT.startsWith('local_dev_') && !tokens.includes(cleanT)) {
-          tokens.push(cleanT);
-          tokenDocMap.set(cleanT, docSnap.id);
-        }
-      }
-    });
-
-    if (tokens.length === 0) {
+    // 3. 구독 기기 조회 후 공통 모듈로 발송 (클릭 링크는 HTTPS 절대 주소로 변환, 해지된 토큰만 정리)
+    const { sendPush, loadSubscriptions } = await import('../_push.js');
+    const subs = await loadSubscriptions(db);
+    if (subs.length === 0) {
       return res.status(200).json({
         success: false,
         successCount: 0,
@@ -113,81 +95,8 @@ export default async function handler(req: any, res: any) {
       .replace(/^(from\s*우주하마\s*예측[:\s]*|\[from\s*우주하마\s*예측\]\s*)/i, '')
       .trim();
 
-    // 4. 알림 멀티캐스트 발송 (최대 500개씩 청크 처리)
-    const CHUNK_SIZE = 500;
-    let totalSuccess = 0;
-    let totalFailure = 0;
-    let cleanedTokens = 0;
-    const cleanupPromises: Promise<any>[] = [];
-    const errorSummary: Record<string, number> = {};
-    const sampleErrors: string[] = [];
-
-    for (let i = 0; i < tokens.length; i += CHUNK_SIZE) {
-      const chunkTokens = tokens.slice(i, i + CHUNK_SIZE);
-      const response = await messaging.sendEachForMulticast({
-        tokens: chunkTokens,
-        notification: {
-          title: cleanTitle,
-          body: cleanBody,
-        },
-        data: {
-          url: targetUrl,
-          title: cleanTitle,
-          body: cleanBody,
-        },
-        webpush: {
-          notification: {
-            icon: '/icon.png',
-            badge: '/icon.png',
-          },
-          fcmOptions: {
-            link: targetUrl
-          }
-        }
-      });
-
-      totalSuccess += response.successCount;
-      totalFailure += response.failureCount;
-
-      response.responses.forEach((resp: any, idx: number) => {
-        if (!resp.success && resp.error) {
-          const code = resp.error.code || 'unknown';
-          const msg = resp.error.message || '';
-          errorSummary[code] = (errorSummary[code] || 0) + 1;
-          if (sampleErrors.length < 5) {
-            sampleErrors.push(`[${code}] ${msg}`);
-          }
-
-          // 무효 및 만료 토큰 정리
-          if (
-            code === 'messaging/registration-token-not-registered' ||
-            code === 'messaging/invalid-registration-token' ||
-            code === 'messaging/invalid-argument'
-          ) {
-            const badToken = chunkTokens[idx];
-            const docId = tokenDocMap.get(badToken);
-            if (docId) {
-              cleanedTokens++;
-              cleanupPromises.push(db.collection('push_subscriptions').doc(docId).delete().catch(() => {}));
-            }
-          }
-        }
-      });
-    }
-
-    if (cleanupPromises.length > 0) {
-      await Promise.all(cleanupPromises);
-    }
-
-    return res.status(200).json({
-      success: totalSuccess > 0,
-      successCount: totalSuccess,
-      failureCount: totalFailure,
-      totalCount: tokens.length,
-      cleanedTokens,
-      sampleErrors,
-      errorSummary
-    });
+    const result = await sendPush(db, messaging, subs, { title: cleanTitle, body: cleanBody, url: targetUrl });
+    return res.status(200).json({ success: result.successCount > 0, ...result });
   } catch (error: any) {
     console.error('FCM notification send failed:', error);
     const msg = error?.message || '';

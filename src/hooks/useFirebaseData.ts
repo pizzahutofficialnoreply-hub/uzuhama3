@@ -10,11 +10,13 @@ import {
   deleteField,
   query, 
   orderBy,
+  where,
+  documentId,
   writeBatch,
   onSnapshot
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { BroadcastLog, DailyStat, TimeStat, DurationStat, MonthlyStat, AppData, PatternGuide, SystemConfig, Poll, GameItem, LinkItem } from '../types';
+import { BroadcastLog, DailyStat, TimeStat, DurationStat, MonthlyStat, AppData, PatternGuide, SystemConfig, GameItem, LinkItem } from '../types';
 import { dailyStats as defaultDaily, timeStats as defaultTime, durationStats as defaultDuration, monthlyStats as defaultMonthly, patternGuides as defaultGuides } from '../data';
 
 // Vercel 서버 API를 통한 관리자 Firestore 데이터 편집 (보안 및 무결성 강화)
@@ -127,57 +129,6 @@ async function loadHistoricalLogs(): Promise<Record<string, BroadcastLog>> {
 }
 
 
-// 카테고리 칸에 게임명이 잘못 들어간 경우 판별 (Firestore 옛 아카이브 사본 등)
-const catKey = (s: any) => String(s || '').replace(/\s+/g, '').toLowerCase();
-const GENRE_WORDS = ['종합', '액션', '어드벤처', '인디', '캐주얼', '시뮬레이션', '전략', '웹', '플래시', '스포츠', '노가리', '공포', '퀴즈', '레이싱', 'rpg', '로그라이크', '퍼즐', '시참', '모바일', '온라인', '생존', 'fps', '슈팅', '롤플레잉'];
-function looksLikeGameName(cat: any, names: string[]): boolean {
-  const k = catKey(cat);
-  if (!k) return true;
-  if (String(cat).split(',').some((t) => GENRE_WORDS.includes(catKey(t)))) return false;
-  if (/^[\d.]+$/.test(k)) return true;
-  return names.some((n) => {
-    const nk = catKey(n);
-    return nk && (nk === k || (k.length >= 4 && (nk.includes(k) || k.includes(nk))));
-  });
-}
-
-/** Firestore 로그를 JSON 원본 위에 병합하되, 게임명으로 오염된 카테고리는 원본 장르를 유지 */
-function mergeLogPreservingCategories(base: BroadcastLog, incoming: any): BroadcastLog {
-  const baseGames: any[] = Array.isArray(base.games) ? base.games : [];
-  const names = [
-    ...(Array.isArray(incoming.games) ? incoming.games.map((g: any) => g?.name) : []),
-    ...baseGames.map((g: any) => g?.name),
-    incoming.game,
-    base.game,
-  ].filter(Boolean);
-
-  const games = Array.isArray(incoming.games) && incoming.games.length > 0
-    ? incoming.games.map((g: any) => {
-        const matched = baseGames.find((eg: any) => eg?.name && g?.name && catKey(eg.name) === catKey(g.name));
-        const link = g.link || g.url || g.gameUrl || g.steamUrl || matched?.link || '';
-        const category = g.category && !looksLikeGameName(g.category, [g.name]) ? g.category : (matched?.category || g.category || '');
-        return { ...g, link, category };
-      })
-    : baseGames;
-
-  const fixItems = (inc: any[] | undefined, orig: any[] | undefined) =>
-    Array.isArray(inc)
-      ? inc.map((item: any, i: number) => {
-          if (!item || !item.category || !looksLikeGameName(item.category, names)) return item;
-          const o = Array.isArray(orig) ? (orig.find((x: any) => x?.url && x.url === item.url) || orig[i]) : undefined;
-          return { ...item, category: o?.category && !looksLikeGameName(o.category, names) ? o.category : '' };
-        })
-      : inc;
-
-  const merged: any = { ...base, ...incoming, games, id: base.id };
-  if (incoming.category && looksLikeGameName(incoming.category, names) && base.category) {
-    merged.category = base.category;
-  }
-  merged.vods = fixItems(incoming.vods, base.vods) ?? base.vods;
-  merged.edited = fixItems(incoming.edited, base.edited) ?? base.edited;
-  return merged as BroadcastLog;
-}
-
 export function useFirebaseData() {
   const [data, setData] = useState<AppData | null>(null);
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
@@ -209,72 +160,41 @@ export function useFirebaseData() {
       const historicalLogs = await loadHistoricalLogs();
       const logsMap: Record<string, BroadcastLog> = { ...historicalLogs };
 
-      // 2. Firestore logs 메인 컬렉션 전체 조회 (원복 및 최신 방송 데이터 무결성 보장)
+      // 2. Firestore logs_by_month 에서 아카이브 JSON 과 겹치지 않는 부분만 조회
+      //    - logs 컬렉션은 읽지 않음 (logs_by_month 에 같은 내용이 모두 들어 있음)
+      //    - JSON 의 마지막 달 이후 문서만 요청해 읽기 횟수를 줄이고,
+      //      그 안에서도 JSON 에 이미 있는 날짜는 건너뜀 (아카이브는 JSON 이 원본)
       try {
-        const logsSnaps = await getDocs(collection(db, 'logs'));
-        if (!logsSnaps.empty) {
-          logsSnaps.forEach((docSnap) => {
-            const docData = docSnap.data();
-            if (docData && (docData.date || docData.id)) {
-              const logItem: BroadcastLog = {
-                id: docSnap.id,
-                ...docData
-              } as BroadcastLog;
-
-              // 기존 JSON 로그가 있는 경우: Firestore의 수정사항을 확실하게 덮어씌우되, 게임 링크 손실 방지
-              const existingJsonLog = logsMap[logItem.id] || Object.values(logsMap).find(l => l.date === logItem.date);
-              if (existingJsonLog) {
-                logsMap[existingJsonLog.id] = mergeLogPreservingCategories(existingJsonLog, logItem);
-              } else {
-                if (Array.isArray(logItem.games)) {
-                  logItem.games = logItem.games.map((g: any) => ({
-                    ...g,
-                    link: g.link || g.url || g.gameUrl || g.steamUrl || (logItem as any).gameLink || ''
-                  }));
-                }
-                logsMap[logItem.id] = logItem;
-              }
+        const jsonDates = new Set(Object.values(historicalLogs).map((l) => l.date));
+        const lastJsonMonth = Object.values(historicalLogs).reduce(
+          (m, l) => (l.date && l.date.slice(0, 7) > m ? l.date.slice(0, 7) : m),
+          ''
+        );
+        const monthQuery = lastJsonMonth
+          ? query(collection(db, 'logs_by_month'), where(documentId(), '>', lastJsonMonth))
+          : collection(db, 'logs_by_month');
+        const monthSnaps = await getDocs(monthQuery);
+        const addEntry = (logId: string, val: any) => {
+          if (!val || !val.date || jsonDates.has(val.date)) return;
+          const games = Array.isArray(val.games)
+            ? val.games.map((g: any) => ({
+                ...g,
+                link: g.link || g.url || g.gameUrl || g.steamUrl || val.gameLink || ''
+              }))
+            : val.games;
+          logsMap[logId] = { ...val, id: logId, games } as BroadcastLog;
+        };
+        monthSnaps.forEach((docSnap) => {
+          const docData = docSnap.data();
+          if (docData?.items && typeof docData.items === 'object') {
+            Object.entries(docData.items).forEach(([k, val]: [string, any]) => addEntry(val?.id || k, val));
+          }
+          Object.entries(docData || {}).forEach(([key, val]) => {
+            if (key !== 'month' && key !== 'updatedAt' && key !== 'items' && val && typeof val === 'object' && (val as any).date) {
+              addEntry((val as any).id || key, val);
             }
           });
-        }
-      } catch (e: any) {
-        console.warn('logs 컬렉션 조회 경고:', e?.message);
-      }
-
-      // 3. Firestore의 logs_by_month 월별 컬렉션 보조 조회
-      try {
-        const monthSnaps = await getDocs(collection(db, 'logs_by_month'));
-        if (!monthSnaps.empty) {
-          monthSnaps.forEach((docSnap) => {
-            const docData = docSnap.data();
-            const mergeEntry = (logId: string, val: any) => {
-              if (!val || !(val.date || val.id)) return;
-              const existing = logsMap[logId] || Object.values(logsMap).find(l => l.date === val.date);
-              if (existing) {
-                logsMap[existing.id] = mergeLogPreservingCategories(existing, val);
-              } else {
-                if (Array.isArray(val.games)) {
-                  val.games = val.games.map((g: any) => ({
-                    ...g,
-                    link: g.link || g.url || g.gameUrl || g.steamUrl || (val as any).gameLink || ''
-                  }));
-                }
-                logsMap[logId] = val as BroadcastLog;
-              }
-            };
-
-            if (docData?.items && typeof docData.items === 'object') {
-              Object.entries(docData.items).forEach(([k, val]: [string, any]) => {
-                mergeEntry(val.id || k, val);
-              });
-            }
-            Object.entries(docData || {}).forEach(([key, val]) => {
-              if (key !== 'month' && key !== 'updatedAt' && key !== 'items' && val && typeof val === 'object' && (val as any).date) {
-                mergeEntry((val as any).id || key, val);
-              }
-            });
-          });
-        }
+        });
       } catch (e: any) {
         console.warn('logs_by_month 컬렉션 조회 경고:', e?.message);
       }
@@ -412,70 +332,6 @@ export function useFirebaseData() {
 
     return () => {
       if (unsubscribeSystem) unsubscribeSystem();
-    };
-  }, []);
-
-  // 1-2. 무기명 투표 목록 실시간 리스너 (모든 사용자 권한 보장 및 복수 활성 투표 지원)
-  useEffect(() => {
-    let unsubscribeLivePolls: () => void;
-    let unsubscribeLegacyPolls: () => void;
-
-    try {
-      const livePollsRef = collection(db, 'live_status', 'polls', 'items');
-      unsubscribeLivePolls = onSnapshot(
-        livePollsRef,
-        (snap) => {
-          if (!snap.empty) {
-            const pollList: Poll[] = [];
-            snap.forEach((docSnap) => {
-              const pollData = docSnap.data() as Poll;
-              pollList.push({
-                ...pollData,
-                id: docSnap.id
-              });
-            });
-            pollList.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-            setData(prev => prev ? { ...prev, polls: pollList } : null);
-          }
-        },
-        (error) => {
-          console.debug('Live polls snapshot listener notice:', error);
-        }
-      );
-    } catch (e) {
-      console.warn('Failed to subscribe to live polls:', e);
-    }
-
-    try {
-      const legacyPollsRef = collection(db, 'polls');
-      unsubscribeLegacyPolls = onSnapshot(
-        legacyPollsRef,
-        (snap) => {
-          if (!snap.empty) {
-            const pollList: Poll[] = [];
-            snap.forEach((docSnap) => {
-              const pollData = docSnap.data() as Poll;
-              pollList.push({
-                ...pollData,
-                id: docSnap.id
-              });
-            });
-            pollList.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-            setData(prev => prev ? { ...prev, polls: pollList } : null);
-          }
-        },
-        (error) => {
-          // 비로그인 사용자 권한 에러는 live_status 리스너가 대체하므로 조용히 처리
-          console.debug('Legacy polls listener notice:', error);
-        }
-      );
-    } catch (e) {
-      // safe fallback
-    }
-
-    return () => {
-      if (unsubscribeLivePolls) unsubscribeLivePolls();
-      if (unsubscribeLegacyPolls) unsubscribeLegacyPolls();
     };
   }, []);
 

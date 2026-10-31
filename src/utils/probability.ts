@@ -1,4 +1,4 @@
-import { BroadcastLog, SystemConfig } from '../types';
+import type { BroadcastLog, SystemConfig } from '../types';
 
 /**
  * 방송 켜질 확률 엔진 (메인 카드 · 자세히 보기 · 푸시 알림 공통)
@@ -378,5 +378,99 @@ export function calculateTodayPeakMinute(
     peakMinute: r.time.peakMinute,
     formattedTime: formatClockMinute(r.time.peakMinute),
     isToday: r.time.peakIsToday,
+  };
+}
+
+export interface RecentPatternStats {
+  windowDays: number;
+  windowStart: string; // YYYY-MM-DD
+  windowEnd: string;
+  isFallback: boolean; // 최근 60일에 방송이 없어 마지막 방송 직전 60일로 대체했는지
+  streamCount: number;
+  weeklyAvg: number;
+  prevWeeklyAvg: number | null; // 그 이전 60일
+  byDow: { day: string; count: number; occurrences: number; rate: number }[];
+  topDays: string[];
+  bottomDay: string | null;
+  typicalStart: string | null; // 시작 시각 중앙값
+  nextDayRate: { afterOne: number | null; afterTwo: number | null; afterLong: number | null; samples: { one: number; two: number; long: number } };
+}
+
+/** 예측 가이드용 최근 60일 패턴 요약 (확률 엔진과 같은 방송일 기준 사용) */
+export function computeRecentPatternStats(
+  logs: BroadcastLog[],
+  now: Date = new Date(),
+  windowDays = RECENT_WINDOW
+): RecentPatternStats {
+  const { minute, dateStr } = kstParts(now);
+  const today = dayNum(dateStr) - (minute < DAY_BOUNDARY_MIN ? 1 : 0);
+  const byDay = new Map<number, { minute: number | null; duration: number }>();
+  (logs || []).forEach((l) => {
+    if (!l || l.isAbsence) return;
+    const d = broadcastDayOf(l);
+    if (d === null || d > today) return;
+    const prev = byDay.get(d);
+    const m = parseMinute(l.time);
+    byDay.set(d, {
+      minute: prev?.minute ?? m,
+      duration: Math.max(prev?.duration || 0, Number(l.durationHours) || 0),
+    });
+  });
+  const days = [...byDay.keys()].sort((a, b) => a - b);
+
+  let end = today; // 오늘 포함 직전까지
+  let start = end - windowDays + 1;
+  let inWindow = days.filter((d) => d >= start && d <= end);
+  let isFallback = false;
+  if (inWindow.length === 0 && days.length > 0) {
+    isFallback = true;
+    end = days[days.length - 1];
+    start = end - windowDays + 1;
+    inWindow = days.filter((d) => d >= start && d <= end);
+  }
+  const prevCount = days.filter((d) => d >= start - windowDays && d < start).length;
+  const hasPrev = days.length > 0 && days[0] < start;
+
+  const byDow = DAY_NAMES.map((day) => ({ day, count: 0, occurrences: 0, rate: 0 }));
+  for (let d = start; d <= end; d++) {
+    const w = byDow[dowOf(d)];
+    w.occurrences++;
+    if (byDay.has(d)) w.count++;
+  }
+  byDow.forEach((w) => (w.rate = w.occurrences ? Math.round((w.count / w.occurrences) * 1000) / 10 : 0));
+  const ranked = [...byDow].filter((w) => w.count > 0).sort((a, b) => b.rate - a.rate || b.count - a.count);
+  const topDays = ranked.slice(0, 2).map((w) => w.day);
+  const bottomDay = inWindow.length ? [...byDow].sort((a, b) => a.rate - b.rate || a.count - b.count)[0].day : null;
+
+  const mins = inWindow.map((d) => byDay.get(d)!.minute).filter((m): m is number => m !== null).map(toBroadcastMinute).sort((a, b) => a - b);
+  const typicalStart = mins.length
+    ? formatClockMinute((Math.round((mins[Math.floor(mins.length / 2)] + DAY_BOUNDARY_MIN) / 10) * 10) % 1440)
+    : null;
+
+  // 다음 날 방송률 (창 안에서 다음 날도 창 안인 경우만)
+  let one = 0, oneNext = 0, two = 0, twoNext = 0, long = 0, longNext = 0;
+  inWindow.forEach((d) => {
+    if (d + 1 > end) return;
+    const next = byDay.has(d + 1);
+    if (!byDay.has(d - 1)) { one++; if (next) oneNext++; }
+    else { two++; if (next) twoNext++; }
+    if ((byDay.get(d)!.duration || 0) >= 3) { long++; if (next) longNext++; }
+  });
+  const rate = (n: number, k: number) => (n >= 3 ? Math.round((k / n) * 100) : null);
+  const iso = (n: number) => new Date(n * DAY_MS).toISOString().slice(0, 10);
+
+  return {
+    windowDays,
+    windowStart: iso(start),
+    windowEnd: iso(end),
+    isFallback,
+    streamCount: inWindow.length,
+    weeklyAvg: Math.round((inWindow.length / windowDays) * 7 * 10) / 10,
+    prevWeeklyAvg: hasPrev ? Math.round((prevCount / windowDays) * 7 * 10) / 10 : null,
+    byDow,
+    topDays,
+    bottomDay,
+    typicalStart,
+    nextDayRate: { afterOne: rate(one, oneNext), afterTwo: rate(two, twoNext), afterLong: rate(long, longNext), samples: { one, two, long } },
   };
 }

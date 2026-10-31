@@ -1,0 +1,36 @@
+name: Deploy to Firebase Hosting (uzuhama.web.app)
+
+# main 에 푸시되면 uzuhama.web.app 에도 자동 배포합니다.
+# 한 번만 설정: GitHub 저장소 Settings > Secrets and variables > Actions 에
+#   FIREBASE_SERVICE_ACCOUNT_UZUHAMA = Firebase 서비스 계정 JSON 전체
+# 를 추가하세요. (없으면 이 작업은 건너뜁니다)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_FIREBASE_SECRET: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.HAS_FIREBASE_SECRET == 'true'
+      - uses: actions/setup-node@v4
+        if: env.HAS_FIREBASE_SECRET == 'true'
+        with:
+          node-version: 22
+      - name: Build
+        if: env.HAS_FIREBASE_SECRET == 'true'
+        run: |
+          npm install --no-audit --no-fund
+          npx tsc --noEmit
+          npx vite build
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        if: env.HAS_FIREBASE_SECRET == 'true'
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}
+          projectId: uzuhama
+          channelId: live

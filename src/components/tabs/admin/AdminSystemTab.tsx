@@ -2,18 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { deleteField } from 'firebase/firestore';
 import { AppData, SystemConfig } from '../../../types';
 import { 
-  AlertTriangle, Bell, Plane, Send, CheckSquare, Shield, Database, 
+  AlertTriangle, Bell, Plane, Send, Shield, Database, 
   Check, Save, Sparkles 
 } from 'lucide-react';
 import { MaintenanceSubTab } from './system/MaintenanceSubTab';
 import { NoticesSubTab } from './system/NoticesSubTab';
 import { AbsenceHealthSubTab } from './system/AbsenceHealthSubTab';
 import { PushNotificationSubTab } from './system/PushNotificationSubTab';
-import { PollSubTab } from './system/PollSubTab';
 import { TermsPolicySubTab } from './system/TermsPolicySubTab';
 import { DataOptionsSubTab } from './system/DataOptionsSubTab';
 
-export type SystemSubTabId = 'maintenance' | 'notices' | 'absence' | 'push' | 'polls' | 'terms' | 'data';
+export type SystemSubTabId = 'maintenance' | 'notices' | 'absence' | 'push' | 'terms' | 'data';
 
 export function AdminSystemTab({ 
   data, 
@@ -185,13 +184,6 @@ export function AdminSystemTab({
       icon: Send,
     },
     {
-      id: 'polls' as SystemSubTabId,
-      label: '투표 관리',
-      icon: CheckSquare,
-      badge: systemEdit.activePoll?.isActive ? '진행 중' : undefined,
-      badgeColor: 'bg-emerald-500 text-white'
-    },
-    {
       id: 'terms' as SystemSubTabId,
       label: '약관 & 전자고지',
       icon: Shield,
@@ -266,15 +258,6 @@ export function AdminSystemTab({
 
         {activeSubTab === 'push' && (
           <PushNotificationSubTab />
-        )}
-
-        {activeSubTab === 'polls' && (
-          <PollSubTab 
-            data={data}
-            systemEdit={systemEdit}
-            handleChange={handleChange}
-            onUpdateSystemConfig={onUpdateSystemConfig}
-          />
         )}
 
         {activeSubTab === 'terms' && (

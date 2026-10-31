@@ -8,6 +8,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsToolti
 import { CustomTooltip, DottedBarCursor } from '../CustomTooltip';
 import { SmartTrendLabel } from '../stats/SmartTrendLabel';
 import { parseTimeString, parseTimeTo24 } from '../../utils';
+import { computeRecentPatternStats } from '../../utils/probability';
 
 interface SummaryTabProps {
   data: AppData;
@@ -234,6 +235,12 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
 
   const illnessNameForGuide = isIllness ? (data.system?.illnessName || '병명') : undefined;
 
+  // 예측 가이드: 메인 확률 카드와 같은 최근 60일 기준
+  const recentPattern = useMemo(
+    () => computeRecentPatternStats(Object.values(data.logs || {})),
+    [data.logs]
+  );
+
   // Dynamically generate guides based on actual data
   const dynamicGuides = [
     ...(data.system?.absenceReason ? [{
@@ -245,21 +252,51 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
       illnessSource: isIllness ? data.system?.illnessSource : undefined,
       illnessSourceUrl: isIllness ? data.system?.illnessSourceUrl : undefined,
     }] : []),
-    {
-      id: 'guide-1',
-      title: '가장 확실한 방송 요일과 휴방 요일',
-      content: `전체 데이터 기준 가장 유력한 방송 요일은 **${stats.top1Day}요일**, **${stats.top2Day}요일**입니다. 주로 **${stats.dailyTopTimes[stats.top1Day]}** 즈음에 방송이 켜집니다. 반면 **${stats.bottomDay}요일**은 무려 **${stats.dayRestProb[stats.bottomDay]}%** 의 확률로 가장 쉴 가능성이 높은 휴방일입니다.`
-    },
-    {
-      id: 'guide-2',
-      title: '최근 방송 빈도 트렌드 변화',
-      content: `전체 기간 동안 주 평균 **${stats.allTimeWeeklyAvg}회** 방송했지만, 최근 한 달간은 주 평균 **${stats.recentWeeklyAvg}회** 방송하며 패턴의 변화를 보이고 있습니다. (전체 방송 중 주말 방송 비율은 **${stats.weekendProb}%** 입니다.)`
-    },
-    {
-      id: 'guide-3',
-      title: '연속 방송에 따른 내일의 휴방 확률',
-      content: `분석된 데이터에 기반한 실시간 휴방 확률입니다. 연속 방송이나 장시간 방송 후엔 휴방 확률이 민감하게 변동합니다.\n\n- **오늘 단일 방송을 했다면:** 내일 휴방할 확률은 **${stats.probRestAfter1}%** 입니다.\n- **이틀 연속 방송을 했다면:** 내일 연달아 휴방할 확률이 **${stats.probRestAfter2}%** 로 급증합니다.\n- **오늘 3시간 이상 길게 방송했다면:** 체력 소모로 인해 다음 날 휴방 확률은 **${stats.probRestAfterLong}%** 가 됩니다.`
-    }
+    ...(() => {
+      const r = recentPattern;
+      const period = r.isFallback
+        ? `최근 60일 동안 방송이 없어 마지막 방송 전 60일(**${r.windowStart.slice(5).replace('-', '/')}~${r.windowEnd.slice(5).replace('-', '/')}**)`
+        : '최근 60일';
+      const periodShort = r.isFallback ? '같은 기간' : '최근 60일';
+      if (r.streamCount === 0) {
+        return [{ id: 'guide-1', title: '최근 60일 방송 패턴', content: '분석할 최근 방송 기록이 없습니다.' }];
+      }
+      const dowRate = (d: string) => r.byDow.find((w) => w.day === d);
+      const top = r.topDays.map((d) => `**${d}요일**(${dowRate(d)?.count}/${dowRate(d)?.occurrences}회)`).join(', ');
+      const bottom = r.bottomDay ? dowRate(r.bottomDay) : undefined;
+      const trend = r.prevWeeklyAvg === null
+        ? ''
+        : r.weeklyAvg > r.prevWeeklyAvg + 0.3
+          ? ` 그 전 60일(주 **${r.prevWeeklyAvg}회**)보다 늘었습니다.`
+          : r.weeklyAvg < r.prevWeeklyAvg - 0.3
+            ? ` 그 전 60일(주 **${r.prevWeeklyAvg}회**)보다 줄었습니다.`
+            : ` 그 전 60일(주 **${r.prevWeeklyAvg}회**)과 비슷합니다.`;
+      const nd = r.nextDayRate;
+      const lines = [
+        nd.afterOne !== null ? `- **하루 쉬고 방송한 다음 날:** 이어서 방송할 확률 **${nd.afterOne}%** (${nd.samples.one}회 기준)` : '',
+        nd.afterTwo !== null ? `- **이틀 이상 연속 방송한 다음 날:** 또 방송할 확률 **${nd.afterTwo}%** (${nd.samples.two}회 기준)` : '',
+        nd.afterLong !== null ? `- **3시간 이상 방송한 다음 날:** 방송할 확률 **${nd.afterLong}%** (${nd.samples.long}회 기준)` : '',
+      ].filter(Boolean);
+      return [
+        {
+          id: 'guide-1',
+          title: '최근 60일 방송 요일과 시간',
+          content: `${period} 기준 방송이 가장 잦은 요일은 ${top}입니다.${r.typicalStart ? ` 방송은 보통 **${r.typicalStart}** 즈음 시작했어요.` : ''}${bottom ? ` 가장 드문 요일은 **${bottom.day}요일**(${bottom.count}/${bottom.occurrences}회)입니다.` : ''}`
+        },
+        {
+          id: 'guide-2',
+          title: '최근 60일 방송 빈도',
+          content: `${periodShort} 동안 **${r.streamCount}회**, 주 평균 **${r.weeklyAvg}회** 방송했습니다.${trend}`
+        },
+        ...(lines.length
+          ? [{
+              id: 'guide-3',
+              title: '방송 다음 날 패턴',
+              content: `${periodShort} 기록에서 방송한 다음 날의 실제 방송 비율입니다.\n\n${lines.join('\n')}`
+            }]
+          : [])
+      ];
+    })()
   ];
 
   return (

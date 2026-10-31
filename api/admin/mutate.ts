@@ -110,29 +110,6 @@ export default async function handler(req: any, res: any) {
         return res.status(200).json({ success: true });
       }
 
-      case 'savePoll': {
-        const { poll } = payload || {};
-        if (!poll || !poll.id) {
-          return res.status(400).json({ error: 'Invalid poll payload' });
-        }
-        await db.collection('polls').doc(poll.id).set(poll, { merge: true });
-        await db.collection('config').doc('system').set({ activePoll: poll }, { merge: true });
-        return res.status(200).json({ success: true });
-      }
-
-      case 'deletePoll': {
-        const { pollId } = payload || {};
-        if (pollId) {
-          await db.collection('polls').doc(pollId).delete().catch(() => {});
-        }
-        await db.collection('config').doc('system').update({
-          activePoll: FieldValue.delete()
-        }).catch(async () => {
-          await db.collection('config').doc('system').set({ activePoll: null }, { merge: true });
-        });
-        return res.status(200).json({ success: true });
-      }
-
       case 'savePatchNote': {
         const { note } = payload || {};
         if (!note || !note.id) {

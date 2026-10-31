@@ -24,7 +24,6 @@ import { FloatingBottomNav } from './components/FloatingBottomNav';
 import { LicensePage } from './components/LicensePage';
 import { PatchNotesPage } from './components/PatchNotesPage';
 import { CurrentProbability } from './components/CurrentProbability';
-import { AnonymousPollCard } from './components/AnonymousPollCard';
 import { LoadingScreen } from './components/LoadingScreen';
 import { cn, useBodyScrollLock, resetBodyScrollLock } from './utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -1033,7 +1032,6 @@ function MainApp() {
                 system={data.system} 
                 onNavigateToRecommend={handleNavigateToRecommend}
               />
-              <AnonymousPollCard system={data.system} polls={data.polls} />
             </div>
 
             {/* Desktop Tabs Navigation (상단 헤더와 유사한 블러 적용) */}

@@ -1,21 +1,17 @@
-name: Chzzk Live Tracker
+name: Notification Tick
 
+# 방송 시작·유력 시간 자동 알림 점검 (Vercel /api/notifications/tick 호출)
+# GitHub 예약 실행은 지연이 커서 보조 수단으로만 사용합니다.
+# 주 트리거는 cron-job.org 등 외부 크론(1~5분 간격)과 앱 접속자 핑입니다.
 on:
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
-  track:
+  tick:
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Install Dependencies
-        run: npm install firebase
-      - name: Run Tracker
-        env:
-          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
-        run: node scripts/tracker.mjs
+      - name: Call notification tick
+        run: curl -fsS --max-time 60 "https://uzuhama.vercel.app/api/notifications/tick" || true

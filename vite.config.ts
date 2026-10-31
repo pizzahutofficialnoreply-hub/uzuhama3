@@ -55,15 +55,6 @@ function calendarFeedPlugin() {
           }
         }
 
-        if (url === '/api/poll/my-ip' || url.startsWith('/api/poll/my-ip?')) {
-          const forwarded = req.headers['x-forwarded-for'];
-          let ip = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : (req.socket?.remoteAddress || '127.0.0.1');
-          if (ip.startsWith('::ffff:')) ip = ip.substring(7);
-          res.setHeader('Content-Type', 'application/json');
-          res.statusCode = 200;
-          return res.end(JSON.stringify({ ip }));
-        }
-
         if (
           url === '/api/calendar.ics' || 
           url === '/api/calendar' || 

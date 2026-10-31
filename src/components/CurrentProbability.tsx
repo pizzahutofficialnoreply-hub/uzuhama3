@@ -14,6 +14,9 @@ import {
   ChevronUp,
   ExternalLink,
   Activity,
+  Hourglass,
+  Moon,
+  Coffee,
 } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -286,7 +289,7 @@ export function CurrentProbability({
     // Low probability
     if (isLateNight) {
       const LATE_OPTIONS = [
-        "시간이 늦었으니 편안한 밤 보내세요 🌙",
+        "시간이 늦었으니 편안한 밤 보내세요",
         "늦은 시간이라 편안한 휴식을 추천해요",
         renderRecommendSpan(),
         "오늘 하루도 고생 많으셨어요, 편안한 밤 되세요",
@@ -296,7 +299,7 @@ export function CurrentProbability({
     } else if (isEarlyDay) {
       const DAY_OPTIONS = [
         renderRecommendSpan(),
-        "오늘은 느긋하게 기다려봐요 ☕",
+        "오늘은 느긋하게 기다려봐요",
         "차분하게 여유를 즐겨보는 건 어떨까요?",
         "아직은 여유로운 시간이에요",
         renderRecommendSpan()
@@ -306,7 +309,7 @@ export function CurrentProbability({
       const LOW_OPTIONS = [
         renderRecommendSpan(),
         "조금 더 지켜보는 건 어떨까요?",
-        "오늘은 느긋하게 기다려봐요 ☕",
+        "오늘은 느긋하게 기다려봐요",
         "차분하게 여유를 즐겨보는 건 어떨까요?",
         renderRecommendSpan()
       ];
@@ -454,9 +457,13 @@ export function CurrentProbability({
           )}
         >
           {probabilityLevel === "high" ? (
-            <PlayCircle className="w-5 h-5 animate-pulse shrink-0" />
+            <Radio className="w-5 h-5 animate-pulse shrink-0" />
+          ) : probabilityLevel === "medium" ? (
+            <Hourglass className="w-5 h-5 shrink-0" />
+          ) : isLateNight ? (
+            <Moon className="w-5 h-5 shrink-0" />
           ) : (
-            <AlertCircle className="w-5 h-5 shrink-0" />
+            <Coffee className="w-5 h-5 shrink-0" />
           )}
           <span className="font-hanna font-pro font-bold tracking-tight">{messageContent}</span>
         </div>

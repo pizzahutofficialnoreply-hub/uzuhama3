@@ -116,10 +116,15 @@ export const GameTitle: React.FC<GameTitleProps> = ({ text, link, className, sho
   }
 
   if (link && showIcon) {
+    // flex 로 묶으면 제목이 줄바꿈될 때 글자 상자가 전체 폭으로 늘어나 아이콘이 오른쪽 끝으로 밀려남.
+    // 글자 흐름 안에 아이콘을 넣어 항상 마지막 글자 바로 옆에 붙도록 처리 (U+2060: 아이콘만 다음 줄로 떨어지지 않게)
     return (
-      <span className="inline-flex items-center gap-1.5 align-middle">
+      <span className="inline">
         {textNode}
-        <GamePlatformIcon url={link} />
+        {'⁠'}
+        <span className="inline-block align-[-0.125em] ml-1">
+          <GamePlatformIcon url={link} />
+        </span>
       </span>
     );
   }

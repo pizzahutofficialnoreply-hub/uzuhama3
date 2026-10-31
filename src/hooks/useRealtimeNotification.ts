@@ -138,10 +138,24 @@ export function useRealtimeNotification(logs: BroadcastLog[], system?: SystemCon
       }
     };
 
+    // 서버 자동 알림 점검 핑: 앱이 열려 있는 동안 5분마다 한 번 (서버가 50초 이내 중복 호출은 무시)
+    const pingNotificationTick = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      const base = (import.meta.env.VITE_VERCEL_API_URL ||
+        (window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')).replace(/\/+$/, '');
+      fetch(`${base}/api/notifications/tick`, { method: 'GET', keepalive: true }).catch(() => {});
+    };
+    const tickTimer = window.setTimeout(pingNotificationTick, 4000);
+    const tickInterval = window.setInterval(pingNotificationTick, 5 * 60 * 1000);
+
     // 5분마다 체크
     checkPeakProbability();
     const interval = setInterval(checkPeakProbability, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearInterval(tickInterval);
+      clearTimeout(tickTimer);
+    };
   }, []);
 
   return { triggerNativeNotification };
