@@ -97,7 +97,7 @@ export default async function handler(req: any, res: any) {
         const r = await ai.models.generateContent({
           model,
           contents: buildPrompt(reason),
-          config: { responseMimeType: 'application/json', temperature: 1.0 },
+          config: { responseMimeType: 'application/json', temperature: 1.0, httpOptions: { timeout: 20000 } },
         });
         const parsed = sanitizeSets(JSON.parse(r.text || '{}'));
         if (parsed.high.length >= 3 && parsed.lowDay.length >= 3) {
