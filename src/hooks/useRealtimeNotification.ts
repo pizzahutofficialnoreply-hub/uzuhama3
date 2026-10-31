@@ -1,10 +1,15 @@
 import { useEffect, useRef } from 'react';
-import { BroadcastLog } from '../types';
-import { calculateTodayPeakMinute } from '../utils/probability';
+import { BroadcastLog, SystemConfig } from '../types';
+import { calculateTodayPeakMinute, kstParts } from '../utils/probability';
 
 const DAILY_NOTIF_KEY = 'uzuhama_daily_prob_notif_date_v1';
 
-export function useRealtimeNotification(logs: BroadcastLog[]) {
+export function useRealtimeNotification(logs: BroadcastLog[], system?: SystemConfig) {
+  // 매 렌더마다 새 배열이 들어와도 타이머가 재생성되지 않도록 ref 로 최신 값만 유지
+  const logsRef = useRef(logs);
+  const systemRef = useRef(system);
+  logsRef.current = logs;
+  systemRef.current = system;
   // 브라우저 네이티브 알림 팝업 트리거 함수 (iOS 및 Android/데스크톱 호환)
   const triggerNativeNotification = async (title: string, body: string, url: string = '/', tag?: string) => {
     if (typeof window === 'undefined') return;
@@ -102,11 +107,11 @@ export function useRealtimeNotification(logs: BroadcastLog[]) {
 
       if (!notifyPeak) return;
 
-      const peakData = calculateTodayPeakMinute(logs, now);
+      const peakData = calculateTodayPeakMinute(logsRef.current, now, systemRef.current);
       if (!peakData) return;
 
       const { peakMinute, formattedTime } = peakData;
-      const currentMinute = now.getHours() * 60 + now.getMinutes();
+      const currentMinute = kstParts(now).minute;
       
       // 최고 확률 시간 기준 남은 시간 계산
       let diff = peakMinute - currentMinute;
@@ -137,7 +142,7 @@ export function useRealtimeNotification(logs: BroadcastLog[]) {
     checkPeakProbability();
     const interval = setInterval(checkPeakProbability, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [logs]);
+  }, []);
 
   return { triggerNativeNotification };
 }

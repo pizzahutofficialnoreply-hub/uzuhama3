@@ -156,12 +156,18 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
 
   // 몰아보기 펼치면 첫번째 영상으로 자동 부드러운 스크롤
   useEffect(() => {
+    // 펼침 높이 애니메이션(0.35s)이 끝난 뒤, 이 패널 안의 첫 영상이 상단 헤더 바로 아래에 오도록 스크롤
     const timer = setTimeout(() => {
-      const firstItem = document.getElementById('first-broadcast-item');
-      if (firstItem) {
-        firstItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const root = containerRef.current;
+      const firstItem = root?.querySelector<HTMLElement>('#first-broadcast-item') || root;
+      if (!firstItem) return;
+      const header = document.querySelector('header');
+      const headerOffset = (header?.getBoundingClientRect().bottom ?? 64) + 12;
+      const top = firstItem.getBoundingClientRect().top + window.scrollY - headerOffset;
+      if (Math.abs(top - window.scrollY) > 8) {
+        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
       }
-    }, 250);
+    }, 420);
     return () => clearTimeout(timer);
   }, []);
 

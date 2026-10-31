@@ -126,6 +126,58 @@ async function loadHistoricalLogs(): Promise<Record<string, BroadcastLog>> {
   }
 }
 
+
+// 카테고리 칸에 게임명이 잘못 들어간 경우 판별 (Firestore 옛 아카이브 사본 등)
+const catKey = (s: any) => String(s || '').replace(/\s+/g, '').toLowerCase();
+const GENRE_WORDS = ['종합', '액션', '어드벤처', '인디', '캐주얼', '시뮬레이션', '전략', '웹', '플래시', '스포츠', '노가리', '공포', '퀴즈', '레이싱', 'rpg', '로그라이크', '퍼즐', '시참', '모바일', '온라인', '생존', 'fps', '슈팅', '롤플레잉'];
+function looksLikeGameName(cat: any, names: string[]): boolean {
+  const k = catKey(cat);
+  if (!k) return true;
+  if (String(cat).split(',').some((t) => GENRE_WORDS.includes(catKey(t)))) return false;
+  if (/^[\d.]+$/.test(k)) return true;
+  return names.some((n) => {
+    const nk = catKey(n);
+    return nk && (nk === k || (k.length >= 4 && (nk.includes(k) || k.includes(nk))));
+  });
+}
+
+/** Firestore 로그를 JSON 원본 위에 병합하되, 게임명으로 오염된 카테고리는 원본 장르를 유지 */
+function mergeLogPreservingCategories(base: BroadcastLog, incoming: any): BroadcastLog {
+  const baseGames: any[] = Array.isArray(base.games) ? base.games : [];
+  const names = [
+    ...(Array.isArray(incoming.games) ? incoming.games.map((g: any) => g?.name) : []),
+    ...baseGames.map((g: any) => g?.name),
+    incoming.game,
+    base.game,
+  ].filter(Boolean);
+
+  const games = Array.isArray(incoming.games) && incoming.games.length > 0
+    ? incoming.games.map((g: any) => {
+        const matched = baseGames.find((eg: any) => eg?.name && g?.name && catKey(eg.name) === catKey(g.name));
+        const link = g.link || g.url || g.gameUrl || g.steamUrl || matched?.link || '';
+        const category = g.category && !looksLikeGameName(g.category, [g.name]) ? g.category : (matched?.category || g.category || '');
+        return { ...g, link, category };
+      })
+    : baseGames;
+
+  const fixItems = (inc: any[] | undefined, orig: any[] | undefined) =>
+    Array.isArray(inc)
+      ? inc.map((item: any, i: number) => {
+          if (!item || !item.category || !looksLikeGameName(item.category, names)) return item;
+          const o = Array.isArray(orig) ? (orig.find((x: any) => x?.url && x.url === item.url) || orig[i]) : undefined;
+          return { ...item, category: o?.category && !looksLikeGameName(o.category, names) ? o.category : '' };
+        })
+      : inc;
+
+  const merged: any = { ...base, ...incoming, games, id: base.id };
+  if (incoming.category && looksLikeGameName(incoming.category, names) && base.category) {
+    merged.category = base.category;
+  }
+  merged.vods = fixItems(incoming.vods, base.vods) ?? base.vods;
+  merged.edited = fixItems(incoming.edited, base.edited) ?? base.edited;
+  return merged as BroadcastLog;
+}
+
 export function useFirebaseData() {
   const [data, setData] = useState<AppData | null>(null);
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
@@ -172,25 +224,7 @@ export function useFirebaseData() {
               // 기존 JSON 로그가 있는 경우: Firestore의 수정사항을 확실하게 덮어씌우되, 게임 링크 손실 방지
               const existingJsonLog = logsMap[logItem.id] || Object.values(logsMap).find(l => l.date === logItem.date);
               if (existingJsonLog) {
-                let mergedGames = Array.isArray(logItem.games) && logItem.games.length > 0
-                  ? logItem.games.map((g: any) => {
-                      let link = g.link || g.url || g.gameUrl || g.steamUrl || '';
-                      if (!link && Array.isArray(existingJsonLog.games)) {
-                        const matched = existingJsonLog.games.find((eg: any) => 
-                          eg.name && g.name && eg.name.trim().toLowerCase() === g.name.trim().toLowerCase()
-                        );
-                        if (matched?.link) link = matched.link;
-                      }
-                      return { ...g, link };
-                    })
-                  : (existingJsonLog.games || []);
-
-                logsMap[existingJsonLog.id] = {
-                  ...existingJsonLog,
-                  ...logItem,
-                  games: mergedGames,
-                  id: existingJsonLog.id
-                };
+                logsMap[existingJsonLog.id] = mergeLogPreservingCategories(existingJsonLog, logItem);
               } else {
                 if (Array.isArray(logItem.games)) {
                   logItem.games = logItem.games.map((g: any) => ({
@@ -217,19 +251,7 @@ export function useFirebaseData() {
               if (!val || !(val.date || val.id)) return;
               const existing = logsMap[logId] || Object.values(logsMap).find(l => l.date === val.date);
               if (existing) {
-                let mergedGames = Array.isArray(val.games) && val.games.length > 0
-                  ? val.games.map((g: any) => {
-                      let link = g.link || g.url || g.gameUrl || g.steamUrl || '';
-                      if (!link && Array.isArray(existing.games)) {
-                        const matched = existing.games.find((eg: any) =>
-                          eg.name && g.name && eg.name.trim().toLowerCase() === g.name.trim().toLowerCase()
-                        );
-                        if (matched?.link) link = matched.link;
-                      }
-                      return { ...g, link };
-                    })
-                  : (existing.games || []);
-                logsMap[existing.id] = { ...existing, ...val, games: mergedGames, id: existing.id };
+                logsMap[existing.id] = mergeLogPreservingCategories(existing, val);
               } else {
                 if (Array.isArray(val.games)) {
                   val.games = val.games.map((g: any) => ({

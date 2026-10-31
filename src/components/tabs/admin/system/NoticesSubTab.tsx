@@ -76,6 +76,9 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
             type: (noticeForm.type as any) || 'both',
             dismissMode: noticeForm.dismissMode || 'session',
           };
+          const nextPrefix = (noticeForm.prefix || '').trim();
+          if (nextPrefix) updated.prefix = nextPrefix;
+          else delete updated.prefix;
           if (firstLink?.url) {
             updated.linkUrl = firstLink.url;
             updated.linkText = firstLink.title || firstLink.url;
@@ -103,6 +106,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
         content: noticeForm.content!.trim(),
         type: (noticeForm.type as any) || 'both',
         dismissMode: noticeForm.dismissMode || 'session',
+        ...((noticeForm.prefix || '').trim() ? { prefix: (noticeForm.prefix || '').trim() } : {}),
         date: format(new Date(), 'yyyy-MM-dd'),
         active: true,
         ...(firstLink?.url ? { linkUrl: firstLink.url, linkText: firstLink.title || firstLink.url } : {}),
@@ -122,6 +126,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
       content: notice.content,
       type: notice.type || 'both',
       dismissMode: notice.dismissMode || 'session',
+      prefix: notice.prefix || '',
       linkUrl: notice.linkUrl || '',
       linkText: notice.linkText || ''
     });
@@ -314,6 +319,49 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
                 <option value="session">영구 표시 (새로고침/재접속 시 다시 표시) [기본]</option>
                 <option value="permanent">일회성 표시 (한번 X로 닫으면 계속 숨김)</option>
               </select>
+            </div>
+          </div>
+
+          <div className="mb-3">
+            <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">띠 공지 앞머리</label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <input
+                type="text"
+                value={noticeForm.prefix || ''}
+                onChange={e => setNoticeForm(p => ({ ...p, prefix: e.target.value }))}
+                placeholder={`비우면 기본값 ${systemEdit.defaultNoticePrefix || '[공지]'}`}
+                maxLength={12}
+                className="w-40 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white"
+              />
+              {['[공지]', '[안내]', '[업데이트]', '[이벤트]', '[긴급]'].map(tag => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setNoticeForm(p => ({ ...p, prefix: tag }))}
+                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${(noticeForm.prefix || '') === tag ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'}`}
+                >
+                  {tag}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setNoticeForm(p => ({ ...p, prefix: '' }))}
+                className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+              >
+                기본값
+              </button>
+            </div>
+            <div className="flex items-center gap-2 mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+              <span>전체 기본 앞머리</span>
+              <input
+                type="text"
+                value={systemEdit.defaultNoticePrefix || ''}
+                onChange={e => handleChange('defaultNoticePrefix', e.target.value)}
+                placeholder="[공지]"
+                maxLength={12}
+                className="w-28 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 text-[11px] text-zinc-900 dark:text-white"
+              />
+              <span>(공지별 앞머리가 비어 있을 때 사용 · 아래 저장 버튼으로 반영)</span>
             </div>
           </div>
 

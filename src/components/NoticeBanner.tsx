@@ -37,6 +37,7 @@ interface NoticeBannerProps {
   isHeaderHidden?: boolean;
   onExpandedChange?: (isExpanded: boolean) => void;
   systemDismissMode?: 'session' | 'permanent';
+  defaultPrefix?: string;
 }
 
 export const NoticeBanner: React.FC<NoticeBannerProps> = ({ 
@@ -48,8 +49,10 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
   activeTab,
   isHeaderHidden = false,
   onExpandedChange,
-  systemDismissMode = 'session'
+  systemDismissMode = 'session',
+  defaultPrefix
 }) => {
+  const basePrefix = (defaultPrefix || '').trim() || '[공지]';
   // 1. 일회성 표시 (permanent): localStorage 저장
   const [permanentDismissedIds, setPermanentDismissedIds] = useState<string[]>(() => {
     try {
@@ -145,7 +148,7 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
         ? n.links
         : (n.linkUrl ? [{ url: n.linkUrl, title: n.linkText || '자세히 보기' }] : []),
       color: 'default',
-      badgeText: '[공지]',
+      badgeText: (n.prefix || '').trim() || basePrefix,
       dismissable: true,
       dismissMode: n.dismissMode || systemDismissMode
     });
@@ -159,7 +162,7 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
       title: '공지사항',
       content: fallbackContent,
       color: 'default',
-      badgeText: '[공지]',
+      badgeText: basePrefix,
       dismissable: true,
       dismissMode: 'session'
     });

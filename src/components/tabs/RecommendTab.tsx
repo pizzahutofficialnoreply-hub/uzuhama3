@@ -1078,65 +1078,81 @@ export function RecommendTab({
     return Array.from(videoMap.values());
   }, [data]);
 
-  const categories = useMemo(() => {
-    const cats = new Set<string>();
-    const knownGameNames = new Set<string>();
-
-    allVideos.forEach(v => {
-      if (v.parentLog?.game) knownGameNames.add(v.parentLog.game.trim().toLowerCase());
-      v.parentLog?.games?.forEach((g: any) => {
-        if (g?.name) knownGameNames.add(g.name.trim().toLowerCase());
-      });
-      v.games?.forEach((g: any) => {
-        if (g?.name) knownGameNames.add(g.name.trim().toLowerCase());
-      });
-    });
-
-    const recognizedGenres = new Set([
-      '종합', '액션', '어드벤처', '인디', '캐주얼', '시뮬레이션', '전략', '웹', '플래시', '스포츠', 
-      '앞서 해보기', '노가리', '공포', '퀴즈', '레이싱', 'rpg', '로그라이크', '퍼즐', '8번출구류', 
-      '미연시', '시뮬레이터', '팬게임', '시참', '교육', '스토리', '아포칼립스', '온라인', 
-      '대규모 멀티플레이어', '병맛', '모바일', '도서', '그래픽 및 디자인', '이상형월드컵', 'mbti', 
-      '단어', '가족', 'moba', '생존', 'fps', '슈팅', '롤플레잉', '배틀로얄'
+  // 카테고리 사전: 게임 장르(games[].category)를 기준으로 만들고, 게임명이 섞여 들어간 값은 제외
+  const categoryIndex = useMemo(() => {
+    const normKey = (c: string) => c.replace(/\s+/g, '').toLowerCase();
+    const recognized = new Set([
+      '종합', '액션', '어드벤처', '인디', '캐주얼', '시뮬레이션', '전략', '웹', '플래시', '스포츠',
+      '앞서해보기', '노가리', '공포', '퀴즈', '레이싱', 'rpg', '로그라이크', '퍼즐', '8번출구류',
+      '미연시', '연애시뮬레이션', '시뮬레이터', '팬게임', '시참', '교육', '스토리', '아포칼립스', '온라인',
+      '대규모멀티플레이어', '병맛', '모바일', '도서', '그래픽및디자인', '이상형월드컵', 'mbti',
+      '단어', '가족', 'moba', '생존', 'fps', '슈팅', '롤플레잉', '배틀로얄', 'ai', '마추기아이오'
     ]);
-
-    const addCats = (catStr?: string) => {
-      if (!catStr) return;
-      catStr.split(',').map(c => c.trim()).filter(Boolean).forEach(c => {
-        if (c === '수박게임') {
-          cats.add('캐주얼');
-          cats.add('퍼즐');
-          return;
-        }
-        if (c === '오버워치' || c === '발로란트') {
-          cats.add('FPS');
-          cats.add('액션');
-          return;
-        }
-        if (c === '마추기아이오') {
-          cats.add('웹');
-          cats.add('퀴즈');
-          return;
-        }
-        const cLower = c.toLowerCase();
-        // 게임명이 카테고리로 잘못 들어간 경우(인식된 장르가 아니면서 게임명과 일치) 제외
-        if (!recognizedGenres.has(cLower) && knownGameNames.has(cLower)) {
-          return;
-        }
-        cats.add(c);
-      });
+    const aliases: Record<string, string[]> = {
+      '수박게임': ['캐주얼', '퍼즐'],
+      '오버워치': ['FPS', '액션'],
+      '발로란트': ['FPS', '액션'],
     };
 
-    allVideos.forEach(v => {
-      addCats(v.category);
-      addCats(v.parentLog?.category);
-      v.parentLog?.games?.forEach((g: any) => addCats(g.category));
-      v.games?.forEach((g: any) => addCats(g.category));
+    const gameKeys = new Set<string>();
+    const owners = new Map<string, Set<string>>(); // 카테고리 → 이 카테고리를 쓰는 게임들
+    const display = new Map<string, string>();
+    const collectGame = (g: any) => {
+      if (!g?.name) return;
+      const gk = normKey(String(g.name));
+      gameKeys.add(gk);
+      String(g.category || '').split(',').map((c) => c.trim()).filter(Boolean).forEach((c) => {
+        const k = normKey(c);
+        if (!owners.has(k)) owners.set(k, new Set());
+        owners.get(k)!.add(gk);
+        if (!display.has(k)) display.set(k, c);
+      });
+    };
+    allVideos.forEach((v) => {
+      if (v.parentLog?.game) gameKeys.add(normKey(String(v.parentLog.game)));
+      v.parentLog?.games?.forEach(collectGame);
+      v.games?.forEach(collectGame);
     });
 
-    const otherCats = Array.from(cats).filter(c => c !== '몰아보기' && c !== '전체').sort();
-    return ['전체', '몰아보기', ...otherCats];
+    const resolve = (raw: string): string[] => {
+      const c = raw.trim();
+      if (!c) return [];
+      const k = normKey(c);
+      if (aliases[c]) return aliases[c];
+      if (k.length < 2 || /^[\d.]+$/.test(k)) return [];
+      if (recognized.has(k)) return [display.get(k) || c];
+      if (gameKeys.has(k)) return [];
+      for (const gk of gameKeys) {
+        if (k.length >= 4 && (gk.includes(k) || k.includes(gk))) return [];
+      }
+      // 여러 게임에서 장르로 쓰인 값만 카테고리로 인정 (한 게임 전용 값은 게임명일 가능성이 큼)
+      const o = owners.get(k);
+      if (o && o.size >= 2) return [display.get(k) || c];
+      return [];
+    };
+    const tokensOf = (catStr?: string) =>
+      catStr ? catStr.split(',').flatMap((c) => resolve(c)) : [];
+    const videoTokens = (v: any): string[] => {
+      const out = new Set<string>();
+      tokensOf(v.category).forEach((t) => out.add(t));
+      tokensOf(v.parentLog?.category).forEach((t) => out.add(t));
+      v.parentLog?.games?.forEach((g: any) => tokensOf(g?.category).forEach((t) => out.add(t)));
+      v.games?.forEach((g: any) => tokensOf(g?.category).forEach((t) => out.add(t)));
+      return Array.from(out);
+    };
+    return { videoTokens };
   }, [allVideos]);
+
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>();
+    allVideos.forEach((v) => {
+      categoryIndex.videoTokens(v).forEach((t) => counts.set(t, (counts.get(t) || 0) + 1));
+    });
+    const otherCats = Array.from(counts.keys())
+      .filter((c) => c !== '몰아보기' && c !== '전체')
+      .sort((a, b) => a.localeCompare(b, 'ko'));
+    return ['전체', '몰아보기', ...otherCats];
+  }, [allVideos, categoryIndex]);
 
   const recommended = useMemo(() => {
     if (allVideos.length === 0) return [];
@@ -1148,21 +1164,8 @@ export function RecommendTab({
         if (selectedCategories.includes('몰아보기') && v.isCompilation) {
           return true;
         }
-        const hasCat = (catStr?: string) => {
-          if (!catStr) return false;
-          return catStr.split(',').map(c => c.trim()).some(c => {
-            if (selectedCategories.includes(c)) return true;
-            if (c === '수박게임' && (selectedCategories.includes('캐주얼') || selectedCategories.includes('퍼즐'))) return true;
-            if ((c === '오버워치' || c === '발로란트') && (selectedCategories.includes('FPS') || selectedCategories.includes('액션') || selectedCategories.includes('슈팅'))) return true;
-            if (c === '마추기아이오' && (selectedCategories.includes('웹') || selectedCategories.includes('퀴즈'))) return true;
-            return false;
-          });
-        };
-        // 상위 로그, games, 그리고 video 자체의 카테고리 모두 정밀 대조
-        if (hasCat(v.category)) return true;
-        if (hasCat(v.parentLog?.category)) return true;
-        if (v.parentLog?.games?.some((g: any) => hasCat(g.category))) return true;
-        if (v.games?.some((g: any) => hasCat(g.category))) return true;
+        const tokens = categoryIndex.videoTokens(v);
+        if (tokens.some((t) => selectedCategories.includes(t))) return true;
         return false;
       });
     }
@@ -1424,7 +1427,7 @@ export function RecommendTab({
     }
 
     return scoredVids;
-  }, [allVideos, selectedCategories, searchTerm, shuffleSeed, sortOrder, pinnedVideoId]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, categoryIndex, selectedCategories, searchTerm, shuffleSeed, sortOrder, pinnedVideoId]); // Removed ratings and history to prevent jumping on watch
 
   const handleRefresh = () => {
     Object.keys(baseWeights.current).forEach(id => {

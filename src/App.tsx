@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink, AlertTriangle, CheckCircle2, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -50,7 +50,8 @@ function MainApp() {
   const { data, loading, loadingProgress, loadingStatusText, isFirstRun, fetchLogsByDateRange, fetchLatestLogs, rateVideo } = useFirebaseData();
   const { isInstallable, promptInstall } = useInstallPrompt();
   const { user, loginWithGoogle, logout } = useAuth();
-  useRealtimeNotification(Object.values(data?.logs || {})); // 실시간 제보 심사 결과 및 최고 확률 안내 알림 수신 브릿지 활성화
+  const logsList = useMemo(() => Object.values(data?.logs || {}), [data?.logs]);
+  useRealtimeNotification(logsList, data?.system); // 실시간 제보 심사 결과 및 최고 확률 안내 알림 수신 브릿지 활성화
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const saved = (localStorage.getItem('uzuhama_active_tab') as Tab) || 'summary';
     // 검색 탭을 마지막으로 앱을 종료했으면 요약 탭에서 시작하도록 강제 리셋
@@ -1008,6 +1009,7 @@ function MainApp() {
             isHeaderHidden={isHeaderHidden}
             onExpandedChange={setIsNoticeExpanded}
             systemDismissMode={data.system?.noticeDismissMode || 'session'}
+            defaultPrefix={data.system?.defaultNoticePrefix}
           />
         );
       })()}
@@ -1026,7 +1028,7 @@ function MainApp() {
               className={cn("mb-8 sm:mb-8 space-y-4", activeTab === 'recommend' && "hidden")}
             >
               <CurrentProbability 
-                logs={Object.values(data.logs)} 
+                logs={logsList} 
                 onProbChange={setCurrentProb} 
                 system={data.system} 
                 onNavigateToRecommend={handleNavigateToRecommend}

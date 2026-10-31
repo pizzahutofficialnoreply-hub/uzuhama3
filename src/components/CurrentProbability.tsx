@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { format, parseISO, differenceInDays, subDays } from "date-fns";
+import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { BroadcastLog, SystemConfig } from "../types";
 import {
@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { cn, attachKoreanParticle, autoFixKoreanParticles } from "../utils";
+import { cn, attachKoreanParticle } from "../utils";
+import { computeBroadcastProbability, formatClockMinute, kstParts } from "../utils/probability";
 import { extractYoutubeId } from "../utils/urlUtils";
 import { motion, AnimatePresence } from "motion/react";
 import { IllnessInfoModal } from "./IllnessInfoModal";
@@ -140,36 +141,8 @@ export function CurrentProbability({
     }
   }
 
-  const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
-  const currentDayIndex = currentTime.getDay();
-  const currentDayName = dayNames[currentDayIndex];
-
-  // 1. 상세 분석 탭과 100% 동일한 데이터(생방일 + 휴방일 전체 일자)를 기반으로 요일별 실제 방송 진행률 산출
-  let totalWeight = 0;
-  const dayWeights = [0, 0, 0, 0, 0, 0, 0];
-  const timeFreqByDay: Record<number, { minute: number; weight: number }[]> = {
-    0: [],
-    1: [],
-    2: [],
-    3: [],
-    4: [],
-    5: [],
-    6: [],
-  };
-  let lastLogDate: Date | null = null;
-  let hasStreamedYesterday = false;
-  let hasStreamedTwoDaysAgo = false;
-  let hasStreamedToday = false;
-
-  const todayStr = format(currentTime, "yyyy-MM-dd");
-  const yesterdayStr = format(
-    new Date(currentTime.getTime() - 24 * 60 * 60 * 1000),
-    "yyyy-MM-dd",
-  );
-  const twoDaysAgoStr = format(
-    new Date(currentTime.getTime() - 2 * 24 * 60 * 60 * 1000),
-    "yyyy-MM-dd",
-  );
+  const currentDayName = ["일", "월", "화", "수", "목", "금", "토"][kstParts(currentTime).dow];
+  const isLive = liveData?.status === "OPEN";
 
   // 추천 영상 후보군 추출 (영상 제목 등은 노출하지 않고 '이 영상' 텍스트 클릭 시 맨 위로 띄움)
   const candidateVideos = useMemo(() => {
@@ -197,378 +170,65 @@ export function CurrentProbability({
     }
   }, [candidateVideos]);
 
-  // 상세 분석 탭과 동일한 일자 범위 집계 (생방일 + 휴방일 전체 일자 포함)
-  const weekdayOccurrenceMap: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
-  const uniqueDatesByWeekday: Record<number, Set<string>> = {
-    0: new Set(), 1: new Set(), 2: new Set(), 3: new Set(), 4: new Set(), 5: new Set(), 6: new Set()
-  };
-
-  const allDates = logs.map(l => l.date).filter(Boolean).sort();
-  const earliestDateStr = allDates.length > 0 ? allDates[0] : format(subDays(currentTime, 180), "yyyy-MM-dd");
-  const rangeStartDate = parseISO(earliestDateStr);
-
-  if (!isNaN(rangeStartDate.getTime())) {
-    const cursor = new Date(rangeStartDate);
-    while (cursor <= currentTime) {
-      weekdayOccurrenceMap[cursor.getDay()]++;
-      cursor.setDate(cursor.getDate() + 1);
-    }
-  }
-
-  streamLogs.forEach((log) => {
-    try {
-      if (!log.date) return;
-      const d = parseISO(log.date);
-      const diffDays = differenceInDays(currentTime, d);
-      if (diffDays < 0) return;
-      // Exponential weight (Lambda ~0.023 -> Half life 30 days)
-      const weight = Math.exp(-0.023 * diffDays);
-
-      if (log.date === todayStr) hasStreamedToday = true;
-      if (log.date === yesterdayStr) hasStreamedYesterday = true;
-      if (log.date === twoDaysAgoStr) hasStreamedTwoDaysAgo = true;
-
-      if (!lastLogDate || d > lastLogDate) lastLogDate = d;
-      const dayIdx = d.getDay();
-      if (isNaN(dayIdx)) return;
-      dayWeights[dayIdx] += weight;
-      totalWeight += weight;
-      uniqueDatesByWeekday[dayIdx].add(log.date);
-
-      if (!log.time) return;
-      const [h, m] = log.time.split(":").map(Number);
-      if (!isNaN(h) && !isNaN(m)) {
-        const timeInMins = h * 60 + m;
-        timeFreqByDay[dayIdx].push({ minute: timeInMins, weight });
-      }
-    } catch (e) {}
-  });
-
-  // 1. 오늘 요일의 전체 통계 방송 진행 확률 (상세 분석 탭과 100% 동일한 전체 일자 기반 기준)
-  const todayTotalOccurrences = weekdayOccurrenceMap[currentDayIndex] || 1;
-  const todayBroadcastDays = uniqueDatesByWeekday[currentDayIndex].size;
-  const allTimeDayRate = todayTotalOccurrences > 0
-    ? Math.min(100, (todayBroadcastDays / todayTotalOccurrences) * 100)
-    : (totalWeight > 0 ? (dayWeights[currentDayIndex] / totalWeight) * 100 : 0);
-
-  // 2. 최근 60일 기준 요일 방송 확률 (최근 60일 비중 60% 반영)
-  const sixtyDaysAgo = subDays(currentTime, 60);
-  let recent60WeekdayOccurrences = 0;
-  const recent60WeekdayStreams = new Set<string>();
-
-  const cur60 = new Date(sixtyDaysAgo);
-  cur60.setHours(0, 0, 0, 0);
-  const curToday = new Date(currentTime);
-  curToday.setHours(0, 0, 0, 0);
-
-  while (cur60 <= curToday) {
-    if (cur60.getDay() === currentDayIndex) {
-      recent60WeekdayOccurrences++;
-    }
-    cur60.setDate(cur60.getDate() + 1);
-  }
-
-  streamLogs.forEach((l) => {
-    if (!l.date) return;
-    try {
-      const d = parseISO(l.date);
-      if (d >= sixtyDaysAgo && d <= currentTime && d.getDay() === currentDayIndex) {
-        recent60WeekdayStreams.add(l.date);
-      }
-    } catch {}
-  });
-
-  const recent60BroadcastCount = recent60WeekdayStreams.size;
-  const recent60DayRate = recent60WeekdayOccurrences > 0
-    ? Math.min(100, (recent60BroadcastCount / recent60WeekdayOccurrences) * 100)
-    : allTimeDayRate;
-
-  // 최근 60일 비중 가중 요일 확률 (최근 60일 트렌드 60%, 전체 통계 40%)
-  const weightedDayProb = Math.round(((allTimeDayRate * 0.4) + (recent60DayRate * 0.6)) * 10) / 10;
-  const baseProb = weightedDayProb;
-
-  const calculateDensity = (
-    dayIdx: number,
-    targetMinute: number,
-    useGlobal: boolean = false,
-  ) => {
-    let density = 0;
-    let totalPtsWeight = 0;
-    const points = useGlobal
-      ? Object.values(timeFreqByDay).reduce((a, b) => a.concat(b), [])
-      : timeFreqByDay[dayIdx];
-    if (!points || points.length === 0) return 0;
-
-    points.forEach((pt) => {
-      let dist = Math.abs(targetMinute - pt.minute);
-      if (dist > 720) dist = 1440 - dist;
-      density += pt.weight * Math.exp(-(dist * dist) / (2 * 45 * 45)); // 45 min variance
-      totalPtsWeight += pt.weight;
-    });
-    return totalPtsWeight > 0 ? (density / totalPtsWeight) * 100 : 0;
-  };
-
-  // 한국 표준시(UTC+9) 강제 고정
-  const currentMinuteOfDay =
-    (currentTime.getUTCHours() * 60 + currentTime.getUTCMinutes() + 540) % 1440;
-
-  // 2. Lagged Time Shift (Cooldown & Late End)
-  let shiftMinutes = 0;
-  let cooldownActive = false;
-  if (recentEndTime) {
-    const hoursSinceEnd =
-      (currentTime.getTime() - recentEndTime.getTime()) / (1000 * 60 * 60);
-    if (hoursSinceEnd >= 0 && hoursSinceEnd < 8) {
-      cooldownActive = true;
-    }
-    const endHour = recentEndTime.getHours();
-    if (endHour < 12) {
-      if (endHour > 2 && endHour <= 10) {
-        shiftMinutes = (endHour - 2) * 60; // Shift peaks proportional to late end
-      }
-    }
-  }
-
-  const findPeaks = (dayIdx: number, useGlobal: boolean = false) => {
-    const peaks = [];
-    const windowSize = 60;
-    const densities = [];
-    for (let m = 0; m < 1440; m += 5) {
-      densities.push({
-        minute: m,
-        density: calculateDensity(dayIdx, m, useGlobal),
-      });
-    }
-
-    densities.sort((a, b) => b.density - a.density);
-
-    for (const d of densities) {
-      if (d.density < 2) continue;
-
-      let tooClose = false;
-      for (const p of peaks) {
-        let dist = Math.abs(d.minute - p.minute);
-        if (dist > 720) dist = 1440 - dist;
-        if (dist < windowSize) {
-          tooClose = true;
-          break;
-        }
-      }
-      if (!tooClose) {
-        peaks.push(d);
-        if (peaks.length >= 3) break;
-      }
-    }
-
-    // Apply shift
-    const shiftedPeaks = peaks
-      .map((p) => ({
-        minute: (p.minute + shiftMinutes) % 1440,
-        density: p.density,
-      }))
-      .sort((a, b) => a.minute - b.minute);
-
-    return shiftedPeaks;
-  };
-
-  const todayPeaks = findPeaks(currentDayIndex, true);
-
-  let nextPeak = null;
-  let isToday = true;
-
-  for (const p of todayPeaks) {
-    if (p.minute > currentMinuteOfDay) {
-      nextPeak = p;
-      break;
-    }
-  }
-
-  if (!nextPeak) {
-    const tomorrowIdx = (currentDayIndex + 1) % 7;
-    const tomorrowPeaks = findPeaks(tomorrowIdx, true);
-    if (tomorrowPeaks.length > 0) {
-      nextPeak = tomorrowPeaks[0];
-      isToday = false;
-    }
-  }
-
-  // Calculate Base Probability
-  // 시간대별 밀도 분포 산출
-  const unshiftedMinute = (currentMinuteOfDay - shiftMinutes + 1440) % 1440;
-  const globalTimeScore = calculateDensity(
-    currentDayIndex,
-    unshiftedMinute,
-    true,
+  // ── 확률 엔진 (utils/probability.ts: 메인 카드 · 자세히 보기 · 알림 공통) ──
+  const prob = useMemo(
+    () => computeBroadcastProbability(logs, currentTime, { system, isLive }),
+    [logs, currentTime, system, isLive],
   );
+  const finalProb = prob.finalProb;
+  const daysSinceLastStream = prob.gap.daysSince ?? 0;
+  const hasStreamedToday = prob.pattern.state === "streamedToday";
+  const isAbsencePeriod = prob.pattern.state === "absence";
 
-  // 하루 중 최고 밀도 값 산출
-  let maxTimeDensity = 1;
-  for (let m = 0; m < 1440; m += 15) {
-    const d = calculateDensity(currentDayIndex, m, true);
-    if (d > maxTimeDensity) maxTimeDensity = d;
-  }
-
-  // 현재 시간대의 시간 밀도 비율 (유력 시간대일수록 1.0에 수렴)
-  const densityRatio = maxTimeDensity > 0 ? Math.min(1.0, globalTimeScore / maxTimeDensity) : 0.5;
-
-  // 1. 기본 통계 확률: 상세 분석 탭 전체 요일 확률과 최근 60일 비중(60%)이 가중 합산된 요일 기준 확률
-  // (baseProb 및 weightedDayProb는 위에서 정밀 산출됨)
-
-  // 2. 실시간 시간대별 확률 보정 포인트 (현재 시간대 밀도 및 집중도 반영)
-  let timeModifier = 0;
-  if (maxTimeDensity > 0) {
-    // 피크 시간대(유력 시간대) 집중도 반영: 높은 집중도일수록 가산, 새벽/오전 미방송 시간대는 감산
-    timeModifier = Math.round((Math.pow(densityRatio, 0.75) - 0.38) * 35 * 10) / 10;
-  }
-  const curHourCheck = currentTime.getHours();
-  if (curHourCheck >= 3 && curHourCheck <= 8) {
-    timeModifier = Math.min(timeModifier, -18.0);
-  }
-
-  // 3. 최근 패턴 분석
+  // ── 상태 메시지 ──
   let patternMessage = "";
-  let daysSinceLastStream = 0;
-
-  if (lastLogDate) {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    const ld = new Date(lastLogDate);
-    ld.setHours(0, 0, 0, 0);
-    daysSinceLastStream = differenceInDays(d, ld);
-  }
-
-  let patternModifier = 0;
+  const isIllness = system?.absenceReason === "병명";
+  const activeIllnessName = isIllness ? (system?.illnessName || system?.diseaseName) : undefined;
+  const absenceDisplayReason =
+    system?.absenceReason === "기타 (직접 입력)" || system?.absenceReason === "직접 입력"
+      ? system?.customAbsenceReason || ""
+      : isIllness
+        ? activeIllnessName || "건강 문제"
+        : system?.absenceReason || "";
 
   if (hasStreamedToday) {
-    patternModifier = -80;
     patternMessage = "오늘 이미 방송을 진행했습니다.";
-  } else if (cooldownActive) {
-    patternModifier = -70;
-    patternMessage = "휴식 및 쿨타임 시간대입니다.";
-  } else if (recentDuration >= 8 && daysSinceLastStream <= 1) {
-    patternModifier -= 25;
-    patternMessage = `직전 장시간(${recentDuration.toFixed(1)}시간) 방송 여파로 휴식 가능성이 있습니다.`;
-  } else if (
-    recentDuration > 0 &&
-    recentDuration <= 3 &&
-    daysSinceLastStream <= 1
-  ) {
-    patternModifier += 15;
-    patternMessage = `직전 방송이 짧아 빠른 복귀가 예상됩니다.`;
-  } else if (daysSinceLastStream >= 1) {
-    // Check travel/absence period
-    let isTraveling = false;
-    let travelMsg = "";
-    let travelPenalty = -50;
-    
-    if (system?.travelStart && system?.travelEnd) {
-      const start = parseISO(system.travelStart);
-      const end = parseISO(system.travelEnd);
-      if (currentTime >= start && currentTime <= end) {
-        isTraveling = true;
-        
-        const displayReason = system.absenceReason === '기타 (직접 입력)' ? system.customAbsenceReason : system.absenceReason;
-        const increasesProb = ['건강 문제', '컨디션 난조', '여행'].some(kw => system.absenceReason?.includes(kw));
-        
-        if (increasesProb) {
-          travelPenalty = -80;
-        }
-        
-        travelMsg = displayReason 
-          ? `예정된 휴방 기간입니다. 사유: ${displayReason}`
-          : "예정된 휴방/여행 기간입니다.";
-      }
-    }
-
-    if (isTraveling) {
-      patternModifier += travelPenalty;
-      patternMessage = travelMsg;
-    } else if (daysSinceLastStream === 1) {
-      patternModifier += 5;
-      patternMessage = `1일째 미방송: 통상적인 방송 주기 범위 내입니다.`;
-    } else {
-      const isIllness = system?.absenceReason === '병명';
-      const activeIllnessName = isIllness ? (system?.illnessName || system?.diseaseName) : undefined;
-      const displayReason = (system?.absenceReason === '기타 (직접 입력)' || system?.absenceReason === '직접 입력')
-        ? (system?.customAbsenceReason || '직접 입력한 사유') 
-        : (isIllness ? (activeIllnessName || '건강 문제') : system?.absenceReason);
-      
-      if (displayReason) {
-        const reasonWithParticle = attachKoreanParticle(displayReason, '으로/로');
-        patternMessage = `${daysSinceLastStream}일째 ${reasonWithParticle} 일정 조정 중입니다.${system?.absenceDuration ? ` (예상: ${system?.absenceDuration})` : ""}`;
-      } else if (daysSinceLastStream === 2) {
-        patternMessage = `2일째 미방송: 평소 주기보다 조금 긴 간격입니다.`;
-      } else {
-        patternMessage = `${daysSinceLastStream}일 연속 미방송 중입니다.`;
-      }
-    }
-  } else if (hasStreamedYesterday && hasStreamedTwoDaysAgo) {
-    patternModifier = -25;
-    patternMessage = "이틀 연속 방송 진행 후 통계상 쉬어갈 가능성이 있습니다.";
-  } else if (hasStreamedYesterday) {
-    patternModifier = -10;
-    patternMessage = "어제 방송 진행 후 오늘은 간격을 둘 가능성이 있습니다.";
+  } else if (isAbsencePeriod) {
+    const lead = daysSinceLastStream >= 2 ? `${daysSinceLastStream}일째 ` : "";
+    patternMessage = absenceDisplayReason
+      ? `${lead}${attachKoreanParticle(absenceDisplayReason, "으로/로")} 휴방 중입니다.${system?.absenceDuration ? ` (예상: ${system.absenceDuration})` : ""}`
+      : `${lead}예정된 휴방 기간입니다.`;
+  } else if (daysSinceLastStream >= 3) {
+    patternMessage = `${daysSinceLastStream}일 연속 미방송 중입니다.`;
+  } else if (daysSinceLastStream === 2) {
+    patternMessage = "2일째 미방송: 평소엔 이 간격 뒤에 방송이 잦았어요.";
+  } else if (daysSinceLastStream === 1) {
+    patternMessage = "어제 방송을 진행했습니다.";
   }
 
-  // 최종 확률 산출: 기본 요일 확률(전체 데이터) + 실시간 시간대 보정 + 최근 패턴 보정 (거짓 없는 정직한 합산)
-  let rawFinal = baseProb + timeModifier + patternModifier;
-  let finalProb = Math.min(95.0, Math.max(2.0, Math.round(rawFinal * 10) / 10));
-
   useEffect(() => {
-    if (onProbChange) {
-      if (liveData?.status === "OPEN") {
-        onProbChange(100);
-      } else {
-        onProbChange(finalProb);
-      }
-    }
-  }, [finalProb, liveData?.status, onProbChange]);
+    onProbChange?.(isLive ? 100 : finalProb);
+  }, [finalProb, isLive, onProbChange]);
 
   // 15분 단위로 안정적으로 유지되면서도 시간대별로 다채롭게 전환되는 시드 인덱스
   const timeSlotSeed = (currentTime.getHours() * 4 + Math.floor(currentTime.getMinutes() / 15) + currentTime.getDate()) % 15;
 
-  let probabilityLevel = "low";
+  const peakFormattedTime =
+    prob.time.peakMinute !== null ? formatClockMinute(prob.time.peakMinute) : "";
+  const likelyTimeInfo = !prob.time.hasData
+    ? "시간 기록이 부족하여 유력 시간을 분석 중입니다."
+    : prob.dayProb < 10
+      ? ""
+      : prob.time.peakIsToday
+        ? `오늘 유력 시간: ${peakFormattedTime}`
+        : `다음 유력 시간: 내일 ${peakFormattedTime}`;
 
-  let likelyTimeInfo = "";
-  const peakMinute = nextPeak ? (Math.round(nextPeak.minute / 10) * 10) % 1440 : 0;
-  const peakFormattedTime = nextPeak
-    ? format(
-        new Date().setHours(Math.floor(peakMinute / 60), peakMinute % 60),
-        "a h:mm",
-        { locale: ko }
-      )
-    : "";
+  let probabilityLevel: "high" | "medium" | "low" = "low";
+  if (prob.next2hProb >= 25 || finalProb >= 50) probabilityLevel = "high";
+  else if (finalProb >= 25) probabilityLevel = "medium";
 
-  if (nextPeak) {
-    let nextTime = new Date();
-    nextTime.setHours(
-      Math.floor(peakMinute / 60),
-      peakMinute % 60,
-      0,
-      0,
-    );
-    if (!isToday) nextTime.setDate(nextTime.getDate() + 1);
-    const diffHours =
-      (nextTime.getTime() - currentTime.getTime()) / (1000 * 60 * 60);
-
-    if (diffHours < 2 && finalProb > 30) {
-      probabilityLevel = "high";
-    } else if (diffHours <= 4 && finalProb > 20) {
-      probabilityLevel = "medium";
-    } else if (finalProb > 25) {
-      probabilityLevel = "medium";
-    } else {
-      probabilityLevel = "low";
-    }
-
-    // 자세히 보기 표기(오늘 최고 유력 시간)와 100% 동일한 값 및 양식으로 통일
-    likelyTimeInfo = peakFormattedTime ? `오늘 최고 유력 시간: ${peakFormattedTime}` : "";
-  } else {
-    likelyTimeInfo = "데이터가 부족하여 유력 시간을 분석 중입니다.";
-  }
-
-  // 시간대 구분
-  const currentHour = currentTime.getHours();
+  // 시간대 구분 (한국 시간)
+  const currentHour = Math.floor(kstParts(currentTime).minute / 60);
   const isLateNight = currentHour >= 23 || currentHour < 7;
   const isEarlyDay = currentHour >= 7 && currentHour < 17;
 
@@ -597,9 +257,9 @@ export function CurrentProbability({
   // 자연스럽고 따뜻한 멘트 목록 (우주하마 개인 사정 자의적 추측 배제, 너무 딱딱하지 않은 어조)
   let messageContent: React.ReactNode = "";
 
-  if (totalWeight === 0) {
+  if (prob.pattern.state === "noData") {
     messageContent = "방송 기록이 없어 확률을 분석 중입니다.";
-  } else if (hasStreamedToday || cooldownActive) {
+  } else if (hasStreamedToday) {
     messageContent = renderRecommendSpan();
   } else if (probabilityLevel === "high") {
     const HIGH_OPTIONS = [
@@ -747,6 +407,9 @@ export function CurrentProbability({
             {finalProb.toFixed(1)}
             <span className="text-4xl sm:text-5xl ml-1 tracking-normal font-bold" style={{ WebkitTextStroke: '0.45px currentColor' }}>%</span>
           </div>
+          <p className="text-[11.5px] text-zinc-400 dark:text-zinc-500 mt-1">
+            오늘 남은 시간 기준 · 2시간 안 {prob.next2hProb.toFixed(1)}%
+          </p>
         </div>
 
         {likelyTimeInfo && (
@@ -826,189 +489,107 @@ export function CurrentProbability({
               exit={{ height: 0, opacity: 0, marginTop: 0 }}
               className="overflow-hidden w-full border-t border-zinc-100 dark:border-zinc-800/80"
             >
-              <div className="pt-6 pb-2 flex flex-col items-center gap-4 w-full text-sm">
-                {/* 핵심 공식: 전체 요일 통계 + 최근 60일 비중 가중 + 시간대 보정 + 패턴 분석 보정값 = 최종 켜질 확률 */}
-                <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 w-full">
-                  {/* 1. 전체 통계 요일 확률 */}
-                  <div className="flex flex-col items-center p-2.5 sm:p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60 min-w-[95px] sm:min-w-[115px]">
-                    <span className="text-[10.5px] font-semibold text-zinc-500 dark:text-zinc-400 mb-0.5">
-                      전체 요일 통계
-                    </span>
-                    <span className="text-lg sm:text-2xl font-black text-zinc-900 dark:text-white">
-                      {allTimeDayRate.toFixed(1)}%
-                    </span>
-                    <span className="text-[9.5px] text-zinc-400 mt-0.5">
-                      {currentDayName}요일 전체
-                    </span>
-                  </div>
-
-                  <div className="text-zinc-400 dark:text-zinc-500 text-xs sm:text-sm font-bold">
-                    +
-                  </div>
-
-                  {/* 2. 최근 60일 가중치 */}
-                  <div className="flex flex-col items-center p-2.5 sm:p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 min-w-[95px] sm:min-w-[115px]">
-                    <span className="text-[10.5px] font-semibold text-indigo-700 dark:text-indigo-300 mb-0.5">
-                      최근 60일 통계
-                    </span>
-                    <span className="text-lg sm:text-2xl font-black text-indigo-600 dark:text-indigo-400">
-                      {recent60DayRate.toFixed(1)}%
-                    </span>
-                    <span className="text-[9.5px] text-indigo-400/90 dark:text-indigo-300/80 mt-0.5">
-                      60일 비중 60% 반영
-                    </span>
-                  </div>
-
-                  <div className="text-zinc-400 dark:text-zinc-500 text-xs sm:text-sm font-bold">
-                    {timeModifier >= 0 ? "+" : "-"}
-                  </div>
-
-                  {/* 3. 시간대 확률 보정 */}
-                  <div className="flex flex-col items-center p-2.5 sm:p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60 min-w-[95px] sm:min-w-[115px]">
-                    <span className="text-[10.5px] font-semibold text-zinc-500 dark:text-zinc-400 mb-0.5">
-                      시간대별 보정
-                    </span>
-                    <span
-                      className={`text-lg sm:text-2xl font-black ${
-                        timeModifier > 0
-                          ? "text-blue-600 dark:text-blue-400"
-                          : timeModifier < 0
-                          ? "text-amber-600 dark:text-amber-400"
-                          : "text-zinc-800 dark:text-zinc-200"
-                      }`}
-                    >
-                      {timeModifier >= 0 ? `+${timeModifier.toFixed(1)}` : `-${Math.abs(timeModifier).toFixed(1)}`}%p
-                    </span>
-                    <span className="text-[9.5px] text-zinc-400 mt-0.5">
-                      {currentTime.getHours()}시대 집중도
-                    </span>
-                  </div>
-
-                  <div className="text-zinc-400 dark:text-zinc-500 text-xs sm:text-sm font-bold">
-                    {patternModifier >= 0 ? "+" : "-"}
-                  </div>
-
-                  {/* 4. 패턴 분석 보정값 */}
-                  <div className="flex flex-col items-center p-2.5 sm:p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60 min-w-[95px] sm:min-w-[115px]">
-                    <span className="text-[10.5px] font-semibold text-zinc-500 dark:text-zinc-400 mb-0.5">
-                      패턴 분석 보정값
-                    </span>
-                    <span
-                      className={`text-lg sm:text-2xl font-black ${
-                        patternModifier > 0
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : patternModifier < 0
-                          ? "text-rose-600 dark:text-rose-400"
-                          : "text-zinc-800 dark:text-zinc-200"
-                      }`}
-                    >
-                      {patternModifier >= 0 ? `+${patternModifier}` : `-${Math.abs(patternModifier)}`}%p
-                    </span>
-                    <span className="text-[9.5px] text-zinc-400 mt-0.5">
-                      {patternModifier >= 0 ? `+${patternModifier}` : patternModifier}점 보정
-                    </span>
-                  </div>
-
-                  <div className="text-zinc-400 dark:text-zinc-500 text-sm sm:text-base font-bold">
-                    =
-                  </div>
-
-                  {/* 5. 최종 산출 확률 */}
-                  <div className="flex flex-col items-center p-2.5 sm:p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 min-w-[105px] sm:min-w-[125px]">
-                    <span className="text-[10.5px] font-semibold text-purple-700 dark:text-purple-300 mb-0.5">
-                      최종 산출 확률
-                    </span>
-                    <span className="text-lg sm:text-2xl font-black text-purple-600 dark:text-purple-400">
-                      {finalProb.toFixed(1)}%
-                    </span>
-                    <span className="text-[9.5px] text-purple-500/80 dark:text-purple-400/80 mt-0.5 font-medium">
-                      방송 켜질 확률
-                    </span>
-                  </div>
-                </div>
-
-                {/* 실제 계산 방식 상세 표기 (오차 없는 투명한 세부 내역) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-xl text-left pt-2">
-                  {/* 요일 및 시간대 세부 지표 */}
-                  <div className="p-3.5 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/70 dark:border-zinc-700/60 space-y-1.5 text-xs">
-                    <div className="font-bold text-zinc-800 dark:text-zinc-200 flex items-center justify-between pb-1 border-b border-zinc-200/50 dark:border-zinc-700/40">
-                      <span>요일 통계 & 시간대 집중도</span>
-                      <span className="text-blue-600 dark:text-blue-400 font-bold">
-                        {timeModifier >= 0 ? `+${timeModifier.toFixed(1)}` : `${timeModifier.toFixed(1)}`}%p
+              <div className="pt-5 pb-1 w-full max-w-xl mx-auto text-left">
+                {(() => {
+                  const fmtFactor = (f: number) =>
+                    f < 0.05 ? "매우 낮춤" : f === 1 ? "변화 없음" : `×${f.toFixed(2)}`;
+                  const factorTone = (f: number) =>
+                    f > 1.02
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : f < 0.98
+                        ? "text-rose-600 dark:text-rose-400"
+                        : "text-zinc-500 dark:text-zinc-400";
+                  const Row = ({
+                    step,
+                    title,
+                    sub,
+                    value,
+                    valueClass,
+                  }: {
+                    step: string;
+                    title: string;
+                    sub: React.ReactNode;
+                    value: React.ReactNode;
+                    valueClass?: string;
+                  }) => (
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <span className="w-6 h-6 rounded-full bg-zinc-200/70 dark:bg-zinc-700/70 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 flex items-center justify-center shrink-0">
+                        {step}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">{title}</p>
+                        <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 leading-snug break-keep">{sub}</p>
+                      </div>
+                      <span className={cn("text-[15px] font-bold tabular-nums shrink-0", valueClass || "text-zinc-900 dark:text-white")}>
+                        {value}
                       </span>
                     </div>
-                    <div className="space-y-1 text-zinc-500 dark:text-zinc-400 text-[11.5px]">
-                      <div className="flex justify-between">
-                        <span>• 전체 통계 요일 확률 ({currentDayName}):</span>
-                        <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                          {allTimeDayRate.toFixed(1)}% ({todayBroadcastDays}/{todayTotalOccurrences}회)
-                        </span>
+                  );
+                  const Result = ({ label, value, strong }: { label: string; value: string; strong?: boolean }) => (
+                    <div className={cn("flex items-center justify-between px-4 py-3", strong ? "bg-purple-50/80 dark:bg-purple-950/30" : "bg-zinc-100/60 dark:bg-zinc-800/40")}>
+                      <span className={cn("text-[13px] font-semibold", strong ? "text-purple-700 dark:text-purple-300" : "text-zinc-700 dark:text-zinc-200")}>{label}</span>
+                      <span className={cn("text-[17px] font-black tabular-nums", strong ? "text-purple-600 dark:text-purple-400" : "text-zinc-900 dark:text-white")}>{value}</span>
+                    </div>
+                  );
+                  return (
+                    <>
+                      <p className="px-4 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">계산 과정</p>
+                      <div className="rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-700/60 bg-zinc-50 dark:bg-zinc-800/40 divide-y divide-zinc-200/70 dark:divide-zinc-700/50">
+                        <Row
+                          step="1"
+                          title={`${currentDayName}요일 방송 확률`}
+                          sub={`최근 60일 ${currentDayName}요일 ${prob.weekday.recentCount}/${prob.weekday.recentOccurrences}회 (${prob.weekday.recentRate.toFixed(1)}%) · 최근 60일 전체 방송률 ${prob.weekday.recentOverallRate.toFixed(1)}%로 보정`}
+                          value={`${prob.weekday.smoothedRate.toFixed(1)}%`}
+                        />
+                        <Row
+                          step="2"
+                          title="방송 간격 보정"
+                          sub={
+                            prob.gap.daysSince === null
+                              ? "방송 기록 없음"
+                              : `마지막 방송 ${prob.gap.daysSince}일 전 · 같은 간격일 때 방송률 ${prob.gap.sameGapRate.toFixed(1)}% (평균 ${prob.gap.averageRate.toFixed(1)}%)`
+                          }
+                          value={fmtFactor(prob.gap.factor)}
+                          valueClass={factorTone(prob.gap.factor)}
+                        />
+                        <Row
+                          step="3"
+                          title="휴방 · 패턴 보정"
+                          sub={prob.pattern.label}
+                          value={hasStreamedToday ? "방송 완료" : fmtFactor(prob.pattern.factor)}
+                          valueClass={hasStreamedToday ? "text-zinc-500 dark:text-zinc-400" : factorTone(prob.pattern.factor)}
+                        />
+                        <Result label="오늘 방송할 확률" value={`${prob.dayProb.toFixed(1)}%`} />
+                        <Row
+                          step="4"
+                          title="시간대 반영"
+                          sub={
+                            prob.time.hasData
+                              ? `최근 방송 ${prob.time.sampleCount}회의 시작 시각 중 ${prob.time.passedShare.toFixed(0)}%가 이미 지난 시간대`
+                              : "시작 시각 기록이 부족해 기본 분포(오후 8시 ±2시간) 사용"
+                          }
+                          value={`남은 ${prob.time.remainingShare.toFixed(0)}%`}
+                        />
+                        <Result label="지금 이후 켜질 확률" value={`${finalProb.toFixed(1)}%`} strong />
                       </div>
-                      <div className="flex justify-between">
-                        <span>• 최근 60일 {currentDayName}요일 확률:</span>
-                        <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                          {recent60DayRate.toFixed(1)}% ({recent60BroadcastCount}/{recent60WeekdayOccurrences}회)
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>• 60일 비중 가중 요일 확률:</span>
-                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                          {weightedDayProb.toFixed(1)}% (최근 60%, 전체 40%)
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>• 현재 {currentTime.getHours()}시대 밀도 집중도:</span>
-                        <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                          {globalTimeScore.toFixed(1)}점 ({Math.round(densityRatio * 100)}%)
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>• 시간대 확률 보정:</span>
-                        <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                          {timeModifier >= 0 ? `+${timeModifier.toFixed(1)}` : `${timeModifier.toFixed(1)}`}%p
-                        </span>
-                      </div>
-                      {nextPeak && (
-                        <div className="flex justify-between text-purple-600 dark:text-purple-400 font-hanna font-pro">
-                          <span className="font-hanna font-pro">• 오늘 최고 유력 시간:</span>
-                          <span className="font-semibold font-hanna font-pro">
-                            {peakFormattedTime}
-                          </span>
+
+                      <div className="grid grid-cols-2 gap-2 mt-3">
+                        <div className="rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 px-4 py-3">
+                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">2시간 안에 켜질 확률</p>
+                          <p className="text-[17px] font-black text-zinc-900 dark:text-white tabular-nums">{prob.next2hProb.toFixed(1)}%</p>
                         </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 최근 패턴 분석 세부 지표 */}
-                  <div className="p-3.5 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/70 dark:border-zinc-700/60 space-y-1.5 text-xs">
-                    <div className="font-bold text-zinc-800 dark:text-zinc-200 flex items-center justify-between pb-1 border-b border-zinc-200/50 dark:border-zinc-700/40">
-                      <span>최근 방송 패턴 분석 보정</span>
-                      <span className={cn(
-                        "font-bold",
-                        patternModifier > 0 ? "text-emerald-600 dark:text-emerald-400" : patternModifier < 0 ? "text-rose-600 dark:text-rose-400" : "text-zinc-500"
-                      )}>
-                        {patternModifier >= 0 ? `+${patternModifier}` : `${patternModifier}`}%p
-                      </span>
-                    </div>
-                    <div className="space-y-1 text-zinc-500 dark:text-zinc-400 text-[11.5px]">
-                      <p className="leading-snug text-zinc-700 dark:text-zinc-300">
-                        {patternMessage || "특이 패턴 없음 (표준 주기)"}
-                      </p>
-                      <div className="flex justify-between pt-0.5 border-t border-zinc-200/50 dark:border-zinc-700/40">
-                        <span>• 적용 패턴 보정값:</span>
-                        <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                          {patternModifier >= 0 ? `+${patternModifier}` : patternModifier}점 ({patternModifier >= 0 ? `+${patternModifier}` : patternModifier}%p)
-                        </span>
+                        <div className="rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 px-4 py-3">
+                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{prob.time.peakIsToday ? "오늘 유력 시간" : "다음 유력 시간 (내일)"}</p>
+                          <p className="text-[17px] font-black text-purple-600 dark:text-purple-400 font-hanna font-pro">{peakFormattedTime || "-"}</p>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
 
-                {/* 산출 공식 한 줄 요약 */}
-                <div className="w-full max-w-xl px-4 py-2 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-800/40 text-[11.5px] text-zinc-600 dark:text-zinc-300 flex items-center justify-between flex-wrap gap-1 font-hanna font-pro">
-                  <span>산출 공식: 기본 {baseProb.toFixed(1)}% {timeModifier >= 0 ? `+ 시간대 ${timeModifier.toFixed(1)}%p` : `- 시간대 ${Math.abs(timeModifier).toFixed(1)}%p`} {patternModifier >= 0 ? `+ 패턴 ${patternModifier}%p` : `- 패턴 ${Math.abs(patternModifier)}%p`}</span>
-                  <span className="font-bold text-purple-600 dark:text-purple-400 font-hanna font-pro">= 최종 {finalProb.toFixed(1)}%</span>
-                </div>
+                      <p className="px-4 pt-3 text-[11px] text-zinc-400 leading-relaxed break-keep">
+                        참고: 전체 기간 {currentDayName}요일 방송률은 {prob.weekday.allTimeRate.toFixed(1)}% ({prob.weekday.allTimeCount}/{prob.weekday.allTimeOccurrences}회)입니다. 과거 패턴이 지금과 달라 계산에는 넣지 않았어요. 하루는 오전 6시 기준으로 나누며, 계산식은 2025년~2026년 실제 기록으로 검증했습니다.
+                      </p>
+                    </>
+                  );
+                })()}
               </div>
             </motion.div>
           )}
