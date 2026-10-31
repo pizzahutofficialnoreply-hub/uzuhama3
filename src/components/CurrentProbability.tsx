@@ -528,7 +528,7 @@ export function CurrentProbability({
                       sub: prob.time.hasData
                         ? `평소 방송 시작 시각의 ${prob.time.remainingShare.toFixed(0)}%가 아직 남음`
                         : "시작 시각 기록 부족 (기본값 사용)",
-                      value: st.final,
+                      value: finalProb,
                       prev: st.day,
                     },
                   ];
@@ -545,7 +545,7 @@ export function CurrentProbability({
                               </div>
                               <div className="flex flex-col items-end shrink-0">
                                 <span className={cn("text-[16px] font-black tabular-nums", isLast ? "text-purple-600 dark:text-purple-400" : "text-zinc-900 dark:text-white")}>
-                                  {r.value.toFixed(1)}%
+                                  {!isLast && r.value < 0.1 ? "0.1% 미만" : `${r.value.toFixed(1)}%`}
                                 </span>
                                 {r.prev !== undefined && delta(r.value, r.prev)}
                               </div>
