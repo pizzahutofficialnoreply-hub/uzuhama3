@@ -16,6 +16,12 @@ import { PatchNote, PatchCategory } from '../types';
 const LOCAL_STORAGE_KEY = 'uzuhama_patch_notes_v2';
 const DELETED_PATCH_NOTES_KEY = 'uzuhama_patch_notes_deleted_v2';
 
+// 관리자 저장 API: uzuhama.web.app(Firebase Hosting)에는 /api 가 없으므로 Vercel 주소로 호출
+const ADMIN_MUTATE_URL = (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app'))
+  ? '/api/admin/mutate'
+  : 'https://uzuhama.vercel.app/api/admin/mutate';
+const ADMIN_EMAIL = 'saramoriyo@gmail.com';
+
 export const DEFAULT_PATCH_NOTES: PatchNote[] = [
   {
     id: 'patch-v2.6.0',
@@ -138,7 +144,32 @@ export function usePatchNotes() {
         const r = await fetch(`${API_BASE}/api/patch-notes`);
         const json = await r.json();
         if (isMounted && Array.isArray(json?.notes)) {
-          syncLists(json.notes as PatchNote[]);
+          const serverNotes = json.notes as PatchNote[];
+          // 관리자: 예전에 저장이 실패해 이 기기에만 남아 있는 패치노트를 서버로 복구 업로드
+          try {
+            const user = auth.currentUser;
+            if (user?.email?.toLowerCase() === ADMIN_EMAIL) {
+              const serverIds = new Set(serverNotes.map((n) => n.id));
+              const defaultIds = new Set(DEFAULT_PATCH_NOTES.map((n) => n.id));
+              const deleted = new Set<string>(JSON.parse(localStorage.getItem(DELETED_PATCH_NOTES_KEY) || '[]'));
+              const local: PatchNote[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+              const missing = (Array.isArray(local) ? local : []).filter(
+                (n) => n?.id && !serverIds.has(n.id) && !defaultIds.has(n.id) && !deleted.has(n.id) && !String(n.id).startsWith('notion-')
+              );
+              if (missing.length > 0) {
+                const token = await user.getIdToken();
+                for (const note of missing) {
+                  await fetch(ADMIN_MUTATE_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ action: 'savePatchNote', note }),
+                  }).catch(() => {});
+                }
+                console.info(`[패치노트] 이 기기에만 있던 ${missing.length}개를 서버에 복구했습니다.`);
+              }
+            }
+          } catch {}
+          syncLists(serverNotes);
         }
       } catch (e) {
         console.debug('Patch notes API notice:', e);
@@ -218,7 +249,7 @@ export function usePatchNotes() {
       try {
         const token = await auth.currentUser?.getIdToken();
         if (token) {
-          await fetch('/api/admin/mutate', {
+          await fetch(ADMIN_MUTATE_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ action: 'savePatchNote', note: newNote })
@@ -280,13 +311,13 @@ export function usePatchNotes() {
         const token = await auth.currentUser?.getIdToken();
         if (token) {
           if (item.id && item.id !== newDocId) {
-            await fetch('/api/admin/mutate', {
+            await fetch(ADMIN_MUTATE_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
               body: JSON.stringify({ action: 'deletePatchNote', id: item.id })
             }).catch(() => {});
           }
-          await fetch('/api/admin/mutate', {
+          await fetch(ADMIN_MUTATE_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ action: 'savePatchNote', note: updatedItem })
@@ -322,7 +353,7 @@ export function usePatchNotes() {
       try {
         const token = await auth.currentUser?.getIdToken();
         if (token) {
-          await fetch('/api/admin/mutate', {
+          await fetch(ADMIN_MUTATE_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ action: 'deletePatchNote', id })
