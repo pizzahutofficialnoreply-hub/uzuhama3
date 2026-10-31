@@ -63,6 +63,8 @@ export default async function handler(req: any, res: any) {
       const json = await r.json().catch(() => null);
       content = json?.content;
       liveStatus = content?.status === 'OPEN' ? 'OPEN' : content?.status === 'CLOSE' ? 'CLOSE' : 'UNKNOWN';
+      // 방송이 꺼져 있으면 정상 응답(code 200)이면서 상태값이 비어 오는 경우가 있음 → 꺼짐으로 처리
+      if (liveStatus === 'UNKNOWN' && r.ok && Number(json?.code) === 200 && !content?.status) liveStatus = 'CLOSE';
       if (liveStatus === 'UNKNOWN') result.chzzkError = `HTTP ${r.status} code=${json?.code ?? '-'} ${String(json?.message ?? '').slice(0, 80)}`;
     } catch (e: any) {
       result.chzzkError = e?.message || String(e);
