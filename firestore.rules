@@ -2,7 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == 'saramoriyo@gmail.com';
+      return request.auth != null
+        && request.auth.token.email == 'saramoriyo@gmail.com'
+        && request.auth.token.email_verified == true;
     }
 
     function isAuthenticated() {
@@ -16,9 +18,16 @@ service cloud.firestore {
     }
 
     // 1. 치지직 실시간 방송 상태 (외부 Worker 또는 관리자 기록)
-    match /live_status/{document=**} {
+    match /live_status/polls/items/{pollId} {
       allow read: if true;
       allow write: if true; 
+    }
+    match /live_status/polls/items/{pollId}/voters/{voterId} {
+      allow read, write: if true;
+    }
+    match /live_status/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // 2. 앱 기본 설정
@@ -75,11 +84,10 @@ service cloud.firestore {
     match /polls/{pollId} {
       allow read: if true;
       allow create, delete: if isAdmin();
-      allow update: if true;
+      allow update: if isAdmin();
 
       match /voters/{voterId} {
-        allow read: if true;
-        allow write: if true;
+        allow read, write: if isAdmin();
       }
     }
 
@@ -91,7 +99,8 @@ service cloud.firestore {
 
     // 10. 패치노트 아카이브: 누구나 조회 가능, 관리자 및 시스템 등록/수정/삭제 허용
     match /patch_notes/{patchId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // 10. 푸시 알림 구독: 클라이언트 직접 수정 차단 (Vercel API만 제어)

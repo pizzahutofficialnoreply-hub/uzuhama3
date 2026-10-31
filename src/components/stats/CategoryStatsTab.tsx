@@ -200,16 +200,20 @@ export function CategoryStatsTab({
           catEntry.count += 1;
           catEntry.estimatedHours += durationPerGame / targetCategories.length;
 
+          const gameLink = g.link || (g as any).url || (g as any).gameUrl || (g as any).steamUrl || '';
           const prevGame = catEntry.gamesMap.get(gameName);
           if (prevGame) {
             prevGame.count += 1;
+            if (!prevGame.link && gameLink) {
+              prevGame.link = gameLink;
+            }
             if (!prevGame.latestDate && log.date) {
               prevGame.latestDate = log.date;
             }
           } else {
             catEntry.gamesMap.set(gameName, {
               name: gameName,
-              link: g.link,
+              link: gameLink,
               count: 1,
               latestDate: log.date
             });
@@ -454,7 +458,7 @@ export function CategoryStatsTab({
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 sm:mb-6">
           <div>
-            <h4 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white">
+            <h4 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white font-hanna font-pro">
               카테고리별 비중 원그래프
             </h4>
             <p className="no-share text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
@@ -585,11 +589,11 @@ export function CategoryStatsTab({
           {/* 차트 범례 및 비율 리스트 */}
           <div className="lg:col-span-6 space-y-2">
             <div className="flex items-center justify-between mb-2">
-              <h5 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">
+              <h5 className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 font-hanna font-pro">
                 주요 카테고리 비중 순위
               </h5>
               {selectedCategory && (
-                <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">
+                <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium font-hanna font-pro">
                   재클릭 시 추천 탭 이동
                 </span>
               )}
@@ -614,7 +618,7 @@ export function CategoryStatsTab({
                         style={{ backgroundColor: item.color }}
                       />
                       <span className={cn(
-                        "truncate",
+                        "truncate font-hanna font-pro",
                         isSelected ? "font-bold text-purple-900 dark:text-purple-200" : "font-medium text-zinc-800 dark:text-zinc-200"
                       )}>
                         {item.name}
@@ -672,7 +676,7 @@ export function CategoryStatsTab({
         {/* 순위표 헤더 + 통합 검색창 및 정렬 */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
           <div>
-            <h4 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white">
+            <h4 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white font-hanna font-pro">
               가장 많이 플레이한 게임 카테고리 순위표
             </h4>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
@@ -809,7 +813,7 @@ export function CategoryStatsTab({
                             className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0" 
                             style={{ backgroundColor: cat.color }} 
                           />
-                          <span className="text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-300">{cat.name}</span>
+                          <span className="text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-300 font-hanna font-pro">{cat.name}</span>
                         </div>
                       </td>
 

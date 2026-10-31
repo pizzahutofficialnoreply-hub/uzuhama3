@@ -21,6 +21,7 @@ import { usePatchNotes } from '../../../hooks/usePatchNotes';
 import { PatchCategory, PatchNote } from '../../../types';
 import { cn } from '../../../utils';
 import Markdown from 'react-markdown';
+import { RichTextEditor } from '../../common/RichTextEditor';
 
 const TEMPLATES: Record<PatchCategory, { title: string; highlights: string[]; content: string }> = {
   patch: {
@@ -404,36 +405,18 @@ export function AdminPatchesTab() {
             )}
           </div>
 
-          {/* Markdown Content */}
+          {/* Detailed Content with Rich Text Editor */}
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                상세 본문 (마크다운 지원) *
-              </label>
-              <button
-                type="button"
-                onClick={() => setPreviewMode(!previewMode)}
-                className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400 font-semibold"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>{previewMode ? '편집기로 돌아가기' : '미리보기 토글'}</span>
-              </button>
-            </div>
-
-            {previewMode ? (
-              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 min-h-[160px] max-h-[360px] overflow-y-auto markdown-body prose prose-zinc dark:prose-invert max-w-none text-xs">
-                <Markdown>{content || '내용이 없습니다.'}</Markdown>
-              </div>
-            ) : (
-              <textarea
-                rows={8}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="마크다운 문법 지원 (## 제목, - 목록, **굵게** 등)"
-                required
-                className="w-full p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-mono text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-            )}
+            <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+              상세 본문 (서식 편집기 지원: 글자 크기, 볼드, 기울임, 밑줄, 취소선, 글자 색상, 정렬 등) *
+            </label>
+            <RichTextEditor
+              value={content}
+              onChange={setContent}
+              placeholder="패치노트 상세 본문을 작성하세요 (## 제목, - 목록, 굵게, 밑줄, 색상 등 지원)..."
+              rows={10}
+              minHeight="220px"
+            />
           </div>
 
           {/* Submit Buttons */}

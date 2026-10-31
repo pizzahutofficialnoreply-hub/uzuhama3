@@ -10,7 +10,7 @@ import {
   setDoc,
   serverTimestamp, 
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 import { PatchNote, PatchCategory } from '../types';
 
 const LOCAL_STORAGE_KEY = 'uzuhama_patch_notes_v2';
@@ -253,7 +253,18 @@ export function usePatchNotes() {
         updatedAt: serverTimestamp(),
       }, { merge: true });
     } catch (err) {
-      console.warn('Firestore add notice (saved locally):', err);
+      console.warn('Firestore add notice (saved locally, syncing via admin):', err);
+      // 서버 관리자 엔드포인트 동기화 시도
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          await fetch('/api/admin/mutate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ action: 'savePatchNote', note: newNote })
+          });
+        }
+      } catch {}
     }
 
     window.dispatchEvent(new Event('uzuhama_patch_notes_changed'));
@@ -270,8 +281,21 @@ export function usePatchNotes() {
       updatedAt: new Date().toISOString(),
     };
 
+    if (item.id && item.id !== newDocId) {
+      try {
+        const d = JSON.parse(localStorage.getItem(DELETED_PATCH_NOTES_KEY) || '[]');
+        const nextD = Array.from(new Set([...(Array.isArray(d) ? d : []), item.id]));
+        localStorage.setItem(DELETED_PATCH_NOTES_KEY, JSON.stringify(nextD));
+      } catch {}
+    }
+
     setPatchNotes(prev => {
-      const next = prev.map(p => (p.id === item.id || p.id === newDocId) ? updatedItem : p);
+      const next = prev
+        .filter(p => item.id !== newDocId ? p.id !== item.id : true)
+        .map(p => p.id === newDocId ? updatedItem : p);
+      if (!next.some(p => p.id === newDocId)) {
+        next.unshift(updatedItem);
+      }
       next.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
       try {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
@@ -291,7 +315,24 @@ export function usePatchNotes() {
         updatedAt: serverTimestamp(),
       }, { merge: true });
     } catch (err) {
-      console.warn('Firestore update notice (saved locally):', err);
+      console.warn('Firestore update notice (saved locally, syncing via admin):', err);
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          if (item.id && item.id !== newDocId) {
+            await fetch('/api/admin/mutate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ action: 'deletePatchNote', id: item.id })
+            }).catch(() => {});
+          }
+          await fetch('/api/admin/mutate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ action: 'savePatchNote', note: updatedItem })
+          });
+        }
+      } catch {}
     }
 
     window.dispatchEvent(new Event('uzuhama_patch_notes_changed'));
@@ -318,6 +359,16 @@ export function usePatchNotes() {
       await deleteDoc(doc(db, 'patch_notes', id));
     } catch (err) {
       console.warn('Firestore delete notice:', err);
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          await fetch('/api/admin/mutate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ action: 'deletePatchNote', id })
+          });
+        }
+      } catch {}
     }
 
     window.dispatchEvent(new Event('uzuhama_patch_notes_changed'));

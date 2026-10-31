@@ -17,7 +17,7 @@ import {
   parseISO
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, PlaySquare, Smartphone, Video, Calendar as CalendarIcon, ChevronDown, X, CalendarPlus, Check, CalendarDays, Sparkles, Search, Play, Bell, CheckSquare, Square, CalendarCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlaySquare, Smartphone, Video, Calendar as CalendarIcon, ChevronDown, X, CalendarPlus, Check, CalendarDays, Sparkles, Search, Play, Bell, CheckSquare, Square, CalendarCheck, AlertCircle, AlertTriangle } from 'lucide-react';
 import { AppData, BroadcastLog } from '../../types';
 import { cn, formatDuration, formatTo12Hour, parseTimeTo24, fuzzyKoreanMatch, fuzzyDateMatch } from '../../utils';
 import { extractYoutubeId, extractChzzkId, isVideoUrl, matchMediaUrl, matchLogMedia } from '../../utils/urlUtils';
@@ -25,6 +25,8 @@ import { isKoreanHoliday } from '../../utils/koreanHolidays';
 import { exportToDeviceCalendar, exportMultipleToDeviceCalendar, getGoogleCalendarUrl } from '../../utils/calendarExport';
 import { triggerHaptic } from '../../utils/haptics';
 import { CalendarSubscribeModal } from '../CalendarSubscribeModal';
+import { SelectiveCalendarModal } from '../modals/SelectiveCalendarModal';
+import { GameTitle } from '../common/GameTitle';
 import { motion, AnimatePresence } from 'motion/react';
 
 const ShortsIcon = ({ className }: { className?: string }) => (
@@ -313,6 +315,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
   // 캘린더 선택 등록 모드 상태
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
+  const [isSelectiveModalOpen, setIsSelectiveModalOpen] = useState(false);
 
   // 캘린더 구독 실시간 반영 상태
   const [isSubscribed, setIsSubscribed] = useState(() => {
@@ -706,10 +709,9 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
       if (log) {
         handleToggleSelectDate(formatted);
       }
-      return;
     }
 
-    if (selectedDate && isSameDay(date, selectedDate)) {
+    if (selectedDate && isSameDay(date, selectedDate) && !isSelectMode) {
       handleClearDateFilter();
     } else {
       setSelectedDate(date);
@@ -799,15 +801,19 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                   
                   <div className="hidden sm:block text-[11px] sm:text-sm font-bold text-zinc-900 dark:text-zinc-100 px-1 py-1 leading-tight break-words w-full">
                     {log.games && log.games.length > 0 ? (
-                      <ul className="pl-1">
+                      <ul className="space-y-0.5">
                         {log.games.map((g, idx) => (
-                          <li key={idx} className="break-words mb-0.5 whitespace-pre-wrap">
-                            <span className="text-purple-500 font-bold">•</span> {g.name}
+                          <li key={idx} className="break-words mb-0.5 whitespace-pre-wrap flex items-start gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0 mt-1 inline-block" />
+                            <span className="flex-1"><GameTitle text={g.name} /></span>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <span className="break-words">{log.game}</span>
+                      <div className="break-words whitespace-pre-wrap flex items-start gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0 mt-1 inline-block" />
+                        <span className="flex-1"><GameTitle text={log.game} /></span>
+                      </div>
                     )}
                   </div>
                   <div className="flex sm:hidden justify-center items-center h-full w-full">
@@ -901,7 +907,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
               
               {/* 달력 첫 번째 칸: 날짜 설정 인풋 및 오늘 이동 바로가기 */}
               <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200 dark:border-zinc-700/80 rounded-xl px-2.5 py-1 text-xs shadow-2xs">
-                <span className="text-zinc-500 dark:text-zinc-400 font-semibold shrink-0">날짜 설정</span>
+                <span className="text-zinc-500 dark:text-zinc-400 font-semibold shrink-0 font-hanna font-pro">날짜 설정</span>
                 <input
                   type="date"
                   min={minDateStr}
@@ -916,7 +922,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                       handleDayClick(parsed);
                     }
                   }}
-                  className="bg-transparent text-zinc-900 dark:text-white font-medium text-xs focus:outline-none cursor-pointer"
+                  className="bg-transparent text-zinc-900 dark:text-white font-medium text-xs focus:outline-none cursor-pointer font-hanna font-pro"
                   title="특정 날짜를 직접 설정하여 달력 이동 및 상세 기록 조회"
                   aria-label="달력 날짜 직접 설정"
                 />
@@ -927,7 +933,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                     setCurrentDate(today);
                     handleDayClick(today);
                   }}
-                  className="px-2 py-0.5 rounded-lg bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 font-bold transition-colors cursor-pointer text-[11px]"
+                  className="px-2 py-0.5 rounded-lg bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 font-bold transition-colors cursor-pointer text-[11px] font-hanna font-pro"
                   title="오늘 날짜로 달력 이동 및 상세 기록 조회"
                 >
                   오늘
@@ -951,7 +957,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                 title="클릭하여 년도 및 월 선택"
               >
                 <CalendarIcon className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
-                <span>{format(currentDate, 'yyyy년 M월', { locale: ko })}</span>
+                <span className="font-hanna font-pro font-bold tracking-tight">{format(currentDate, 'yyyy년 M월', { locale: ko })}</span>
                 <ChevronDown className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 ml-0.5 shrink-0" />
                 
                 <input
@@ -1105,36 +1111,80 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                         </div>
                       )}
 
-                      {/* 기기 캘린더 및 구글 캘린더 추가 버튼 (PWA 지원) */}
-                      <div className="flex items-center gap-2 mt-3">
-                        <button
-                          type="button"
-                          onClick={() => handleExportLogToCalendar(selectedLog)}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-semibold border border-purple-200/80 dark:border-purple-800/80 text-xs sm:text-sm transition-all shadow-sm active:scale-[0.98] cursor-pointer"
-                          title="기기 캘린더 앱(iOS/Android/PC)에 일정 등록 (.ics)"
-                        >
-                          {exportedLogId === (selectedLog.id || selectedLog.date) ? (
-                            <>
-                              <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                              <span className="text-emerald-700 dark:text-emerald-300">캘린더 파일 생성됨</span>
-                            </>
-                          ) : (
-                            <>
-                              <CalendarPlus className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                              <span>기기 캘린더에 추가</span>
-                            </>
+                      {/* 기기 캘린더 선택 등록 및 구글 캘린더 추가 버튼 (달력 클릭 시 바로 제공) */}
+                      <div className="flex flex-col gap-2 mt-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleExportLogToCalendar(selectedLog)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-bold text-xs sm:text-sm transition-all shadow-sm active:scale-[0.98] cursor-pointer"
+                            title="선택한 이 방송 일정을 기기 캘린더 앱(iOS/Android/PC)에 등록 (.ics)"
+                          >
+                            {exportedLogId === (selectedLog.id || selectedLog.date) ? (
+                              <>
+                                <Check className="w-4 h-4" />
+                                <span>기기 캘린더 등록 완료</span>
+                              </>
+                            ) : (
+                              <>
+                                <CalendarPlus className="w-4 h-4" />
+                                <span>캘린더 선택 등록 (기기 캘린더)</span>
+                              </>
+                            )}
+                          </button>
+                          <a
+                            href={getGoogleCalendarUrl(selectedLog)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-semibold text-xs sm:text-sm transition-all border border-zinc-200 dark:border-zinc-700 shrink-0"
+                            title="구글 캘린더(웹/앱)에 일정 추가"
+                          >
+                            <CalendarIcon className="w-3.5 h-3.5 text-blue-500" />
+                            <span>구글 캘린더</span>
+                          </a>
+                        </div>
+
+                        {/* 복수 일정 선택 관리 바 */}
+                        <div className="flex items-center justify-between text-xs px-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic(10);
+                              handleToggleSelectDate(selectedLog.date);
+                            }}
+                            className={cn(
+                              "flex items-center gap-1.5 font-medium transition-colors cursor-pointer py-0.5",
+                              selectedDates.has(selectedLog.date)
+                                ? "text-purple-600 dark:text-purple-400 font-bold"
+                                : "text-zinc-500 dark:text-zinc-400 hover:text-purple-600"
+                            )}
+                          >
+                            <div className={cn(
+                              "w-3.5 h-3.5 rounded border flex items-center justify-center transition-all",
+                              selectedDates.has(selectedLog.date)
+                                ? "bg-purple-600 border-purple-600 text-white"
+                                : "border-zinc-400 dark:border-zinc-600"
+                            )}>
+                              {selectedDates.has(selectedLog.date) && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                            </div>
+                            <span>
+                              {selectedDates.has(selectedLog.date) ? '선택 등록 목록에 담김' : '선택 등록 목록에 추가'}
+                            </span>
+                          </button>
+                          {selectedDates.size > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                triggerHaptic(12);
+                                setIsSelectiveModalOpen(true);
+                              }}
+                              className="text-purple-600 dark:text-purple-400 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                            >
+                              <span>선택한 {selectedDates.size}건 확인</span>
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
                           )}
-                        </button>
-                        <a
-                          href={getGoogleCalendarUrl(selectedLog)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-semibold text-xs sm:text-sm transition-all border border-zinc-200 dark:border-zinc-700 shrink-0"
-                          title="구글 캘린더(웹/앱)에 일정 추가"
-                        >
-                          <CalendarIcon className="w-3.5 h-3.5 text-blue-500" />
-                          <span>구글 캘린더</span>
-                        </a>
+                        </div>
                       </div>
                     </div>
 
@@ -1144,26 +1194,40 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                         {selectedLog.games && selectedLog.games.length > 0 ? (
                           selectedLog.games.map((g, idx) => (
                             <div key={idx} className="bg-zinc-50 dark:bg-zinc-800/50 p-3 sm:p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex flex-col items-start gap-1">
-                              <span className="hidden sm:inline-block px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300">
+                              <span className="inline-block px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 font-hanna font-pro">
                                 {g.category || selectedLog.category || '종합'}
                               </span>
-                              <div className="w-full mt-1 text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-tight">
-                                {g.link ? (
-                                  <a href={g.link} target="_blank" rel="noopener noreferrer" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors underline decoration-purple-500/30 underline-offset-4">
-                                    {g.name}
-                                  </a>
-                                ) : (
-                                  g.name
-                                )}
+                              <div className="w-full mt-1 text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-tight font-hanna font-pro">
+                                {(() => {
+                                  const link = g.link || (g as any).url || (g as any).gameUrl || (g as any).steamUrl || (selectedLog as any)?.gameLink || '';
+                                  return link ? (
+                                    <a href={link} target="_blank" rel="noopener noreferrer" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors underline decoration-purple-500/50 hover:decoration-purple-600 dark:decoration-purple-400/50 underline-offset-4 font-hanna font-pro">
+                                      <GameTitle text={g.name} />
+                                    </a>
+                                  ) : (
+                                    <GameTitle text={g.name} />
+                                  );
+                                })()}
                               </div>
                             </div>
                           ))
                         ) : (
                           <div className="bg-zinc-50 dark:bg-zinc-800/50 p-3 sm:p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex flex-col items-start gap-1">
-                            <span className="hidden sm:inline-block px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300">
+                            <span className="inline-block px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 font-hanna font-pro">
                               {selectedLog.category}
                             </span>
-                            <div className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-tight">{selectedLog.game}</div>
+                            <div className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-tight font-hanna font-pro">
+                              {(() => {
+                                const link = (selectedLog as any)?.gameLink || (selectedLog as any)?.link || '';
+                                return link ? (
+                                  <a href={link} target="_blank" rel="noopener noreferrer" className="hover:text-purple-600 dark:hover:text-purple-400 transition-colors underline decoration-purple-500/50 hover:decoration-purple-600 dark:decoration-purple-400/50 underline-offset-4 font-hanna font-pro">
+                                    <GameTitle text={selectedLog.game} />
+                                  </a>
+                                ) : (
+                                  <GameTitle text={selectedLog.game} />
+                                );
+                              })()}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1178,7 +1242,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                       if (!hasAnyVideos) return null;
 
                       const renderVideoCard = (
-                        video: { url?: string; title?: string; category?: string; categories?: string[] },
+                        video: { url?: string; title?: string; category?: string; categories?: string[]; games?: any[]; [key: string]: any },
                         type: 'vod' | 'edited' | 'shorts',
                         isVertical = false
                       ) => {
@@ -1188,6 +1252,77 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                         const cats = Array.isArray(video.categories) && video.categories.length > 0
                           ? video.categories
                           : (video.category ? video.category.split(',').map(c => c.trim()).filter(Boolean) : []);
+
+                        // 검색 탭의 카드처럼 영상 카테고리/게임명을 매칭하여 링크 연동
+                        const resolvedGames = (() => {
+                          const rawLogGames: any[] = Array.isArray(selectedLog?.games) ? selectedLog.games : [];
+                          const logGames = rawLogGames.map((g: any) => ({
+                            name: typeof g === 'string' ? g : (g.name || g.game || ''),
+                            link: typeof g === 'string' ? '' : (g.link || g.url || g.gameUrl || g.steamUrl || (selectedLog as any)?.gameLink || ''),
+                            category: typeof g === 'string' ? '' : (g.category || selectedLog?.category || '')
+                          })).filter((g: any) => Boolean(g.name));
+
+                          // 영상 자체에 games가 이미 지정되어 있는 경우 (몰아보기 등)
+                          if (Array.isArray(video.games) && video.games.length > 0) {
+                            return video.games.map((g: any) => {
+                              const gName = typeof g === 'string' ? g : (g.name || '');
+                              let link = typeof g === 'string' ? '' : (g.link || g.url || g.gameUrl || g.steamUrl || '');
+                              if (!link) {
+                                const matched = logGames.find(lg => lg.name.toLowerCase() === gName.toLowerCase());
+                                if (matched?.link) link = matched.link;
+                              }
+                              return {
+                                name: gName,
+                                link,
+                                category: typeof g === 'string' ? '' : (g.category || '')
+                              };
+                            });
+                          }
+
+                          // 1. 단일 게임 생방송인 경우: 해당 생방송의 유일한 게임이 바로 해당 편집본의 게임임
+                          if (logGames.length === 1) {
+                            return [logGames[0]];
+                          }
+
+                          // 2. 다중 게임 생방송인 경우: 영상 제목(video.title)에 게임명이 포함되어 있는지 우선 매칭
+                          const vTitle = (video.title || '').toLowerCase();
+                          if (logGames.length > 1 && vTitle) {
+                            const titleMatches = logGames.filter((g: any) => g.name && vTitle.includes(g.name.toLowerCase()));
+                            if (titleMatches.length > 0) {
+                              return titleMatches;
+                            }
+                          }
+
+                          // 3. cats 또는 영상 카테고리가 있는 경우: 게임 이름이나 게임 카테고리(장르)와 매칭
+                          if (cats.length > 0 && logGames.length > 0) {
+                            const catMatches = logGames.filter((g: any) => {
+                              return cats.some(c => {
+                                const key = c.trim().toLowerCase();
+                                return (g.name && (g.name.toLowerCase() === key || g.name.toLowerCase().includes(key) || key.includes(g.name.toLowerCase()))) ||
+                                       (g.category && (g.category.toLowerCase() === key || g.category.toLowerCase().includes(key) || key.includes(g.category.toLowerCase())));
+                              });
+                            });
+                            if (catMatches.length > 0) {
+                              return catMatches;
+                            }
+                          }
+
+                          // 4. 다중 게임이지만 특정 매칭이 안 된 경우 전체 logGames 반환
+                          if (logGames.length > 0) {
+                            return logGames;
+                          }
+
+                          // 5. fallback: selectedLog.game
+                          if (selectedLog?.game) {
+                            return [{
+                              name: selectedLog.game,
+                              link: (selectedLog as any)?.gameLink || '',
+                              category: selectedLog?.category || ''
+                            }];
+                          }
+
+                          return cats.map(c => ({ name: c, link: '', category: '' }));
+                        })();
 
                         return (
                           <div className={cn(
@@ -1253,13 +1388,73 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                 )} title={title}>
                                   {title}
                                 </div>
-                                {cats.length > 0 && !isVertical && (
-                                  <div className="flex flex-wrap gap-1">
-                                    {cats.map((c, idx) => (
-                                      <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
-                                        {c}
-                                      </span>
-                                    ))}
+                                {resolvedGames.length > 0 && !isVertical && (
+                                  <div className="flex flex-wrap items-center gap-1 mt-1">
+                                    {resolvedGames.map((g, idx) => {
+                                      const hasSeparateCat = g.category && g.category.trim() !== '' && g.category.trim().toLowerCase() !== g.name.trim().toLowerCase() && g.category !== '종합';
+                                      const badge = (
+                                        <span className={cn(
+                                          "px-2 py-0.5 text-[10px] rounded-full select-none inline-flex items-center gap-1 transition-colors",
+                                          g.link
+                                            ? "bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 cursor-pointer font-medium"
+                                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                                        )}>
+                                          <span><GameTitle text={g.name} link={g.link} /></span>
+                                          {hasSeparateCat && (
+                                            <span className="opacity-60 font-normal border-l border-current pl-1">
+                                              {g.category}
+                                            </span>
+                                          )}
+                                        </span>
+                                      );
+
+                                      return g.link ? (
+                                        <a
+                                          key={idx}
+                                          href={g.link}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          title={`${g.name} 게임 정보/링크 열기`}
+                                          className="inline-flex"
+                                        >
+                                          {badge}
+                                        </a>
+                                      ) : (
+                                        <div key={idx} className="inline-flex">{badge}</div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                                {resolvedGames.length > 0 && isVertical && (
+                                  <div className="flex flex-wrap items-center gap-1 mt-1">
+                                    {resolvedGames.map((g, idx) => {
+                                      const badge = (
+                                        <span className={cn(
+                                          "px-1.5 py-0.5 text-[9px] rounded-full select-none inline-flex items-center gap-1 transition-colors",
+                                          g.link
+                                            ? "bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 cursor-pointer font-medium"
+                                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                                        )}>
+                                          <span><GameTitle text={g.name} link={g.link} /></span>
+                                        </span>
+                                      );
+                                      return g.link ? (
+                                        <a
+                                          key={idx}
+                                          href={g.link}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          title={`${g.name} 게임 정보/링크 열기`}
+                                          className="inline-flex"
+                                        >
+                                          {badge}
+                                        </a>
+                                      ) : (
+                                        <div key={idx} className="inline-flex">{badge}</div>
+                                      );
+                                    })}
                                   </div>
                                 )}
                               </div>
@@ -1470,7 +1665,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                 </span>
               </div>
 
-              {/* 전체 선택 후 체크 버튼 누르면 기존 등록 기기 모달로 이동 */}
+              {/* 전체 선택 후 체크 버튼 누르면 선택 등록 모달 오픈 */}
               <button
                 type="button"
                 onClick={() => {
@@ -1479,13 +1674,13 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                     return;
                   }
                   triggerHaptic(15);
-                  setIsSubscribeModalOpen(true);
+                  setIsSelectiveModalOpen(true);
                 }}
                 className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95 transition-all"
-                title="기기 등록 모달 열기"
+                title="선택한 일정 캘린더 등록"
               >
                 <Check className="w-4 h-4 stroke-[3]" />
-                <span>기기 등록 모달로 이동 ({selectedDates.size})</span>
+                <span>선택한 일정 캘린더 등록 ({selectedDates.size})</span>
               </button>
             </div>
           )}
@@ -1688,27 +1883,51 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                       <div className="flex flex-col gap-2.5">
                         {log.games.map((g, idx) => (
                           <div key={idx} className="flex flex-col gap-1">
-                            <span className="hidden sm:inline-block self-start px-2 py-0.5 rounded text-[10px] border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                            <span className="inline-block self-start px-2 py-0.5 rounded text-[10px] border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-hanna font-pro">
                               {g.category || log.category || '종합'}
                             </span>
                             {g.link ? (
-                              <a href={g.link} target="_blank" rel="noopener noreferrer" className="text-zinc-900 dark:text-zinc-100 hover:text-purple-600 dark:hover:text-purple-400 font-semibold hover:underline flex items-center gap-1">
-                                {g.name}
+                              <a
+                                href={g.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-zinc-900 dark:text-zinc-100 hover:text-purple-600 dark:hover:text-purple-400 font-semibold underline decoration-purple-500/50 hover:decoration-purple-600 dark:decoration-purple-400/50 dark:hover:decoration-purple-300 underline-offset-4 transition-colors flex items-center gap-1.5 font-hanna font-pro"
+                              >
+                                <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+                                <GameTitle text={g.name} link={g.link} />
                               </a>
                             ) : (
-                              <span className="text-zinc-900 dark:text-zinc-100 font-semibold flex items-center gap-1">{g.name}</span>
+                              <span className="text-zinc-900 dark:text-zinc-100 font-semibold flex items-center gap-1.5 font-hanna font-pro">
+                                <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+                                <GameTitle text={g.name} />
+                              </span>
                             )}
                           </div>
                         ))}
                       </div>
                     ) : (
                       <>
-                        <div className="hidden sm:flex items-center gap-2 mb-1.5">
-                          <span className="px-2 py-0.5 rounded text-[10px] border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="px-2 py-0.5 rounded text-[10px] border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-hanna font-pro">
                             {log.category}
                           </span>
                         </div>
-                        <div className="text-zinc-900 dark:text-zinc-100 font-semibold">{log.game}</div>
+                        {(log as any).gameLink ? (
+                          <a
+                            href={(log as any).gameLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-zinc-900 dark:text-zinc-100 hover:text-purple-600 dark:hover:text-purple-400 font-semibold underline decoration-purple-500/50 hover:decoration-purple-600 dark:decoration-purple-400/50 dark:hover:decoration-purple-300 underline-offset-4 transition-colors flex items-center gap-1.5 font-hanna font-pro"
+                          >
+                            <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+                            <GameTitle text={log.game} link={(log as any).gameLink} />
+                          </a>
+                        ) : (
+                          <div className="text-zinc-900 dark:text-zinc-100 font-semibold flex items-center gap-1.5 font-hanna font-pro">
+                            <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+                            <GameTitle text={log.game} />
+                          </div>
+                        )}
                       </>
                     )}
                   </td>
@@ -1747,11 +1966,20 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                             </div>
                             {cats.length > 0 && (
                               <div className="hidden sm:flex flex-wrap gap-1 pl-5">
-                                {cats.map((c, cIdx) => (
-                                  <span key={cIdx} className="text-[10px] px-1.5 py-0.2 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 font-medium">
-                                    {c}
-                                  </span>
-                                ))}
+                                {cats.map((c, cIdx) => {
+                                  const matched = log.games?.find(g => g.name && (g.name.toLowerCase() === c.toLowerCase() || c.toLowerCase().includes(g.name.toLowerCase()) || g.name.toLowerCase().includes(c.toLowerCase())));
+                                  return matched?.link ? (
+                                    <a key={cIdx} href={matched.link} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 font-medium cursor-pointer">
+                                        {c}
+                                      </span>
+                                    </a>
+                                  ) : (
+                                    <span key={cIdx} className="text-[10px] px-1.5 py-0.2 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 font-medium">
+                                      {c}
+                                    </span>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
@@ -1798,11 +2026,20 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                               </div>
                               {cats.length > 0 && (
                                 <div className="hidden sm:flex flex-wrap gap-1 pl-5">
-                                  {cats.map((c, cIdx) => (
-                                    <span key={cIdx} className="text-[10px] px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium">
-                                      {c}
-                                    </span>
-                                  ))}
+                                  {cats.map((c, cIdx) => {
+                                    const matched = log.games?.find(g => g.name && (g.name.toLowerCase() === c.toLowerCase() || c.toLowerCase().includes(g.name.toLowerCase()) || g.name.toLowerCase().includes(c.toLowerCase())));
+                                    return matched?.link ? (
+                                      <a key={cIdx} href={matched.link} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium cursor-pointer">
+                                          {c}
+                                        </span>
+                                      </a>
+                                    ) : (
+                                      <span key={cIdx} className="text-[10px] px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium">
+                                        {c}
+                                      </span>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
@@ -1846,11 +2083,20 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                             </div>
                             {cats.length > 0 && (
                               <div className="hidden sm:flex flex-wrap gap-1 pl-5">
-                                {cats.map((c, cIdx) => (
-                                  <span key={cIdx} className="text-[10px] px-1.5 py-0.2 rounded bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-medium">
-                                    {c}
-                                  </span>
-                                ))}
+                                {cats.map((c, cIdx) => {
+                                  const matched = log.games?.find(g => g.name && (g.name.toLowerCase() === c.toLowerCase() || c.toLowerCase().includes(g.name.toLowerCase()) || g.name.toLowerCase().includes(c.toLowerCase())));
+                                  return matched?.link ? (
+                                    <a key={cIdx} href={matched.link} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-medium cursor-pointer">
+                                        {c}
+                                      </span>
+                                    </a>
+                                  ) : (
+                                    <span key={cIdx} className="text-[10px] px-1.5 py-0.2 rounded bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-medium">
+                                      {c}
+                                    </span>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
@@ -1882,10 +2128,36 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
         </div>
       </div>
 
+      {/* 푸터 바로 윗부분: 방송 기록 데이터 및 외부 링크 주의 경고문 */}
+      <div className="mt-8 space-y-3">
+        <div className="p-4 sm:p-5 rounded-[24px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2.5 leading-relaxed">
+          <AlertCircle className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
+          <div>
+            <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 2020~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 파일 변환 시에 누락된 데이터나 잘못된 정보가 포함되어 있을 수 있습니다. (또한 과거 아카이브 데이터에는 쇼츠 영상 정보가 포함되지 않습니다)
+          </div>
+        </div>
+
+        <div className="p-4 sm:p-5 rounded-[24px] bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300/90 flex items-start gap-2.5 leading-relaxed">
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <strong className="font-bold text-amber-900 dark:text-amber-200">외부 링크 및 보안 주의 안내:</strong> 본 방송 기록 및 상세보기에 표시되는 모든 외부 링크(유튜브 영상, 치지직 다시보기, 게임 및 외부 웹페이지 등)는 단순 검색 및 팬 아카이브 결과에 불과하며, 당 사이트에서 직접 보증하거나 관리하지 않습니다. 외부 링크 접속으로 인해 발생할 수 있는 해킹, 악성코드 감염, 피싱, 개인정보 유출 및 보안 피해 등에 대해 본 사이트는 일체의 책임을 지지 않으므로 링크 클릭 및 이용 시 각별히 주의하시기 바랍니다.
+          </div>
+        </div>
+      </div>
+
       {/* 캘린더 자동 구독 모달 (PWA & webcal & Google Calendar 연동) */}
       <CalendarSubscribeModal
         isOpen={isSubscribeModalOpen}
         onClose={() => setIsSubscribeModalOpen(false)}
+      />
+
+      {/* 캘린더 선택 등록 모달 (선택한 방송 일정만 1회성 기기 등록) */}
+      <SelectiveCalendarModal
+        isOpen={isSelectiveModalOpen}
+        onClose={() => setIsSelectiveModalOpen(false)}
+        selectedDates={selectedDates}
+        logs={data?.logs || {}}
+        onClearSelection={() => setSelectedDates(new Set())}
       />
 
       {/* 방송 기록 브라우저 재생 모달 */}

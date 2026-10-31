@@ -133,6 +133,24 @@ export default async function handler(req: any, res: any) {
         return res.status(200).json({ success: true });
       }
 
+      case 'savePatchNote': {
+        const { note } = payload || {};
+        if (!note || !note.id) {
+          return res.status(400).json({ error: 'Invalid patch note payload' });
+        }
+        await db.collection('patch_notes').doc(note.id).set(note, { merge: true });
+        return res.status(200).json({ success: true, id: note.id });
+      }
+
+      case 'deletePatchNote': {
+        const { id: patchId } = payload || {};
+        if (!patchId) {
+          return res.status(400).json({ error: 'Missing patch note id' });
+        }
+        await db.collection('patch_notes').doc(patchId).delete().catch(() => {});
+        return res.status(200).json({ success: true, id: patchId });
+      }
+
       default:
         return res.status(400).json({ error: `Unknown action: ${action}` });
     }
@@ -143,8 +161,8 @@ export default async function handler(req: any, res: any) {
       origin: req.headers?.origin || 'unknown',
       message: error?.message || error
     });
-    return res.status(error?.message?.includes('관리자') ? 403 : 500).json({
-      error: error?.message || 'Server error occurred during data mutation'
+    return res.status(error?.status || 500).json({
+      error: error?.status ? error.message : 'Server error occurred during data mutation'
     });
   }
 }

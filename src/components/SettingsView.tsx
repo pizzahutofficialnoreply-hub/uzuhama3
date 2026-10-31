@@ -14,6 +14,8 @@ import { ThemeMode, getThemeMode, applyTheme } from '../utils/theme';
 import { useNavigate } from 'react-router-dom';
 import { AdminVerificationModal } from './AdminVerificationModal';
 import { useTabGlass } from '../hooks/useTabGlass';
+import { RichTextRenderer } from './common/RichTextRenderer';
+import { DEFAULT_PREFACE_TEMPLATE } from './tabs/admin/system/NoticesSubTab';
 
 interface SettingsViewProps {
   user: any;
@@ -27,6 +29,7 @@ interface SettingsViewProps {
   onOpenTerms: () => void;
   onOpenPrivacy: () => void;
   onOpenPatchNotes?: () => void;
+  initialSection?: 'notification' | 'theme' | 'share' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null;
 }
 
 export function SettingsView({
@@ -40,7 +43,8 @@ export function SettingsView({
   onOpenTutorial,
   onOpenTerms,
   onOpenPrivacy,
-  onOpenPatchNotes
+  onOpenPatchNotes,
+  initialSection
 }: SettingsViewProps) {
   const { 
     isSupported, 
@@ -60,11 +64,24 @@ export function SettingsView({
     (typeof window !== 'undefined' && localStorage.getItem('admin_verified_session') === 'true')
   );
   const [showAdminVerifyModal, setShowAdminVerifyModal] = useState(false);
-  const [activeSection, setActiveSection] = useState<'notification' | 'theme' | 'share' | 'channels' | 'disclaimer' | 'fontLicense' | null>(null);
+  const [activeSection, setActiveSection] = useState<'notification' | 'theme' | 'share' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(() => initialSection || null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getThemeMode());
   const tabGlass = useTabGlass();
+
+  // initialSection이 지정되었을 때 해당 아코디언 자동 열기 및 스크롤
+  useEffect(() => {
+    if (initialSection) {
+      setActiveSection(initialSection);
+      setTimeout(() => {
+        const el = document.getElementById(`settings-section-${initialSection}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 150);
+    }
+  }, [initialSection]);
 
   // 그래프 및 데이터 공유 설정 상태 (기본값 둘 다 true)
   const [enableWidgetShare, setEnableWidgetShare] = useState<boolean>(() => {
@@ -333,7 +350,7 @@ export function SettingsView({
                   <div className="px-4 pb-4 pt-1.5 space-y-3 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
                     <div className="flex items-center justify-between py-1">
                       <div>
-                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">생방송 시작 알림</p>
+                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">생방송 시작 알림</p>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">우주하마 생방송 시작 시 푸시 알림 수신</p>
                       </div>
                       <button
@@ -352,7 +369,7 @@ export function SettingsView({
 
                     <div className="flex items-center justify-between py-1">
                       <div>
-                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">휴방 사유 알림</p>
+                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">휴방 사유 알림</p>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">휴방 공지 등록 시 즉시 알림 수신</p>
                       </div>
                       <button
@@ -371,7 +388,7 @@ export function SettingsView({
 
                     <div className="flex items-center justify-between py-1">
                       <div>
-                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">최고 확률 시간 알림</p>
+                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">최고 확률 시간 알림</p>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">당일 최고 방송 확률 시간대 알림</p>
                       </div>
                       <button
@@ -646,7 +663,7 @@ export function SettingsView({
                   <div className="px-4 pb-4 pt-1.5 space-y-3 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
                     <div className="flex items-center justify-between py-1">
                       <div>
-                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">위젯 공유 버튼 활성화</p>
+                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">위젯 공유 버튼 활성화</p>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">각 분석 카드 및 표의 우측 상단 이미지 공유 버튼 표시 여부</p>
                       </div>
                       <button
@@ -665,7 +682,7 @@ export function SettingsView({
 
                     <div className="flex items-center justify-between py-1">
                       <div>
-                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">공유 시 그래프 데이터 수치(라벨) 표시</p>
+                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">공유 시 그래프 데이터 수치(라벨) 표시</p>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">그래프를 이미지로 공유할 때 막대나 데이터 포인트 위의 수치(라벨)를 포함</p>
                       </div>
                       <button
@@ -894,6 +911,38 @@ export function SettingsView({
 
 
 
+          {/* 일러두기 */}
+          <div id="settings-section-preface">
+            <button 
+              type="button"
+              onClick={() => setActiveSection(activeSection === 'preface' ? null : 'preface')}
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <BookOpen className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <span className="text-sm font-semibold text-zinc-900 dark:text-white">일러두기</span>
+              </div>
+              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'preface' && "rotate-90")} />
+            </button>
+
+            <AnimatePresence initial={false}>
+              {activeSection === 'preface' && (
+                <motion.div 
+                  key="settings-accordion-preface"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-4 pb-4 pt-2 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50 space-y-2">
+                    <RichTextRenderer content={system?.preface || DEFAULT_PREFACE_TEMPLATE} />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           {/* 폰트 출처 및 라이선스 안내 */}
           <div>
             <button
@@ -993,22 +1042,21 @@ export function SettingsView({
         </div>
       </section>
 
-      {/* 최하단 버전 정보 및 관리자 검증 진입점 */}
-      <div className="pt-4 text-center">
-        <button
-          type="button"
-          onClick={() => {
-            if (!isAdmin) {
-              setShowAdminVerifyModal(true);
-            }
-          }}
-          className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wider hover:text-purple-500 transition-colors cursor-pointer inline-flex items-center gap-1"
-          title={isAdmin ? `v${system?.appVersion || '1.0.0'} (관리자 활성화됨)` : `v${system?.appVersion || '1.0.0'}`}
-        >
-          <span>v{system?.appVersion || '1.0.0'}</span>
-          {!isAdmin && <Lock className="w-3 h-3 opacity-30 hover:opacity-100" />}
-        </button>
-      </div>
+      {/* 최하단 버전 정보 (클릭 시 관리자 진입 제거, v0.0.0+00 형식 정밀 지원) */}
+      {(() => {
+        const rawVer = system?.appVersion?.trim() || '1.0.0';
+        const displayVer = rawVer.startsWith('v') ? rawVer : `v${rawVer}`;
+        return (
+          <div className="pt-4 text-center">
+            <span 
+              className="text-xs font-medium text-zinc-400 dark:text-zinc-500 tracking-wider select-text inline-block"
+              title={`버전: ${displayVer}`}
+            >
+              {displayVer}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* 캐시 삭제 확인 모달 (공지사항 형태의 구조로 디자인 일관성 통일) */}
       <AnimatePresence>

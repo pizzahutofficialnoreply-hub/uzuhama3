@@ -51,7 +51,7 @@ const TrendTooltip = ({ active, payload, label }: any) => {
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList } from 'recharts';
-import { format, startOfYear, startOfMonth, endOfMonth, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, subDays, subYears, formatISO } from 'date-fns';
+import { format, startOfYear, startOfMonth, endOfMonth, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, subDays, subYears, formatISO, addDays } from 'date-fns';
 import { AppData, BroadcastLog } from '../../types';
 import { CustomTooltip, DottedBarCursor } from '../CustomTooltip';
 import { parseTimeString, parseTimeTo24, cn, useBodyScrollLock } from '../../utils';
@@ -301,8 +301,8 @@ export function DetailedStatsTab({
       }
 
       const gamesList = (log.games || []).length > 0 
-        ? log.games.map(g => ({name: g.name, url: g.link})) 
-        : (log.game ? [{name: log.game, url: ''}] : []);
+        ? log.games.map(g => ({name: g.name, url: g.link || (g as any).url || (g as any).gameUrl || (g as any).steamUrl || (log as any)?.gameLink || ''})) 
+        : (log.game ? [{name: log.game, url: (log as any)?.gameLink || ''}] : []);
       
       const vodsList = (log.vods || []).map(v => ({name: v.title, url: v.url}));
       const editedList = (log.edited || []).map(v => ({name: v.title, url: v.url}));
@@ -379,6 +379,34 @@ export function DetailedStatsTab({
     const trendMap: Record<string, { count: number, dates: Set<string> }> = {};
 
     let total = logsArray.length;
+
+    // 조회 기간 내 모든 주차(week)를 사전에 0으로 초기화하여, 방송이 없던 주도 누락 없이 표시
+    let rangeStartWeek: Date | null = null;
+    let rangeEndWeek: Date | null = null;
+    if (startDate && endDate) {
+      const pStart = parseISO(startDate);
+      const pEnd = parseISO(endDate);
+      if (!isNaN(pStart.getTime()) && !isNaN(pEnd.getTime()) && pStart <= pEnd) {
+        rangeStartWeek = startOfWeek(pStart);
+        rangeEndWeek = startOfWeek(pEnd);
+      }
+    }
+    if (!rangeStartWeek || !rangeEndWeek) {
+      if (logsArray.length > 0) {
+        const sortedD = logsArray.map(l => l.date).filter(Boolean).sort();
+        rangeStartWeek = startOfWeek(parseISO(sortedD[0]));
+        rangeEndWeek = startOfWeek(parseISO(sortedD[sortedD.length - 1]));
+      }
+    }
+
+    if (rangeStartWeek && rangeEndWeek && rangeStartWeek <= rangeEndWeek) {
+      let curW = new Date(rangeStartWeek);
+      while (curW <= rangeEndWeek) {
+        const wKey = format(curW, 'yyyy-MM-dd');
+        trendMap[wKey] = { count: 0, dates: new Set() };
+        curW = addDays(curW, 7);
+      }
+    }
 
     logsArray.forEach(log => {
       const dateObj = parseISO(log.date);
@@ -500,7 +528,7 @@ export function DetailedStatsTab({
       return {
         week: weekStartLabel,
         count: trendMap[week].count,
-        datesDesc: Array.from(trendMap[week].dates).sort().join(', ')
+        datesDesc: trendMap[week].dates.size > 0 ? Array.from(trendMap[week].dates).sort().join(', ') : '방송 없음 (0회)'
       };
     });
 

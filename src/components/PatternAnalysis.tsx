@@ -26,14 +26,10 @@ export function PatternAnalysis({ guides, onIllnessClick }: PatternAnalysisProps
                 source: guide.illnessSource,
                 sourceUrl: guide.illnessSourceUrl
               })}
-              className="inline-flex items-center gap-1.5 font-bold text-red-600 dark:text-red-400 bg-red-100/80 dark:bg-red-950/70 hover:bg-red-200/90 dark:hover:bg-red-900/60 border border-red-300 dark:border-red-800 px-2 py-0.5 rounded-lg mx-1 my-0.5 transition-all cursor-pointer shadow-xs active:scale-95 group underline decoration-red-400 underline-offset-2"
-              title="클릭하여 병명 의학 정보 및 구글 검색 결과 확인"
+              className="inline font-bold underline decoration-purple-500 underline-offset-4 text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 cursor-pointer transition-colors mx-0.5"
+              title="클릭하여 병명 의학 정보 확인"
             >
-              <Activity className="w-3.5 h-3.5 text-red-600 dark:text-red-400 animate-pulse" />
-              <span>{rawInner}</span>
-              <span className="text-[10.5px] font-semibold bg-red-500 text-white dark:bg-red-600 px-1.5 py-0.2 rounded-md no-underline">
-                정보 보기
-              </span>
+              {rawInner}
             </button>
           );
         }

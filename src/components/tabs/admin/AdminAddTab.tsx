@@ -57,26 +57,46 @@ export function AdminAddTab({
     try {
       const trimmedText = rawText.trim();
       
-      // 1. JSON 형식 데이터 입력 시 직접 JSON 파싱 지원
-      if (trimmedText.startsWith('{') || trimmedText.startsWith('[')) {
+      // 1. JSON 형식 데이터 입력 시 직접 JSON 파싱 지원 (조각 스니펫, 딕셔너리 형태 객체, 배열 등 모두 지원)
+      let textToParse = trimmedText.replace(/^[\s,}\]]+/, '').replace(/[\s,}\]]+$/, '').trim();
+      if (!textToParse.startsWith('{') && !textToParse.startsWith('[')) {
+        textToParse = `{ ${textToParse} }`;
+      } else if (textToParse.startsWith('{') && !textToParse.endsWith('}')) {
+        textToParse = `${textToParse} }`;
+      }
+
+      if (textToParse.startsWith('{') || textToParse.startsWith('[')) {
         try {
-          const jsonParsed = JSON.parse(trimmedText);
-          const rawList = Array.isArray(jsonParsed) ? jsonParsed : [jsonParsed];
+          const jsonParsed = JSON.parse(textToParse);
+          let rawList: any[] = [];
+          if (Array.isArray(jsonParsed)) {
+            rawList = jsonParsed;
+          } else if (jsonParsed && typeof jsonParsed === 'object') {
+            if (jsonParsed.date || jsonParsed.games || jsonParsed.vods || jsonParsed.edited || jsonParsed.game) {
+              rawList = [jsonParsed];
+            } else {
+              // 딕셔너리 형태: { "2025-09-23_archive_171": { ... }, ... }
+              const values = Object.values(jsonParsed).filter((v: any) => v && typeof v === 'object' && (v.date || v.games || v.game || v.id));
+              rawList = values.length > 0 ? values : [jsonParsed];
+            }
+          }
+
           const parsedFromJson: Partial<BroadcastLog>[] = rawList.map((item: any) => {
             const empty = createEmptyLog();
             
-            // games 배열 정규화 (게임 이름과 카테고리가 섞이지 않도록 엄격 분리)
+            // games 배열 정규화 (게임 이름, 카테고리, 게임 링크 추출)
             let parsedGames: GameItem[] = [];
             if (Array.isArray(item.games) && item.games.length > 0) {
               parsedGames = item.games.map((g: any) => {
                 if (typeof g === 'string') {
-                  return { name: g, link: '', category: item.category || '종합' };
+                  return { name: g, link: item.gameLink || item.gameUrl || '', category: item.category || '종합' };
                 }
                 const nameStr = g.name || g.game || '';
                 const catStr = g.category || item.category || '종합';
+                const linkStr = g.link || g.url || g.gameUrl || g.steamUrl || item.gameLink || item.gameUrl || '';
                 return {
                   name: nameStr,
-                  link: g.link || '',
+                  link: linkStr,
                   category: catStr
                 };
               });
@@ -84,7 +104,7 @@ export function AdminAddTab({
               const gameNames = typeof item.game === 'string' ? item.game.split(',').map((s: string) => s.trim()).filter(Boolean) : [String(item.game)];
               parsedGames = gameNames.map((gn: string) => ({
                 name: gn,
-                link: '',
+                link: item.gameLink || item.gameUrl || '',
                 category: item.category || '종합'
               }));
             }
@@ -105,7 +125,7 @@ export function AdminAddTab({
             };
           });
 
-          if (parsedFromJson.length > 0) {
+          if (parsedFromJson.length > 0 && parsedFromJson.some(l => l.date || (l.games && l.games.length > 0) || l.game)) {
             setParsedLogs(parsedFromJson);
             return;
           }

@@ -25,15 +25,46 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
     return new Date().getFullYear().toString();
   }, [data.logs]);
 
+  const startDate = `${latestYear}-01-01`;
+  const endDate = format(new Date(), 'yyyy-MM-dd');
+
   const logsArray = useMemo(() => {
-    return Object.values(data.logs || {}).filter(log => log.date && log.date.startsWith(latestYear));
-  }, [data.logs, latestYear]);
+    return Object.values(data.logs || {}).filter(log => log.date >= startDate && log.date <= endDate);
+  }, [data.logs, startDate, endDate]);
 
   const stats = useMemo(() => {
     const dailyMap: Record<string, number> = { '일': 0, '월': 0, '화': 0, '수': 0, '목': 0, '금': 0, '토': 0 };
     const timeMap: Record<string, number> = {};
-    const trendMap: Record<string, number> = {};
+    const trendMap: Record<string, { count: number; dates: Set<string> }> = {};
     const dailyTimeMap: Record<string, Record<string, number>> = { '일': {}, '월': {}, '화': {}, '수': {}, '목': {}, '금': {}, '토': {} };
+
+    // 분석 탭(DetailedStatsTab)과 100% 동일하게 조회 기간 내 모든 주차(0회 방송 주차 포함) 사전 생성
+    let rangeStartWeek: Date | null = null;
+    let rangeEndWeek: Date | null = null;
+    if (startDate && endDate) {
+      const pStart = parseISO(startDate);
+      const pEnd = parseISO(endDate);
+      if (!isNaN(pStart.getTime()) && !isNaN(pEnd.getTime())) {
+        rangeStartWeek = startOfWeek(pStart);
+        rangeEndWeek = startOfWeek(pEnd);
+      }
+    }
+    if (!rangeStartWeek || !rangeEndWeek) {
+      if (logsArray.length > 0) {
+        const sortedD = logsArray.map(l => l.date).filter(Boolean).sort();
+        rangeStartWeek = startOfWeek(parseISO(sortedD[0]));
+        rangeEndWeek = startOfWeek(parseISO(sortedD[sortedD.length - 1]));
+      }
+    }
+
+    if (rangeStartWeek && rangeEndWeek && rangeStartWeek <= rangeEndWeek) {
+      let curW = new Date(rangeStartWeek);
+      while (curW <= rangeEndWeek) {
+        const wKey = format(curW, 'yyyy-MM-dd');
+        trendMap[wKey] = { count: 0, dates: new Set() };
+        curW = addDays(curW, 7);
+      }
+    }
 
     logsArray.forEach(log => {
       const dateObj = parseISO(log.date);
@@ -57,20 +88,11 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
       const dayName = dayNames[dateObj.getDay()];
       dailyTimeMap[dayName][timeLabel] = (dailyTimeMap[dayName][timeLabel] || 0) + 1;
 
-      const soW = startOfWeek(dateObj);
-      let weekStartStr = format(soW, 'MM/dd');
-      let weekStartLabel = format(soW, 'MM/dd');
-      for(let i=0; i<7; i++) {
-         const d = addDays(soW, i);
-         if (d.getMonth() === 0 && d.getDate() === 1) {
-            weekStartLabel = '01/01';
-            weekStartStr = format(d, 'yyyy-MM-dd'); // For sorting purposes, we use the date that falls on 1/1
-            break;
-         }
-      }
-      
-      const sortKey = `${format(soW, 'yyyy-MM-dd')}_${weekStartLabel}`;
-      trendMap[sortKey] = (trendMap[sortKey] || 0) + 1;
+      // 분석 탭(DetailedStatsTab)과 100% 동일한 주간 기준일자 및 집계 로직 적용
+      const weekStart = format(startOfWeek(dateObj), 'yyyy-MM-dd');
+      if (!trendMap[weekStart]) trendMap[weekStart] = { count: 0, dates: new Set() };
+      trendMap[weekStart].count++;
+      trendMap[weekStart].dates.add(format(dateObj, 'M/d'));
     });
 
     const topDay = Object.keys(dailyMap).reduce((a, b) => dailyMap[a] > dailyMap[b] ? a : b, '목');
@@ -88,10 +110,23 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
       dailyTopTimes[day] = top;
     });
 
-
-    const trendStatsArray = Object.keys(trendMap).sort().map(sortKey => {
-      const week = sortKey.split('_')[1];
-      return { week: `${week.startsWith('0') ? week.substring(1) : week} 주간`, count: trendMap[sortKey] };
+    // 분석 탭(DetailedStatsTab)과 100% 동일한 데이터 구조 및 포맷 산출
+    const trendStatsArray = Object.keys(trendMap).sort().map(week => {
+      const weekStartDate = parseISO(week);
+      let weekStartLabel = format(weekStartDate, 'MM/dd');
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStartDate);
+        d.setDate(d.getDate() + i);
+        if (d.getMonth() === 0 && d.getDate() === 1) {
+          weekStartLabel = '01/01';
+          break;
+        }
+      }
+      return {
+        week: weekStartLabel,
+        count: trendMap[week].count,
+        datesDesc: trendMap[week].dates.size > 0 ? Array.from(trendMap[week].dates).sort().join(', ') : '방송 없음 (0회)'
+      };
     });
 
     const dailyStatsArray = Object.keys(dailyMap).map(day => ({
@@ -189,15 +224,15 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
 
   const rawAbsenceReason = data.system?.absenceReason || '';
   const isDirectInput = rawAbsenceReason === '직접 입력' || rawAbsenceReason === '기타 (직접 입력)';
-  const isIllness = rawAbsenceReason === '병명' || Boolean(data.system?.illnessName);
+  const isIllness = rawAbsenceReason === '병명';
 
   const displayAbsenceReason = isDirectInput
     ? (data.system?.customAbsenceReason || '직접 입력한 사유')
     : isIllness
-    ? (data.system?.illnessName || data.system?.customAbsenceReason || '병명')
+    ? (data.system?.illnessName || '병명')
     : rawAbsenceReason;
 
-  const illnessNameForGuide = isIllness ? displayAbsenceReason : undefined;
+  const illnessNameForGuide = isIllness ? (data.system?.illnessName || '병명') : undefined;
 
   // Dynamically generate guides based on actual data
   const dynamicGuides = [
@@ -244,7 +279,22 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                 <XAxis dataKey="week" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                 <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
-                <RechartsTooltip content={<CustomTooltip formatter={(value: number) => [`${value}회`, '방송 횟수']} />} cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} />
+                <RechartsTooltip 
+                  content={({ active, payload, label }: any) => {
+                    if (!active || !payload || !payload.length) return null;
+                    const dataItem = payload[0].payload;
+                    return (
+                      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 shadow-lg text-xs space-y-1">
+                        <p className="font-bold text-zinc-900 dark:text-zinc-100">{label}</p>
+                        <p className="text-purple-600 dark:text-purple-400 font-extrabold">{payload[0].value}회 방송</p>
+                        {dataItem?.datesDesc && (
+                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{dataItem.datesDesc}</p>
+                        )}
+                      </div>
+                    );
+                  }}
+                  cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} 
+                />
                 <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={3} dot={{ r: 4, fill: '#a855f7' }} animationDuration={300} animationEasing="ease-out">
                   <LabelList 
                     dataKey="count" 

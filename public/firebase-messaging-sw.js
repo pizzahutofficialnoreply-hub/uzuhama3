@@ -15,7 +15,7 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 // 2. PWA 캐싱 설정 및 생명주기 관리
-const CACHE_NAME = 'uzuhama-pwa-v2';
+const CACHE_NAME = 'uzuhama-pwa-v3';
 const PRECACHE_ASSETS = ['/', '/index.html', '/manifest.json', '/icon.png'];
 
 self.addEventListener('install', (event) => {

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Layers, Calendar, ExternalLink, ArrowLeft, Play } from 'lucide-react';
+import { motion } from 'motion/react';
 import { cn } from '../../utils';
 import { extractYoutubeId } from '../../utils/urlUtils';
+import { GameTitle } from '../common/GameTitle';
 
 const YoutubeLogo = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -27,6 +29,7 @@ interface BroadcastDetailModalProps {
   allLogs?: Record<string, any> | any[];
   onClose: () => void;
   onNavigateToCalendar?: (dateStr: string) => void;
+  hideMainVideoBanner?: boolean;
 }
 
 const getKoreanDayOfWeek = (dateStr: string): string => {
@@ -49,6 +52,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
   allLogs,
   onClose,
   onNavigateToCalendar,
+  hideMainVideoBanner = false,
 }) => {
   const isCompilation = !!(video.isCompilation || video.compilationId);
   const logsList = useMemo(() => {
@@ -120,24 +124,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // 화면 크기 및 열에 맞춰 8개~9개 유동 조정 (2열 화면 8개, 3열 화면 9개)
-  const [itemsPerPage, setItemsPerPage] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const width = window.innerWidth;
-      if (width >= 768 && width < 1024) return 8;
-    }
-    return 9;
-  });
-
-  useEffect(() => {
-    const handleItemsResize = () => {
-      const width = window.innerWidth;
-      setItemsPerPage(width >= 768 && width < 1024 ? 8 : 9);
-    };
-    handleItemsResize();
-    window.addEventListener('resize', handleItemsResize);
-    return () => window.removeEventListener('resize', handleItemsResize);
-  }, []);
+  const itemsPerPage = 8;
 
   const totalPages = Math.max(1, Math.ceil(broadcastDates.length / itemsPerPage));
   const [currentPage, setCurrentPage] = useState(1);
@@ -167,94 +154,109 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
     };
   }, [onClose]);
 
-  // 커버 뷰 마운트 시 카드 영역 상단으로 부드럽게 스크롤
+  // 몰아보기 펼치면 첫번째 영상으로 자동 부드러운 스크롤
   useEffect(() => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const targetY = Math.max(0, rect.top + scrollTop - 80);
-      window.scrollTo({ top: targetY, behavior: 'smooth' });
-    }
+    const timer = setTimeout(() => {
+      const firstItem = document.getElementById('first-broadcast-item');
+      if (firstItem) {
+        firstItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 250);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
-    <div 
+    <motion.div 
       ref={containerRef}
-      className="w-full rounded-[20px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black shadow-sm overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-top-2"
+      initial={{ opacity: 0, scale: 0.99, y: 8 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.99, y: 8 }}
+      transition={{ type: "spring", stiffness: 320, damping: 28 }}
+      className={cn(
+        "w-full bg-white dark:bg-zinc-900 overflow-hidden",
+        hideMainVideoBanner 
+          ? "border-0 shadow-none rounded-none" 
+          : "rounded-[24px] border border-zinc-200 dark:border-zinc-800 shadow-md"
+      )}
     >
-      {/* 1. 상단 컨트롤 바: X 닫기 버튼 */}
-      <div className="px-4 sm:px-6 py-3 flex items-center justify-end border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-black">
+      {/* 1. 상단 컨트롤 바: 접기 버튼 */}
+      <div className="px-4 sm:px-6 py-2.5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
+        <span className="text-xs font-bold text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-hanna font-pro">
+          <Layers className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+          <span>{isCompilation ? '몰아보기 연동 생방송' : '영상 연동 생방송'}</span>
+        </span>
         <button
           type="button"
           onClick={onClose}
-          className="p-2 rounded-xl text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-          title="닫기"
+          className="px-3 py-1.5 rounded-xl text-xs font-bold text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer flex items-center gap-1.5 font-hanna font-pro"
+          title="접기"
         >
-          <X className="w-5 h-5" />
+          <span>접기</span>
+          <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* 2. 대상 영상 요약 배너: 강조색이 가미된 세련된 배너 */}
-      <div className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 bg-purple-50/30 dark:bg-purple-950/20">
-        <div className="flex items-center gap-3.5 min-w-0 flex-1">
-          {/* 아이콘: 몰아보기 시 보라빛 강조색 */}
-          <div className={cn(
-            "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border",
-            isCompilation
-              ? "bg-purple-100 dark:bg-purple-900/60 text-purple-600 dark:text-purple-300 border-purple-200 dark:border-purple-700/80"
-              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/80 dark:border-zinc-700/80"
-          )}>
-            {isCompilation ? (
-              <Layers className="w-5 h-5" />
-            ) : (
-              <PlaySquare className="w-5 h-5" />
-            )}
+
+      {/* 2. 대상 영상 요약 배너: 메인 카드 형태 유지 시 중복 배너 숨김 */}
+      {!hideMainVideoBanner && (
+        <div className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 bg-purple-50/30 dark:bg-purple-950/20">
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+            {/* 아이콘: 몰아보기 시 보라빛 강조색 */}
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border",
+              isCompilation
+                ? "bg-purple-100 dark:bg-purple-900/60 text-purple-600 dark:text-purple-300 border-purple-200 dark:border-purple-700/80"
+                : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/80 dark:border-zinc-700/80"
+            )}>
+              {isCompilation ? (
+                <Layers className="w-5 h-5" />
+              ) : (
+                <PlaySquare className="w-5 h-5" />
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <a
+                  href={video.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-base sm:text-lg text-zinc-900 dark:text-white truncate hover:underline flex items-center gap-1.5 hover:text-purple-600 dark:hover:text-purple-400 font-hanna font-pro"
+                  title={video.videoTitle}
+                >
+                  <span className="truncate font-hanna font-pro">{video.videoTitle}</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-60 shrink-0" />
+                </a>
+              </div>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className={cn(
+                  "text-[11px] font-semibold px-2.5 py-0.5 rounded-md border font-hanna font-pro",
+                  isCompilation
+                    ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800"
+                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/70 dark:border-zinc-700/70"
+                )}>
+                  {isCompilation ? `몰아보기 연동 · 총 ${totalGamesCount}개 게임` : `영상 연동 · 총 ${broadcastDates.length}개 생방송`}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <a
-                href={video.videoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-bold text-base sm:text-lg text-zinc-900 dark:text-white truncate hover:underline flex items-center gap-1.5 hover:text-purple-600 dark:hover:text-purple-400"
-                title={video.videoTitle}
-              >
-                <span className="truncate">{video.videoTitle}</span>
-                <ExternalLink className="w-3.5 h-3.5 opacity-60 shrink-0" />
-              </a>
-            </div>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className={cn(
-                "text-[11px] font-semibold px-2.5 py-0.5 rounded-md border",
-                isCompilation
-                  ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800"
-                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/70 dark:border-zinc-700/70"
-              )}>
-                {isCompilation ? `몰아보기 연동 · 총 ${totalGamesCount}개 게임` : `영상 연동 · 총 ${broadcastDates.length}개 생방송`}
-              </span>
-              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                페이지당 9개씩 표시
-              </span>
-            </div>
-          </div>
+          {video.videoUrl && (
+            <a
+              href={video.videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-600 dark:hover:bg-purple-500 transition-colors shadow-2xs shrink-0 w-full sm:w-auto cursor-pointer active:scale-95 font-hanna font-pro"
+            >
+              <YoutubeLogo className="w-4 h-4 text-white" />
+              <span className="font-hanna font-pro">유튜브 영상 보기</span>
+            </a>
+          )}
         </div>
-
-        {video.videoUrl && (
-          <a
-            href={video.videoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-600 dark:hover:bg-purple-500 transition-colors shadow-2xs shrink-0 w-full sm:w-auto cursor-pointer active:scale-95"
-          >
-            <YoutubeLogo className="w-4 h-4 text-white" />
-            <span>유튜브 영상 보기</span>
-          </a>
-        )}
-      </div>
+      )}
 
       {/* 3. 본문: 한 생방당 한 카드 (PC 9개 그리드, 모바일 9개 스택) */}
-      <div className="p-4 sm:p-6 bg-black">
+      <div className="p-4 sm:p-6 bg-zinc-50 dark:bg-zinc-950">
         <div className={
           isMobile
             ? 'flex flex-col gap-3.5'
@@ -312,8 +314,20 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
               const addDayGame = (g: any) => {
                 if (!g) return;
                 const name = (typeof g === 'string' ? g : g.name)?.trim();
-                const link = (typeof g === 'string' ? '' : g.link)?.trim() || '';
+                let link = (typeof g === 'string' ? '' : (g.link || g.url || g.gameUrl || g.steamUrl))?.trim() || '';
                 const category = typeof g === 'string' ? '' : (g.category?.trim() || '');
+                
+                // link가 비어있고 matchedLog.games에 해당 게임이 있다면 link 보강
+                if (!link && Array.isArray(matchedLog?.games)) {
+                  const matched = matchedLog.games.find((mg: any) => 
+                    mg.name && name && mg.name.trim().toLowerCase() === name.toLowerCase()
+                  );
+                  if (matched?.link) link = matched.link.trim();
+                }
+                if (!link && (matchedLog as any)?.gameLink) {
+                  link = ((matchedLog as any).gameLink as string).trim();
+                }
+
                 if (name && !seenGameNames.has(name.toLowerCase())) {
                   seenGameNames.add(name.toLowerCase());
                   dayGames.push({ name, link, category });
@@ -332,10 +346,10 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
                 }
               } else {
                 // 일반 영상: 해당 생방의 모든 진행 게임
-                if (Array.isArray(matchedLog?.games)) {
+                if (Array.isArray(matchedLog?.games) && matchedLog.games.length > 0) {
                   matchedLog.games.forEach((g: any) => addDayGame(g));
                 } else if (matchedLog?.game) {
-                  addDayGame({ name: matchedLog.game, link: '', category: matchedLog.category });
+                  addDayGame({ name: matchedLog.game, link: (matchedLog as any)?.gameLink || '', category: matchedLog.category });
                 }
               }
 
@@ -378,6 +392,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
               return (
                 <div
                   key={dateStr}
+                  id={idx === 0 ? "first-broadcast-item" : undefined}
                   className="group flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1"
                 >
                   {/* 상단 16:9 썸네일 영역 (추천 영상 카드와 동일한 브라우저 인라인 재생 지원) */}
@@ -477,7 +492,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
                         href={primaryUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex-1 text-sm sm:text-base"
+                        className="font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex-1 text-sm sm:text-base font-hanna font-pro"
                         title={displayTitle}
                       >
                         {displayTitle}
@@ -492,14 +507,14 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
                             const hasSeparateCategory = g.category && g.category.trim() !== '' && g.category.trim().toLowerCase() !== g.name.trim().toLowerCase() && g.category !== '종합';
                             const gameContent = (
                               <span className={cn(
-                                "px-2 py-0.5 text-[10px] rounded-full select-none inline-flex items-center gap-1",
+                                "px-2 py-0.5 text-[10px] rounded-full select-none inline-flex items-center gap-1 font-hanna font-pro",
                                 g.link
                                   ? "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors cursor-pointer"
                                   : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
                               )}>
-                                <span>{g.name}</span>
+                                <span><GameTitle text={g.name} link={g.link} /></span>
                                 {hasSeparateCategory && (
-                                  <span className="opacity-60 font-normal border-l border-current pl-1">
+                                  <span className="opacity-60 font-normal border-l border-current pl-1 font-hanna font-pro">
                                     {g.category}
                                   </span>
                                 )}
@@ -518,18 +533,18 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
                       </div>
                     )}
 
-                    {/* 하단 액션 버튼 그룹 */}
+                    {/* 하단 액션 버튼 그룹 (기본 추천 영상 카드 디자인과 동일) */}
                     <div className="mt-auto pt-4 flex flex-col gap-2 relative">
-                      {/* 영상 보기 버튼 (빨간색 유튜브 스타일) */}
+                      {/* 영상 보기 버튼 (기본 추천 탭 카드 스타일과 100% 동일) */}
                       {dayVideos.length > 0 && dayVideos[0].url && (
                         <a
                           href={dayVideos[0].url}
                           target="_blank"
                           rel="noreferrer"
-                          className="w-full flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-bold transition-all shadow-2xs bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/40 dark:hover:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-900/40 hover:scale-[1.01]"
+                          className="w-full flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-bold transition-all bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 shadow-2xs hover:scale-[1.01] font-hanna font-pro cursor-pointer"
                         >
-                          <YoutubeLogo className="w-4 h-4" />
-                          <span>영상 보기</span>
+                          <YoutubeLogo className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
+                          <span className="font-hanna font-pro">영상 보기</span>
                         </a>
                       )}
 
@@ -541,10 +556,10 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
                               href={dayVods[0]}
                               target="_blank"
                               rel="noreferrer"
-                              className="flex-1 flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-purple-50 dark:bg-purple-900/10 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/20"
+                              className="flex-1 flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-purple-50 dark:bg-purple-900/10 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/20 font-hanna font-pro"
                             >
                               <PlaySquare className="w-4 h-4" />
-                              <span>{dayVods.length > 1 ? '생방송 (1부)' : '생방송 (풀영상)'}</span>
+                              <span className="font-hanna font-pro">{dayVods.length > 1 ? '생방송 (1부)' : '생방송 (풀영상)'}</span>
                             </a>
                           )}
 
@@ -553,10 +568,10 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
                               href={dayShorts[0].url}
                               target="_blank"
                               rel="noreferrer"
-                              className="flex-1 flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20"
+                              className="flex-1 flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 font-hanna font-pro"
                             >
                               <ShortsIcon className="w-4 h-4" />
-                              <span>쇼츠 ({dayShorts.length})</span>
+                              <span className="font-hanna font-pro">쇼츠 ({dayShorts.length})</span>
                             </a>
                           )}
                         </div>
@@ -641,12 +656,12 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-xs sm:text-sm transition-all cursor-pointer bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white shadow-2xs active:scale-95"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white shadow-2xs active:scale-95 font-hanna font-pro"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>추천 영상 목록으로 돌아가기</span>
+            <X className="w-4 h-4" />
+            <span>연동 생방 목록 접기</span>
           </button>
         </div>
-    </div>
+    </motion.div>
   );
 };

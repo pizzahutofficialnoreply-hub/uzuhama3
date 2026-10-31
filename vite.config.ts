@@ -10,6 +10,51 @@ function calendarFeedPlugin() {
     configureServer(server: any) {
       server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url || '';
+
+        // 푸시 알림 발송 API (로컬 및 프리뷰 환경 지원)
+        if (url === '/api/notifications/send' || url.startsWith('/api/notifications/send?')) {
+          if (req.method === 'POST') {
+            try {
+              let bodyStr = '';
+              req.on('data', (chunk: any) => { bodyStr += chunk; });
+              req.on('end', async () => {
+                try {
+                  const { default: sendHandler } = await import('./api/notifications/send');
+                  req.body = bodyStr ? JSON.parse(bodyStr) : {};
+                  const mockRes: any = {
+                    statusCode: 200,
+                    status(code: number) {
+                      res.statusCode = code;
+                      return mockRes;
+                    },
+                    json(data: any) {
+                      res.setHeader('Content-Type', 'application/json');
+                      return res.end(JSON.stringify(data));
+                    },
+                    end(data?: any) {
+                      return res.end(data);
+                    },
+                    setHeader(k: string, v: string) {
+                      res.setHeader(k, v);
+                      return mockRes;
+                    }
+                  };
+                  await sendHandler(req, mockRes);
+                } catch (e: any) {
+                  res.setHeader('Content-Type', 'application/json');
+                  res.statusCode = 500;
+                  return res.end(JSON.stringify({ error: e.message || '알림 발송 처리 실패' }));
+                }
+              });
+              return;
+            } catch (err: any) {
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = 500;
+              return res.end(JSON.stringify({ error: err.message }));
+            }
+          }
+        }
+
         if (url === '/api/poll/my-ip' || url.startsWith('/api/poll/my-ip?')) {
           const forwarded = req.headers['x-forwarded-for'];
           let ip = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : (req.socket?.remoteAddress || '127.0.0.1');
@@ -36,7 +81,9 @@ function calendarFeedPlugin() {
 
             res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
             res.setHeader('Content-Disposition', 'inline; filename="uzuhama_calendar.ics"');
-            res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=86400');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
             res.statusCode = 200;
             return res.end(icsContent);
           } catch (e: any) {

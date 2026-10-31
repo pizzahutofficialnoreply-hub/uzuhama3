@@ -72,19 +72,15 @@ export function FloatingBottomNav({
   const inputRef = useRef<HTMLInputElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
   const blurRef = useRef<HTMLDivElement>(null);
-  const scrollYBeforeFocusRef = useRef(0);
-  const isSuppressingBrowserScrollRef = useRef(false);
-
-  const recordScrollBeforeFocus = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      scrollYBeforeFocusRef.current = window.pageYOffset || document.documentElement.scrollTop || 0;
-    }
-  }, []);
+  const isKeyboardLockedRef = useRef(false);
+  const lockedKeyboardHeightRef = useRef(0);
+  const keyboardLockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastInnerWidthRef = useRef(typeof window !== 'undefined' ? window.innerWidth : 0);
 
   // 실시간 탭바 글래스모피즘 스타일 (설정 슬라이더 값에 따라 실시간 블러 및 투명도 반응)
   const glassStyle: React.CSSProperties = {
-    WebkitBackdropFilter: `blur(${tabGlass.config.blurPx}px) saturate(180%)`,
-    backdropFilter: `blur(${tabGlass.config.blurPx}px) saturate(180%)`,
+    WebkitBackdropFilter: `blur(${Math.max(20, tabGlass.config.blurPx)}px) saturate(180%)`,
+    backdropFilter: `blur(${Math.max(20, tabGlass.config.blurPx)}px) saturate(180%)`,
     backgroundColor: isDark ? tabGlass.config.darkBg : tabGlass.config.lightBg,
     borderColor: isDark ? tabGlass.config.darkBorder : tabGlass.config.lightBorder,
   };
@@ -92,107 +88,146 @@ export function FloatingBottomNav({
   // 키보드 상태: 사용자가 검색창을 직접 탭했을 때만 키보드가 활성화됨 (자동 포커스 금지)
   const [isKeyboardUp, setIsKeyboardUp] = useState(false);
 
-  // 탭바 하단 여백: 내비게이션 바와 간섭 없이 바로 위 높이까지 밀착
-  const defaultBottomStyle = 'max(0px, calc(env(safe-area-inset-bottom, 0px) - 2px))';
+  // 탭바 하단 여백: 내비게이션 바와 간섭 없이 바로 위 높이까지 밀착 (하단 여백 살짝 축소)
+  const defaultBottomStyle = 'max(0px, calc(env(safe-area-inset-bottom, 0px) - 8px))';
 
-  // 키보드 위치 동기화: 키보드 올리고 내릴 때 실제 키보드 움직임에 맞춰 부드럽게 연동 (여백 10px)
+  // 탭바 및 바닥으로 깔리는 정밀 점진적 블러 높이 (탭바를 포함하여 바닥까지 넉넉하고 자연스럽게 깔림)
+  const defaultBlurHeight = 'calc(env(safe-area-inset-bottom, 0px) + 96px)';
+  const defaultBlurMask = 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.92) 35%, rgba(0,0,0,0.45) 75%, transparent 100%)';
+
+  // 키보드 위치 동기화: 키보드 올리고 내릴 때 실제 키보드 움직임에 맞춰 부드럽게 연동 및 고정
   const applyDockPosition = useCallback((kbHeight: number, isRealtimeTracking = false) => {
-    // 키보드 등장/퇴장 시의 트랜지션
-    const transitionStr = isRealtimeTracking
-      ? 'bottom 0.14s ease-out'
-      : 'bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1)';
-    if (dockRef.current) {
-      dockRef.current.style.transition = transitionStr;
-      if (kbHeight > 40) {
-        dockRef.current.style.bottom = `${kbHeight + 10}px`;
-      } else {
+    // 키보드가 활성화되지 않은 일반 스크롤 상태일 때: transition을 완전히 꺼서 네이티브 Fixed 고정 (스크롤 시 딸려오는 랙 완전 제거)
+    if (kbHeight <= 40) {
+      if (dockRef.current) {
+        dockRef.current.style.transition = 'none';
         dockRef.current.style.bottom = defaultBottomStyle;
       }
-    }
-    if (blurRef.current) {
-      blurRef.current.style.transition = isRealtimeTracking
-        ? 'bottom 0.14s ease-out, height 0.14s ease-out'
-        : 'bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1), height 0.28s cubic-bezier(0.16, 1, 0.3, 1)';
-      if (kbHeight > 40) {
-        // 키보드 아래 영역(0px)부터 시작하여 검색창 위쪽(+84px)까지 여유있고 자연스럽게 페이드 블러
+      if (blurRef.current) {
+        blurRef.current.style.transition = 'none';
         blurRef.current.style.bottom = '0px';
-        blurRef.current.style.height = `${kbHeight + 84}px`;
-        const solidTop = kbHeight + 15;
-        const fadeTop = kbHeight + 84;
-        blurRef.current.style.webkitMaskImage = `linear-gradient(to top, rgba(0,0,0,1) 0px, rgba(0,0,0,1) ${solidTop}px, rgba(0,0,0,0.5) ${kbHeight + 50}px, transparent ${fadeTop}px)`;
-        blurRef.current.style.maskImage = `linear-gradient(to top, rgba(0,0,0,1) 0px, rgba(0,0,0,1) ${solidTop}px, rgba(0,0,0,0.5) ${kbHeight + 50}px, transparent ${fadeTop}px)`;
-        blurRef.current.style.background = isDark
-          ? `linear-gradient(to top, ${tabGlass.config.bottomFadeDark} 0px, ${tabGlass.config.bottomFadeDark} ${solidTop}px, transparent ${fadeTop}px)`
-          : `linear-gradient(to top, ${tabGlass.config.bottomFadeLight} 0px, ${tabGlass.config.bottomFadeLight} ${solidTop}px, transparent ${fadeTop}px)`;
-      } else {
-        blurRef.current.style.bottom = '0px';
-        blurRef.current.style.height = 'calc(env(safe-area-inset-bottom, 0px) + 84px)';
-        blurRef.current.style.webkitMaskImage = 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.3) 70%, transparent 100%)';
-        blurRef.current.style.maskImage = 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.3) 70%, transparent 100%)';
+        blurRef.current.style.height = defaultBlurHeight;
+        blurRef.current.style.webkitMaskImage = defaultBlurMask;
+        blurRef.current.style.maskImage = defaultBlurMask;
         blurRef.current.style.background = isDark
           ? `linear-gradient(to top, ${tabGlass.config.bottomFadeDark}, transparent)`
           : `linear-gradient(to top, ${tabGlass.config.bottomFadeLight}, transparent)`;
       }
+      return;
     }
-  }, [defaultBottomStyle, isDark, tabGlass.config]);
+
+    // 키보드가 완전히 올라와 고정된 상태일 때: 스크롤이나 화면 조작 시 검색창을 완벽 고정(Fixed) 유지
+    if (isKeyboardLockedRef.current && lockedKeyboardHeightRef.current > 40) {
+      if (dockRef.current) {
+        dockRef.current.style.transition = 'none';
+        dockRef.current.style.bottom = `${lockedKeyboardHeightRef.current + 10}px`;
+      }
+      if (blurRef.current) {
+        blurRef.current.style.transition = 'none';
+        blurRef.current.style.bottom = '0px';
+        blurRef.current.style.height = defaultBlurHeight;
+        blurRef.current.style.webkitMaskImage = defaultBlurMask;
+        blurRef.current.style.maskImage = defaultBlurMask;
+      }
+      return;
+    }
+
+    const transitionStr = isRealtimeTracking
+      ? 'bottom 0.12s ease-out'
+      : 'bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1)';
+
+    if (dockRef.current) {
+      dockRef.current.style.transition = transitionStr;
+      dockRef.current.style.bottom = `${kbHeight + 10}px`;
+    }
+
+    if (blurRef.current) {
+      blurRef.current.style.transition = transitionStr;
+      blurRef.current.style.bottom = '0px';
+      blurRef.current.style.height = defaultBlurHeight;
+      blurRef.current.style.webkitMaskImage = defaultBlurMask;
+      blurRef.current.style.maskImage = defaultBlurMask;
+      blurRef.current.style.background = isDark
+        ? `linear-gradient(to top, ${tabGlass.config.bottomFadeDark}, transparent)`
+        : `linear-gradient(to top, ${tabGlass.config.bottomFadeLight}, transparent)`;
+    }
+  }, [defaultBottomStyle, defaultBlurHeight, defaultBlurMask, isDark, tabGlass.config]);
 
   const updateKeyboardOffset = useCallback(() => {
     if (typeof window === 'undefined') return;
     if (!isSearchActive) {
-      applyDockPosition(0);
+      isKeyboardLockedRef.current = false;
+      lockedKeyboardHeightRef.current = 0;
       setIsKeyboardUp(false);
+      applyDockPosition(0);
       return;
     }
+
     if (!window.visualViewport) return;
-
     const vv = window.visualViewport;
-    const keyboardHeight = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
-    const offset = keyboardHeight > 40 ? keyboardHeight : 0;
-    
-    // 키보드 실제 높이에 따라 상승 애니메이션 적용 (키보드에 따라 이동)
-    applyDockPosition(offset, true);
 
-    if (offset > 40) {
+    // 브라우저 키보드 높이
+    const rawDiff = Math.max(0, Math.round(window.innerHeight - vv.height));
+
+    const currentWidth = window.innerWidth;
+    if (Math.abs(currentWidth - lastInnerWidthRef.current) > 30) {
+      lastInnerWidthRef.current = currentWidth;
+      isKeyboardLockedRef.current = false;
+      lockedKeyboardHeightRef.current = 0;
+    }
+
+    if (rawDiff < 40) {
+      if (document.activeElement !== inputRef.current) {
+        setIsKeyboardUp(false);
+        isKeyboardLockedRef.current = false;
+        lockedKeyboardHeightRef.current = 0;
+        applyDockPosition(0);
+        return;
+      }
+    }
+
+    if (rawDiff > 40) {
+      lockedKeyboardHeightRef.current = Math.max(lockedKeyboardHeightRef.current, rawDiff);
+      applyDockPosition(lockedKeyboardHeightRef.current, false);
       setIsKeyboardUp(true);
     } else if (document.activeElement !== inputRef.current) {
       setIsKeyboardUp(false);
+      isKeyboardLockedRef.current = false;
+      lockedKeyboardHeightRef.current = 0;
+      applyDockPosition(0);
     }
   }, [isSearchActive, applyDockPosition]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const handleViewportChange = () => {
+    const handleResize = () => {
       updateKeyboardOffset();
-      if (isSuppressingBrowserScrollRef.current) {
-        const savedY = scrollYBeforeFocusRef.current;
-        const currentY = window.pageYOffset || document.documentElement.scrollTop || 0;
-        if (Math.abs(currentY - savedY) > 1) {
-          window.scrollTo({ top: savedY, left: 0, behavior: 'instant' as ScrollBehavior });
-          if (document.documentElement) document.documentElement.scrollTop = savedY;
-          if (document.body) document.body.scrollTop = savedY;
-        }
-      }
     };
 
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleViewportChange);
-      window.visualViewport.addEventListener('scroll', handleViewportChange);
-      updateKeyboardOffset();
+      window.visualViewport.addEventListener('resize', handleResize);
     }
+    window.addEventListener('resize', handleResize);
+    updateKeyboardOffset();
 
     return () => {
       if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleViewportChange);
-        window.visualViewport.removeEventListener('scroll', handleViewportChange);
+        window.visualViewport.removeEventListener('resize', handleResize);
+      }
+      window.removeEventListener('resize', handleResize);
+      if (keyboardLockTimeoutRef.current) {
+        clearTimeout(keyboardLockTimeoutRef.current);
       }
     };
   }, [isSearchActive, updateKeyboardOffset]);
 
-  // 검색 모드 해제 시 키보드 상태 및 위치 초기화 (자동 포커스 금지: 사용자가 원할 때만 입력창 탭)
+  // 검색 모드 해제 시 키보드 상태 및 위치 초기화
   useEffect(() => {
     if (!isSearchActive) {
       setIsKeyboardUp(false);
+      isKeyboardLockedRef.current = false;
+      lockedKeyboardHeightRef.current = 0;
       applyDockPosition(0);
     }
   }, [isSearchActive, applyDockPosition]);
@@ -200,6 +235,8 @@ export function FloatingBottomNav({
   const handleReturnFromSearch = () => {
     inputRef.current?.blur();
     setIsKeyboardUp(false);
+    isKeyboardLockedRef.current = false;
+    lockedKeyboardHeightRef.current = 0;
     applyDockPosition(0);
     onTabChange(lastStandardTabRef.current || 'summary');
   };
@@ -266,23 +303,23 @@ export function FloatingBottomNav({
 
   return (
     <>
-      {/* 탭바 밑 화면 하단 고정 페이드 블러 레이어: 불투명하지 않고 뒤 배경이 실시간 블러되도록 반투명 농도 조절 */}
+      {/* 탭바 밑 화면 하단 고정 페이드 블러 레이어: 탭바 중후반부부터 바닥으로 자연스럽게 깔림 */}
       {!isSettingsOpen && (
         <div 
           ref={blurRef}
           aria-hidden="true"
           style={{
             bottom: '0px',
-            height: 'calc(env(safe-area-inset-bottom, 0px) + 84px)',
-            WebkitBackdropFilter: `blur(${Math.max(12, tabGlass.config.blurPx - 4)}px)`,
-            backdropFilter: `blur(${Math.max(12, tabGlass.config.blurPx - 4)}px)`,
-            WebkitMaskImage: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.3) 70%, transparent 100%)',
-            maskImage: 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.3) 70%, transparent 100%)',
+            height: defaultBlurHeight,
+            WebkitBackdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx)}px)`,
+            backdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx)}px)`,
+            WebkitMaskImage: defaultBlurMask,
+            maskImage: defaultBlurMask,
             background: isDark
               ? `linear-gradient(to top, ${tabGlass.config.bottomFadeDark}, transparent)`
               : `linear-gradient(to top, ${tabGlass.config.bottomFadeLight}, transparent)`,
           }}
-          className="sm:hidden fixed inset-x-0 pointer-events-none z-40 transition-opacity duration-200 opacity-100"
+          className="sm:hidden fixed inset-x-0 pointer-events-none z-40 transition-opacity duration-200 opacity-100 rounded-t-2xl overflow-hidden backdrop-blur-xl"
         />
       )}
 
@@ -309,9 +346,9 @@ export function FloatingBottomNav({
                 // ==========================================
                 <motion.div
                   key="standard-tab-dock"
-                  initial={{ opacity: 0, x: -60, scale: 0.95 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: -60, scale: 0.95 }}
+                  initial={{ opacity: 0, x: -50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
                   transition={{ type: "spring", stiffness: 280, damping: 23, mass: 0.75 }}
                   className="flex items-center gap-2 w-full justify-between"
                 >
@@ -321,7 +358,7 @@ export function FloatingBottomNav({
                     aria-label="하단 네비게이션"
                     style={glassStyle}
                     className={cn(
-                      "relative w-[268px] flex items-center h-[64px] p-1 rounded-full select-none touch-manipulation shrink-0 border",
+                      "relative w-[268px] flex items-center h-[64px] p-1 rounded-full select-none touch-manipulation shrink-0 border backdrop-blur-xl",
                       "shadow-[0_10px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     )}
                   >
@@ -403,7 +440,7 @@ export function FloatingBottomNav({
                     aria-label="영상 검색 및 추천"
                     style={glassStyle}
                     className={cn(
-                      "relative flex items-center justify-center w-[64px] h-[64px] rounded-full active:scale-95 duration-150 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 border",
+                      "relative flex items-center justify-center w-[64px] h-[64px] rounded-full active:scale-95 duration-150 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 border backdrop-blur-xl",
                       "shadow-[0_10px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     )}
                     title="영상 검색"
@@ -417,15 +454,14 @@ export function FloatingBottomNav({
                 // ==========================================
                 <motion.div
                   key="search-mode-dock"
-                  initial={{ opacity: 0, x: 60, scale: 0.95 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: 60, scale: 0.95 }}
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 50 }}
                   transition={{ type: "spring", stiffness: 280, damping: 23, mass: 0.75 }}
                   className="w-full flex items-center gap-2"
                 >
                   {/* 좌측 이전 탭 복귀 원형 버튼 (48px) - 키보드 등장 시 자연스럽게 0으로 수축 */}
                   <motion.button
-                    layout
                     type="button"
                     onClick={handleReturnFromSearch}
                     aria-label="이전 탭으로 돌아가기"
@@ -456,7 +492,6 @@ export function FloatingBottomNav({
 
                   {/* 단일 지속형 중앙 검색창: 키보드가 올라올 때 시원하게 좌우로 길어지는 스프링 애니메이션 */}
                   <motion.div
-                    layout
                     transition={{ type: "spring", stiffness: 350, damping: 28 }}
                     style={glassStyle}
                     className={cn(
@@ -477,66 +512,37 @@ export function FloatingBottomNav({
                       spellCheck={false}
                       data-form-type="other"
                       value={searchTerm || ''}
-                      onTouchStart={recordScrollBeforeFocus}
-                      onPointerDown={recordScrollBeforeFocus}
-                      onMouseDown={recordScrollBeforeFocus}
                       onFocus={() => {
                         setIsKeyboardUp(true);
-                        recordScrollBeforeFocus();
-                        const targetY = scrollYBeforeFocusRef.current;
-                        isSuppressingBrowserScrollRef.current = true;
+                        isKeyboardLockedRef.current = false;
+                        lockedKeyboardHeightRef.current = 0;
+                        if (keyboardLockTimeoutRef.current) clearTimeout(keyboardLockTimeoutRef.current);
 
-                        let stopped = false;
-                        const stopSuppression = () => {
-                          if (stopped) return;
-                          stopped = true;
-                          isSuppressingBrowserScrollRef.current = false;
-                        };
-
-                        // 사용자가 화면을 직접 스크롤하면 즉시 자동 스크롤 억제를 해제하여 자유로운 수동 스크롤 보장
-                        window.addEventListener('touchmove', stopSuppression, { once: true, passive: true });
-                        window.addEventListener('wheel', stopSuppression, { once: true, passive: true });
-
-                        const holdScroll = () => {
-                          if (stopped) return;
-                          const currentY = window.pageYOffset || document.documentElement.scrollTop || 0;
-                          if (Math.abs(currentY - targetY) > 1) {
-                            window.scrollTo({ top: targetY, left: 0, behavior: 'instant' as ScrollBehavior });
-                            if (document.documentElement) document.documentElement.scrollTop = targetY;
-                            if (document.body) document.body.scrollTop = targetY;
-                          }
-                        };
-
-                        // 브라우저의 키보드 팝업 시 강제 자동 스크롤(화면이 밑으로 밀려 내려가는 현상)을 완벽 억제
-                        const rafId = requestAnimationFrame(holdScroll);
-                        const t1 = setTimeout(holdScroll, 15);
-                        const t2 = setTimeout(holdScroll, 45);
-                        const t3 = setTimeout(holdScroll, 90);
-                        const t4 = setTimeout(holdScroll, 150);
-                        const t5 = setTimeout(holdScroll, 240);
-                        const t6 = setTimeout(holdScroll, 350);
-
+                        // 약간의 딜레이를 두고 키보드 높이를 측정하여 도킹 및 즉시 위치 잠금(Lock)
                         setTimeout(() => {
-                          stopSuppression();
-                          window.removeEventListener('touchmove', stopSuppression);
-                          window.removeEventListener('wheel', stopSuppression);
-                          cancelAnimationFrame(rafId);
-                          clearTimeout(t1);
-                          clearTimeout(t2);
-                          clearTimeout(t3);
-                          clearTimeout(t4);
-                          clearTimeout(t5);
-                          clearTimeout(t6);
-                        }, 400);
+                          updateKeyboardOffset();
+                        }, 50);
+                        setTimeout(() => {
+                          updateKeyboardOffset();
+                        }, 180);
+                        setTimeout(() => {
+                          if (document.activeElement === inputRef.current && lockedKeyboardHeightRef.current > 40) {
+                            isKeyboardLockedRef.current = true;
+                            if (dockRef.current) dockRef.current.style.transition = 'none';
+                            if (blurRef.current) blurRef.current.style.transition = 'none';
+                          }
+                        }, 320);
                       }}
                       onBlur={() => {
-                        isSuppressingBrowserScrollRef.current = false;
+                        if (keyboardLockTimeoutRef.current) clearTimeout(keyboardLockTimeoutRef.current);
                         setTimeout(() => {
                           if (document.activeElement !== inputRef.current) {
+                            isKeyboardLockedRef.current = false;
+                            lockedKeyboardHeightRef.current = 0;
                             setIsKeyboardUp(false);
                             applyDockPosition(0);
                           }
-                        }, 80);
+                        }, 100);
                       }}
                       onChange={(e) => onSearchTermChange?.(e.target.value)}
                       onKeyDown={(e) => {
@@ -553,16 +559,17 @@ export function FloatingBottomNav({
                         }
                       }}
                       placeholder="영상 및 방송 검색..."
-                      className="w-full bg-transparent px-2.5 py-1 text-[16px] text-zinc-900 dark:text-white placeholder:text-zinc-500 dark:placeholder:text-zinc-400 outline-none border-0 font-medium select-text"
+                      className="w-full bg-transparent px-2.5 py-1 text-[16px] text-zinc-900 dark:text-white placeholder:text-zinc-500 dark:placeholder:text-zinc-400 outline-none border-0 font-medium select-text font-hanna font-pro placeholder:font-hanna placeholder:font-pro"
                     />
                     {Boolean(searchTerm) && (
                       <button
                         type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onTouchStart={(e) => e.preventDefault()}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           onSearchTermChange?.('');
-                          recordScrollBeforeFocus();
                           inputRef.current?.focus({ preventScroll: true });
                         }}
                         className="w-4.5 h-4.5 rounded-full bg-zinc-300 dark:bg-zinc-600 hover:bg-zinc-400 dark:hover:bg-zinc-500 text-zinc-700 dark:text-zinc-200 flex items-center justify-center mr-0.5 transition-colors cursor-pointer shrink-0"
@@ -575,7 +582,6 @@ export function FloatingBottomNav({
 
                   {/* 우측 원형 닫기 (X) 버튼 (48px) */}
                   <motion.button
-                    layout
                     type="button"
                     onClick={handleReturnFromSearch}
                     aria-label="검색 닫기"

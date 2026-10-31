@@ -4,11 +4,11 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 
 let app: App;
+let serviceAccount: any = null;
 
 if (getApps().length > 0) {
   app = getApps()[0];
 } else {
-  let serviceAccount: any = null;
   const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT;
 
   if (rawKey) {
@@ -45,9 +45,14 @@ if (getApps().length > 0) {
   }
 
   app = serviceAccount?.private_key
-    ? initializeApp({ credential: cert(serviceAccount) })
-    : initializeApp();
+    ? initializeApp({ credential: cert(serviceAccount), projectId: serviceAccount.projectId || 'uzuhama' })
+    : initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID || 'uzuhama' });
 }
+
+export const hasAdminCredentials = Boolean(
+  (process.env.FIREBASE_SERVICE_ACCOUNT && serviceAccount?.private_key) ||
+  (process.env.FIREBASE_PRIVATE_KEY && serviceAccount?.private_key)
+);
 
 export const db = getFirestore(app);
 export const messaging = getMessaging(app);
@@ -58,11 +63,15 @@ export { setCorsHeaders, ALLOWED_ORIGINS, isAllowedOrigin } from './_cors.js';
 export async function verifyUserToken(req: any) {
   const authHeader = req.headers?.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
-    throw new Error('인증 토큰이 누락되었습니다.');
+    throw Object.assign(new Error('Authentication required'), { status: 401 });
   }
 
   const idToken = authHeader.substring('Bearer '.length);
-  return auth.verifyIdToken(idToken);
+  try {
+    return await auth.verifyIdToken(idToken);
+  } catch {
+    throw Object.assign(new Error('Invalid or expired authentication token'), { status: 401 });
+  }
 }
 
 export async function verifyUserTokenOptional(req: any) {
@@ -81,8 +90,8 @@ export async function verifyUserTokenOptional(req: any) {
 
 export async function verifyAdmin(req: any) {
   const decodedToken = await verifyUserToken(req);
-  if (decodedToken.email !== 'saramoriyo@gmail.com') {
-    throw new Error('관리자 권한이 없습니다.');
+  if (decodedToken.email?.toLowerCase() !== 'saramoriyo@gmail.com' || decodedToken.email_verified !== true) {
+    throw Object.assign(new Error('Administrator access required'), { status: 403 });
   }
   return decodedToken;
 }

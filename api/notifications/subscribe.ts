@@ -23,6 +23,13 @@ export default async function handler(req: any, res: any) {
     }
     const { token, endpoint, keys, action, settings } = body || {};
 
+    if (token !== undefined && (typeof token !== 'string' || token.length > 4096)) {
+      return res.status(400).json({ error: 'Invalid FCM token' });
+    }
+    if (endpoint !== undefined && (typeof endpoint !== 'string' || endpoint.length > 4096)) {
+      return res.status(400).json({ error: 'Invalid subscription endpoint' });
+    }
+
     let effectiveToken = typeof token === 'string' ? token.trim() : '';
     if (!effectiveToken && endpoint && typeof endpoint === 'string' && endpoint.includes('/fcm/send/')) {
       effectiveToken = endpoint.split('/fcm/send/')[1].trim();
@@ -50,6 +57,7 @@ export default async function handler(req: any, res: any) {
 
     const userAgent = req.headers['user-agent'] || 'unknown';
 
+    const leadTime = Number(settings?.leadTimeMinutes);
     await docRef.set({
       token: effectiveToken,
       endpoint: endpoint || null,
@@ -57,7 +65,7 @@ export default async function handler(req: any, res: any) {
       notifyLive: settings?.notifyLive !== undefined ? Boolean(settings.notifyLive) : true,
       notifyAbsence: settings?.notifyAbsence !== undefined ? Boolean(settings.notifyAbsence) : true,
       notifyPeakProb: settings?.notifyPeakProb !== undefined ? Boolean(settings.notifyPeakProb) : true,
-      leadTimeMinutes: settings?.leadTimeMinutes !== undefined ? Number(settings.leadTimeMinutes) : 30,
+      leadTimeMinutes: Number.isFinite(leadTime) ? Math.max(0, Math.min(1440, Math.round(leadTime))) : 30,
       notifyReports: settings?.notifyReports !== undefined ? Boolean(settings.notifyReports) : true,
       userAgent,
       updatedAt: new Date().toISOString(),

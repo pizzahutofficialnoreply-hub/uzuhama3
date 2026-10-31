@@ -215,7 +215,11 @@ export function usePushNotification() {
         });
       } catch (fcmErr: any) {
         console.error('FCM Token 발급 실패:', fcmErr);
-        throw new Error(`FCM 푸시 토큰 발급에 실패했습니다: ${fcmErr?.message || fcmErr}`);
+        const detail = String(fcmErr?.message || fcmErr);
+        const setupHint = detail.includes('401') || detail.includes('authentication credential')
+          ? ' Firebase Console에서 uzuhama Web API key의 HTTP referrer 제한에 현재 사이트 도메인이 포함되어 있는지, Cloud Messaging Web Push 인증서의 VAPID 공개 키가 VITE_VAPID_PUBLIC_KEY와 일치하는지 확인하세요.'
+          : '';
+        throw new Error(`FCM token registration failed: ${detail}.${setupHint}`);
       }
 
       if (!token || typeof token !== 'string' || token.trim().length < 20 || token.startsWith('local_dev_')) {

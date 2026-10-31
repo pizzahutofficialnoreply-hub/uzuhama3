@@ -8,9 +8,10 @@ import { useBodyScrollLock } from '../utils';
 interface NoticeModalProps {
   notices: NoticeItem[];
   onClose: () => void;
+  onNavigateInternal?: (url: string) => void;
 }
 
-export function NoticeModal({ notices, onClose }: NoticeModalProps) {
+export function NoticeModal({ notices, onClose, onNavigateInternal }: NoticeModalProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hideToday, setHideToday] = useState(false);
   const [isAutoPlay, setIsAutoPlay] = useState(true);
@@ -157,18 +158,27 @@ export function NoticeModal({ notices, onClose }: NoticeModalProps) {
 
                 return (
                   <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center gap-2 shrink-0">
-                    {noticeLinks.map((link, lIdx) => (
-                      <a
-                        key={lIdx}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 hover:underline transition-colors text-sm sm:text-base py-1 px-3 rounded-lg bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/60"
-                      >
-                        <span>{link.title || '자세히 보기'}</span>
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    ))}
+                    {noticeLinks.map((link, lIdx) => {
+                      const isInternal = link.url?.startsWith('redirect://') || link.url?.startsWith('app://') || link.url?.startsWith('/');
+                      return (
+                        <button
+                          key={lIdx}
+                          type="button"
+                          onClick={() => {
+                            if (isInternal && onNavigateInternal) {
+                              onClose();
+                              onNavigateInternal(link.url);
+                            } else {
+                              window.open(link.url, '_blank', 'noopener,noreferrer');
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 hover:underline transition-colors text-sm sm:text-base py-1 px-3 rounded-lg bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/60 cursor-pointer active:scale-95"
+                        >
+                          <span>{link.title || '자세히 보기'}</span>
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                      );
+                    })}
                   </div>
                 );
               })()}

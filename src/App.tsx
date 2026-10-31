@@ -3,9 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink } from 'lucide-react';
+import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink, AlertTriangle, CheckCircle2, Check } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { checkMaintenanceStatus, generateMaintenanceNoticeMarkdown, formatMaintenanceRange, parseDateSafe } from './utils/maintenanceUtils';
 import { useFirebaseData } from './hooks/useFirebaseData';
 import { SummaryTab } from './components/tabs/SummaryTab';
 import { CalendarTab } from './components/tabs/CalendarTab';
@@ -13,6 +15,7 @@ import { DetailedStatsTab } from './components/tabs/DetailedStatsTab';
 import { RecommendTab } from './components/tabs/RecommendTab';
 import { AdminRoute } from './components/AdminRoute';
 import { NoticeModal } from './components/NoticeModal';
+import { NoticeBanner } from './components/NoticeBanner';
 import { FeedbackModal } from './components/FeedbackModal';
 import { PolicyModal } from './components/PolicyModal';
 import { PolicyPage } from './components/PolicyPage';
@@ -29,33 +32,11 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './lib/firebase';
 import { Tab, NoticeLink } from './types';
 import { applyTabGlassCssVars, getSavedTabGlassValue } from './utils/tabGlass';
+import { RichTextRenderer } from './components/common/RichTextRenderer';
 
 export function formatNoticeText(text: string): React.ReactNode {
   if (!text) return null;
-  const lines = text.split('\n');
-  return lines.map((line, i) => {
-    // Escape HTML first to prevent XSS if we use dangerouslySetInnerHTML
-    let safeLine = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    
-    // Auto-link URLs
-    safeLine = safeLine.replace(
-      /(https?:\/\/[^\s]+)/g,
-      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-purple-600 dark:text-purple-400 hover:underline break-all">$1</a>'
-    );
-    
-    // Basic regex replacement for *bold*, _italic_, ~strike~
-    let formatted = safeLine
-      .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
-      .replace(/_(.*?)_/g, '<em>$1</em>')
-      .replace(/~(.*?)~/g, '<del>$1</del>');
-      
-    return (
-      <React.Fragment key={i}>
-        <span dangerouslySetInnerHTML={{ __html: formatted }} />
-        {i < lines.length - 1 && <br />}
-      </React.Fragment>
-    );
-  });
+  return <RichTextRenderer content={text} />;
 }
 
 import { useInstallPrompt } from './hooks/useInstallPrompt';
@@ -79,6 +60,7 @@ function MainApp() {
     return saved;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<'notification' | 'theme' | 'share' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   // 애플 기기 판별 (Apple 기기 제외 닫기 애니메이션 적용)
@@ -103,6 +85,7 @@ function MainApp() {
   const closeSettings = (isFromPopEvent = false) => {
     setIsSettingsOpen(false);
     setShowFeedbackModal(false);
+    setSettingsInitialSection(null);
     try {
       if (window.location.search.includes('settings')) {
         window.history.replaceState(null, '', '/');
@@ -194,6 +177,7 @@ function MainApp() {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
   const [recommendTargetCategory, setRecommendTargetCategory] = useState<string | null>(null);
   const [recommendTargetSearchTerm, setRecommendTargetSearchTerm] = useState<string | null>(null);
+  const [recommendPinnedVideoId, setRecommendPinnedVideoId] = useState<string | null>(null);
   const [globalSearchTerm, setGlobalSearchTerm] = useState(() => {
     try {
       return sessionStorage.getItem('rec_searchTerm') || '';
@@ -212,13 +196,16 @@ function MainApp() {
     handleTabChange('calendar', false, true);
   };
 
-  const handleNavigateToRecommend = (category?: string, searchTerm?: string) => {
+  const handleNavigateToRecommend = (category?: string, searchTerm?: string, pinnedVideoId?: string) => {
     isAutoNavigatedRef.current = true;
     autoNavSourceTabRef.current = activeTab;
     if (category) setRecommendTargetCategory(category);
     if (searchTerm) {
       setRecommendTargetSearchTerm(searchTerm);
       setGlobalSearchTerm(searchTerm);
+    }
+    if (pinnedVideoId) {
+      setRecommendPinnedVideoId(pinnedVideoId);
     }
     handleTabChange('recommend', false, true);
   };
@@ -251,22 +238,16 @@ function MainApp() {
 
   useEffect(() => {
     resetBodyScrollLock();
-    const noticeSeen = localStorage.getItem('notice_seen_v1');
-    if (!noticeSeen) {
-      setShowNotice(true);
-    }
   }, []);
 
-  // 점검 모드 시간 체크 (1초마다 갱신하여 점검 종료 시간에 도달하면 즉시 자동 종료)
+  // 점검 모드 시간 체크 (1초마다 갱신하여 시작/종료 시간에 도달하면 즉시 자동 시작 및 자동 종료)
   const [nowTime, setNowTime] = useState(() => Date.now());
   useEffect(() => {
-    if (data?.system?.maintenance) {
-      const timer = window.setInterval(() => {
-        setNowTime(Date.now());
-      }, 1000);
-      return () => window.clearInterval(timer);
-    }
-  }, [data?.system?.maintenance]);
+    const timer = window.setInterval(() => {
+      setNowTime(Date.now());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // 탭별 스크롤 위치 기억 맵 (다른 탭 이동 시 기존 스크롤 위치 복원)
   const tabScrollPositions = useRef<Record<Tab, number>>({
@@ -278,19 +259,83 @@ function MainApp() {
 
   // 상단 헤더 스크롤 방향 및 자동 스크롤 오프셋 감지
   const [isHeaderHidden, setIsHeaderHidden] = useState(false);
+  const [isNoticeExpanded, setIsNoticeExpanded] = useState(false);
   const lastScrollYRef = useRef(0);
   const autoScrollBaseYRef = useRef(0);
+  const isAutoScrollingRef = useRef(false);
+  const isUserInteractingRef = useRef(false);
+  const autoScrollTimerRef = useRef<number | null>(null);
 
-  // 모바일 전용 탭 제목 위치 산출
-  const computeMobileTabTitleY = () => {
+  // 사용자의 실제 물리적 조작(터치 스크롤, 마우스 휠, 키보드) 이벤트 감지
+  useEffect(() => {
+    const handleUserInteraction = () => {
+      isUserInteractingRef.current = true;
+      if (!isAutoScrollingRef.current) {
+        autoScrollBaseYRef.current = window.pageYOffset || document.documentElement.scrollTop || 0;
+      }
+    };
+
+    window.addEventListener('touchstart', handleUserInteraction, { passive: true });
+    window.addEventListener('wheel', handleUserInteraction, { passive: true });
+    window.addEventListener('keydown', handleUserInteraction, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleUserInteraction);
+      window.removeEventListener('wheel', handleUserInteraction);
+      window.removeEventListener('keydown', handleUserInteraction);
+    };
+  }, []);
+
+  // 탭의 첫 번째 카드 시작점 Y 좌표 정밀 계산 (스크롤 양이 아닌 탭의 첫 번째 카드 시작점 기준 정렬)
+  const computeTabContentStartY = (tab: Tab) => {
     if (typeof window === 'undefined') return 0;
-    if (window.innerWidth >= 640) return 0; // 모바일에서만 작동
-    if (tabContentRef.current) {
-      const rect = tabContentRef.current.getBoundingClientRect();
+    
+    let targetEl: HTMLElement | null = null;
+    if (tab === 'calendar') {
+      targetEl = document.getElementById('calendar-main-card') || document.getElementById('calendar-tab-view');
+    } else if (tab === 'detailed') {
+      targetEl = document.getElementById('detailed-main-card') || document.getElementById('detailed-tab-view');
+    } else if (tab === 'summary') {
+      targetEl = document.getElementById('summary-weekly-trend-card') || document.getElementById('summary-tab-view');
+    } else if (tab === 'recommend') {
+      targetEl = document.getElementById('recommend-filter-card') || document.getElementById('recommend-tab-view');
+    } else {
+      targetEl = tabContentRef.current;
+    }
+
+    if (!targetEl) {
+      targetEl = tabContentRef.current;
+    }
+
+    if (targetEl) {
+      const rect = targetEl.getBoundingClientRect();
       const currentY = window.pageYOffset || document.documentElement.scrollTop || 0;
-      return Math.max(0, currentY + rect.top - 62);
+      const cardAbsoluteTop = rect.top + currentY;
+
+      let topStickyOffset = 0;
+      if (isNoticeExpanded) {
+        // 띠 공지 펼치기 상태: 제목 부분이 헤더 역할을 하므로 고정 제목 바(약 52px) + 여백 기준 정렬
+        const pinnedBar = document.getElementById('pinned-notice-title-bar');
+        const pinnedHeight = pinnedBar ? pinnedBar.offsetHeight : 52;
+        topStickyOffset = pinnedHeight + 10;
+      } else {
+        // 띠 공지 접힘 상태: 상단 메인 헤더 + 접힌 공지 배너 + 여백
+        const headerEl = document.getElementById('app-main-header');
+        const bannerEl = document.getElementById('notice-banner-container');
+        const headerHeight = headerEl ? headerEl.offsetHeight : 64;
+        const bannerHeight = (bannerEl && tab !== 'recommend') ? bannerEl.offsetHeight : 0;
+        topStickyOffset = headerHeight + bannerHeight + 10;
+      }
+
+      // 첫 번째 카드 시작점이 상단 바 바로 아래에 깔끔하게 시작되도록 정렬
+      return Math.max(0, Math.round(cardAbsoluteTop - topStickyOffset));
     }
     return 0;
+  };
+
+  // 모바일 전용 탭 제목 위치 산출 (하위 호환)
+  const computeMobileTabTitleY = () => {
+    return computeTabContentStartY(activeTab);
   };
 
   // 스크롤 시 현재 탭의 스크롤 위치 실시간 기록 및 헤더 숨김/표시 처리
@@ -298,6 +343,14 @@ function MainApp() {
     const handleScroll = () => {
       const currentScrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
       tabScrollPositions.current[activeTab] = currentScrollY;
+
+      // 자동 스크롤 진행 중이거나 사용자가 직접 터치/휠 조작을 하지 않은 상태에서는 헤더 숨김 절대 제외 (스크롤 량에 불포함)
+      if (isAutoScrollingRef.current || !isUserInteractingRef.current) {
+        setIsHeaderHidden(false);
+        lastScrollYRef.current = currentScrollY;
+        autoScrollBaseYRef.current = currentScrollY;
+        return;
+      }
 
       const deltaY = currentScrollY - lastScrollYRef.current;
 
@@ -308,7 +361,7 @@ function MainApp() {
       } else if (isSettingsOpen) {
         setIsHeaderHidden(false);
       } else {
-        // "자동 스크롤양을 제외한 어느 정도 스크롤이 이루어졌을 시" (사라지는 스크롤 정도를 약간 더 길게 조정: 110px)
+        // 자동 스크롤 위치를 완전히 제외한 사용자의 순수 터치/휠 추가 스크롤 량(110px 초과)만 계산
         const effectiveScroll = currentScrollY - (autoScrollBaseYRef.current || 0);
 
         if (effectiveScroll > 110 && deltaY > 6) {
@@ -326,7 +379,8 @@ function MainApp() {
   }, [activeTab, isSettingsOpen]);
 
   // 탭 전환 시 스크롤 위치 제어:
-  // - 일반탭 <-> 일반탭: 탭 시작 지점으로 부드러운 자동 스크롤 애니메이션 ('smooth')
+  // - 기록 탭 / 분석 탭 진입 시: 탭 내용 시작점으로 정밀 자동 스크롤
+  // - 일반탭 <-> 일반탭: 부드러운 자동 스크롤 애니메이션 ('smooth')
   // - 검색탭 <-> 일반탭: 즉각 이동 및 애니메이션 없음 ('instant')
   const previousTabRef = useRef<Tab>(activeTab);
   const isFirstMountRef = useRef(true);
@@ -344,21 +398,23 @@ function MainApp() {
 
     const isAutoNav = isAutoNavigatedRef.current;
     let targetY = 0;
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
 
     if (activeTab === 'recommend') {
       targetY = isAutoNav ? (tabScrollPositions.current['recommend'] || 0) : 0;
       tabScrollPositions.current['recommend'] = targetY;
-    } else {
-      const saved = tabScrollPositions.current[activeTab] || 0;
-      if (isMobile && saved === 0) {
-        // 모바일에서 아직 스크롤하지 않은 탭은 탭 시작 지점(제목 부분)으로 자동 스크롤
-        targetY = computeMobileTabTitleY();
-        autoScrollBaseYRef.current = targetY;
-      } else {
-        targetY = saved;
+    } else if (activeTab === 'calendar' || activeTab === 'detailed') {
+      // 기록 탭 및 분석 탭: 탭 첫 번째 카드 시작점으로 정밀 자동 스크롤
+      targetY = computeTabContentStartY(activeTab);
+      tabScrollPositions.current[activeTab] = targetY;
+      if (isNoticeExpanded) {
+        setIsHeaderHidden(true);
       }
+    } else {
+      targetY = tabScrollPositions.current[activeTab] || 0;
     }
+
+    autoScrollBaseYRef.current = targetY;
+    lastScrollYRef.current = targetY;
 
     const isSearchTransition = previousTab === 'recommend' || activeTab === 'recommend';
 
@@ -367,9 +423,47 @@ function MainApp() {
       window.scrollTo({ top: targetY, left: 0, behavior: 'instant' as ScrollBehavior });
       document.documentElement.scrollTop = targetY;
       document.body.scrollTop = targetY;
+      setIsHeaderHidden(false);
     } else {
-      // 일반탭 간 전환일 경우 탭 시작 지점으로 부드러운 스크롤 애니메이션 적용
+      // 일반탭 간 전환: 부드러운 스크롤 애니메이션 적용
+      // 자동 스크롤 시 헤더 숨기기 스크롤 량에 불포함되도록 플래그 설정
+      isAutoScrollingRef.current = true;
+      isUserInteractingRef.current = false;
+      if (!isNoticeExpanded || (activeTab !== 'calendar' && activeTab !== 'detailed')) {
+        setIsHeaderHidden(false);
+      }
+
+      if (autoScrollTimerRef.current) {
+        window.clearTimeout(autoScrollTimerRef.current);
+      }
+
       window.scrollTo({ top: targetY, left: 0, behavior: 'smooth' as ScrollBehavior });
+
+      // DOM 레이아웃 안정화 후 시작점 미세 오차 보정 (탭 첫 번째 카드 기준)
+      requestAnimationFrame(() => {
+        const accurateY = computeTabContentStartY(activeTab);
+        if (accurateY > 0 && Math.abs(accurateY - targetY) > 6) {
+          window.scrollTo({ top: accurateY, left: 0, behavior: 'smooth' as ScrollBehavior });
+          autoScrollBaseYRef.current = accurateY;
+          lastScrollYRef.current = accurateY;
+          if (isNoticeExpanded && (activeTab === 'calendar' || activeTab === 'detailed')) {
+            setIsHeaderHidden(true);
+          }
+        }
+      });
+
+      // 스크롤 이동 완료 후 자동 스크롤 플래그 해제 및 기준점 동기화
+      autoScrollTimerRef.current = window.setTimeout(() => {
+        isAutoScrollingRef.current = false;
+        const currentY = window.pageYOffset || document.documentElement.scrollTop || targetY;
+        autoScrollBaseYRef.current = currentY;
+        lastScrollYRef.current = currentY;
+        if (isNoticeExpanded && (activeTab === 'calendar' || activeTab === 'detailed')) {
+          setIsHeaderHidden(true);
+        } else if (currentY <= 15) {
+          setIsHeaderHidden(false);
+        }
+      }, 700);
     }
   }, [activeTab]);
 
@@ -393,6 +487,13 @@ function MainApp() {
 
     if (isAuto) {
       isAutoNavigatedRef.current = true;
+    } else {
+      isAutoNavigatedRef.current = false;
+    }
+
+    // 기록 탭 및 분석 탭으로 직접 이동 시 항상 시작점 위치로 이동할 수 있도록 위치 초기화
+    if (!isAuto && (nextTab === 'calendar' || nextTab === 'detailed')) {
+      tabScrollPositions.current[nextTab] = 0;
     }
 
     // 2. 탭 전환
@@ -408,6 +509,111 @@ function MainApp() {
       return;
     }
   };
+
+  // 내부 리다이렉트 핸들러 (예: redirect://설정/일러두기, redirect://패치노트, redirect://기록 등)
+  const handleInternalRedirect = useCallback((url: string): boolean => {
+    if (!url) return false;
+    const trimmed = url.trim();
+
+    if (trimmed.startsWith('redirect://') || trimmed.startsWith('app://')) {
+      const rawPath = decodeURIComponent(trimmed.replace(/^(redirect|app):\/\//, '')).trim();
+      const pathLower = rawPath.toLowerCase();
+
+      // 1. 설정창 및 일러두기 등 세부 아코디언 항목
+      if (rawPath.includes('일러두기') || pathLower.includes('preface')) {
+        setSettingsInitialSection('preface');
+        setIsSettingsOpen(true);
+        return true;
+      }
+      if (rawPath.includes('알림') || pathLower.includes('notification')) {
+        setSettingsInitialSection('notification');
+        setIsSettingsOpen(true);
+        return true;
+      }
+      if (rawPath.includes('테마') || pathLower.includes('theme')) {
+        setSettingsInitialSection('theme');
+        setIsSettingsOpen(true);
+        return true;
+      }
+      if (rawPath.includes('폰트') || rawPath.includes('라이선스') || pathLower.includes('font')) {
+        setSettingsInitialSection('fontLicense');
+        setIsSettingsOpen(true);
+        return true;
+      }
+      if (rawPath.includes('약관') || pathLower.includes('terms')) {
+        setPolicyType('terms');
+        return true;
+      }
+      if (rawPath.includes('개인정보') || pathLower.includes('privacy')) {
+        setPolicyType('privacy');
+        return true;
+      }
+      if (rawPath === '설정' || pathLower === 'settings') {
+        setSettingsInitialSection(null);
+        setIsSettingsOpen(true);
+        return true;
+      }
+
+      // 2. 패치노트
+      if (rawPath.includes('패치') || pathLower.includes('patch')) {
+        setIsSettingsOpen(false);
+        navigate('/patch');
+        return true;
+      }
+
+      // 3. 공지사항 모달
+      if (rawPath.includes('공지') || pathLower.includes('notice')) {
+        setDismissedSystemNotice(false);
+        setShowNotice(true);
+        return true;
+      }
+
+      // 4. 의견 보내기
+      if (rawPath.includes('의견') || rawPath.includes('피드백') || pathLower.includes('feedback')) {
+        openFeedback();
+        return true;
+      }
+
+      // 5. 탭 이동
+      if (rawPath.includes('기록') || rawPath.includes('달력') || pathLower.includes('calendar')) {
+        handleTabChange('calendar');
+        return true;
+      }
+      if (rawPath.includes('분석') || pathLower.includes('detailed') || pathLower.includes('stats')) {
+        handleTabChange('detailed');
+        return true;
+      }
+      if (rawPath.includes('요약') || rawPath.includes('홈') || pathLower.includes('summary')) {
+        handleTabChange('summary');
+        return true;
+      }
+      if (rawPath.includes('추천') || rawPath.includes('영상') || pathLower.includes('recommend')) {
+        handleTabChange('recommend');
+        return true;
+      }
+
+      return true;
+    }
+
+    if (trimmed.startsWith('/')) {
+      if (trimmed === '/patch') {
+        navigate('/patch');
+        return true;
+      }
+      if (trimmed === '/terms') {
+        setPolicyType('terms');
+        return true;
+      }
+      if (trimmed === '/privacy') {
+        setPolicyType('privacy');
+        return true;
+      }
+      navigate(trimmed);
+      return true;
+    }
+
+    return false;
+  }, [navigate, openFeedback]);
 
   const closeNotice = (neverShowAgain: boolean) => {
     if (neverShowAgain) {
@@ -439,29 +645,10 @@ function MainApp() {
   const sortedDates = Object.keys(data.logs).map(k => data.logs[k].date).sort();
   const firstYear = sortedDates.length > 0 ? sortedDates[0].substring(0, 4) : '2026';
 
-  const isMaintenanceActive = (() => {
-    if (!data.system?.maintenance) return false;
-    
-    // 시작 시간이 설정되어 있는 경우 (예약 점검): 시작 시간 전이면 아직 점검 시작 전
-    if (data.system.maintenanceStart) {
-      const startTime = new Date(data.system.maintenanceStart).getTime();
-      if (!isNaN(startTime) && nowTime < startTime) {
-        return false;
-      }
-    }
+  const maintenanceStatus = checkMaintenanceStatus(data.system, nowTime);
 
-    // 종료 시간이 설정되어 있는 경우: 종료 시간이 경과했으면 점검 자동 종료
-    if (data.system.maintenanceEnd) {
-      const endTime = new Date(data.system.maintenanceEnd).getTime();
-      if (!isNaN(endTime) && nowTime >= endTime) {
-        return false;
-      }
-    }
-    return true;
-  })();
-
-  if (isMaintenanceActive) {
-    const endTimeMs = data.system?.maintenanceEnd ? new Date(data.system.maintenanceEnd).getTime() : null;
+  if (maintenanceStatus.isInProgress) {
+    const endTimeMs = data.system?.maintenanceEnd ? parseDateSafe(data.system.maintenanceEnd) : null;
     const remainingSeconds = endTimeMs && !isNaN(endTimeMs) ? Math.max(0, Math.floor((endTimeMs - nowTime) / 1000)) : null;
 
     const formatRemaining = (sec: number) => {
@@ -474,79 +661,163 @@ function MainApp() {
       return `${minutes}분 ${seconds}초`;
     };
 
+    const startStr = data.system?.maintenanceStart || '';
+    const endStr = data.system?.maintenanceEnd || '';
+    const { fullText: scheduleFullText } = formatMaintenanceRange(startStr, endStr);
+
+    const changes = data.system?.maintenanceChanges && data.system.maintenanceChanges.length > 0
+      ? data.system.maintenanceChanges
+      : ['데이터베이스 점검 및 최적화', '서버 연동 점검', '서비스 코드 안정화 및 테스트'];
+
+    const fallbackNoticeMarkdown = generateMaintenanceNoticeMarkdown({
+      startStr: startStr || '2026-09-12T10:00',
+      endStr: endStr || '2026-09-12T16:00',
+      scope: data.system?.maintenanceScope,
+      impact: data.system?.maintenanceImpact,
+      noticeGuide: data.system?.maintenanceNoticeGuide,
+      durationNote: data.system?.maintenanceDurationNote,
+      status: data.system?.maintenanceStatusText || '점검 진행 중',
+      note: data.system?.maintenanceNote || '없음',
+      history: data.system?.maintenanceHistory
+    });
+
+    const links: NoticeLink[] = (data.system?.maintenanceLinks && data.system.maintenanceLinks.length > 0)
+      ? data.system.maintenanceLinks.filter(l => Boolean(l.url))
+      : (data.system?.maintenanceLinkUrl ? [{ url: data.system.maintenanceLinkUrl, title: data.system.maintenanceLinkText || '관련 링크 바로가기' }] : []);
+
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-black flex flex-col items-center justify-center p-6 text-center">
-        <Lock className="w-16 h-16 text-zinc-400 mb-6" />
-        <h1 className="text-3xl font-black text-zinc-900 dark:text-white mb-4">
-          {data.system?.maintenanceTitle?.trim() || "점검 중입니다"}
-        </h1>
-        <p className="text-zinc-600 dark:text-zinc-400 max-w-md mx-auto leading-relaxed whitespace-pre-wrap">
-          {data.system?.maintenanceContent?.trim() 
-            ? formatNoticeText(data.system.maintenanceContent) 
-            : (data.system?.noticeContent 
-                ? formatNoticeText(data.system.noticeContent) 
-                : "현재 사이트 업데이트 및 점검 작업이 진행 중입니다.\n이용에 불편을 드려 죄송합니다.")}
-        </p>
+      <div className="min-h-screen w-full bg-zinc-50 dark:bg-black py-8 sm:py-12 px-3 sm:px-6 overflow-y-auto flex flex-col items-center justify-start text-center select-text">
+        <div className="w-full max-w-2xl mx-auto space-y-5 my-2 sm:my-6 pb-20 text-left">
+          
+          {/* 상단 락 아이콘 & 헤더 */}
+          <div className="text-center space-y-2.5 pb-2">
+            <div className="inline-flex p-3 sm:p-3.5 rounded-2xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 shadow-sm">
+              <Lock className="w-8 h-8 sm:w-10 sm:h-10" />
+            </div>
+            {(() => {
+              const statusText = data.system?.maintenanceStatusText?.trim();
+              if (statusText && statusText.includes('완료')) {
+                return (
+                  <div className="inline-block px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold border border-purple-200 dark:border-purple-800/50">
+                    시스템 점검 진행 중
+                  </div>
+                );
+              }
+              return (
+                <div className="inline-block px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold border border-purple-200 dark:border-purple-800/50">
+                  {statusText || "시스템 점검 진행 중"}
+                </div>
+              );
+            })()}
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
+              {data.system?.maintenanceTitle?.trim() || "서비스 안정화를 위한 정기 점검 안내"}
+            </h1>
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+              점검 시간 동안 서비스에 접속 불가합니다. 이용에 불편을 드려 죄송합니다.
+            </p>
+          </div>
 
-        {/* 점검 공지 관련 링크 버튼 목록 */}
-        {(() => {
-          const links: NoticeLink[] = (data.system?.maintenanceLinks && data.system.maintenanceLinks.length > 0)
-            ? data.system.maintenanceLinks.filter(l => Boolean(l.url))
-            : (data.system?.maintenanceLinkUrl ? [{ url: data.system.maintenanceLinkUrl, title: data.system.maintenanceLinkText || '관련 링크 바로가기' }] : []);
+          {/* 1. 공지사항 카드 (관리자 모드 실시간 미리보기 형태 그대로 렌더링) */}
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+            <h2 className="text-base sm:text-lg font-extrabold text-zinc-900 dark:text-white border-b border-zinc-100 dark:border-zinc-800 pb-2.5 flex items-center justify-between gap-2">
+              <span>{data.system?.maintenanceTitle?.trim() || '서비스 안정화를 위한 정기 점검 안내'}</span>
+              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2.5 py-1 rounded-lg shrink-0">
+                점검 공지
+              </span>
+            </h2>
 
-          if (links.length === 0) return null;
+            <div className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-xs sm:text-sm">
+              <ReactMarkdown
+                components={{
+                  h2: ({node, ...props}) => <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 mt-3 mb-1.5" {...props} />,
+                  h3: ({node, ...props}) => <h3 className="text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-400 mt-2.5 mb-1" {...props} />,
+                  p: ({node, ...props}) => <p className="mb-2 text-zinc-600 dark:text-zinc-300 leading-relaxed" {...props} />,
+                  ul: ({node, ...props}) => <ul className="list-disc pl-4 space-y-1 mb-2 text-zinc-600 dark:text-zinc-300" {...props} />,
+                  li: ({node, ...props}) => <li className="leading-relaxed" {...props} />,
+                  strong: ({node, ...props}) => <strong className="font-bold text-zinc-900 dark:text-white" {...props} />,
+                  hr: () => <hr className="my-3 border-zinc-200 dark:border-zinc-800" />
+                }}
+              >
+                {data.system?.maintenanceContent?.trim() || fallbackNoticeMarkdown}
+              </ReactMarkdown>
+            </div>
+          </div>
 
-          return (
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5 max-w-md w-full mx-auto">
+          {/* 2. 패치노트 (작업 및 주요 변경 사항 카드) */}
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 sm:p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </span>
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">패치노트 (작업 및 주요 변경 사항)</h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  이번 점검을 통해 반영되는 개선 사항 및 패치 항목입니다.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2 pt-1">
+              {changes.map((item, idx) => (
+                <div key={idx} className="p-3 bg-zinc-50 dark:bg-zinc-800/60 rounded-xl text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-200 flex items-start gap-2">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold shrink-0">•</span>
+                  <span className="flex-1 break-keep">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 3. 점검 시간 안내 및 남은 시간 카운트다운 */}
+          {(startStr || endStr) && (
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">점검 시간 안내</h3>
+                {scheduleFullText && (
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">{scheduleFullText}</span>
+                )}
+              </div>
+              <div className="space-y-1.5 pt-1 text-xs sm:text-sm">
+                {startStr && (
+                  <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
+                    <span>시작 일시:</span>
+                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">{startStr.replace('T', ' ')}</span>
+                  </div>
+                )}
+                {endStr && (
+                  <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
+                    <span>종료 예정:</span>
+                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">{endStr.replace('T', ' ')}</span>
+                  </div>
+                )}
+              </div>
+              {remainingSeconds !== null && remainingSeconds > 0 && (
+                <div className="mt-2.5 pt-2.5 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center text-xs sm:text-sm">
+                  <span className="text-purple-600 dark:text-purple-400 font-bold">남은 점검 시간:</span>
+                  <span className="font-extrabold text-purple-600 dark:text-purple-400">
+                    {formatRemaining(remainingSeconds)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 4. 점검 공지 관련 링크 버튼 목록 */}
+          {links.length > 0 && (
+            <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
               {links.map((link, idx) => (
                 <a
                   key={idx}
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-sm font-bold shadow-sm transition-all touch-manipulation cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer"
                 >
                   <span>{link.title || link.url}</span>
-                  <ExternalLink className="w-4 h-4 shrink-0" />
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                 </a>
               ))}
             </div>
-          );
-        })()}
-
-        {(data.system?.maintenanceStart || data.system?.maintenanceEnd) && (
-          <div className="mt-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 w-full max-w-md text-left shadow-sm">
-            <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 mb-2">점검 시간 안내</h2>
-            {data.system.maintenanceStart && (
-              <div className="flex justify-between items-center text-sm mb-1">
-                <span className="text-zinc-500">시작:</span>
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                  {data.system.maintenanceStart.replace('T', ' ')}
-                </span>
-              </div>
-            )}
-            {data.system.maintenanceEnd && (
-              <div className="flex justify-between items-center text-sm mb-1">
-                <span className="text-zinc-500">종료 예정:</span>
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                  {data.system.maintenanceEnd.replace('T', ' ')}
-                </span>
-              </div>
-            )}
-            {remainingSeconds !== null && remainingSeconds > 0 && (
-              <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center text-sm">
-                <span className="text-purple-600 dark:text-purple-400 font-bold">남은 시간:</span>
-                <span className="font-extrabold text-purple-600 dark:text-purple-400">
-                  {formatRemaining(remainingSeconds)}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
-        <Link to="/admin" className="mt-8 text-xs text-transparent select-none transition-colors">
-          Admin
-        </Link>
+          )}
+        </div>
       </div>
     );
   }
@@ -554,17 +825,41 @@ function MainApp() {
   return (
     <div className="min-h-[100dvh] min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans selection:bg-purple-500/30 flex flex-col overflow-x-clip w-full">
       
-      {/* System Big Notice Modal */}
-      {data.system?.noticeType === 'big' && !dismissedSystemNotice && data.system.noticeList && data.system.noticeList.filter(n => n.active).length > 0 && (
-        <NoticeModal 
-          notices={data.system.noticeList.filter(n => n.active)} 
-          onClose={() => setDismissedSystemNotice(true)} 
-        />
-      )}
+      {/* System Big Notice Modal (개별 공지 type이 'big' 또는 'both'이거나, 전역 noticeType이 'big' 또는 'both'인 경우) */}
+      {(() => {
+        if (dismissedSystemNotice) return null;
+        
+        const activeModalNotices = (data.system?.noticeList || []).filter(n => {
+          if (!n.active) return false;
+          // 개별 공지 타입이 'big' 또는 'both'이거나, 타입이 지정되지 않은 기존 공지(!n.type)는 기본 팝업에 표시
+          if (n.type === 'big' || n.type === 'both' || !n.type) return true;
+          // 전역 noticeType이 'big' 또는 'both'일 때, 'small'로 강제 제한되지 않은 공지 표시
+          if ((data.system?.noticeType === 'big' || data.system?.noticeType === 'both') && n.type !== 'small') return true;
+          return false;
+        });
 
-      {showFeedbackModal && (
-        <FeedbackModal onClose={() => closeFeedback()} system={data.system} />
-      )}
+        // 개별 공지 목록이 비어있더라도 noticeContent가 있고 noticeType이 'none'이 아닌 경우 레거시 공지 자동 생성
+        if (activeModalNotices.length === 0 && data.system?.noticeType !== 'none' && data.system?.noticeContent) {
+          activeModalNotices.push({
+            id: 'system_default_modal_notice',
+            title: data.system.noticeTitle || '공지사항',
+            content: data.system.noticeContent,
+            type: (data.system?.noticeType as any) || 'both',
+            date: new Date().toISOString().slice(0, 10),
+            active: true
+          });
+        }
+
+        if (activeModalNotices.length === 0) return null;
+
+        return (
+          <NoticeModal 
+            notices={activeModalNotices} 
+            onClose={() => setDismissedSystemNotice(true)} 
+            onNavigateInternal={handleInternalRedirect}
+          />
+        );
+      })()}
 
       {/* 약관 개정 안내 팝업 (일반 7일 사전 공지 / 중요 30일 사전 공지 및 필수 동의) */}
       {data.system?.termsRevision && (() => {
@@ -591,38 +886,6 @@ function MainApp() {
         );
       })()}
 
-      {/* Notice Modal (Default disclaimer) */}
-      {showNotice && data.system?.noticeType !== 'big' && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-5 sm:p-7 max-w-md w-full shadow-2xl relative">
-            <button onClick={() => closeNotice(false)} className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
-              <X className="w-5 h-5" />
-            </button>
-            <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">알림</h2>
-            <p className="text-zinc-600 dark:text-zinc-400 mb-6 leading-relaxed text-xs">
-              본 사이트의 데이터는 생방송 패턴을 바탕으로 분석된 예측치이며, 
-              실제 일정과 다를 수 있습니다. 이 점 참고하여 이용해 주시기 바랍니다. ({firstYear}년 이후 데이터만 수집/분석됩니다)
-            </p>
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={hideSmallNotice}
-                  onChange={(e) => setHideSmallNotice(e.target.checked)}
-                  className="w-4 h-4 text-purple-600 rounded border-zinc-300 dark:border-zinc-700 focus:ring-purple-500"
-                />
-                <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">다시 보지 않기</span>
-              </label>
-              <button 
-                onClick={() => closeNotice(hideSmallNotice)} 
-                className="px-6 py-2.5 text-sm font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors shadow-sm cursor-pointer"
-              >
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* 상단 헤더 숨김 시 페이지 상단 고정 페이드 블러 레이어 (페이지 하단 고정 블러 효과와 동일한 블러) */}
       <div 
         aria-hidden="true"
@@ -636,7 +899,7 @@ function MainApp() {
         className={cn(
           "fixed inset-x-0 top-0 pointer-events-none z-40 transition-opacity duration-400 ease-out",
           "bg-gradient-to-b from-white/85 via-white/45 to-transparent dark:from-zinc-950/90 dark:via-zinc-950/50 dark:to-transparent",
-          isHeaderHidden ? "opacity-100" : "opacity-0"
+          isHeaderHidden && !isNoticeExpanded ? "opacity-100" : "opacity-0"
         )}
       />
 
@@ -645,7 +908,8 @@ function MainApp() {
         style={{ 
           transform: isHeaderHidden ? 'translateY(-100%)' : 'translateY(0)',
           opacity: isHeaderHidden ? 0 : 1,
-          transition: 'transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.36s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s',
+          filter: isHeaderHidden ? 'blur(2px)' : 'blur(0px)',
+          transition: 'transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.58s cubic-bezier(0.16, 1, 0.3, 1), filter 0.58s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s',
           WebkitBackdropFilter: 'blur(28px) saturate(180%)', 
           backdropFilter: 'blur(28px) saturate(180%)' 
         }}
@@ -654,34 +918,6 @@ function MainApp() {
           isHeaderHidden && "pointer-events-none shadow-none border-b-transparent"
         )}
       >
-        {data.system?.noticeType === 'small' && data.system.noticeContent && (
-          <div className="bg-purple-600 text-white text-xs sm:text-sm font-medium py-2 px-3 sm:px-4 text-center leading-relaxed">
-            {formatNoticeText(data.system.noticeContent)}
-          </div>
-        )}
-        {data.system?.noticeList?.filter(n => n.active && n.type === 'small').map(n => {
-          const links = (n.links && n.links.length > 0)
-            ? n.links
-            : (n.linkUrl ? [{ url: n.linkUrl, title: n.linkText || '자세히 보기' }] : []);
-
-          return (
-            <div key={n.id} className="bg-purple-700 text-white text-xs sm:text-sm font-medium py-2 px-3 sm:px-4 text-center leading-relaxed flex items-center justify-center gap-2 flex-wrap border-b border-purple-800/40">
-              <span>{formatNoticeText(n.content || n.title)}</span>
-              {links.map((link, lIdx) => (
-                <a
-                  key={lIdx}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-bold underline text-white hover:text-purple-200 inline-flex items-center gap-1 ml-1 bg-purple-800/60 px-2 py-0.5 rounded text-xs transition-colors"
-                >
-                  <span>{link.title || '자세히 보기'}</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              ))}
-            </div>
-          );
-        })}
         <div className={cn("mx-auto px-3 sm:px-5 lg:px-8 h-14 sm:h-15 flex items-center justify-between gap-2 transition-all duration-300", isSettingsOpen ? "max-w-[1750px] 2xl:max-w-[1850px]" : "max-w-7xl 2xl:max-w-[1440px]")}>
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
             <button
@@ -741,6 +977,41 @@ function MainApp() {
         </div>
       </header>
 
+      {/* 헤더 바로 밑 위치 띠 공지 (점검 예고는 노란색, 점검 완료는 초록색, 기본 공지는 보라색 유지) */}
+      {(() => {
+        const bannerNotices = (data.system?.noticeList || []).filter(
+          n => n.active && (n.type === 'small' || n.type === 'both' || !n.type || (n.type !== 'big' && (data.system?.noticeType === 'small' || data.system?.noticeType === 'both')))
+        );
+        const fallback = ((data.system?.noticeType === 'small' || data.system?.noticeType === 'both') && bannerNotices.length === 0)
+          ? data.system.noticeContent
+          : undefined;
+
+        const hasUpcoming = Boolean(maintenanceStatus.isScheduledToday && maintenanceStatus.upcomingNoticeText);
+        const hasCompleted = Boolean(maintenanceStatus.isCompletedRecently && maintenanceStatus.completedNoticeMarkdown);
+
+        if (bannerNotices.length === 0 && !fallback && !hasUpcoming && !hasCompleted) return null;
+
+        return (
+          <NoticeBanner
+            notices={bannerNotices}
+            fallbackContent={fallback}
+            maintenanceUpcoming={hasUpcoming ? {
+              title: '시스템 점검 예정 안내',
+              text: maintenanceStatus.upcomingNoticeText
+            } : null}
+            maintenanceCompleted={hasCompleted ? {
+              title: '시스템 점검 완료 및 업데이트 안내',
+              markdown: maintenanceStatus.completedNoticeMarkdown
+            } : null}
+            onNavigateInternal={handleInternalRedirect}
+            activeTab={activeTab}
+            isHeaderHidden={isHeaderHidden}
+            onExpandedChange={setIsNoticeExpanded}
+            systemDismissMode={data.system?.noticeDismissMode || 'session'}
+          />
+        );
+      })()}
+
       <main className={cn(
         "mx-auto px-3 sm:px-5 lg:px-8 pt-3 sm:pt-6 pb-32 sm:pb-36 flex-1 w-full transition-all duration-300",
         isSettingsOpen ? "max-w-[1750px] 2xl:max-w-[1850px]" : "max-w-7xl 2xl:max-w-[1440px]"
@@ -754,7 +1025,12 @@ function MainApp() {
               id="main-prob-container" 
               className={cn("mb-8 sm:mb-8 space-y-4", activeTab === 'recommend' && "hidden")}
             >
-              <CurrentProbability logs={Object.values(data.logs)} onProbChange={setCurrentProb} system={data.system} />
+              <CurrentProbability 
+                logs={Object.values(data.logs)} 
+                onProbChange={setCurrentProb} 
+                system={data.system} 
+                onNavigateToRecommend={handleNavigateToRecommend}
+              />
               <AnonymousPollCard system={data.system} polls={data.polls} />
             </div>
 
@@ -848,11 +1124,13 @@ function MainApp() {
                   rateVideo={rateVideo} 
                   targetCategory={recommendTargetCategory}
                   targetSearchTerm={recommendTargetSearchTerm}
+                  pinnedVideoId={recommendPinnedVideoId}
                   searchTerm={globalSearchTerm}
                   onSearchTermChange={setGlobalSearchTerm}
                   onClearTarget={() => {
                     setRecommendTargetCategory(null);
                     setRecommendTargetSearchTerm(null);
+                    setRecommendPinnedVideoId(null);
                   }}
                   onNavigateToCalendar={handleNavigateToCalendar}
                   isActive={activeTab === 'recommend'}
@@ -908,6 +1186,7 @@ function MainApp() {
                       setIsSettingsOpen(false);
                       navigate('/patch', { state: { fromSettings: true } });
                     }}
+                    initialSection={settingsInitialSection}
                   />
                 </div>
               </motion.div>
@@ -972,6 +1251,7 @@ function MainApp() {
                   setIsSettingsOpen(false);
                   navigate('/patch', { state: { fromSettings: true } });
                 }}
+                initialSection={settingsInitialSection}
               />
             </div>
           </motion.div>
@@ -997,6 +1277,11 @@ function MainApp() {
           system={data.system} 
           onClose={() => setPolicyType(null)} 
         />
+      )}
+
+      {/* 의견 보내기 모달 (모든 오버레이 및 모바일 설정창 상단에 항상 최상위 레이어로 렌더링) */}
+      {showFeedbackModal && (
+        <FeedbackModal onClose={() => closeFeedback()} system={data.system} data={data} />
       )}
     </div>
   );

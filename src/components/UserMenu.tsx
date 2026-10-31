@@ -315,7 +315,9 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
                 </button>
                 <div className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300">
                   <span className="font-bold">버전 정보</span>
-                  <span className="ml-auto text-zinc-500">{system?.appVersion || '1.0.0'}</span>
+                  <span className="ml-auto text-zinc-500 font-mono text-xs font-semibold">
+                    {system?.appVersion ? (system.appVersion.startsWith('v') ? system.appVersion : `v${system.appVersion}`) : 'v1.0.0'}
+                  </span>
                 </div>
                 <button onClick={handleRefresh} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-left">
                   <RefreshCw className="w-4 h-4 text-zinc-400" />

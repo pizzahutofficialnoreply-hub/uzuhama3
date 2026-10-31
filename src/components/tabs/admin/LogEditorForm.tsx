@@ -5,7 +5,7 @@ import { useState } from "react";
 const COMMON_ABSENCE_REASONS = [
   "개인 사정",
   "건강 문제/컨디션 난조",
-  "병명 (직접 입력/구글 검색)",
+  "병명 (직접 입력)",
   "인터넷/장비 이슈",
   "가족 행사/일정",
   "지각",
@@ -173,6 +173,7 @@ export const LogEditorForm = ({
       ...(log.game ? [log.game] : []),
     ].filter(Boolean))
   );
+
   const updateLink = (
     type: "vods" | "edited" | "shorts",
     linkIndex: number,
@@ -299,7 +300,11 @@ export const LogEditorForm = ({
                     const nextReasons = isSelected
                       ? currentReasons.filter((r) => r !== reason)
                       : [...currentReasons, reason];
-                    onChange({ absenceReasons: nextReasons });
+                    const updates: Partial<BroadcastLog> = { absenceReasons: nextReasons };
+                    if (reason === "병명 (직접 입력)" && isSelected) {
+                      updates.illnessName = undefined;
+                    }
+                    onChange(updates);
                   }}
                   className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors border ${
                     isSelected
@@ -312,6 +317,27 @@ export const LogEditorForm = ({
               );
             })}
           </div>
+
+          {(log.absenceReasons || []).includes("병명 (직접 입력)") && (
+            <div className="p-3 bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-800 rounded-xl space-y-1.5">
+              <label className="block text-xs font-bold text-purple-700 dark:text-purple-400">
+                병명 입력 (질환명)
+              </label>
+              <input
+                type="text"
+                placeholder="예: 독감, 장염, 감기, 코로나 등"
+                value={log.illnessName || ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  onChange({
+                    illnessName: val || undefined,
+                  });
+                }}
+                className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg p-2 text-xs text-zinc-900 dark:text-white"
+              />
+            </div>
+          )}
+
           <input
             type="text"
             placeholder="기타 사유 직접 입력 (쉼표로 구분 가능)"

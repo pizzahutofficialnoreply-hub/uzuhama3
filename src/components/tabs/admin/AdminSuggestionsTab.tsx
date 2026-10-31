@@ -21,14 +21,38 @@ import {
   User,
   Bug,
   Lightbulb,
-  XCircle
+  XCircle,
+  Database,
+  FileEdit,
+  PlusCircle,
+  Calendar,
+  ExternalLink,
+  Video,
+  Zap,
+  Gamepad2,
+  AlertCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { AppData, BroadcastLog } from '../../../types';
 
 export interface FeedbackItem {
   id: string;
-  type: 'suggestion' | 'bug';
+  type: 'suggestion' | 'bug' | 'data_request';
+  dataRequestType?: 'edit' | 'delete' | 'add';
+  targetLogId?: string;
+  targetLogDate?: string;
+  targetLogSummary?: string;
+  selectedSubItemCount?: number;
+  selectedSubItems?: { id: string; type: string; label: string; value: string }[];
+  fieldDate?: string;
+  fieldVideoTitle?: string;
+  fieldVideoLink?: string;
+  fieldGameTitle?: string;
+  fieldGameLink?: string;
+  fieldShortsTitle?: string;
+  fieldShortsLink?: string;
+  fieldAbsenceReason?: string;
+  fieldMemo?: string;
   title: string;
   content: string;
   os?: string;
@@ -171,10 +195,39 @@ export function AdminSuggestionsTab({
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 ${item.type === 'suggestion' ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300' : 'bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-300'}`}>
-                      {item.type === 'suggestion' ? <Lightbulb className="w-3 h-3" /> : <Bug className="w-3 h-3" />}
-                      {item.type === 'suggestion' ? '기능 제안' : '버그 제보'}
-                    </span>
+                    {item.type === 'suggestion' ? (
+                      <span className="px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300">
+                        <Lightbulb className="w-3 h-3" />
+                        기능 제안
+                      </span>
+                    ) : item.type === 'bug' ? (
+                      <span className="px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-300">
+                        <Bug className="w-3 h-3" />
+                        버그 제보
+                      </span>
+                    ) : (
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 ${
+                        item.dataRequestType === 'edit'
+                          ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                          : item.dataRequestType === 'delete'
+                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                          : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                      }`}>
+                        {item.dataRequestType === 'edit' ? (
+                          <FileEdit className="w-3 h-3" />
+                        ) : item.dataRequestType === 'delete' ? (
+                          <Trash2 className="w-3 h-3" />
+                        ) : (
+                          <PlusCircle className="w-3 h-3" />
+                        )}
+                        {item.dataRequestType === 'edit'
+                          ? '데이터 수정 요청'
+                          : item.dataRequestType === 'delete'
+                          ? '데이터 삭제 요청'
+                          : '데이터 추가 요청'
+                        }
+                      </span>
+                    )}
                     <span className="text-xs text-zinc-400">{date}</span>
                     {item.os && <span className="text-xs px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-800 rounded text-zinc-600 dark:text-zinc-400">{item.os}</span>}
                     {item.problemArea && <span className="text-xs px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-800 rounded text-zinc-600 dark:text-zinc-400">{item.problemArea}</span>}
@@ -189,6 +242,106 @@ export function AdminSuggestionsTab({
                       {item.status === 'rejected' && <span className="px-2 py-1 bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded text-xs font-bold flex items-center gap-1"><XCircle className="w-3 h-3" /> 보류됨</span>}
                     </div>
                   </div>
+
+                  {item.targetLogSummary && (
+                    <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 flex items-center gap-1.5 text-xs text-indigo-900 dark:text-indigo-200">
+                      <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                      <span className="font-bold">대상 일지:</span>
+                      <span className="truncate">{item.targetLogSummary}</span>
+                    </div>
+                  )}
+
+                  {/* 데이터 요청 시: 선택된 세부 항목 및 각각 분류된 상세 필드 시각화 */}
+                  {item.type === 'data_request' && (item.fieldDate || item.fieldVideoTitle || item.fieldVideoLink || item.fieldGameTitle || item.fieldGameLink || item.fieldShortsTitle || item.fieldShortsLink || item.fieldAbsenceReason || (item.selectedSubItems && item.selectedSubItems.length > 0)) && (
+                    <div className="mb-3 p-3 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 space-y-2 text-xs">
+                      {item.selectedSubItems && item.selectedSubItems.length > 0 && (
+                        <div className="pb-1.5 border-b border-indigo-100/80 dark:border-indigo-900/40">
+                          <span className="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 block mb-1">
+                            선택된 수정 대상 항목 ({item.selectedSubItems.length}개):
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {item.selectedSubItems.map((sub, sIdx) => (
+                              <span key={sIdx} className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 border border-indigo-200 dark:border-indigo-800 text-[11px] text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
+                                <span className="font-bold text-indigo-600 dark:text-indigo-400">{sub.label}:</span>
+                                <span className="truncate max-w-[200px]">{sub.value}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5 text-zinc-700 dark:text-zinc-300">
+                        {item.fieldDate && (
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                            <span className="font-bold text-zinc-500">일자:</span>
+                            <span className="font-semibold">{item.fieldDate}</span>
+                          </div>
+                        )}
+                        {item.fieldVideoTitle && (
+                          <div className="flex items-center gap-1.5 sm:col-span-2">
+                            <Video className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                            <span className="font-bold text-zinc-500">영상 제목:</span>
+                            <span className="font-semibold">{item.fieldVideoTitle}</span>
+                          </div>
+                        )}
+                        {item.fieldVideoLink && (
+                          <div className="flex items-center gap-1.5 sm:col-span-2">
+                            <ExternalLink className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                            <span className="font-bold text-zinc-500">영상 링크:</span>
+                            <a href={item.fieldVideoLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline truncate">
+                              {item.fieldVideoLink}
+                            </a>
+                          </div>
+                        )}
+                        {item.fieldShortsTitle && (
+                          <div className="flex items-center gap-1.5 sm:col-span-2">
+                            <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span className="font-bold text-zinc-500">쇼츠 제목:</span>
+                            <span className="font-semibold">{item.fieldShortsTitle}</span>
+                          </div>
+                        )}
+                        {item.fieldShortsLink && (
+                          <div className="flex items-center gap-1.5 sm:col-span-2">
+                            <ExternalLink className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span className="font-bold text-zinc-500">쇼츠 링크:</span>
+                            <a href={item.fieldShortsLink} target="_blank" rel="noopener noreferrer" className="text-amber-600 dark:text-amber-400 hover:underline truncate">
+                              {item.fieldShortsLink}
+                            </a>
+                          </div>
+                        )}
+                        {item.fieldGameTitle && (
+                          <div className="flex items-center gap-1.5 sm:col-span-2">
+                            <Gamepad2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            <span className="font-bold text-zinc-500">게임 제목:</span>
+                            <span className="font-semibold">{item.fieldGameTitle}</span>
+                          </div>
+                        )}
+                        {item.fieldGameLink && (
+                          <div className="flex items-center gap-1.5 sm:col-span-2">
+                            <ExternalLink className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            <span className="font-bold text-zinc-500">게임 링크:</span>
+                            <a href={item.fieldGameLink} target="_blank" rel="noopener noreferrer" className="text-emerald-600 dark:text-emerald-400 hover:underline truncate">
+                              {item.fieldGameLink}
+                            </a>
+                          </div>
+                        )}
+                        {item.fieldAbsenceReason && (
+                          <div className="flex items-center gap-1.5 sm:col-span-2">
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                            <span className="font-bold text-zinc-500">휴방 사유:</span>
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">{item.fieldAbsenceReason}</span>
+                          </div>
+                        )}
+                        {item.fieldMemo && (
+                          <div className="sm:col-span-2 text-zinc-600 dark:text-zinc-400 bg-white/60 dark:bg-zinc-900/60 p-2 rounded-lg border border-indigo-100/50 dark:border-indigo-900/30">
+                            <span className="font-bold text-zinc-500 block mb-0.5">추가 요청 사항:</span>
+                            <span>{item.fieldMemo}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   
                   <h4 className="font-bold text-zinc-900 dark:text-white text-sm sm:text-base mb-1">{item.title}</h4>
                   <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">{item.content}</p>

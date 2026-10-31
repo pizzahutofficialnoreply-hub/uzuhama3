@@ -14,6 +14,8 @@ export function isAllowedOrigin(origin: string | undefined): boolean {
   if (/^https:\/\/uzuhama(-[a-z0-9-]+)?\.vercel\.app$/i.test(origin)) return true;
   // AI Studio preview domains
   if (/^https:\/\/ais-(dev|pre)-[a-z0-9-]+\.[a-z0-9-]+\.run\.app$/i.test(origin)) return true;
+  // Published AI Studio app origins (e.g. https://uzuhama-3.ai.studio).
+  if (/^https:\/\/[a-z0-9-]+\.ai\.studio$/i.test(origin)) return true;
   return false;
 }
 

@@ -14,7 +14,7 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { BroadcastLog, DailyStat, TimeStat, DurationStat, MonthlyStat, AppData, PatternGuide, SystemConfig, Poll } from '../types';
+import { BroadcastLog, DailyStat, TimeStat, DurationStat, MonthlyStat, AppData, PatternGuide, SystemConfig, Poll, GameItem, LinkItem } from '../types';
 import { dailyStats as defaultDaily, timeStats as defaultTime, durationStats as defaultDuration, monthlyStats as defaultMonthly, patternGuides as defaultGuides } from '../data';
 
 // Vercel 서버 API를 통한 관리자 Firestore 데이터 편집 (보안 및 무결성 강화)
@@ -97,15 +97,25 @@ async function loadHistoricalLogs(): Promise<Record<string, BroadcastLog>> {
     if (!res.ok) return {};
     const data = await res.json();
     const map: Record<string, BroadcastLog> = {};
+    const processLog = (log: any, idKey?: string) => {
+      if (!log || typeof log !== 'object') return;
+      const id = log.id || idKey;
+      if (!id) return;
+      if (Array.isArray(log.games)) {
+        log.games = log.games.map((g: any) => ({
+          name: typeof g === 'string' ? g : (g.name || g.game || ''),
+          link: typeof g === 'string' ? '' : (g.link || g.url || g.gameUrl || g.steamUrl || log.gameLink || log.gameUrl || ''),
+          category: typeof g === 'string' ? '' : (g.category || log.category || '')
+        }));
+      }
+      map[id] = log as BroadcastLog;
+    };
+
     if (Array.isArray(data)) {
-      data.forEach(log => {
-        if (log && log.id) map[log.id] = log;
-      });
+      data.forEach(log => processLog(log));
     } else if (data && typeof data === 'object') {
       Object.entries(data).forEach(([key, val]) => {
-        if (val && typeof val === 'object') {
-          map[key] = val as BroadcastLog;
-        }
+        processLog(val, key);
       });
     }
     historicalCache = map;
@@ -134,11 +144,11 @@ export function useFirebaseData() {
 
   const lastFetchTimeRef = useRef<number>(0);
 
-  // 핵심 일지 데이터 호출 함수: 과거 아카이브(JSON) + Firestore 최신 데이터 병합
+  // 핵심 일지 데이터 호출 함수: 과거 아카이브(JSON) + Firestore 최신 데이터(logs, logs_by_month, compilations) 통합 병합
   const fetchLatestLogs = useCallback(async (force: boolean = false) => {
     const now = Date.now();
-    // 강제 새로고침이 아니고, 최근 2분 이내에 이미 최신 데이터를 불러왔다면 중복 요청 방지
-    if (!force && lastFetchTimeRef.current > 0 && now - lastFetchTimeRef.current < 120000) {
+    // 강제 새로고침이 아니고, 최근 45초 이내에 이미 최신 데이터를 불러왔다면 중복 요청 방지
+    if (!force && lastFetchTimeRef.current > 0 && now - lastFetchTimeRef.current < 45000) {
       return;
     }
 
@@ -147,19 +157,98 @@ export function useFirebaseData() {
       const historicalLogs = await loadHistoricalLogs();
       const logsMap: Record<string, BroadcastLog> = { ...historicalLogs };
 
-      // 2. Firestore의 logs_by_month에서 최신 데이터(2026~) 조회
+      // 2. Firestore logs 메인 컬렉션 전체 조회 (원복 및 최신 방송 데이터 무결성 보장)
+      try {
+        const logsSnaps = await getDocs(collection(db, 'logs'));
+        if (!logsSnaps.empty) {
+          logsSnaps.forEach((docSnap) => {
+            const docData = docSnap.data();
+            if (docData && (docData.date || docData.id)) {
+              const logItem: BroadcastLog = {
+                id: docSnap.id,
+                ...docData
+              } as BroadcastLog;
+
+              // 기존 JSON 로그가 있는 경우: Firestore의 수정사항을 확실하게 덮어씌우되, 게임 링크 손실 방지
+              const existingJsonLog = logsMap[logItem.id] || Object.values(logsMap).find(l => l.date === logItem.date);
+              if (existingJsonLog) {
+                let mergedGames = Array.isArray(logItem.games) && logItem.games.length > 0
+                  ? logItem.games.map((g: any) => {
+                      let link = g.link || g.url || g.gameUrl || g.steamUrl || '';
+                      if (!link && Array.isArray(existingJsonLog.games)) {
+                        const matched = existingJsonLog.games.find((eg: any) => 
+                          eg.name && g.name && eg.name.trim().toLowerCase() === g.name.trim().toLowerCase()
+                        );
+                        if (matched?.link) link = matched.link;
+                      }
+                      return { ...g, link };
+                    })
+                  : (existingJsonLog.games || []);
+
+                logsMap[existingJsonLog.id] = {
+                  ...existingJsonLog,
+                  ...logItem,
+                  games: mergedGames,
+                  id: existingJsonLog.id
+                };
+              } else {
+                if (Array.isArray(logItem.games)) {
+                  logItem.games = logItem.games.map((g: any) => ({
+                    ...g,
+                    link: g.link || g.url || g.gameUrl || g.steamUrl || (logItem as any).gameLink || ''
+                  }));
+                }
+                logsMap[logItem.id] = logItem;
+              }
+            }
+          });
+        }
+      } catch (e: any) {
+        console.warn('logs 컬렉션 조회 경고:', e?.message);
+      }
+
+      // 3. Firestore의 logs_by_month 월별 컬렉션 보조 조회
       try {
         const monthSnaps = await getDocs(collection(db, 'logs_by_month'));
         if (!monthSnaps.empty) {
           monthSnaps.forEach((docSnap) => {
             const docData = docSnap.data();
-            // Firestore에 등록된 최신 데이터가 과거 JSON보다 항상 우선권을 갖도록 덮어씌움
+            const mergeEntry = (logId: string, val: any) => {
+              if (!val || !(val.date || val.id)) return;
+              const existing = logsMap[logId] || Object.values(logsMap).find(l => l.date === val.date);
+              if (existing) {
+                let mergedGames = Array.isArray(val.games) && val.games.length > 0
+                  ? val.games.map((g: any) => {
+                      let link = g.link || g.url || g.gameUrl || g.steamUrl || '';
+                      if (!link && Array.isArray(existing.games)) {
+                        const matched = existing.games.find((eg: any) =>
+                          eg.name && g.name && eg.name.trim().toLowerCase() === g.name.trim().toLowerCase()
+                        );
+                        if (matched?.link) link = matched.link;
+                      }
+                      return { ...g, link };
+                    })
+                  : (existing.games || []);
+                logsMap[existing.id] = { ...existing, ...val, games: mergedGames, id: existing.id };
+              } else {
+                if (Array.isArray(val.games)) {
+                  val.games = val.games.map((g: any) => ({
+                    ...g,
+                    link: g.link || g.url || g.gameUrl || g.steamUrl || (val as any).gameLink || ''
+                  }));
+                }
+                logsMap[logId] = val as BroadcastLog;
+              }
+            };
+
             if (docData?.items && typeof docData.items === 'object') {
-              Object.assign(logsMap, docData.items);
+              Object.entries(docData.items).forEach(([k, val]: [string, any]) => {
+                mergeEntry(val.id || k, val);
+              });
             }
             Object.entries(docData || {}).forEach(([key, val]) => {
               if (key !== 'month' && key !== 'updatedAt' && key !== 'items' && val && typeof val === 'object' && (val as any).date) {
-                logsMap[key] = val as BroadcastLog;
+                mergeEntry((val as any).id || key, val);
               }
             });
           });
@@ -168,7 +257,101 @@ export function useFirebaseData() {
         console.warn('logs_by_month 컬렉션 조회 경고:', e?.message);
       }
 
-      // 3. 로컬 캐시 갱신 및 화면 반영
+      // 4. Firestore compilations (몰아보기) 컬렉션 조회:
+      // 과거 기록 JSON이 수정되거나 교체되더라도 등록된 몰아보기와 선택된 게임 목록이 사라지지 않고 100% 영구 보존되도록 병합
+      try {
+        const compSnaps = await getDocs(collection(db, 'compilations'));
+        if (!compSnaps.empty) {
+          compSnaps.forEach((compDoc) => {
+            const comp = compDoc.data();
+            if (!comp || !comp.url) return;
+            const compId = comp.id || compDoc.id;
+            
+            // 연동된 날짜 및 logId 목록 취합
+            const allBroadcastDates: string[] = [];
+            const linkedLogIds: string[] = [];
+
+            if (Array.isArray(comp.broadcasts)) {
+              comp.broadcasts.forEach((b: any) => {
+                if (b.date && !allBroadcastDates.includes(b.date)) allBroadcastDates.push(b.date);
+                if (b.logId && !linkedLogIds.includes(b.logId)) linkedLogIds.push(b.logId);
+              });
+            }
+            if (Array.isArray(comp.allBroadcastDates)) {
+              comp.allBroadcastDates.forEach((d: string) => {
+                if (d && !allBroadcastDates.includes(d)) allBroadcastDates.push(d);
+              });
+            }
+
+            // 연동 대상 로그 검색
+            const targetLogs: BroadcastLog[] = [];
+            linkedLogIds.forEach(id => {
+              if (logsMap[id]) targetLogs.push(logsMap[id]);
+            });
+            allBroadcastDates.forEach(d => {
+              const found = Object.values(logsMap).find(l => l.date === d);
+              if (found && !targetLogs.some(t => t.id === found.id)) {
+                targetLogs.push(found);
+              }
+            });
+
+            // 각 연동 로그에 몰아보기 링크 및 선택된 게임 정보 보존/주입
+            targetLogs.forEach(targetLog => {
+              const editedList = Array.isArray(targetLog.edited) ? [...targetLog.edited] : [];
+              const existingCompIndex = editedList.findIndex(
+                e => e.compilationId === compId || e.url === comp.url
+              );
+
+              // 해당 방송에서 선택되었던 게임 목록 추출 (b.games)
+              const bInfo = Array.isArray(comp.broadcasts)
+                ? comp.broadcasts.find((b: any) => b.logId === targetLog.id || b.date === targetLog.date)
+                : null;
+              
+              let selectedGames: GameItem[] = [];
+              if (bInfo && Array.isArray(bInfo.games)) {
+                selectedGames = bInfo.games.map((gName: string) => {
+                  const matched = (targetLog.games || []).find(g => g.name === gName);
+                  return matched || { name: gName, link: '' };
+                });
+              } else if (Array.isArray(comp.games)) {
+                selectedGames = comp.games;
+              }
+
+              const compLink: LinkItem = {
+                title: comp.title || '몰아보기',
+                url: comp.url,
+                isCompilation: true,
+                compilationId: compId,
+                allBroadcastDates: allBroadcastDates.length > 0 ? allBroadcastDates : [targetLog.date],
+                games: selectedGames.length > 0 ? selectedGames : (targetLog.games || []),
+                gameSortOrder: comp.gameSortOrder || 'latest',
+                gameGroups: comp.gameGroups,
+                createdAt: comp.createdAt || new Date().toISOString()
+              };
+
+              if (existingCompIndex >= 0) {
+                // 기존 등록된 몰아보기 항목이 있으면 선택된 게임과 설정 최신 상태로 갱신 유지
+                editedList[existingCompIndex] = {
+                  ...editedList[existingCompIndex],
+                  ...compLink,
+                  games: selectedGames.length > 0 ? selectedGames : editedList[existingCompIndex].games
+                };
+              } else {
+                editedList.unshift(compLink);
+              }
+
+              logsMap[targetLog.id] = {
+                ...targetLog,
+                edited: editedList
+              };
+            });
+          });
+        }
+      } catch (e: any) {
+        console.warn('compilations 컬렉션 조회 경고:', e?.message);
+      }
+
+      // 5. 로컬 캐시 갱신 및 화면 반영
       if (Object.keys(logsMap).length > 0) {
         updateCache(logsMap);
       }
@@ -405,7 +588,7 @@ export function useFirebaseData() {
         setLoadingStatusText('최신 방송 일지 동기화 중...');
 
         // 3. 첫 실행 시 Firestore 최신 데이터 호출 및 병합
-        await fetchLatestLogs();
+        await fetchLatestLogs(true);
 
         setLoadingProgress(100);
         setLoadingStatusText('준비 완료!');
@@ -421,7 +604,7 @@ export function useFirebaseData() {
 
   // 수동 갱신 또는 날짜 필터링 대응
   const fetchLogsByDateRange = useCallback(async (startDate?: string, endDate?: string) => {
-    await fetchLatestLogs();
+    await fetchLatestLogs(true);
   }, [fetchLatestLogs]);
 
   // 관리자 일지 등록

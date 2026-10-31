@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { db } from './_firebase.js';
+import { db, hasAdminCredentials } from './_firebase.js';
 
 interface GameItem {
   name: string;
@@ -250,9 +250,9 @@ export async function buildFullCalendarFeed(origin: string): Promise<string> {
     console.warn('[Calendar Feed] Firestore REST fetch notice:', restErr);
   }
 
-  // 2-2. Firestore Admin SDK 연결이 가능하면 추가 병합
-  try {
-    if (db) {
+  // 2-2. Firestore Admin SDK 자격 증명이 유효한 경우에만 안전하게 추가 병합
+  if (hasAdminCredentials && db) {
+    try {
       const snaps = await db.collection('logs_by_month').get();
       if (!snaps.empty) {
         snaps.forEach(docSnap => {
@@ -268,23 +268,19 @@ export async function buildFullCalendarFeed(origin: string): Promise<string> {
         });
       }
 
-      // 실시간으로 새로 추가된 최신 개별 로그도 즉시 병합
-      try {
-        const directLogsSnap = await db.collection('logs').get();
-        if (!directLogsSnap.empty) {
-          directLogsSnap.forEach(docSnap => {
-            const data = docSnap.data();
-            if (data && data.date) {
-              logsMap[docSnap.id] = data as BroadcastLog;
-            }
-          });
-        }
-      } catch (directErr) {
-        console.warn('[Calendar Feed] direct logs read notice:', directErr);
+      // 실시간으로 새로 추가된 최신 개별 로그도 병합
+      const directLogsSnap = await db.collection('logs').get();
+      if (!directLogsSnap.empty) {
+        directLogsSnap.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data && data.date) {
+            logsMap[docSnap.id] = data as BroadcastLog;
+          }
+        });
       }
+    } catch {
+      // Admin SDK 오류 발생 시 이미 2-1 REST API에서 수집되었으므로 조용히 처리
     }
-  } catch (err) {
-    console.warn('[Calendar Feed] Firestore Admin logs read notice:', err);
   }
 
   // 3. 로그 정렬 (첫 데이터부터 마지막 데이터까지 전체 수집)
@@ -308,6 +304,7 @@ export async function buildFullCalendarFeed(origin: string): Promise<string> {
     'X-WR-TIMEZONE:Asia/Seoul',
     'REFRESH-INTERVAL;VALUE=DURATION:PT15M',
     'X-PUBLISHED-TTL:PT15M',
+    'X-WR-RELOAD:PT15M',
     ...vevents,
     'END:VCALENDAR'
   ];
@@ -338,8 +335,10 @@ export default async function handler(req: any, res: any) {
     // RFC 5545 준수 iCalendar 헤더 설정
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', 'inline; filename="uzuhama_calendar.ics"');
-    // 실시간 동기화를 위해 짧은 캐시 주기 및 재검증 허용
-    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=86400');
+    // 실시간 동기화를 위해 CDN 및 브라우저 캐시 무효화 (제때제때 새로고침 보장)
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
     return res.status(200).send(icsContent);
   } catch (error: any) {

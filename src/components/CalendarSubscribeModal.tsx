@@ -115,10 +115,10 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
-                  방송 캘린더 자동 구독
+                  방송 캘린더 자동 구독 (동기화)
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  한 번 등록하면 새 방송 일정이 캘린더 앱에 자동으로 동기화됩니다.
+                  한 번 등록해두면 새 방송이 올라올 때마다 캘린더 앱에 자동으로 계속 동기화됩니다.
                 </p>
               </div>
             </div>
@@ -235,9 +235,10 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
             </div>
 
             {/* 심플한 안내 문구 */}
-            <div className="p-3 rounded-xl bg-zinc-100/70 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 text-xs leading-relaxed space-y-1">
-              <p>• 구독 등록 후 새 방송이 올라오면 캘린더 앱에 자동으로 최신 일정이 업데이트됩니다.</p>
-              <p>• 구독을 원치 않으시면 언제든지 캘린더 앱 내 구독 목록에서 삭제하실 수 있습니다.</p>
+            <div className="p-3.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-800/40 text-zinc-600 dark:text-zinc-400 text-xs leading-relaxed space-y-1.5">
+              <p className="font-semibold text-purple-700 dark:text-purple-300">• 🔄 실시간 자동 갱신: 방송 기록 데이터가 업데이트되면 구독 중인 기기 캘린더에도 자동으로 일정이 최신화됩니다.</p>
+              <p>• 📌 특정 방송만 1회성으로 추가하고 싶으시다면, 방송 기록 탭의 <strong>'캘린더 선택 등록'</strong> 기능을 이용해주세요.</p>
+              <p>• 구독을 중단하고 싶으실 때는 언제든 캘린더 앱 내 구독 목록에서 손쉽게 삭제하실 수 있습니다.</p>
             </div>
 
           </div>

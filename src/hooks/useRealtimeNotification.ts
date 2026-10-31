@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { BroadcastLog } from '../types';
+import { calculateTodayPeakMinute } from '../utils/probability';
 
 const DAILY_NOTIF_KEY = 'uzuhama_daily_prob_notif_date_v1';
 
@@ -101,45 +102,10 @@ export function useRealtimeNotification(logs: BroadcastLog[]) {
 
       if (!notifyPeak) return;
 
-      const currentDayIdx = now.getDay();
-      
-      // 오늘 요일의 방송 시작 시간 통계 분석
-      const timeFreq = Array(1440).fill(0);
-      let validLogCount = 0;
-      logs.forEach(log => {
-        if (log.isAbsence) return;
-        const d = new Date(log.date);
-        if (isNaN(d.getTime()) || d.getDay() !== currentDayIdx) return;
-        
-        if (log.time) {
-          const [h, m] = log.time.split(':').map(Number);
-          if (!isNaN(h) && !isNaN(m)) {
-            timeFreq[h * 60 + m] += 1;
-            validLogCount++;
-          }
-        }
-      });
+      const peakData = calculateTodayPeakMinute(logs, now);
+      if (!peakData) return;
 
-      if (validLogCount === 0) return;
-
-      // 당일 방송 확률이 가장 높은 단 1개의 최적 시간대(1시간 윈도우) 자동 선별
-      let maxCount = 0;
-      let peakMinute = -1;
-      
-      for (let m = 0; m < 1440; m += 10) { // 10분 단위로 스캔
-        let count = 0;
-        for (let i = -30; i <= 30; i++) {
-          const target = (m + i + 1440) % 1440;
-          count += timeFreq[target];
-        }
-        if (count > maxCount) {
-          maxCount = count;
-          peakMinute = m;
-        }
-      }
-
-      if (peakMinute === -1 || maxCount === 0) return;
-
+      const { peakMinute, formattedTime } = peakData;
       const currentMinute = now.getHours() * 60 + now.getMinutes();
       
       // 최고 확률 시간 기준 남은 시간 계산
@@ -152,14 +118,10 @@ export function useRealtimeNotification(logs: BroadcastLog[]) {
       const maxDiff = leadTime + 5;
 
       if (diff >= minDiff && diff <= maxDiff) {
-        const peakHour = Math.floor(peakMinute / 60);
-        const peakMin = peakMinute % 60;
-        const timeStr = `${String(peakHour).padStart(2, '0')}:${String(peakMin).padStart(2, '0')}`;
-        
         const title = '우주하마 방송 예측';
         const body = leadTime > 0
-          ? `오늘 방송 확률이 가장 높은 시간대(${timeStr})가 약 ${leadTime}분 후 시작될 예정입니다.`
-          : `오늘 방송 확률이 가장 높은 시간대(${timeStr})입니다!`;
+          ? `오늘 방송 최고 유력 시간(${formattedTime})이 약 ${leadTime}분 후 시작될 예정입니다.`
+          : `지금은 오늘 방송 최고 유력 시간(${formattedTime})입니다!`;
 
         triggerNativeNotification(
           title,

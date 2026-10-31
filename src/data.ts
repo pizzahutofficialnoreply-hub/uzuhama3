@@ -18,7 +18,7 @@ export const timeStats: TimeStat[] = [
   { time: '19:00', label: '저녁 7시대', count: 16, probability: 13.8, description: '이른 저녁 시작' },
   { time: '16:00', label: '오후 4~5시대', count: 16, probability: 13.8, description: '주말 및 간헐적 낮 방송' },
   { time: '18:00', label: '저녁 6시대', count: 12, probability: 10.3, description: '초저녁 시작' },
-  { time: '13:00', label: '오후 1~3시대', count: 6, probability: 5.2, description: '게릴라 낮 방송' },
+  { time: '13:00', label: '오후 1~3시대', count: 6, probability: 5.2, description: '낮 방송' },
   { time: '23:00', label: '밤 11시대', count: 4, probability: 3.4, description: '심야 방송' },
 ];
 

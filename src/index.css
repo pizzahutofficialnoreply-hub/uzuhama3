@@ -1,7 +1,17 @@
 @import "tailwindcss";
 
-/* 배달의민족 한나체 Pro (BM HANNA Pro) - 경량 최적화 웹폰트 CDN 
-   한자(CJK) 및 미지원 특수문자는 시스템 기본 서체로 자동 폴백되도록 unicode-range 지정 */
+/* 배달의민족 한나체 Pro (BM HANNA Pro) - 제목, 헤딩, 볼드 강조, 버튼 전용 웹폰트 */
+@font-face {
+  font-family: 'BMHANNAPro';
+  src: local('배달의민족 한나체 Pro'), local('BM HANNA Pro'), local('BMHANNAPro'),
+       url('https://cdn.jsdelivr.net/npm/@kfonts/bm-hanna-pro@0.2.0/BMHANNAPro.woff2') format('woff2'),
+       url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_seven@1.0/BMHANNAPro.woff') format('woff');
+  font-weight: 600 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+2000-206F, U+2190-21FF, U+3000-303F, U+3130-318F, U+AC00-D7A3;
+}
+
 @font-face {
   font-family: 'BMHANNAPro';
   src: local('배달의민족 한나체 Pro'), local('BM HANNA Pro'), local('BMHANNAPro'),
@@ -10,7 +20,18 @@
   font-weight: 400;
   font-style: normal;
   font-display: swap;
-  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+3130-318F, U+AC00-D7A3;
+  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+2000-206F, U+2190-21FF, U+3000-303F, U+3130-318F, U+AC00-D7A3;
+}
+
+@font-face {
+  font-family: '배달의민족 한나체 Pro';
+  src: local('배달의민족 한나체 Pro'), local('BM HANNA Pro'), local('BMHANNAPro'),
+       url('https://cdn.jsdelivr.net/npm/@kfonts/bm-hanna-pro@0.2.0/BMHANNAPro.woff2') format('woff2'),
+       url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_seven@1.0/BMHANNAPro.woff') format('woff');
+  font-weight: 600 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+2000-206F, U+2190-21FF, U+3000-303F, U+3130-318F, U+AC00-D7A3;
 }
 
 @font-face {
@@ -21,48 +42,71 @@
   font-weight: 400;
   font-style: normal;
   font-display: swap;
-  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+3130-318F, U+AC00-D7A3;
+  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+2000-206F, U+2190-21FF, U+3000-303F, U+3130-318F, U+AC00-D7A3;
 }
 
-/* 배달의민족 한나체 Air (BM HANNA Air) - 본문/줄글 전용 경량 서체 
-   한자(CJK) 및 미지원 특수문자는 시스템 기본 서체로 자동 폴백되도록 unicode-range 지정 */
+/* 배달의민족 한나체 Air (BM HANNA Air) - 볼드/제목/버튼이 아닌 모든 일반 텍스트 전용 웹폰트 */
 @font-face {
   font-family: 'BMHANNAAir';
   src: local('배달의민족 한나체 Air'), local('BM HANNA Air'), local('BMHANNAAir'),
+       url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_four@master/BMHANNAAir.woff') format('woff'),
        url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_four@master/BMHANNAAir.woff') format('woff');
-  font-weight: 300;
+  font-weight: 100 500;
   font-style: normal;
   font-display: swap;
-  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+3130-318F, U+AC00-D7A3;
+  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+2000-206F, U+2190-21FF, U+3000-303F, U+3130-318F, U+AC00-D7A3;
+}
+
+@font-face {
+  font-family: 'BMHANNAAir';
+  src: local('배달의민족 한나체 Air'), local('BM HANNA Air'), local('BMHANNAAir'),
+       url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_four@master/BMHANNAAir.woff') format('woff'),
+       url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_four@master/BMHANNAAir.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+2000-206F, U+2190-21FF, U+3000-303F, U+3130-318F, U+AC00-D7A3;
 }
 
 @font-face {
   font-family: '배달의민족 한나체 Air';
   src: local('배달의민족 한나체 Air'), local('BM HANNA Air'), local('BMHANNAAir'),
+       url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_four@master/BMHANNAAir.woff') format('woff'),
        url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_four@master/BMHANNAAir.woff') format('woff');
-  font-weight: 300;
+  font-weight: 100 500;
   font-style: normal;
   font-display: swap;
-  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+3130-318F, U+AC00-D7A3;
+  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+2000-206F, U+2190-21FF, U+3000-303F, U+3130-318F, U+AC00-D7A3;
+}
+
+@font-face {
+  font-family: '배달의민족 한나체 Air';
+  src: local('배달의민족 한나체 Air'), local('BM HANNA Air'), local('BMHANNAAir'),
+       url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_four@master/BMHANNAAir.woff') format('woff'),
+       url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_four@master/BMHANNAAir.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007E, U+00A0-00FF, U+1100-11FF, U+2000-206F, U+2190-21FF, U+3000-303F, U+3130-318F, U+AC00-D7A3;
 }
 
 @theme {
-  --font-sans: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Noto Sans CJK KR', 'Noto Sans JP', 'Segoe UI', Roboto, sans-serif;
-  --font-hanna: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Noto Sans CJK KR', 'Noto Sans JP', 'Segoe UI', Roboto, sans-serif;
-  --font-air: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Noto Sans CJK KR', 'Noto Sans JP', 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+  --font-air: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+  --font-hanna: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  --font-pro: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 html, body {
-  font-family: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Noto Sans CJK KR', 'Noto Sans JP', 'Segoe UI', Roboto, sans-serif;
+  font-family: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
   font-weight: 400;
   background-color: #ffffff;
   color: #18181b;
   min-height: 100%;
   min-height: 100dvh;
   letter-spacing: 0.008em;
-  font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -80,20 +124,127 @@ html.dark, html.dark body {
   min-height: 100%;
   background-color: transparent;
   letter-spacing: 0.008em;
+  font-family: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
 }
 
-/* 제목, 헤딩, 핵심 UI 컨트롤은 BMHANNAPro 적용 */
+/* 1. 일반 글씨(볼드나 제목, 버튼이 아닌 모든 일반 텍스트): 한나체 Air 전역 적용 */
+body,
+#root,
+p,
+span,
+div,
+li,
+td,
+th,
+label,
+a,
+small,
+article,
+section,
+.font-sans,
+.font-air,
+.font-normal,
+.font-medium,
+.font-light,
+.prose,
+.prose p,
+.whitespace-pre-wrap,
+.notice-body {
+  font-family: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+}
+
+/* 2. 제목, 헤딩 및 볼드체(강조), 부제목(###), 그리고 모든 버튼, 뱃지, 차트 축 레이블 영역의 글씨: BMHANNAPro 적용 (한나체 Pro) */
+h1, h2, h3, h4, h5, h6,
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6,
+b,
+strong,
+button,
+button *,
+button span,
+button div,
+button p,
+[role="button"],
+[role="button"] *,
+[role="button"] span,
+[role="button"] div,
+.btn,
+.btn *,
+.font-bold,
+.font-extrabold,
+.font-black,
+.font-semibold,
+.font-display,
+.font-hanna,
+.font-pro,
+.ui-title,
+/* 제목, 부제목, 버튼, 라벨, 그래프 축, 편집기 제목 및 특수효과 글씨 등 본문을 제외한 UI 요소를 한나체 Pro로 포괄 적용 */
 h1, h2, h3, h4, h5, h6,
 button,
-nav,
-.font-display,
-.ui-title {
-  font-family: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+label,
+.font-pro,
+.font-hanna,
+.rich-text-content h1,
+.rich-text-content h2,
+.rich-text-content h3,
+.rich-text-content h4,
+.rich-text-content strong,
+.rich-text-content b,
+.rich-text-content [style*="color"],
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.notice-body strong,
+.notice-body b,
+.notice-body h1,
+.notice-body h2,
+.notice-body h3,
+.prose strong,
+.prose b,
+.whitespace-pre-wrap strong,
+.whitespace-pre-wrap b,
+.recharts-cartesian-axis-tick text,
+.recharts-cartesian-axis-tick-value,
+.recharts-cartesian-axis text,
+.recharts-text,
+.recharts-legend-item-text,
+.recharts-tooltip-item,
+.recharts-tooltip-label,
+.recharts-label,
+svg.recharts-surface text,
+input::placeholder,
+textarea::placeholder,
+input[type="date"],
+input[type="month"],
+input[type="time"],
+input.font-pro,
+.badge,
+.tag {
+  font-family: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif !important;
+  letter-spacing: 0.008em;
 }
 
-/* 전체적인 글자 두께 슬림화 및 가짜 볼드(Faux Bold) 차단 */
-*, *::before, *::after {
-  font-synthesis: none !important;
+/* 자동 스크롤 시 및 탭 전환 시 연한 모션 블러 효과 */
+body.is-auto-scrolling,
+.is-auto-scrolling main,
+.is-auto-scrolling #root {
+  filter: blur(1.5px);
+  transition: filter 0.25s ease-out;
+}
+
+.tab-transition-blur {
+  animation: tabMotionBlur 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes tabMotionBlur {
+  0% {
+    filter: blur(2.5px);
+    opacity: 0.92;
+  }
+  100% {
+    filter: blur(0px);
+    opacity: 1;
+  }
 }
 
 /* 작은 글씨 기본 자간 확보 */
@@ -106,44 +257,14 @@ small {
   letter-spacing: 0.008em;
 }
 
-/* 중요 내용 및 공지사항/시스템 메뉴의 볼드체(강조) 부분은 Pro 폰트 적용 (이질감 없는 균형 잡힌 두께와 자간) */
-b,
-strong,
-.font-bold,
-.font-extrabold,
-.font-black,
-.font-semibold {
-  font-family: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
-  -webkit-text-stroke: 0.10px currentColor;
-  letter-spacing: 0.008em;
-}
-
-/* 본문, 설명 단락, 약관 등 줄글은 BMHANNAAir 적용 */
+/* 본문, 설명 단락, 약관 줄글 스타일 */
 p,
 .prose,
 .prose p,
 .whitespace-pre-wrap,
 .notice-body,
-article p,
-.font-normal,
-.font-light {
-  font-family: 'BMHANNAAir', '배달의민족 한나체 Air', 'BM HANNA Air', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
-  font-weight: 400;
-  -webkit-text-stroke: 0.06px currentColor;
-  letter-spacing: 0.008em;
+article p {
   line-height: 1.65;
-}
-
-/* 공지사항이나 시스템 메뉴 내부의 볼드(강조) 텍스트는 자연스럽게 Pro로 연동 */
-.notice-body strong,
-.notice-body b,
-.prose strong,
-.prose b,
-.whitespace-pre-wrap strong,
-.whitespace-pre-wrap b {
-  font-family: 'BMHANNAPro', '배달의민족 한나체 Pro', 'BM HANNA Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif !important;
-  font-weight: 700;
-  -webkit-text-stroke: 0.10px currentColor;
 }
 
 /* 코드 블록이나 정밀 수치 입력창 등 기본 폼 필드 가독성 */

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { RefreshCw, ChevronDown, ThumbsUp, ThumbsDown, Star, CheckCircle, Search, Filter, Cloud, CloudDownload, X, Loader2, AlertCircle, Calendar, Layers, Play, Sparkles, Clock } from 'lucide-react';
+import { RefreshCw, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Star, CheckCircle, Search, Filter, Cloud, CloudDownload, X, Loader2, AlertCircle, AlertTriangle, Calendar, Layers, Play, Sparkles, Clock } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -10,6 +10,7 @@ import { formatRecommendShareText, shareTextOrClipboard } from '../../utils/shar
 import { ShareBoxArrowIcon } from '../common/ShareIcon';
 import { BroadcastDetailModal } from './BroadcastDetailModal';
 import { getMolabogiCache, setMolabogiCache } from '../../utils/molabogiCache';
+import { GameTitle } from '../common/GameTitle';
 
 const YoutubeLogo = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -36,12 +37,14 @@ const VideoCard = ({
   onNavigateToCalendar,
   onOpenBroadcastModal,
   isCompact = false,
+  isExpanded = false,
 }: { 
   video: any;
   allLogs?: Record<string, any>;
   onNavigateToCalendar?: (dateStr: string) => void;
   onOpenBroadcastModal?: (video: any) => void;
   isCompact?: boolean;
+  isExpanded?: boolean;
 }) => {
   const [showShortsMenu, setShowShortsMenu] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -101,20 +104,43 @@ const VideoCard = ({
   const hasMultipleDates = broadcastDates.length > 1;
   const isMultiBroadcastOrCompilation = hasMultipleDates || video.isCompilation || (Array.isArray(video.allBroadcastDates) && video.allBroadcastDates.length > 1);
 
-  // 게임 목록 추출
+  // 게임 목록 추출 (게임 링크가 누락되지 않도록 parentLog 및 allLogs와 완벽 연동)
   const gamesList: { name: string; link?: string; category?: string }[] = useMemo(() => {
+    let list: { name: string; link?: string; category?: string }[] = [];
     if (video.games && Array.isArray(video.games) && video.games.length > 0) {
-      return video.games;
+      list = [...video.games];
+    } else if (video.parentLog?.games && video.parentLog.games.length > 0) {
+      list = [...video.parentLog.games];
+    } else if (video.parentLog?.game) {
+      list = [{ name: video.parentLog.game, link: (video.parentLog as any).gameLink || '', category: video.parentLog.category || '' }];
     }
-    const logGames = video.parentLog?.games || [];
-    if (logGames.length > 0) {
-      return logGames;
-    }
-    if (video.parentLog?.game) {
-      return [{ name: video.parentLog.game, category: video.parentLog.category || '' }];
-    }
-    return [];
-  }, [video]);
+
+    // 혹시라도 link가 비어있는 항목이 있다면 parentLog.games 또는 allLogs에서 해당 게임의 스토어 링크를 탐색하여 보강
+    return list.map((g: any) => {
+      let link = g.link || g.url || g.gameUrl || g.steamUrl || '';
+      if (!link && video.parentLog?.games) {
+        const found = video.parentLog.games.find((pg: any) => 
+          pg.name && g.name && pg.name.trim().toLowerCase() === g.name.trim().toLowerCase()
+        );
+        if (found?.link) link = found.link;
+      }
+      if (!link && allLogs) {
+        const logsList = Array.isArray(allLogs) ? allLogs : Object.values(allLogs);
+        for (const l of logsList) {
+          if (Array.isArray(l.games)) {
+            const found = l.games.find((lg: any) => 
+              lg.name && g.name && lg.name.trim().toLowerCase() === g.name.trim().toLowerCase() && lg.link
+            );
+            if (found?.link) {
+              link = found.link;
+              break;
+            }
+          }
+        }
+      }
+      return { ...g, link };
+    });
+  }, [video, allLogs]);
 
   const hasMoreThanTwoGames = gamesList.length > 2;
   const hasGameGroups = video.gameGroups && Array.isArray(video.gameGroups) && video.gameGroups.length > 0;
@@ -157,7 +183,12 @@ const VideoCard = ({
 
   return (
     <div 
-      className="group flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1"
+      className={cn(
+        "group flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all",
+        isExpanded 
+          ? "rounded-t-[24px] rounded-b-none border-b-0 shadow-md z-10" 
+          : "rounded-[24px] overflow-hidden hover:shadow-xl hover:-translate-y-1"
+      )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -298,7 +329,7 @@ const VideoCard = ({
                 onOpenBroadcastModal?.(video);
               }}
               className={cn(
-                "w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs hover:scale-[1.01]",
+                "w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs hover:scale-[1.01] font-hanna font-pro",
                 video.isCompilation
                   ? "bg-purple-50 hover:bg-purple-100/90 dark:bg-purple-950/70 dark:hover:bg-purple-900/70 text-purple-700 dark:text-purple-300 border border-purple-200/90 dark:border-purple-800/90 shadow-purple-500/10"
                   : "bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700/80"
@@ -310,18 +341,28 @@ const VideoCard = ({
                 ) : (
                   <PlaySquare className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
                 )}
-                <span className={video.isCompilation ? "font-bold text-purple-900 dark:text-purple-200" : ""}>
-                  {video.isCompilation ? '몰아보기 연동 생방 펼치기' : '연동 생방 펼치기'}
+                <span className={cn("font-hanna font-pro", video.isCompilation ? "font-bold text-purple-900 dark:text-purple-200" : "")}>
+                  {isExpanded
+                    ? (video.isCompilation ? '몰아보기 연동 생방 접기' : '연동 생방 접기')
+                    : (video.isCompilation ? '몰아보기 연동 생방 펼치기' : '연동 생방 펼치기')
+                  }
                 </span>
               </div>
-              <span className={cn(
-                "text-[10px] font-bold px-2 py-0.5 rounded-md",
-                video.isCompilation
-                  ? "bg-purple-200/90 dark:bg-purple-900/90 text-purple-800 dark:text-purple-200"
-                  : "bg-zinc-200/80 dark:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300"
-              )}>
-                {video.isCompilation ? `${video.games?.length || broadcastDates.length}개 게임` : `${broadcastDates.length}개 생방`}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className={cn(
+                  "text-[10px] font-bold px-2 py-0.5 rounded-md font-hanna font-pro",
+                  video.isCompilation
+                    ? "bg-purple-200/90 dark:bg-purple-900/90 text-purple-800 dark:text-purple-200"
+                    : "bg-zinc-200/80 dark:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300"
+                )}>
+                  {video.isCompilation ? `${video.games?.length || broadcastDates.length}개 게임` : `${broadcastDates.length}개 생방`}
+                </span>
+                {isExpanded ? (
+                  <ChevronUp className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                )}
+              </div>
             </button>
           </div>
         ) : (
@@ -332,14 +373,14 @@ const VideoCard = ({
                 {displayedGames.map((g: any, i: number) => {
                   const hasSeparateCategory = g.category && g.category.trim() !== '' && g.category.trim().toLowerCase() !== g.name.trim().toLowerCase() && g.category !== '종합';
                   const gameContent = (
-                    <span className={`px-2 py-0.5 text-[10px] rounded-full select-none inline-flex items-center gap-1 ${
+                    <span className={`px-2 py-0.5 text-[10px] rounded-full select-none inline-flex items-center gap-1 font-hanna font-pro ${
                       g.link 
                         ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors cursor-pointer' 
                         : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
                     }`}>
-                      <span>{g.name}</span>
+                      <span><GameTitle text={g.name} link={g.link} /></span>
                       {hasSeparateCategory && (
-                        <span className="opacity-60 font-normal border-l border-current pl-1">
+                        <span className="opacity-60 font-normal border-l border-current pl-1 font-hanna font-pro">
                           {g.category}
                         </span>
                       )}
@@ -365,7 +406,7 @@ const VideoCard = ({
                       e.stopPropagation();
                       setShowAllGames(prev => !prev);
                     }}
-                    className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+                    className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer font-hanna font-pro"
                   >
                     {showAllGames 
                       ? '접기' 
@@ -385,13 +426,13 @@ const VideoCard = ({
             onClick={(e) => {
               if (!video.videoUrl) e.preventDefault();
             }}
-            className={`w-full flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`w-full flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-bold transition-all font-hanna font-pro ${
               video.videoUrl
                 ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 shadow-2xs hover:scale-[1.01]'
                 : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
             }`}
           >
-            <YoutubeLogo className="w-4 h-4 text-zinc-600 dark:text-zinc-400" /> 영상 보기
+            <YoutubeLogo className="w-4 h-4 text-zinc-600 dark:text-zinc-400" /> <span className="font-hanna font-pro">영상 보기</span>
           </a>
           
           {!isMultiBroadcastOrCompilation && (
@@ -401,9 +442,9 @@ const VideoCard = ({
                   href={vods[0].url} 
                   target="_blank"
                   rel="noreferrer"
-                  className="flex-1 flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-purple-50 dark:bg-purple-900/10 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/20"
+                  className="flex-1 flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-purple-50 dark:bg-purple-900/10 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/20 font-hanna font-pro"
                 >
-                  <PlaySquare className="w-4 h-4" /> 생방송 (풀영상)
+                  <PlaySquare className="w-4 h-4" /> <span className="font-hanna font-pro">생방송 (풀영상)</span>
                 </a>
               ) : null}
 
@@ -412,9 +453,9 @@ const VideoCard = ({
                   href={shorts[0].url} 
                   target="_blank"
                   rel="noreferrer"
-                  className="flex-1 flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20"
+                  className="flex-1 flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 font-hanna font-pro"
                 >
-                  <ShortsIcon className="w-4 h-4" /> 쇼츠 보기
+                  <ShortsIcon className="w-4 h-4" /> <span className="font-hanna font-pro">쇼츠 보기</span>
                 </a>
               )}
 
@@ -461,6 +502,7 @@ export function RecommendTab({
   rateVideo,
   targetCategory,
   targetSearchTerm,
+  pinnedVideoId,
   onClearTarget,
   isActive = true,
   onNavigateToCalendar,
@@ -471,6 +513,7 @@ export function RecommendTab({
   rateVideo?: (id: string, score: number) => void;
   targetCategory?: string | null;
   targetSearchTerm?: string | null;
+  pinnedVideoId?: string | null;
   onClearTarget?: () => void;
   isActive?: boolean;
   onNavigateToCalendar?: (dateStr: string) => void;
@@ -513,6 +556,9 @@ export function RecommendTab({
   const prevIsActiveRef = useRef(isActive);
   useEffect(() => {
     if (!prevIsActiveRef.current && isActive) {
+      // 검색탭 나갔다 들어오면 몰아보기 연동 생방 펼치기 상태를 초기화(원래 카드 목록으로 복귀)
+      setSelectedBroadcastModalVideo(null);
+
       // 외부에서 건너온 임시 카테고리/검색어였다면 사용자가 선택했던 원래 상태로 복구
       if (isNavigatedFromExternalRef.current) {
         setSelectedCategories(userChosenCategoriesRef.current || ['전체']);
@@ -559,6 +605,18 @@ export function RecommendTab({
       onClearTarget?.();
     }
   }, [targetSearchTerm]);
+
+  useEffect(() => {
+    if (pinnedVideoId) {
+      isNavigatedFromExternalRef.current = true;
+      setSortOrder('recommend');
+      setSearchTerm('');
+      setSelectedCategories(['전체']);
+      setCurrentPage(1);
+      setHasSearched(true);
+      onClearTarget?.();
+    }
+  }, [pinnedVideoId]);
   const [shuffleSeed, setShuffleSeed] = useState(() => {
     const saved = sessionStorage.getItem('rec_shuffleSeed');
     return saved ? parseInt(saved, 10) : Date.now();
@@ -650,16 +708,6 @@ export function RecommendTab({
   };
 
   const [showAllWithoutSearch, setShowAllWithoutSearch] = useState(false);
-
-  // 검색 화면 진입 시 검색창 자동 포커스
-  useEffect(() => {
-    if (isActive) {
-      const timer = setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 120);
-      return () => clearTimeout(timer);
-    }
-  }, [isActive]);
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [mobileViewMode, setMobileViewMode] = useState<'1' | '2'>(() => {
@@ -812,12 +860,22 @@ export function RecommendTab({
         return compGames;
       }
 
-      // 2. 일반 영상: 해당 영상 관련 게임만 추출 (영상 카테고리/게임명 형태 매칭)
+      // 2. 일반 영상: 해당 영상 관련 게임 및 링크 정밀 추출 (영상 카테고리가 장르 태그인 경우에도 생방송 진행 게임 보존)
       if (Array.isArray(edit.games) && edit.games.length > 0) {
-        return edit.games;
+        return edit.games.map((g: any) => ({
+          name: typeof g === 'string' ? g : g.name || '',
+          link: typeof g === 'string' ? '' : (g.link || g.url || g.gameUrl || g.steamUrl || ''),
+          category: typeof g === 'string' ? '' : (g.category || '')
+        }));
       }
 
-      const logGames: any[] = Array.isArray(log.games) ? log.games : [];
+      const rawLogGames: any[] = Array.isArray(log.games) ? log.games : [];
+      const logGames: any[] = rawLogGames.map((g: any) => ({
+        name: typeof g === 'string' ? g : (g.name || g.game || ''),
+        link: typeof g === 'string' ? '' : (g.link || g.url || g.gameUrl || g.steamUrl || log.gameLink || log.gameUrl || ''),
+        category: typeof g === 'string' ? '' : (g.category || log.category || '')
+      })).filter((g: any) => Boolean(g.name));
+
       const editGame = edit.game?.trim();
       const editCat = edit.category?.trim();
       const editTitle = edit.title?.trim() || '';
@@ -838,29 +896,13 @@ export function RecommendTab({
             category: matched.category && matched.category.toLowerCase() !== matched.name.toLowerCase() ? matched.category : ''
           }];
         }
+        if (logGames.length === 1) {
+          return [logGames[0]];
+        }
         return [{ name: editGame, link: '', category: '' }];
       }
 
-      // (2) edit.category (영상 카테고리가 게임명 형태인 경우)와 일치하는 게임 찾기
-      if (editCat && editCat !== '전체' && editCat !== '몰아보기' && editCat !== '종합') {
-        const matched = logGames.find((g: any) => 
-          g.name && (
-            g.name.toLowerCase() === editCat.toLowerCase() ||
-            editCat.toLowerCase().includes(g.name.toLowerCase()) ||
-            g.name.toLowerCase().includes(editCat.toLowerCase())
-          )
-        );
-        if (matched) {
-          return [{
-            name: matched.name,
-            link: matched.link || '',
-            category: matched.category && matched.category.toLowerCase() !== matched.name.toLowerCase() ? matched.category : ''
-          }];
-        }
-        return [{ name: editCat, link: '', category: '' }];
-      }
-
-      // (3) 영상 제목(edit.title)에 포함된 logGames 찾기
+      // (2) 영상 제목(edit.title)에 포함된 logGames 찾기
       if (logGames.length > 0 && editTitle) {
         const matchedByTitle = logGames.filter((g: any) => 
           g.name && editTitle.toLowerCase().includes(g.name.toLowerCase())
@@ -874,7 +916,42 @@ export function RecommendTab({
         }
       }
 
-      // (4) log.games가 1개뿐인 경우
+      // (3) edit.category (영상 카테고리가 게임명 또는 장르 형태인 경우) 매칭
+      if (editCat && editCat !== '전체' && editCat !== '몰아보기' && editCat !== '종합') {
+        // 게임명과 직접 매칭
+        const matchedByName = logGames.find((g: any) => 
+          g.name && (
+            g.name.toLowerCase() === editCat.toLowerCase() ||
+            editCat.toLowerCase().includes(g.name.toLowerCase()) ||
+            g.name.toLowerCase().includes(editCat.toLowerCase())
+          )
+        );
+        if (matchedByName) {
+          return [{
+            name: matchedByName.name,
+            link: matchedByName.link || '',
+            category: matchedByName.category && matchedByName.category.toLowerCase() !== matchedByName.name.toLowerCase() ? matchedByName.category : ''
+          }];
+        }
+
+        // 게임 카테고리(장르)와 일치하거나 포함되는 경우 매칭
+        const matchedByCat = logGames.filter((g: any) => {
+          if (!g.category) return false;
+          const gc = g.category.toLowerCase();
+          const ec = editCat.toLowerCase();
+          return gc === ec || gc.includes(ec) || ec.includes(gc) ||
+            ec.split(/[,/]/).some((part: string) => gc.includes(part.trim()));
+        });
+        if (matchedByCat.length > 0) {
+          return matchedByCat.map((m: any) => ({
+            name: m.name,
+            link: m.link || '',
+            category: m.category && m.category.toLowerCase() !== m.name.toLowerCase() ? m.category : ''
+          }));
+        }
+      }
+
+      // (4) log.games가 1개뿐인 경우 (생방송에서 1개 게임만 진행했으므로, 해당 편집본 영상은 당연히 그 게임임)
       if (logGames.length === 1) {
         const g = logGames[0];
         return [{
@@ -884,12 +961,19 @@ export function RecommendTab({
         }];
       }
 
-      // (5) log.game이 단일 게임명인 경우
-      if (log.game && !log.game.includes(',')) {
-        return [{ name: log.game.trim(), link: '', category: '' }];
+      // (5) log.games가 다수이지만 특정 게임이 좁혀지지 않은 경우 전체 게임 반환
+      if (logGames.length > 1) {
+        return logGames;
       }
 
-      return logGames.length > 0 ? [logGames[0]] : [];
+      // (6) log.game이 단일 게임명인 경우
+      if (log.game && !log.game.includes(',')) {
+        return [{ name: log.game.trim(), link: log.gameLink || log.gameUrl || '', category: log.category || '' }];
+      }
+
+      return editCat && editCat !== '전체' && editCat !== '몰아보기' && editCat !== '종합'
+        ? [{ name: editCat, link: '', category: '' }]
+        : [];
     };
 
     const videoMap = new Map<string, any>();
@@ -996,17 +1080,61 @@ export function RecommendTab({
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
+    const knownGameNames = new Set<string>();
+
     allVideos.forEach(v => {
-      const addCats = (catStr?: string) => {
-        if (!catStr) return;
-        catStr.split(',').map(c => c.trim()).filter(Boolean).forEach(c => cats.add(c));
-      };
-      // 영상 자체의 카테고리(edited[].category)는 섞지 않고,
-      // 상위 방송 로그(parentLog)의 카테고리와 games의 카테고리만 사용합니다.
+      if (v.parentLog?.game) knownGameNames.add(v.parentLog.game.trim().toLowerCase());
+      v.parentLog?.games?.forEach((g: any) => {
+        if (g?.name) knownGameNames.add(g.name.trim().toLowerCase());
+      });
+      v.games?.forEach((g: any) => {
+        if (g?.name) knownGameNames.add(g.name.trim().toLowerCase());
+      });
+    });
+
+    const recognizedGenres = new Set([
+      '종합', '액션', '어드벤처', '인디', '캐주얼', '시뮬레이션', '전략', '웹', '플래시', '스포츠', 
+      '앞서 해보기', '노가리', '공포', '퀴즈', '레이싱', 'rpg', '로그라이크', '퍼즐', '8번출구류', 
+      '미연시', '시뮬레이터', '팬게임', '시참', '교육', '스토리', '아포칼립스', '온라인', 
+      '대규모 멀티플레이어', '병맛', '모바일', '도서', '그래픽 및 디자인', '이상형월드컵', 'mbti', 
+      '단어', '가족', 'moba', '생존', 'fps', '슈팅', '롤플레잉', '배틀로얄'
+    ]);
+
+    const addCats = (catStr?: string) => {
+      if (!catStr) return;
+      catStr.split(',').map(c => c.trim()).filter(Boolean).forEach(c => {
+        if (c === '수박게임') {
+          cats.add('캐주얼');
+          cats.add('퍼즐');
+          return;
+        }
+        if (c === '오버워치' || c === '발로란트') {
+          cats.add('FPS');
+          cats.add('액션');
+          return;
+        }
+        if (c === '마추기아이오') {
+          cats.add('웹');
+          cats.add('퀴즈');
+          return;
+        }
+        const cLower = c.toLowerCase();
+        // 게임명이 카테고리로 잘못 들어간 경우(인식된 장르가 아니면서 게임명과 일치) 제외
+        if (!recognizedGenres.has(cLower) && knownGameNames.has(cLower)) {
+          return;
+        }
+        cats.add(c);
+      });
+    };
+
+    allVideos.forEach(v => {
+      addCats(v.category);
       addCats(v.parentLog?.category);
       v.parentLog?.games?.forEach((g: any) => addCats(g.category));
+      v.games?.forEach((g: any) => addCats(g.category));
     });
-    const otherCats = Array.from(cats).filter(c => c !== '몰아보기').sort();
+
+    const otherCats = Array.from(cats).filter(c => c !== '몰아보기' && c !== '전체').sort();
     return ['전체', '몰아보기', ...otherCats];
   }, [allVideos]);
 
@@ -1022,11 +1150,19 @@ export function RecommendTab({
         }
         const hasCat = (catStr?: string) => {
           if (!catStr) return false;
-          return catStr.split(',').map(c => c.trim()).some(c => selectedCategories.includes(c));
+          return catStr.split(',').map(c => c.trim()).some(c => {
+            if (selectedCategories.includes(c)) return true;
+            if (c === '수박게임' && (selectedCategories.includes('캐주얼') || selectedCategories.includes('퍼즐'))) return true;
+            if ((c === '오버워치' || c === '발로란트') && (selectedCategories.includes('FPS') || selectedCategories.includes('액션') || selectedCategories.includes('슈팅'))) return true;
+            if (c === '마추기아이오' && (selectedCategories.includes('웹') || selectedCategories.includes('퀴즈'))) return true;
+            return false;
+          });
         };
-        // 상위 로그의 카테고리만 필터링 대상으로 삼습니다.
+        // 상위 로그, games, 그리고 video 자체의 카테고리 모두 정밀 대조
+        if (hasCat(v.category)) return true;
         if (hasCat(v.parentLog?.category)) return true;
         if (v.parentLog?.games?.some((g: any) => hasCat(g.category))) return true;
+        if (v.games?.some((g: any) => hasCat(g.category))) return true;
         return false;
       });
     }
@@ -1101,11 +1237,12 @@ export function RecommendTab({
         if (fuzzyKoreanMatch(term, v.videoTitle)) return true;
         
         // 4. 카테고리 및 게임명 검색
-        if (v.category && fuzzyKoreanMatch(term, v.category)) return true;
-        if (v.games?.some((g: any) => fuzzyKoreanMatch(term, g.name) || (g.category && fuzzyKoreanMatch(term, g.category)))) return true;
-        if (v.parentLog?.games?.some((g: any) => fuzzyKoreanMatch(term, g.name) || (g.category && fuzzyKoreanMatch(term, g.category)))) return true;
+        const qLower = term.toLowerCase();
+        if (v.category && (fuzzyKoreanMatch(term, v.category) || v.category.toLowerCase().includes(qLower))) return true;
+        if (v.games?.some((g: any) => fuzzyKoreanMatch(term, g.name) || (g.category && (fuzzyKoreanMatch(term, g.category) || g.category.toLowerCase().includes(qLower))))) return true;
+        if (v.parentLog?.games?.some((g: any) => fuzzyKoreanMatch(term, g.name) || (g.category && (fuzzyKoreanMatch(term, g.category) || g.category.toLowerCase().includes(qLower))))) return true;
         if (v.parentLog?.game && fuzzyKoreanMatch(term, v.parentLog.game)) return true;
-        if (v.parentLog?.category && fuzzyKoreanMatch(term, v.parentLog.category)) return true;
+        if (v.parentLog?.category && (fuzzyKoreanMatch(term, v.parentLog.category) || v.parentLog.category.toLowerCase().includes(qLower))) return true;
         return false;
       });
     }
@@ -1184,13 +1321,16 @@ export function RecommendTab({
            isHighConfidence = true;
          }
          // 4. 메인 게임명/카테고리 직접 포함
-         else if (primaryGame.includes(q) || category.includes(q)) {
-           matchScore = 70;
+         else if (primaryGame.includes(q) || category.includes(q) || (v.category && v.category.toLowerCase().includes(q))) {
+           matchScore = 75;
            isHighConfidence = true;
          }
          // 5. 연관 서브 게임 목록에 직접 포함
-         else if (v.parentLog?.games?.some((g: any) => (g.name || '').toLowerCase().includes(q) || (g.category || '').toLowerCase().includes(q))) {
-           matchScore = 60;
+         else if (
+           v.parentLog?.games?.some((g: any) => (g.name || '').toLowerCase().includes(q) || (g.category || '').toLowerCase().includes(q)) ||
+           v.games?.some((g: any) => (g.name || '').toLowerCase().includes(q) || (g.category || '').toLowerCase().includes(q))
+         ) {
+           matchScore = 70;
            isHighConfidence = true;
          }
          // 6. 초성 검색, 오타 교정, 간접 fuzzy 매칭 (일치 확률이 비교적 낮은 검색 결과)
@@ -1270,8 +1410,21 @@ export function RecommendTab({
         return seedrandom(shuffleSeed + hA) - seedrandom(shuffleSeed + hB);
       });
     }
+
+    if (pinnedVideoId && (sortOrder === 'recommend' || !searchTerm.trim())) {
+      const pinIndex = scoredVids.findIndex(v => 
+        v.id === pinnedVideoId || 
+        v.videoUrl === pinnedVideoId ||
+        (extractYoutubeId(v.videoUrl) && extractYoutubeId(v.videoUrl) === extractYoutubeId(pinnedVideoId))
+      );
+      if (pinIndex > 0) {
+        const [pinnedItem] = scoredVids.splice(pinIndex, 1);
+        scoredVids.unshift(pinnedItem);
+      }
+    }
+
     return scoredVids;
-  }, [allVideos, selectedCategories, searchTerm, shuffleSeed, sortOrder]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, selectedCategories, searchTerm, shuffleSeed, sortOrder, pinnedVideoId]); // Removed ratings and history to prevent jumping on watch
 
   const handleRefresh = () => {
     Object.keys(baseWeights.current).forEach(id => {
@@ -1283,6 +1436,13 @@ export function RecommendTab({
 
   // 선택된 다중 생방/몰아보기 상세 모달
   const [selectedBroadcastModalVideo, setSelectedBroadcastModalVideo] = useState<any | null>(null);
+
+  // 검색 탭을 벗어났다 들어오면 몰아보기 연동 생방 펼치기 상태를 초기화하여 원래 추천 목록으로 복귀
+  useEffect(() => {
+    if (!isActive) {
+      setSelectedBroadcastModalVideo(null);
+    }
+  }, [isActive]);
 
   // 화면 크기 및 그리드 열에 맞춰 한 페이지당 8개~9개 유동적 조정
   // 2열 그리드(768px~1023px 태블릿/창분할)에서는 2x4 = 8개가 자연스럽고, 3열 데스크탑(>= 1024px)에서는 3x3 = 9개
@@ -1527,90 +1687,134 @@ export function RecommendTab({
         )}
       </div>
 
-      {/* 검색 결과 영상 카드 영역 (기존대로 카드로 표시) */}
+      {/* 검색 결과 영상 카드 영역 (카드가 아래로/사각형으로 펼쳐지는 인라인 확장 UX) */}
       <div id="recommend-cards-container" className="min-h-[400px]">
-        {selectedBroadcastModalVideo ? (
-          <BroadcastDetailModal
-            video={selectedBroadcastModalVideo}
-            allLogs={data?.logs}
-            onClose={() => setSelectedBroadcastModalVideo(null)}
-            onNavigateToCalendar={onNavigateToCalendar}
-          />
-        ) : (
-          <>
-            {/* 모바일 전용 1개씩 보기 / 2개씩 보기 (두 줄) 전환 탭 */}
-            {recommended.length > 0 && (
-              <div className="flex sm:hidden items-center justify-between gap-2 px-1 mb-3">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
-                  총 <strong className="text-purple-600 dark:text-purple-400 font-bold">{recommended.length}</strong>개 영상
-                </span>
-                <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60">
-                  <button
-                    type="button"
-                    onClick={() => handleViewModeChange('1')}
-                    className={cn(
-                      "px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer",
-                      mobileViewMode === '1'
-                        ? "bg-white dark:bg-zinc-700 text-purple-600 dark:text-purple-300 shadow-2xs font-bold"
-                        : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
-                    )}
-                  >
-                    1개씩 보기
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleViewModeChange('2')}
-                    className={cn(
-                      "px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer",
-                      mobileViewMode === '2'
-                        ? "bg-white dark:bg-zinc-700 text-purple-600 dark:text-purple-300 shadow-2xs font-bold"
-                        : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
-                    )}
-                  >
-                    2개씩 보기
-                  </button>
-                </div>
-              </div>
-            )}
+        {/* 모바일 전용 1개씩 보기 / 2개씩 보기 (두 줄) 전환 탭 */}
+        {recommended.length > 0 && (
+          <div className="flex sm:hidden items-center justify-between gap-2 px-1 mb-3">
+            <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+              총 <strong className="text-purple-600 dark:text-purple-400 font-bold">{recommended.length}</strong>개 영상
+            </span>
+            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60">
+              <button
+                type="button"
+                onClick={() => handleViewModeChange('1')}
+                className={cn(
+                  "px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer",
+                  mobileViewMode === '1'
+                    ? "bg-white dark:bg-zinc-700 text-purple-600 dark:text-purple-300 shadow-2xs font-bold"
+                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+                )}
+              >
+                1개씩 보기
+              </button>
+              <button
+                type="button"
+                onClick={() => handleViewModeChange('2')}
+                className={cn(
+                  "px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer",
+                  mobileViewMode === '2'
+                    ? "bg-white dark:bg-zinc-700 text-purple-600 dark:text-purple-300 shadow-2xs font-bold"
+                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+                )}
+              >
+                2개씩 보기
+              </button>
+            </div>
+          </div>
+        )}
 
-            <div className={cn(
-              "grid",
-              mobileViewMode === '2' 
-                ? "grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-6" 
-                : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            )}>
-              {paginatedVids.map((video, idx) => {
-                // 일치 확률이 낮은 결과 구분선 표시 조건:
-                // 정확도순 검색 중이고 일치 확률이 비교적 낮은(isHighConfidence === false) 항목인 경우
-                const isFirstLowConfidenceOnPage = isAccuracySort && !video.isHighConfidence && (
-                  (idx === 0 && (currentPage > 1 || !hasAnyHighConfidence)) ||
-                  (idx > 0 && paginatedVids[idx - 1]?.isHighConfidence)
-                );
+        <div className={cn(
+          "grid",
+          mobileViewMode === '2' 
+            ? "grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-6" 
+            : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+        )}>
+          {/* 만약 펼쳐진 영상이 현재 페이지에 없다면 맨 위에 사각형 카드로 펼침 */}
+          {selectedBroadcastModalVideo && !paginatedVids.some(v => v.id === selectedBroadcastModalVideo.id || (selectedBroadcastModalVideo.videoUrl && v.videoUrl === selectedBroadcastModalVideo.videoUrl)) && (
+            <div className="col-span-full my-1">
+              <BroadcastDetailModal
+                video={selectedBroadcastModalVideo}
+                allLogs={data?.logs}
+                onClose={() => setSelectedBroadcastModalVideo(null)}
+                onNavigateToCalendar={onNavigateToCalendar}
+              />
+            </div>
+          )}
 
-                return (
-                  <React.Fragment key={`${video.id}-${idx}`}>
-                    {isFirstLowConfidenceOnPage && (
-                      <div className="col-span-full my-2 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="h-px bg-zinc-200 dark:bg-zinc-800 flex-1" />
-                          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-200/80 dark:border-amber-800/60 text-xs font-semibold text-amber-700 dark:text-amber-300 shadow-sm">
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                            <span>{hasAnyHighConfidence ? '일치 확률이 비교적 낮은 검색 결과' : '유사 검색 결과 (직접 일치 항목 없음)'}</span>
-                          </div>
-                          <div className="h-px bg-zinc-200 dark:bg-zinc-800 flex-1" />
-                        </div>
+          {paginatedVids.map((video, idx) => {
+            const isFirstLowConfidenceOnPage = isAccuracySort && !video.isHighConfidence && (
+              (idx === 0 && (currentPage > 1 || !hasAnyHighConfidence)) ||
+              (idx > 0 && paginatedVids[idx - 1]?.isHighConfidence)
+            );
+
+            const isExpanded = Boolean(
+              selectedBroadcastModalVideo &&
+              (selectedBroadcastModalVideo.id === video.id || 
+               (selectedBroadcastModalVideo.videoUrl && selectedBroadcastModalVideo.videoUrl === video.videoUrl))
+            );
+
+            return (
+              <React.Fragment key={`${video.id}-${idx}`}>
+                {isFirstLowConfidenceOnPage && (
+                  <div className="col-span-full my-2 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-px bg-zinc-200 dark:bg-zinc-800 flex-1" />
+                      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-200/80 dark:border-amber-800/60 text-xs font-semibold text-amber-700 dark:text-amber-300 shadow-sm">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span>{hasAnyHighConfidence ? '일치 확률이 비교적 낮은 검색 결과' : '유사 검색 결과 (직접 일치 항목 없음)'}</span>
                       </div>
+                      <div className="h-px bg-zinc-200 dark:bg-zinc-800 flex-1" />
+                    </div>
+                  </div>
+                )}
+
+                {/* 기존 카드를 온전히 유지한 채로, 그 밑으로 자연스럽게 펼쳐지는 연동 생방 목록 */}
+                <div 
+                  className={cn(
+                    "flex flex-col transition-all duration-300",
+                    isExpanded ? "col-span-full" : ""
+                  )}
+                >
+                  <VideoCard 
+                    video={video} 
+                    allLogs={data?.logs} 
+                    onNavigateToCalendar={onNavigateToCalendar} 
+                    onOpenBroadcastModal={(v) => {
+                      if (selectedBroadcastModalVideo?.id === v.id || (selectedBroadcastModalVideo?.videoUrl && selectedBroadcastModalVideo.videoUrl === v.videoUrl)) {
+                        setSelectedBroadcastModalVideo(null);
+                      } else {
+                        setSelectedBroadcastModalVideo(v);
+                      }
+                    }}
+                    isExpanded={isExpanded}
+                    isCompact={mobileViewMode === '2' && !isExpanded}
+                  />
+
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        key={`expanded-list-${video.id}`}
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                        className="overflow-hidden w-full rounded-b-[24px] border border-t-0 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-md -mt-px"
+                      >
+                        <BroadcastDetailModal
+                          video={video}
+                          allLogs={data?.logs}
+                          onClose={() => setSelectedBroadcastModalVideo(null)}
+                          onNavigateToCalendar={onNavigateToCalendar}
+                          hideMainVideoBanner={true}
+                        />
+                      </motion.div>
                     )}
-                    <VideoCard 
-                      video={video} 
-                      allLogs={data?.logs} 
-                      onNavigateToCalendar={onNavigateToCalendar} 
-                      onOpenBroadcastModal={(v) => setSelectedBroadcastModalVideo(v)}
-                      isCompact={mobileViewMode === '2'}
-                    />
-                  </React.Fragment>
-                );
-              })}
+                  </AnimatePresence>
+                </div>
+              </React.Fragment>
+            );
+          })}
               
               {recommended.length === 0 && (
                 <div className="col-span-full py-12 text-center text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px]">
@@ -1679,14 +1883,22 @@ export function RecommendTab({
                 </button>
               </div>
             )}
-          </>
-        )}
       </div>
       
-      {/* 푸터 바로 윗부분: 과거 데이터 안내문구 */}
-      <div className="mt-8 p-5 rounded-[24px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2 leading-relaxed">
-        <div>
-          <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 {firstYear}~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 파일 변환 시에 누락된 데이터나 잘못된 정보가 포함되어 있을 수 있습니다. (또한 {firstYear}~2025년 데이터에는 쇼츠 영상 정보가 포함되지 않습니다)
+      {/* 푸터 바로 윗부분: 과거 데이터 안내 및 외부 링크 보안 주의 경고 */}
+      <div className="mt-8 space-y-3">
+        <div className="p-4 sm:p-5 rounded-[24px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2.5 leading-relaxed">
+          <AlertCircle className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
+          <div>
+            <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 {firstYear}~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 파일 변환 시에 누락된 데이터나 잘못된 정보가 포함되어 있을 수 있습니다. (또한 {firstYear}~2025년 데이터에는 쇼츠 영상 정보가 포함되지 않습니다)
+          </div>
+        </div>
+
+        <div className="p-4 sm:p-5 rounded-[24px] bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300/90 flex items-start gap-2.5 leading-relaxed">
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <strong className="font-bold text-amber-900 dark:text-amber-200">외부 링크 및 보안 주의 안내:</strong> 본 검색 결과에 표시되는 모든 외부 링크(유튜브 영상, 치지직 다시보기, 게임 및 외부 웹페이지 등)는 단순 검색 및 팬 아카이브 결과에 불과하며, 당 사이트에서 직접 보증하거나 관리하지 않습니다. 외부 링크 접속으로 인해 발생할 수 있는 해킹, 악성코드 감염, 피싱, 개인정보 유출 및 보안 피해 등에 대해 본 사이트는 일체의 책임을 지지 않으므로 링크 클릭 및 이용 시 각별히 주의하시기 바랍니다.
+          </div>
         </div>
       </div>
 

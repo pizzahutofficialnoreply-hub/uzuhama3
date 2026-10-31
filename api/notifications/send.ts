@@ -59,6 +59,19 @@ export default async function handler(req: any, res: any) {
     }
     const { title, body, url } = reqPayload || {};
 
+    if ((title !== undefined && typeof title !== 'string') || (body !== undefined && typeof body !== 'string')) {
+      return res.status(400).json({ error: 'title and body must be strings' });
+    }
+    if (typeof title === 'string' && title.length > 200) {
+      return res.status(400).json({ error: 'title is too long' });
+    }
+    if (typeof body === 'string' && body.length > 2000) {
+      return res.status(400).json({ error: 'body is too long' });
+    }
+    const targetUrl = typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')
+      ? url.slice(0, 2048)
+      : '/';
+
     // 3. 푸시 토큰 조회 (push_subscriptions 컬렉션)
     const tokensSnapshot = await db.collection('push_subscriptions').get();
     const tokenDocMap = new Map<string, string>(); // token -> docId
@@ -118,7 +131,7 @@ export default async function handler(req: any, res: any) {
           body: cleanBody,
         },
         data: {
-          url: url || '/',
+          url: targetUrl,
           title: cleanTitle,
           body: cleanBody,
         },
@@ -128,7 +141,7 @@ export default async function handler(req: any, res: any) {
             badge: '/icon.png',
           },
           fcmOptions: {
-            link: url || '/'
+            link: targetUrl
           }
         }
       });

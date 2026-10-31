@@ -141,12 +141,14 @@ export interface NoticeItem {
   id: string;
   title: string;
   content: string;
-  type: 'big' | 'small' | 'none';
+  type: 'big' | 'small' | 'both' | 'none';
+  prefix?: string; // 띠 공지 앞머리 태그 커스텀 (예: [공지], [안내], [업데이트], [이벤트])
   date: string;
   active: boolean;
   linkUrl?: string;
   linkText?: string;
   links?: NoticeLink[];
+  dismissMode?: 'session' | 'permanent'; // 'session': 영구 표시 (X눌러 닫아도 새로고침/PWA 재진입 시 다시 표시), 'permanent': 일회성 표시 (한번 X누르면 계속 숨김)
 }
 
 export interface TermsRevision {
@@ -168,10 +170,13 @@ export interface SystemConfig {
   maintenance: boolean;
   maintenanceTitle?: string;
   maintenanceContent?: string;
-  noticeType: 'none' | 'big' | 'small';
+  noticeType: 'none' | 'big' | 'small' | 'both';
+  noticeTitle?: string;
   noticeContent: string;
+  defaultNoticePrefix?: string; // 띠 공지 기본 앞머리 태그 (기본값: [공지])
   absenceReason?: string;
   customAbsenceReason?: string;
+  isLongAbsence?: boolean; // 장기 휴방 모드 활성화 여부
   illnessName?: string;
   illnessSummary?: string;
   illnessSource?: string;
@@ -187,12 +192,33 @@ export interface SystemConfig {
   maintenanceLinkUrl?: string;
   maintenanceLinkText?: string;
   maintenanceLinks?: NoticeLink[];
+  maintenanceHistory?: Array<{ time: string; event: string }>;
+  maintenanceStatusText?: string;
+  maintenanceNote?: string;
+  maintenanceScope?: string; // 영향 범위 (기본값: 사이트 전체)
+  maintenanceImpact?: string; // 서비스 영향도 설명 (기본값: 점검 시간 동안 서비스에 접속 불가합니다.)
+  maintenanceNoticeGuide?: string; // 점검 안내 상세 (기본값: 점검 완료 및 변경사항 발생 시 본 공지에 업데이트하겠습니다.)
+  maintenanceDurationNote?: string; // 소요 시간 보충 설명 (기본값: (상황에 따라 변동/연장될 수 있습니다))
+  maintenanceChanges?: string[];
+  recurringMaintenance?: {
+    enabled: boolean;
+    intervalWeeks: number;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    autoApply: boolean;
+  };
+  lastCompletedNoticeDismissAt?: string;
+  noticeDismissMode?: 'session' | 'permanent';
   noticeList?: NoticeItem[];
   termsOfService?: string;
   privacyPolicy?: string;
+  preface?: string; // 일러두기 (설정의 정보 탭 및 사용자 가이드)
+  prefaceTitle?: string;
   travelStart?: string;
   travelEnd?: string;
   recentVideoUploadDate?: string; // 장기 휴방 중 영상 업로드일 (확률 가산점 반영)
+  videoUploadSourceDesc?: string; // 업로드된 영상 설명
   appVersion?: string;
   termsVersion?: number;
   termsRevision?: TermsRevision;

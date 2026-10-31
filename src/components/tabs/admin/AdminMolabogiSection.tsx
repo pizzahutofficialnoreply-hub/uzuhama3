@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { AppData, BroadcastLog, GameItem, LinkItem, GameGroup } from '../../../types';
 import { extractYoutubeId, matchLogMedia, matchMediaUrl } from '../../../utils/urlUtils';
-import { fuzzyKoreanMatch, fuzzyDateMatch } from '../../../utils';
+import { fuzzyKoreanMatch, fuzzyDateMatch, cn } from '../../../utils';
 import { db } from '../../../lib/firebase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getMolabogiCache, setMolabogiCache } from '../../../utils/molabogiCache';
@@ -60,9 +60,10 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
   const [videoUrl, setVideoUrl] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBroadcasts, setSelectedBroadcasts] = useState<Record<string, SelectedBroadcastState>>({});
+  const [selectedBroadcastOrder, setSelectedBroadcastOrder] = useState<string[]>([]);
   
-  // 게임 순서 정렬 및 그룹화 상태
-  const [gameSortOrder, setGameSortOrder] = useState<'latest' | 'oldest' | 'custom'>('latest');
+  // 게임 순서 정렬 및 그룹화 상태: 기본값은 등록순(처음 등록한 게 1번)
+  const [gameSortOrder, setGameSortOrder] = useState<'latest' | 'oldest' | 'custom'>('custom');
   const [groupingType, setGroupingType] = useState<'none' | 'broadcast' | 'category' | 'custom'>('none');
   const [customGroups, setCustomGroups] = useState<{ groupName: string; gameNames: string[] }[]>([]);
   const [newGroupName, setNewGroupName] = useState('');
@@ -71,6 +72,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
   const [customSortedGames, setCustomSortedGames] = useState<GameItem[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefinding, setIsRefinding] = useState<string | null>(null);
 
   // 모든 로그 목록 (날짜 내림차순)
   const allLogs = useMemo(() => {
@@ -175,11 +177,20 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
   };
 
   // 선택된 모든 게임 아이템 목록 (선택된 생방 및 게임 기준 추출)
+  // 선택된 모든 게임 아이템 목록 (선택된 생방 및 게임 기준 추출 - 등록순 순서 엄격 유지)
   const allSelectedGameItems = useMemo(() => {
     const list: GameItem[] = [];
     const seen = new Set<string>();
 
-    Object.entries(selectedBroadcasts).forEach(([logId, sel]) => {
+    // 등록순: 사용자가 생방을 선택한 순서대로 정렬
+    const orderedLogIds = selectedBroadcastOrder.filter(id => selectedBroadcasts[id]);
+    Object.keys(selectedBroadcasts).forEach(id => {
+      if (!orderedLogIds.includes(id)) orderedLogIds.push(id);
+    });
+
+    orderedLogIds.forEach(logId => {
+      const sel = selectedBroadcasts[logId];
+      if (!sel) return;
       const log = data.logs[logId];
       if (!log) return;
 
@@ -199,7 +210,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
     });
 
     return list;
-  }, [selectedBroadcasts, data.logs]);
+  }, [selectedBroadcasts, selectedBroadcastOrder, data.logs]);
 
   // 선택된 게임 목록이 바뀔 때 customSortedGames 동기화 (기존 순서 최우선 보존)
   useEffect(() => {
@@ -210,11 +221,11 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
       const retainedList = prev.filter(item => currentKeys.has(`${item.name}_${item.date}`));
       const retainedKeys = new Set(retainedList.map(item => `${item.name}_${item.date}`));
 
-      // 2. 새로 추가된 게임들만 뒤에 덧붙임
+      // 2. 새로 추가된 게임들만 뒤에 덧붙임 (등록순 기본)
       const newlyAdded = allSelectedGameItems.filter(item => !retainedKeys.has(`${item.name}_${item.date}`));
       let nextList = [...retainedList, ...newlyAdded];
 
-      // 3. 최신순 또는 과거순인 경우에만 자동 재정렬, 'custom'일 때는 사용자 배치 순서 엄격 유지
+      // 3. 최신순 또는 오래된순인 경우에만 자동 재정렬, 'custom'(등록순)일 때는 등록 순서 엄격 유지
       if (gameSortOrder === 'latest') {
         nextList.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
       } else if (gameSortOrder === 'oldest') {
@@ -233,6 +244,9 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
         copy.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
       } else if (order === 'oldest') {
         copy.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      } else if (order === 'custom') {
+        // 등록순으로 복구
+        return allSelectedGameItems;
       }
       return copy;
     });
@@ -256,7 +270,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
     });
   };
 
-  // 생방 선택 토글
+  // 생방 선택 토글 (등록순 보장)
   const handleToggleBroadcast = (log: BroadcastLog) => {
     setSelectedBroadcasts(prev => {
       const next = { ...prev };
@@ -271,6 +285,13 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
         };
       }
       return next;
+    });
+
+    setSelectedBroadcastOrder(prev => {
+      if (prev.includes(log.id)) {
+        return prev.filter(id => id !== log.id);
+      }
+      return [...prev, log.id];
     });
   };
 
@@ -361,6 +382,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
       setCustomGroups([]);
     }
 
+    setSelectedBroadcastOrder(comp.associatedLogIds || []);
     setActiveSubTab('form');
   };
 
@@ -370,10 +392,188 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
     setVideoTitle('');
     setVideoUrl('');
     setSelectedBroadcasts({});
+    setSelectedBroadcastOrder([]);
     setSearchTerm('');
-    setGameSortOrder('latest');
+    setGameSortOrder('custom');
     setGroupingType('none');
     setCustomGroups([]);
+  };
+
+  // 기존 몰아보기 생방 데이터 다시 찾기 (JSON 데이터가 바뀐 경우 현재 logs 기준으로 자동 재매칭 및 동기화)
+  const handleRefindBroadcasts = async (comp: ExistingCompilation) => {
+    if (!onUpdateLog) {
+      alert('로그 수정 기능이 제공되지 않았습니다.');
+      return;
+    }
+
+    setIsRefinding(comp.compilationId);
+    try {
+      const targetYtId = extractYoutubeId(comp.url);
+      const cleanUrl = comp.url.trim();
+      const compDatesSet = new Set(comp.allBroadcastDates);
+      const compGameNames = new Set(comp.games.map(g => g.name.trim().toLowerCase()));
+
+      const matchedLogs: BroadcastLog[] = [];
+      const logsArray = Object.values(data.logs || {});
+
+      logsArray.forEach(log => {
+        let isMatched = false;
+
+        // (1) URL 또는 YouTube ID 대조
+        if (targetYtId && matchLogMedia(log, targetYtId)) {
+          isMatched = true;
+        } else if (cleanUrl && matchLogMedia(log, cleanUrl)) {
+          isMatched = true;
+        }
+        // (2) 날짜 대조
+        else if (log.date && compDatesSet.has(log.date)) {
+          isMatched = true;
+        }
+        // (3) 게임명 대조
+        else if (Array.isArray(log.games) && log.games.some(g => g.name && compGameNames.has(g.name.trim().toLowerCase()))) {
+          isMatched = true;
+        } else if (log.game && compGameNames.has(log.game.trim().toLowerCase())) {
+          isMatched = true;
+        }
+
+        if (isMatched && !matchedLogs.some(m => m.id === log.id)) {
+          matchedLogs.push(log);
+        }
+      });
+
+      if (matchedLogs.length === 0) {
+        alert('현재 데이터(JSON)에서 연동 가능한 생방송을 찾지 못했습니다.');
+        return;
+      }
+
+      // 등록순/날짜순 정렬
+      matchedLogs.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+      const updatedDates = Array.from(new Set(matchedLogs.map(m => m.date).filter(Boolean)));
+      const updatedLogIds = matchedLogs.map(m => m.id);
+
+      // 최신 logs에서 게임 및 링크 재추출
+      const updatedGames: GameItem[] = [];
+      const seenGameNames = new Set<string>();
+
+      matchedLogs.forEach(log => {
+        const logGames = log.games && log.games.length > 0
+          ? log.games
+          : (log.game ? [{ name: log.game, link: (log as any).gameLink || '', category: log.category || '' }] : []);
+
+        logGames.forEach(g => {
+          const gName = g.name?.trim();
+          if (!gName) return;
+          if (compGameNames.has(gName.toLowerCase()) || comp.games.length === 0) {
+            if (!seenGameNames.has(gName.toLowerCase())) {
+              seenGameNames.add(gName.toLowerCase());
+              updatedGames.push({
+                name: gName,
+                link: g.link || '',
+                category: g.category || '',
+                date: log.date
+              });
+            }
+          }
+        });
+      });
+
+      const finalGames = updatedGames.length > 0 ? updatedGames : comp.games;
+
+      // Firestore compilations 컬렉션 갱신
+      try {
+        await setDoc(doc(db, 'compilations', comp.compilationId), {
+          id: comp.compilationId,
+          title: comp.title,
+          url: comp.url,
+          allBroadcastDates: updatedDates,
+          games: finalGames,
+          gameSortOrder: comp.gameSortOrder || 'custom',
+          gameGroups: comp.gameGroups,
+          associatedLogIds: updatedLogIds,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (err) {
+        console.warn('Compilations save error:', err);
+      }
+
+      // 각 연동된 생방 로그의 edited 정보 갱신
+      for (const log of matchedLogs) {
+        const existingEdited = Array.isArray(log.edited) ? [...log.edited] : [];
+        const filteredEdited = existingEdited.filter(
+          item => item.compilationId !== comp.compilationId && item.url !== comp.url
+        );
+        filteredEdited.unshift({
+          title: comp.title,
+          url: comp.url,
+          isCompilation: true,
+          compilationId: comp.compilationId,
+          allBroadcastDates: updatedDates,
+          games: finalGames,
+          gameSortOrder: comp.gameSortOrder || 'custom',
+          gameGroups: comp.gameGroups,
+        });
+
+        await onUpdateLog({
+          ...log,
+          edited: filteredEdited
+        });
+      }
+
+      alert(`최신 데이터 기준으로 연동 생방 ${matchedLogs.length}건을 다시 찾아 성공적으로 동기화했습니다!`);
+    } catch (e: any) {
+      console.error('Refind error:', e);
+      alert('다시 찾기 중 오류가 발생했습니다: ' + (e?.message || '알 수 없는 오류'));
+    } finally {
+      setIsRefinding(null);
+    }
+  };
+
+  // 폼 내에서 영상 링크/제목으로 현재 logs에서 생방 자동 다시 찾기
+  const handleRefindInForm = () => {
+    const cleanUrl = videoUrl.trim();
+    const ytId = extractYoutubeId(cleanUrl);
+    const cleanTitle = videoTitle.trim();
+
+    if (!cleanUrl && !cleanTitle && Object.keys(selectedBroadcasts).length === 0) {
+      alert('영상 링크나 제목을 먼저 입력해주세요.');
+      return;
+    }
+
+    const matchedLogs: BroadcastLog[] = [];
+    const logsArray = Object.values(data.logs || {});
+
+    logsArray.forEach(log => {
+      let isMatched = false;
+      if (ytId && matchLogMedia(log, ytId)) isMatched = true;
+      else if (cleanUrl && matchLogMedia(log, cleanUrl)) isMatched = true;
+      else if (selectedBroadcasts[log.id]) isMatched = true;
+
+      if (isMatched && !matchedLogs.some(m => m.id === log.id)) {
+        matchedLogs.push(log);
+      }
+    });
+
+    if (matchedLogs.length === 0) {
+      alert('현재 데이터에서 해당 영상과 연동된 생방을 찾지 못했습니다. 아래 목록에서 수동으로 선택해주세요.');
+      return;
+    }
+
+    const nextSelected: Record<string, SelectedBroadcastState> = {};
+    const nextOrder: string[] = [];
+
+    matchedLogs.forEach(log => {
+      nextSelected[log.id] = {
+        logId: log.id,
+        date: log.date,
+        selectedGameNames: getGamesFromLog(log)
+      };
+      nextOrder.push(log.id);
+    });
+
+    setSelectedBroadcasts(nextSelected);
+    setSelectedBroadcastOrder(nextOrder);
+    alert(`현재 데이터(JSON)에서 연동 생방 ${matchedLogs.length}건을 성공적으로 다시 찾아 선택했습니다!`);
   };
 
   // 몰아보기 삭제 실행
@@ -451,10 +651,13 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
 
     try {
       const compId = editingCompId || ('compilation_' + Date.now());
-      const allSelectedDates = selectedKeys.map(id => selectedBroadcasts[id].date).sort();
+      const orderedKeys = selectedBroadcastOrder.length > 0 
+        ? selectedBroadcastOrder.filter(id => selectedKeys.includes(id)) 
+        : selectedKeys;
+      const allSelectedDates = orderedKeys.map(id => selectedBroadcasts[id]?.date).filter(Boolean);
       const cleanedTitle = videoTitle.trim().replace(/^\[몰아보기\]\s*/, '');
 
-      // 최종 정렬된 게임 리스트
+      // 최종 정렬된 게임 리스트 (등록순 기본)
       const finalGames = customSortedGames.length > 0 ? customSortedGames : allSelectedGameItems;
 
       // 그룹화 구성
@@ -493,7 +696,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
         createdAt: new Date().toISOString(),
         gameSortOrder,
         gameGroups: finalGroups,
-        broadcasts: Object.values(selectedBroadcasts).map(s => ({
+        broadcasts: orderedKeys.map(id => selectedBroadcasts[id]).filter(Boolean).map(s => ({
           logId: s.logId,
           date: s.date,
           games: s.selectedGameNames
@@ -690,7 +893,16 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleRefindInForm}
+                  className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer border border-blue-200 dark:border-blue-800 shadow-2xs"
+                  title="현재 JSON/데이터를 바탕으로 연동 생방 다시 찾기"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>데이터에서 생방 다시 찾기</span>
+                </button>
                 <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
                   선택된 생방: {selectedCount}개
                 </span>
@@ -713,6 +925,8 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
             <div className="max-h-80 overflow-y-auto space-y-2.5 pr-1">
               {filteredLogs.map(log => {
                 const isSelected = !!selectedBroadcasts[log.id];
+                const orderIdx = selectedBroadcastOrder.indexOf(log.id);
+                const orderNum = orderIdx !== -1 ? orderIdx + 1 : undefined;
                 const availableGames = getGamesFromLog(log);
                 const selectedGames = selectedBroadcasts[log.id]?.selectedGameNames || [];
 
@@ -741,6 +955,11 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
+                            {isSelected && orderNum !== undefined && (
+                              <span className="text-[11px] px-2 py-0.5 rounded-md bg-purple-600 text-white font-black shadow-2xs">
+                                {orderNum}번 등록
+                              </span>
+                            )}
                             <span className="font-bold text-sm text-zinc-900 dark:text-white flex items-center gap-1">
                               <Calendar className="w-3.5 h-3.5 text-zinc-400" />
                               {log.date}
@@ -814,10 +1033,10 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                   </p>
                 </div>
 
-                {/* 순서 정렬 선택 버튼 (최신순, 오래된순, 자유) */}
+                {/* 순서 정렬 선택 버튼 (등록순, 최신순, 오래된순) */}
                 <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800">
                   <span className="text-[11px] font-bold text-zinc-500 px-1.5">순서:</span>
-                  {(['latest', 'oldest', 'custom'] as const).map(order => (
+                  {(['custom', 'latest', 'oldest'] as const).map(order => (
                     <button
                       key={order}
                       type="button"
@@ -828,7 +1047,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                           : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                       }`}
                     >
-                      {order === 'latest' ? '최신순' : order === 'oldest' ? '오래된순' : '자유 (수동)'}
+                      {order === 'custom' ? '등록순 (1번부터)' : order === 'latest' ? '최신순' : '오래된순'}
                     </button>
                   ))}
                 </div>
@@ -1147,8 +1366,19 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                       </div>
                     </div>
 
-                    {/* 액션 버튼 (수정, 삭제) */}
-                    <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100 dark:border-zinc-800">
+                    {/* 액션 버튼 (다시 찾기, 수정, 삭제) */}
+                    <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100 dark:border-zinc-800 flex-wrap">
+                      <button
+                        type="button"
+                        disabled={isRefinding === comp.compilationId}
+                        onClick={() => handleRefindBroadcasts(comp)}
+                        className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer border border-blue-200 dark:border-blue-800 disabled:opacity-50 shadow-2xs"
+                        title="JSON 데이터 변경 시 최신 데이터로 연동 생방 다시 찾기"
+                      >
+                        <RefreshCw className={cn("w-3.5 h-3.5", isRefinding === comp.compilationId && "animate-spin")} />
+                        <span>생방 다시 찾기</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => handleEditCompilation(comp)}
