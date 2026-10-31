@@ -410,17 +410,14 @@ export function CurrentProbability({
             {finalProb.toFixed(1)}
             <span className="text-4xl sm:text-5xl ml-1 tracking-normal font-bold" style={{ WebkitTextStroke: '0.45px currentColor' }}>%</span>
           </div>
-          <p className="text-[11.5px] text-zinc-400 dark:text-zinc-500 mt-1">
-            오늘 남은 시간 기준 · 2시간 안 {prob.next2hProb.toFixed(1)}%
-          </p>
+          {peakFormattedTime && prob.time.hasData && (
+            <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 mt-1.5 font-medium font-hanna font-pro">
+              {prob.time.peakIsToday ? "오늘 가장 유력한 시간" : "다음 유력 시간 · 내일"}{" "}
+              <span className="font-bold text-purple-600 dark:text-purple-400">{peakFormattedTime}</span>
+            </p>
+          )}
         </div>
 
-        {likelyTimeInfo && (
-          <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300 font-medium mt-1 mb-2 font-hanna font-pro text-sm">
-            <ChevronRight className="w-4 h-4 text-purple-500 shrink-0" />
-            <span className="font-hanna font-pro">{likelyTimeInfo}</span>
-          </div>
-        )}
 
         {patternMessage && (() => {
           const isIllness = system?.absenceReason === '병명';
@@ -496,103 +493,68 @@ export function CurrentProbability({
               exit={{ height: 0, opacity: 0, marginTop: 0 }}
               className="overflow-hidden w-full border-t border-zinc-100 dark:border-zinc-800/80"
             >
-              <div className="pt-5 pb-1 w-full max-w-xl mx-auto text-left">
+              <div className="pt-5 pb-1 w-full max-w-md mx-auto text-left">
                 {(() => {
-                  const fmtFactor = (f: number) =>
-                    f < 0.05 ? "매우 낮춤" : f === 1 ? "변화 없음" : `×${f.toFixed(2)}`;
-                  const factorTone = (f: number) =>
-                    f > 1.02
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : f < 0.98
-                        ? "text-rose-600 dark:text-rose-400"
-                        : "text-zinc-500 dark:text-zinc-400";
-                  const Row = ({
-                    step,
-                    title,
-                    sub,
-                    value,
-                    valueClass,
-                  }: {
-                    step: string;
-                    title: string;
-                    sub: React.ReactNode;
-                    value: React.ReactNode;
-                    valueClass?: string;
-                  }) => (
-                    <div className="flex items-center gap-3 px-4 py-3">
-                      <span className="w-6 h-6 rounded-full bg-zinc-200/70 dark:bg-zinc-700/70 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 flex items-center justify-center shrink-0">
-                        {step}
+                  const delta = (to: number, from: number) => {
+                    const d = Math.round((to - from) * 10) / 10;
+                    if (Math.abs(d) < 0.1) return null;
+                    return (
+                      <span className={cn("text-[11px] font-semibold tabular-nums", d > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400")}>
+                        {d > 0 ? "+" : ""}{d.toFixed(1)}%p
                       </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">{title}</p>
-                        <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 leading-snug break-keep">{sub}</p>
-                      </div>
-                      <span className={cn("text-[15px] font-bold tabular-nums shrink-0", valueClass || "text-zinc-900 dark:text-white")}>
-                        {value}
-                      </span>
-                    </div>
-                  );
-                  const Result = ({ label, value, strong }: { label: string; value: string; strong?: boolean }) => (
-                    <div className={cn("flex items-center justify-between px-4 py-3", strong ? "bg-purple-50/80 dark:bg-purple-950/30" : "bg-zinc-100/60 dark:bg-zinc-800/40")}>
-                      <span className={cn("text-[13px] font-semibold", strong ? "text-purple-700 dark:text-purple-300" : "text-zinc-700 dark:text-zinc-200")}>{label}</span>
-                      <span className={cn("text-[17px] font-black tabular-nums", strong ? "text-purple-600 dark:text-purple-400" : "text-zinc-900 dark:text-white")}>{value}</span>
-                    </div>
-                  );
+                    );
+                  };
+                  const st = prob.steps;
+                  const rows: { label: string; sub: string; value: number; prev?: number }[] = [
+                    {
+                      label: `${currentDayName}요일 방송 비율`,
+                      sub: `최근 60일 ${currentDayName}요일 ${prob.weekday.recentCount}/${prob.weekday.recentOccurrences}회 방송`,
+                      value: st.weekday,
+                    },
+                    {
+                      label: "방송 간격",
+                      sub: prob.gap.daysSince === null ? "방송 기록 없음" : `마지막 방송 ${prob.gap.daysSince}일 전`,
+                      value: st.afterGap,
+                      prev: st.weekday,
+                    },
+                    {
+                      label: "휴방 · 오늘 방송 여부",
+                      sub: prob.pattern.label,
+                      value: st.day,
+                      prev: st.afterGap,
+                    },
+                    {
+                      label: "남은 시간대",
+                      sub: prob.time.hasData
+                        ? `평소 방송 시작 시각의 ${prob.time.remainingShare.toFixed(0)}%가 아직 남음`
+                        : "시작 시각 기록 부족 (기본값 사용)",
+                      value: st.final,
+                      prev: st.day,
+                    },
+                  ];
                   return (
                     <>
-                      <p className="px-4 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">계산 과정</p>
                       <div className="rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-700/60 bg-zinc-50 dark:bg-zinc-800/40 divide-y divide-zinc-200/70 dark:divide-zinc-700/50">
-                        <Row
-                          step="1"
-                          title={`${currentDayName}요일 방송 확률`}
-                          sub={`최근 60일 ${currentDayName}요일 ${prob.weekday.recentCount}/${prob.weekday.recentOccurrences}회 (${prob.weekday.recentRate.toFixed(1)}%) · 최근 60일 전체 방송률 ${prob.weekday.recentOverallRate.toFixed(1)}%로 보정`}
-                          value={`${prob.weekday.smoothedRate.toFixed(1)}%`}
-                        />
-                        <Row
-                          step="2"
-                          title="방송 간격 보정"
-                          sub={
-                            prob.gap.daysSince === null
-                              ? "방송 기록 없음"
-                              : `마지막 방송 ${prob.gap.daysSince}일 전 · 같은 간격일 때 방송률 ${prob.gap.sameGapRate.toFixed(1)}% (평균 ${prob.gap.averageRate.toFixed(1)}%)`
-                          }
-                          value={fmtFactor(prob.gap.factor)}
-                          valueClass={factorTone(prob.gap.factor)}
-                        />
-                        <Row
-                          step="3"
-                          title="휴방 · 패턴 보정"
-                          sub={prob.pattern.label}
-                          value={hasStreamedToday ? "방송 완료" : fmtFactor(prob.pattern.factor)}
-                          valueClass={hasStreamedToday ? "text-zinc-500 dark:text-zinc-400" : factorTone(prob.pattern.factor)}
-                        />
-                        <Result label="오늘 방송할 확률" value={`${prob.dayProb.toFixed(1)}%`} />
-                        <Row
-                          step="4"
-                          title="시간대 반영"
-                          sub={
-                            prob.time.hasData
-                              ? `최근 방송 ${prob.time.sampleCount}회의 시작 시각 중 ${prob.time.passedShare.toFixed(0)}%가 이미 지난 시간대`
-                              : "시작 시각 기록이 부족해 기본 분포(오후 8시 ±2시간) 사용"
-                          }
-                          value={`남은 ${prob.time.remainingShare.toFixed(0)}%`}
-                        />
-                        <Result label="지금 이후 켜질 확률" value={`${finalProb.toFixed(1)}%`} strong />
+                        {rows.map((r, i) => {
+                          const isLast = i === rows.length - 1;
+                          return (
+                            <div key={r.label} className={cn("flex items-center gap-3 px-4 py-3", isLast && "bg-purple-50/80 dark:bg-purple-950/30")}>
+                              <div className="min-w-0 flex-1">
+                                <p className={cn("text-[13px] font-semibold", isLast ? "text-purple-700 dark:text-purple-300" : "text-zinc-900 dark:text-zinc-100")}>{r.label}</p>
+                                <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 leading-snug break-keep">{r.sub}</p>
+                              </div>
+                              <div className="flex flex-col items-end shrink-0">
+                                <span className={cn("text-[16px] font-black tabular-nums", isLast ? "text-purple-600 dark:text-purple-400" : "text-zinc-900 dark:text-white")}>
+                                  {r.value.toFixed(1)}%
+                                </span>
+                                {r.prev !== undefined && delta(r.value, r.prev)}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-
-                      <div className="grid grid-cols-2 gap-2 mt-3">
-                        <div className="rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 px-4 py-3">
-                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">2시간 안에 켜질 확률</p>
-                          <p className="text-[17px] font-black text-zinc-900 dark:text-white tabular-nums">{prob.next2hProb.toFixed(1)}%</p>
-                        </div>
-                        <div className="rounded-2xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 px-4 py-3">
-                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{prob.time.peakIsToday ? "오늘 유력 시간" : "다음 유력 시간 (내일)"}</p>
-                          <p className="text-[17px] font-black text-purple-600 dark:text-purple-400 font-hanna font-pro">{peakFormattedTime || "-"}</p>
-                        </div>
-                      </div>
-
-                      <p className="px-4 pt-3 text-[11px] text-zinc-400 leading-relaxed break-keep">
-                        참고: 전체 기간 {currentDayName}요일 방송률은 {prob.weekday.allTimeRate.toFixed(1)}% ({prob.weekday.allTimeCount}/{prob.weekday.allTimeOccurrences}회)입니다. 과거 패턴이 지금과 달라 계산에는 넣지 않았어요. 하루는 오전 6시 기준으로 나누며, 계산식은 2025년~2026년 실제 기록으로 검증했습니다.
+                      <p className="px-1 pt-2.5 text-[11px] text-zinc-400 leading-relaxed break-keep">
+                        위에서부터 차례로 반영한 결과이며, 마지막 값이 지금 이후 오늘(오전 6시 기준) 방송이 켜질 확률입니다.
                       </p>
                     </>
                   );

@@ -259,7 +259,7 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
         : '최근 60일';
       const periodShort = r.isFallback ? '같은 기간' : '최근 60일';
       if (r.streamCount === 0) {
-        return [{ id: 'guide-1', title: '최근 60일 방송 패턴', content: '분석할 최근 방송 기록이 없습니다.' }];
+        return [{ id: 'guide-1', title: '최근 60일 방송 패턴', content: `최근 60일(**${r.windowStart.slice(5).replace('-', '/')}~${r.windowEnd.slice(5).replace('-', '/')}**) 동안 방송 기록이 없습니다.${r.prevWeeklyAvg ? ` 그 전 60일에는 주 평균 **${r.prevWeeklyAvg}회** 방송했어요.` : ''}` }];
       }
       const dowRate = (d: string) => r.byDow.find((w) => w.day === d);
       const top = r.topDays.map((d) => `**${d}요일**(${dowRate(d)?.count}/${dowRate(d)?.occurrences}회)`).join(', ');

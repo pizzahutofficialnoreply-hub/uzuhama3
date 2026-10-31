@@ -89,12 +89,8 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
   }, [currentIndex]);
 
   // 공지 펼쳤다가 닫으면 원래 공지 펼친 지점으로 부드럽게 스크롤 복귀
+  // 공지 열고 닫을 때 자동 스크롤 없음 (사용자 위치 유지)
   useEffect(() => {
-    if (wasExpandedRef.current && !isExpanded) {
-      requestAnimationFrame(() => {
-        bannerContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    }
     wasExpandedRef.current = isExpanded;
   }, [isExpanded]);
 
@@ -233,21 +229,6 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
   const collapseBanner = () => {
     setIsHovered(false);
     setIsExpanded(false);
-    try {
-      document.body.classList.add('is-auto-scrolling');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      document.documentElement.scrollTo({ top: 0, behavior: 'smooth' });
-      document.body.scrollTo?.({ top: 0, behavior: 'smooth' });
-      const mainContainer = document.querySelector('main') || document.getElementById('root');
-      if (mainContainer) {
-        mainContainer.scrollTo?.({ top: 0, behavior: 'smooth' });
-      }
-      setTimeout(() => {
-        document.body.classList.remove('is-auto-scrolling');
-      }, 450);
-    } catch {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
   };
 
   const toggleExpand = () => {

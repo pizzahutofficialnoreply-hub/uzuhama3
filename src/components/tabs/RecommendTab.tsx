@@ -11,6 +11,7 @@ import { ShareBoxArrowIcon } from '../common/ShareIcon';
 import { BroadcastDetailModal } from './BroadcastDetailModal';
 import { getMolabogiCache, setMolabogiCache } from '../../utils/molabogiCache';
 import { GameTitle } from '../common/GameTitle';
+import { useVideoDuration, formatDuration } from '../../hooks/useVideoDuration';
 
 const YoutubeLogo = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -58,6 +59,7 @@ const VideoCard = ({
   const [isPlayingInline, setIsPlayingInline] = useState(false);
 
   const shorts = video.parentLog?.shorts || [];
+  const durationSec = useVideoDuration(video.id);
   const vods = video.parentLog?.vods || [];
 
   // 날짜 계산: 몰아보기의 경우 게임 정렬 순서에 맞춰 방송일 순서 엄격 적용, 일반 영상은 최신순
@@ -241,6 +243,16 @@ const VideoCard = ({
               </div>
             </div>
           </button>
+        )}
+
+        {/* 영상 길이 */}
+        {!isPlayingInline && typeof durationSec === 'number' && durationSec > 0 && (
+          <span className={cn(
+            "absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded-md bg-black/75 text-white font-semibold tabular-nums pointer-events-none",
+            isCompact ? "text-[10px]" : "text-[11px]"
+          )}>
+            {formatDuration(durationSec)}
+          </span>
         )}
 
         {/* 생방일 뱃지: 브라우저 재생 중일 때는 닫기를 제외하고 완전히 숨김 */}

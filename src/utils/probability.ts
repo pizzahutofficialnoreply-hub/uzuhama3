@@ -55,6 +55,8 @@ export interface ProbabilityBreakdown {
     averageRate: number; // %
     factor: number; // 오즈 배수
   };
+  /** 단계별 확률(%) — 자세히 보기 표시용: 요일 → 간격 반영 → 휴방·패턴 반영(=오늘) → 시간대 반영(=최종) */
+  steps: { weekday: number; afterGap: number; day: number; final: number };
   pattern: {
     state: 'live' | 'streamedToday' | 'absence' | 'normal' | 'noData';
     factor: number; // 오즈 배수 (1 = 변화 없음)
@@ -316,6 +318,12 @@ export function computeBroadcastProbability(
 
   const pct = (x: number) => Math.round(x * 1000) / 10;
   return {
+    steps: {
+      weekday: pct(smoothed),
+      afterGap: pct(sigmoid(logit(smoothed) + gapLogOdds)),
+      day: patternState === 'live' ? 100 : pct(dayP),
+      final: patternState === 'live' ? 100 : pct(finalP),
+    },
     finalProb: patternState === 'live' ? 100 : Math.min(97, Math.max(1, pct(finalP))),
     next2hProb: patternState === 'live' ? 100 : Math.min(97, Math.max(0, pct(next2h))),
     dayProb: patternState === 'live' ? 100 : Math.min(97, Math.max(1, pct(dayP))),
@@ -400,7 +408,8 @@ export interface RecentPatternStats {
 export function computeRecentPatternStats(
   logs: BroadcastLog[],
   now: Date = new Date(),
-  windowDays = RECENT_WINDOW
+  windowDays = RECENT_WINDOW,
+  allowFallback = false
 ): RecentPatternStats {
   const { minute, dateStr } = kstParts(now);
   const today = dayNum(dateStr) - (minute < DAY_BOUNDARY_MIN ? 1 : 0);
@@ -422,7 +431,7 @@ export function computeRecentPatternStats(
   let start = end - windowDays + 1;
   let inWindow = days.filter((d) => d >= start && d <= end);
   let isFallback = false;
-  if (inWindow.length === 0 && days.length > 0) {
+  if (allowFallback && inWindow.length === 0 && days.length > 0) {
     isFallback = true;
     end = days[days.length - 1];
     start = end - windowDays + 1;
