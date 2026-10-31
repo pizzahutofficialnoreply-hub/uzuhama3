@@ -129,6 +129,86 @@ async function loadHistoricalLogs(): Promise<Record<string, BroadcastLog>> {
 }
 
 
+
+// ─────────────────────────────────────────────────────────────
+// 아카이브(JSON) 덮어쓰기 규칙
+//  - 관리자가 JSON 기록을 수정하면 Firestore logs_by_month 에 "바뀐 필드만" 저장 (_patch: true)
+//  - 사이트는 JSON 을 원본으로 불러온 뒤 수정분을 덮어씀
+//  - 예전 버전이 저장한 전체 사본(_patch 없음)은 추가된 영상·몰아보기·쇼츠·게임 링크만 합치고
+//    옛 형식 카테고리 등은 무시 (JSON 이 더 정확함)
+// ─────────────────────────────────────────────────────────────
+const PATCH_META_KEYS = new Set(['id', 'date', '_patch', '_updatedAt']);
+
+const sameJson = (a: any, b: any) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+const normalizeGameLinks = (log: any) =>
+  Array.isArray(log?.games)
+    ? log.games.map((g: any) => ({ ...g, link: g?.link || g?.url || g?.gameUrl || g?.steamUrl || log.gameLink || '' }))
+    : log?.games;
+
+function applyArchivePatch(base: BroadcastLog, patch: any): BroadcastLog {
+  const merged: any = { ...base };
+  Object.keys(patch).forEach((k) => {
+    if (PATCH_META_KEYS.has(k)) return;
+    if (patch[k] === null) delete merged[k];
+    else merged[k] = patch[k];
+  });
+  merged.id = base.id;
+  merged.games = normalizeGameLinks(merged);
+  return merged as BroadcastLog;
+}
+
+function mergeLegacyArchiveCopy(base: BroadcastLog, copy: any): BroadcastLog {
+  const unionByUrl = (a: any[] = [], b: any[] = [], preferB: (x: any) => boolean) => {
+    const out = [...(Array.isArray(a) ? a : [])];
+    (Array.isArray(b) ? b : []).forEach((item) => {
+      if (!item?.url) return;
+      const idx = out.findIndex((x) => x?.url === item.url);
+      if (idx < 0) out.push(item);
+      else if (preferB(item)) out[idx] = { ...out[idx], ...item };
+    });
+    return out;
+  };
+  const isComp = (x: any) => Boolean(x?.isCompilation || x?.compilationId);
+  const baseGames: any[] = Array.isArray(base.games) ? base.games.map((g) => ({ ...g })) : [];
+  (Array.isArray(copy.games) ? copy.games : []).forEach((g: any) => {
+    if (!g?.name) return;
+    const key = String(g.name).trim().toLowerCase();
+    const found = baseGames.find((bg) => String(bg?.name || '').trim().toLowerCase() === key);
+    const link = g.link || g.url || g.gameUrl || g.steamUrl || '';
+    if (found) {
+      if (!found.link && link) found.link = link;
+    } else {
+      baseGames.push({ name: g.name, link, category: typeof g.category === 'string' ? g.category : '' });
+    }
+  });
+  return {
+    ...base,
+    games: baseGames,
+    // 몰아보기 항목은 Firestore 쪽 정보(연동 날짜·게임 목록)가 최신이므로 우선
+    edited: unionByUrl(base.edited, copy.edited, isComp),
+    vods: unionByUrl(base.vods, copy.vods, () => false),
+    shorts: unionByUrl(base.shorts, copy.shorts, () => false),
+  } as BroadcastLog;
+}
+
+/** 관리자가 아카이브 기록을 저장할 때 JSON 원본과 다른 필드만 추린 수정분 생성 (원본이 없으면 null) */
+export async function buildArchivePatch(log: BroadcastLog): Promise<any | null> {
+  const historical = await loadHistoricalLogs();
+  const base = historical[log.id] || Object.values(historical).find((l) => l.date === log.date);
+  if (!base) return null;
+  const patch: any = { id: base.id, date: base.date, _patch: true, _updatedAt: new Date().toISOString() };
+  const keys = new Set([...Object.keys(base), ...Object.keys(log)]);
+  keys.forEach((k) => {
+    if (PATCH_META_KEYS.has(k)) return;
+    const next = (log as any)[k];
+    const prev = (base as any)[k];
+    if (sameJson(next, prev)) return;
+    patch[k] = next === undefined ? null : next;
+  });
+  return patch;
+}
+
 export function useFirebaseData() {
   const [data, setData] = useState<AppData | null>(null);
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
@@ -164,36 +244,38 @@ export function useFirebaseData() {
       //    - logs 컬렉션은 읽지 않음 (logs_by_month 에 같은 내용이 모두 들어 있음)
       //    - JSON 의 마지막 달 이후 문서만 요청해 읽기 횟수를 줄이고,
       //      그 안에서도 JSON 에 이미 있는 날짜는 건너뜀 (아카이브는 JSON 이 원본)
-      const lastJsonMonth = Object.values(historicalLogs).reduce(
-        (m, l) => (l.date && l.date.slice(0, 7) > m ? l.date.slice(0, 7) : m),
-        ''
-      );
+      // 2. Firestore logs_by_month 전체 조회 → JSON 위에 덮어쓰기
+      //    - JSON 에 없는 날짜(2026년 이후 등): 그대로 추가
+      //    - JSON 에 있는 날짜: 관리자 수정분으로 보고 덮어씀 (logs 컬렉션은 읽지 않음)
       try {
-        const jsonDates = new Set(Object.values(historicalLogs).map((l) => l.date));
-        const monthQuery = lastJsonMonth
-          ? query(collection(db, 'logs_by_month'), where(documentId(), '>', lastJsonMonth))
-          : collection(db, 'logs_by_month');
-        const monthSnaps = await getDocs(monthQuery);
-        const addEntry = (logId: string, val: any) => {
-          if (!val || !val.date || jsonDates.has(val.date)) return;
-          const games = Array.isArray(val.games)
-            ? val.games.map((g: any) => ({
-                ...g,
-                link: g.link || g.url || g.gameUrl || g.steamUrl || val.gameLink || ''
-              }))
-            : val.games;
-          logsMap[logId] = { ...val, id: logId, games } as BroadcastLog;
-        };
+        const byDate = new Map<string, BroadcastLog>();
+        Object.values(historicalLogs).forEach((l) => {
+          if (l?.date && !byDate.has(l.date)) byDate.set(l.date, l);
+        });
+        const entries: { key: string; val: any }[] = [];
+        const monthSnaps = await getDocs(collection(db, 'logs_by_month'));
         monthSnaps.forEach((docSnap) => {
           const docData = docSnap.data();
           if (docData?.items && typeof docData.items === 'object') {
-            Object.entries(docData.items).forEach(([k, val]: [string, any]) => addEntry(val?.id || k, val));
+            Object.entries(docData.items).forEach(([k, val]: [string, any]) => entries.push({ key: val?.id || k, val }));
           }
           Object.entries(docData || {}).forEach(([key, val]) => {
             if (key !== 'month' && key !== 'updatedAt' && key !== 'items' && val && typeof val === 'object' && (val as any).date) {
-              addEntry((val as any).id || key, val);
+              entries.push({ key: (val as any).id || key, val });
             }
           });
+        });
+        // 옛 전체 사본을 먼저, 새 방식 수정분(_patch)을 나중에 적용
+        entries.sort((x, y) => Number(Boolean(x.val?._patch)) - Number(Boolean(y.val?._patch)));
+        entries.forEach(({ key, val }) => {
+          if (!val || !val.date) return;
+          const base = historicalLogs[key] || byDate.get(val.date);
+          if (!base) {
+            logsMap[key] = { ...val, id: key, games: normalizeGameLinks(val) } as BroadcastLog;
+            return;
+          }
+          const current = logsMap[base.id] || base;
+          logsMap[base.id] = val._patch ? applyArchivePatch(current, val) : mergeLegacyArchiveCopy(current, val);
         });
       } catch (e: any) {
         console.warn('logs_by_month 컬렉션 조회 경고:', e?.message);
@@ -202,40 +284,14 @@ export function useFirebaseData() {
       // 4. Firestore compilations (몰아보기) 컬렉션 조회:
       // 과거 기록 JSON이 수정되거나 교체되더라도 등록된 몰아보기와 선택된 게임 목록이 사라지지 않고 100% 영구 보존되도록 병합
       try {
-        // 몰아보기 원본은 compilations 컬렉션.
-        // 서버 규칙이 아직 공개 읽기를 막고 있으면(권한 오류) 아카이브 기간 logs_by_month 에서 몰아보기 항목만 추출해 대체
+        // 몰아보기 원본은 compilations 컬렉션 (서버 규칙이 공개 읽기를 막고 있으면 건너뜀:
+        // 아카이브 날짜의 몰아보기는 위 logs_by_month 덮어쓰기로 이미 반영됨)
         const compSources: { docId: string; comp: any }[] = [];
         try {
           const compSnaps = await getDocs(collection(db, 'compilations'));
           compSnaps.forEach((d) => compSources.push({ docId: d.id, comp: d.data() }));
         } catch (permErr: any) {
-          console.debug('compilations 직접 조회 불가, 월별 기록에서 몰아보기 추출:', permErr?.message);
-          if (lastJsonMonth) {
-            const oldSnaps = await getDocs(query(collection(db, 'logs_by_month'), where(documentId(), '<=', lastJsonMonth)));
-            const found = new Map<string, any>();
-            oldSnaps.forEach((d) => {
-              const items = d.data()?.items || {};
-              Object.values(items).forEach((l: any) => {
-                (Array.isArray(l?.edited) ? l.edited : []).forEach((e: any) => {
-                  if (!e?.url || !(e.isCompilation || e.compilationId)) return;
-                  const key = e.compilationId || e.url;
-                  const c = found.get(key) || {
-                    id: e.compilationId || key,
-                    url: e.url,
-                    title: e.title,
-                    allBroadcastDates: Array.isArray(e.allBroadcastDates) ? [...e.allBroadcastDates] : [],
-                    games: e.games,
-                    gameSortOrder: e.gameSortOrder,
-                    gameGroups: e.gameGroups,
-                    createdAt: e.createdAt,
-                  };
-                  if (l.date && !c.allBroadcastDates.includes(l.date)) c.allBroadcastDates.push(l.date);
-                  found.set(key, c);
-                });
-              });
-            });
-            found.forEach((comp, key) => compSources.push({ docId: key, comp }));
-          }
+          console.debug('compilations 직접 조회 불가:', permErr?.message);
         }
         if (compSources.length > 0) {
           compSources.forEach(({ docId, comp }) => {
@@ -556,18 +612,28 @@ export function useFirebaseData() {
   const updateLog = async (log: BroadcastLog) => {
     if (!data) return;
     try {
-      const sanitizedLog = cleanFirestoreData(log);
+      // 아카이브(JSON) 기록이면 원본과 다른 필드만 저장, 아니면 기록 전체 저장
+      const archivePatch = await buildArchivePatch(log);
+      const sanitizedLog = cleanFirestoreData(archivePatch || log);
       const serverHandled = await executeAdminMutation('updateLog', { log: sanitizedLog });
       if (!serverHandled) {
-        await setDoc(doc(db, 'logs', log.id), sanitizedLog, { merge: true });
+        await setDoc(doc(db, 'logs', sanitizedLog.id), sanitizedLog);
         try {
-          const monthKey = log.date.slice(0, 7);
+          const monthKey = sanitizedLog.date.slice(0, 7);
           const docRef = doc(db, 'logs_by_month', monthKey);
-          await setDoc(docRef, {
-            month: monthKey,
-            updatedAt: new Date().toISOString(),
-            items: { [log.id]: sanitizedLog }
-          }, { merge: true });
+          const snap = await getDoc(docRef);
+          if (!snap.exists()) {
+            await setDoc(docRef, { month: monthKey, updatedAt: new Date().toISOString(), items: { [sanitizedLog.id]: sanitizedLog } });
+          } else {
+            // 해당 항목은 통째로 교체하고, 같은 날짜의 옛 전체 사본(다른 id)은 정리
+            const updates: Record<string, any> = { updatedAt: new Date().toISOString(), [`items.${sanitizedLog.id}`]: sanitizedLog };
+            if (archivePatch) {
+              Object.entries(snap.data()?.items || {}).forEach(([k, v]: [string, any]) => {
+                if (k !== sanitizedLog.id && v?.date === sanitizedLog.date) updates[`items.${k}`] = deleteField();
+              });
+            }
+            await updateDoc(docRef, updates);
+          }
         } catch {}
       }
 

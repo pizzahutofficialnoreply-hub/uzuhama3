@@ -58,15 +58,28 @@ export default async function handler(req: any, res: any) {
         if (!log || !log.id || !log.date) {
           return res.status(400).json({ error: 'Invalid log payload' });
         }
-        await db.collection('logs').doc(log.id).set(log, { merge: true });
+        // log._patch === true: 아카이브(JSON) 기록의 수정분(바뀐 필드만)
+        await db.collection('logs').doc(log.id).set(log);
 
         const monthKey = log.date.slice(0, 7);
         const monthRef = db.collection('logs_by_month').doc(monthKey);
-        await monthRef.set({
-          month: monthKey,
-          updatedAt: new Date().toISOString(),
-          items: { [log.id]: log }
-        }, { merge: true });
+        await db.runTransaction(async (tx: any) => {
+          const snap = await tx.get(monthRef);
+          const now = new Date().toISOString();
+          if (!snap.exists) {
+            tx.set(monthRef, { month: monthKey, updatedAt: now, items: { [log.id]: log } });
+            return;
+          }
+          // 항목은 깊은 병합이 아니라 통째로 교체 (지운 필드가 남지 않도록)
+          const updates: Record<string, any> = { updatedAt: now, [`items.${log.id}`]: log };
+          if (log._patch) {
+            // 같은 날짜의 옛 전체 사본(id 가 다른 항목) 정리
+            Object.entries(snap.data()?.items || {}).forEach(([k, v]: [string, any]) => {
+              if (k !== log.id && v?.date === log.date) updates[`items.${k}`] = FieldValue.delete();
+            });
+          }
+          tx.update(monthRef, updates);
+        });
 
         return res.status(200).json({ success: true, id: log.id });
       }
