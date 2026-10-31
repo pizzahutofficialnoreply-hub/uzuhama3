@@ -164,12 +164,12 @@ export function useFirebaseData() {
       //    - logs 컬렉션은 읽지 않음 (logs_by_month 에 같은 내용이 모두 들어 있음)
       //    - JSON 의 마지막 달 이후 문서만 요청해 읽기 횟수를 줄이고,
       //      그 안에서도 JSON 에 이미 있는 날짜는 건너뜀 (아카이브는 JSON 이 원본)
+      const lastJsonMonth = Object.values(historicalLogs).reduce(
+        (m, l) => (l.date && l.date.slice(0, 7) > m ? l.date.slice(0, 7) : m),
+        ''
+      );
       try {
         const jsonDates = new Set(Object.values(historicalLogs).map((l) => l.date));
-        const lastJsonMonth = Object.values(historicalLogs).reduce(
-          (m, l) => (l.date && l.date.slice(0, 7) > m ? l.date.slice(0, 7) : m),
-          ''
-        );
         const monthQuery = lastJsonMonth
           ? query(collection(db, 'logs_by_month'), where(documentId(), '>', lastJsonMonth))
           : collection(db, 'logs_by_month');
@@ -202,12 +202,45 @@ export function useFirebaseData() {
       // 4. Firestore compilations (몰아보기) 컬렉션 조회:
       // 과거 기록 JSON이 수정되거나 교체되더라도 등록된 몰아보기와 선택된 게임 목록이 사라지지 않고 100% 영구 보존되도록 병합
       try {
-        const compSnaps = await getDocs(collection(db, 'compilations'));
-        if (!compSnaps.empty) {
-          compSnaps.forEach((compDoc) => {
-            const comp = compDoc.data();
+        // 몰아보기 원본은 compilations 컬렉션.
+        // 서버 규칙이 아직 공개 읽기를 막고 있으면(권한 오류) 아카이브 기간 logs_by_month 에서 몰아보기 항목만 추출해 대체
+        const compSources: { docId: string; comp: any }[] = [];
+        try {
+          const compSnaps = await getDocs(collection(db, 'compilations'));
+          compSnaps.forEach((d) => compSources.push({ docId: d.id, comp: d.data() }));
+        } catch (permErr: any) {
+          console.debug('compilations 직접 조회 불가, 월별 기록에서 몰아보기 추출:', permErr?.message);
+          if (lastJsonMonth) {
+            const oldSnaps = await getDocs(query(collection(db, 'logs_by_month'), where(documentId(), '<=', lastJsonMonth)));
+            const found = new Map<string, any>();
+            oldSnaps.forEach((d) => {
+              const items = d.data()?.items || {};
+              Object.values(items).forEach((l: any) => {
+                (Array.isArray(l?.edited) ? l.edited : []).forEach((e: any) => {
+                  if (!e?.url || !(e.isCompilation || e.compilationId)) return;
+                  const key = e.compilationId || e.url;
+                  const c = found.get(key) || {
+                    id: e.compilationId || key,
+                    url: e.url,
+                    title: e.title,
+                    allBroadcastDates: Array.isArray(e.allBroadcastDates) ? [...e.allBroadcastDates] : [],
+                    games: e.games,
+                    gameSortOrder: e.gameSortOrder,
+                    gameGroups: e.gameGroups,
+                    createdAt: e.createdAt,
+                  };
+                  if (l.date && !c.allBroadcastDates.includes(l.date)) c.allBroadcastDates.push(l.date);
+                  found.set(key, c);
+                });
+              });
+            });
+            found.forEach((comp, key) => compSources.push({ docId: key, comp }));
+          }
+        }
+        if (compSources.length > 0) {
+          compSources.forEach(({ docId, comp }) => {
             if (!comp || !comp.url) return;
-            const compId = comp.id || compDoc.id;
+            const compId = comp.id || docId;
             
             // 연동된 날짜 및 logId 목록 취합
             const allBroadcastDates: string[] = [];
