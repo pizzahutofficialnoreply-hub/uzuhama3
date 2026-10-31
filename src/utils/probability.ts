@@ -483,3 +483,25 @@ export function computeRecentPatternStats(
     nextDayRate: { afterOne: rate(one, oneNext), afterTwo: rate(two, twoNext), afterLong: rate(long, longNext), samples: { one, two, long } },
   };
 }
+
+/** 방송일(오전 6시 기준) YYYY-MM-DD */
+export function broadcastDayStr(now: Date = new Date()): string {
+  const { minute, dateStr } = kstParts(now);
+  if (minute >= DAY_BOUNDARY_MIN) return dateStr;
+  return new Date(Date.parse(`${dateStr}T00:00:00Z`) - DAY_MS).toISOString().slice(0, 10);
+}
+
+/** 상태 문구용 휴방 사유 텍스트 (휴방 기간이 아니면 빈 문자열) */
+export function absenceReasonForMessages(system: SystemConfig | undefined, now: Date = new Date()): string {
+  if (!system || !isAbsencePeriodActive(system, broadcastDayStr(now))) return '';
+  const s: any = system;
+  const reason = s.absenceReason || '';
+  if (reason === '기타 (직접 입력)' || reason === '직접 입력') return String(s.customAbsenceReason || '').trim();
+  if (reason === '병명') return String(s.illnessName || s.diseaseName || '건강 문제').trim();
+  return String(reason).trim();
+}
+
+/** AI 상태 문구 묶음 키: 방송일이 바뀌거나 휴방 상황·사유가 바뀌면 새 묶음 */
+export function statusMessageKey(system: SystemConfig | undefined, now: Date = new Date()): string {
+  return `v2|${broadcastDayStr(now)}|${absenceReasonForMessages(system, now)}`;
+}

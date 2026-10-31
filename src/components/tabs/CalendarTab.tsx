@@ -245,7 +245,7 @@ const VideoLinkCard = ({
                     <ChevronDown className="w-3 h-3 opacity-70" />
                   </button>
                   {showShortsMenu && (
-                    <div className="absolute bottom-full left-0 right-0 mb-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden z-30 flex flex-col">
+                    <div className="absolute bottom-full left-0 right-0 mb-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-[0_14px_36px_-6px_rgba(0,0,0,0.28),0_3px_8px_rgba(0,0,0,0.10)] dark:shadow-[0_18px_44px_-6px_rgba(0,0,0,0.85),0_3px_10px_rgba(0,0,0,0.5)] ring-1 ring-black/5 dark:ring-white/10 overflow-hidden z-30 flex flex-col">
                       <div className="px-3 py-1.5 text-[10px] font-bold text-zinc-500 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-700">
                         쇼츠 선택
                       </div>
@@ -1083,6 +1083,8 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
               id="calendar-detail-panel" 
               className={cn(
                 "bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 p-5 sm:p-6 shadow-2xl flex flex-col z-30",
+                // PC: 달력 위에 떠 있는 패널임을 보여주는 왼쪽 그림자
+                "lg:shadow-[-18px_0_44px_-14px_rgba(0,0,0,0.30)] dark:lg:shadow-[-18px_0_48px_-10px_rgba(0,0,0,0.9)]",
                 "lg:absolute lg:top-0 lg:right-0 lg:bottom-0 lg:w-[36%] lg:min-w-[360px] lg:max-w-[460px] lg:rounded-r-[24px] lg:rounded-l-2xl lg:border-y-0 lg:border-r-0 lg:border-l lg:overflow-y-auto lg:custom-scrollbar",
                 "mt-4 lg:mt-0 w-full rounded-[24px]"
               )}

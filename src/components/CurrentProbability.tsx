@@ -17,6 +17,25 @@ import {
   Hourglass,
   Moon,
   Coffee,
+  Sparkles,
+  Bell,
+  PartyPopper,
+  Clock3,
+  Eye,
+  Headphones,
+  Sun,
+  BookOpen,
+  Cookie,
+  Leaf,
+  Star,
+  BedDouble,
+  CloudMoon,
+  HeartPulse,
+  HeartHandshake,
+  Bandage,
+  Sprout,
+  ThumbsUp,
+  Heart,
 } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -180,7 +199,7 @@ export function CurrentProbability({
     [logs, currentTime, system, isLive],
   );
   const finalProb = prob.finalProb;
-  const aiMessages = useStatusMessages();
+  const aiMessages = useStatusMessages(system, currentTime);
   const daysSinceLastStream = prob.gap.daysSince ?? 0;
   const hasStreamedToday = prob.pattern.state === "streamedToday";
   const isAbsencePeriod = prob.pattern.state === "absence";
@@ -216,7 +235,8 @@ export function CurrentProbability({
   }, [finalProb, isLive, onProbChange]);
 
   // 15분 단위로 안정적으로 유지되면서도 시간대별로 다채롭게 전환되는 시드 인덱스
-  const timeSlotSeed = (currentTime.getHours() * 4 + Math.floor(currentTime.getMinutes() / 15) + currentTime.getDate()) % 15;
+  // 15분마다 바뀌는 시드 (하루 96칸, 날짜마다 시작점이 달라 같은 시각에도 다른 문구)
+  const timeSlotSeed = currentTime.getHours() * 4 + Math.floor(currentTime.getMinutes() / 15) + currentTime.getDate() * 37;
 
   const peakFormattedTime =
     prob.time.peakMinute !== null ? formatClockMinute(prob.time.peakMinute) : "";
@@ -469,15 +489,27 @@ export function CurrentProbability({
             getStatusColor(probabilityLevel),
           )}
         >
-          {probabilityLevel === "high" ? (
-            <Radio className="w-5 h-5 animate-pulse shrink-0" />
-          ) : probabilityLevel === "medium" ? (
-            <Hourglass className="w-5 h-5 shrink-0" />
-          ) : isLateNight ? (
-            <Moon className="w-5 h-5 shrink-0" />
-          ) : (
-            <Coffee className="w-5 h-5 shrink-0" />
-          )}
+          {(() => {
+            // 상황별 아이콘 여러 개 중 문구와 같은 시드로 선택
+            const iconSets: Record<string, React.ComponentType<{ className?: string }>[]> = {
+              high: [Radio, Sparkles, Bell, PartyPopper],
+              medium: [Hourglass, Clock3, Eye, Headphones],
+              lowDay: [Coffee, Sun, BookOpen, Cookie, Leaf],
+              lowNight: [Moon, Star, BedDouble, CloudMoon],
+              absence: [HeartPulse, HeartHandshake, Bandage, Sprout],
+              streamedToday: [ThumbsUp, Tv, Sparkles, Heart],
+            };
+            const group = hasStreamedToday
+              ? "streamedToday"
+              : isAbsencePeriod
+                ? "absence"
+                : probabilityLevel === "low"
+                  ? (isLateNight ? "lowNight" : "lowDay")
+                  : probabilityLevel;
+            const icons = iconSets[group] || iconSets.lowDay;
+            const Icon = icons[timeSlotSeed % icons.length];
+            return <Icon className={cn("w-5 h-5 shrink-0", group === "high" && "animate-pulse")} />;
+          })()}
           <span className="font-hanna font-pro font-bold tracking-tight">{messageContent}</span>
         </div>
 

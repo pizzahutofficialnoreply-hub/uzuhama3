@@ -11,7 +11,7 @@ import { ShareBoxArrowIcon } from '../common/ShareIcon';
 import { BroadcastDetailModal } from './BroadcastDetailModal';
 import { getMolabogiCache, setMolabogiCache } from '../../utils/molabogiCache';
 import { GameTitle } from '../common/GameTitle';
-import { useVideoMeta, formatDuration, toKstDate } from '../../hooks/useVideoDuration';
+import { useVideoMeta, formatDuration, toKstDate, formatRelativeTime } from '../../hooks/useVideoDuration';
 
 const YoutubeLogo = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -247,17 +247,17 @@ const VideoCard = ({
           </button>
         )}
 
-        {/* 생방일 뱃지 + 영상 길이: 브라우저 재생 중일 때는 닫기를 제외하고 완전히 숨김 */}
+        {/* 썸네일 배지: 우하단 재생 시간 / 좌하단 업로드일, 그 위에 생방일·몰아보기 (재생 중에는 숨김) */}
+        {!isPlayingInline && typeof durationSec === 'number' && durationSec > 0 && (
+          <span className={cn(
+            "absolute bottom-2 right-2 z-20 bg-black/80 text-white font-medium rounded backdrop-blur-sm shadow-sm select-none tabular-nums pointer-events-none",
+            isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-1.5 py-1"
+          )}>
+            {formatDuration(durationSec)}
+          </span>
+        )}
         {!isPlayingInline && (
-          <div className="absolute bottom-2 right-2 z-20 flex items-center gap-1 max-w-[calc(100%-1rem)]">
-          {typeof durationSec === 'number' && durationSec > 0 && (
-            <span className={cn(
-              "bg-black/80 text-white font-semibold tabular-nums rounded backdrop-blur-sm pointer-events-none shrink-0",
-              isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-1.5 py-1"
-            )}>
-              {formatDuration(durationSec)}
-            </span>
-          )}
+          <div className={cn("absolute bottom-2 left-2 z-20 flex flex-col items-start gap-1", isCompact ? "max-w-[calc(100%-3.75rem)]" : "max-w-[calc(100%-5rem)]")}>
           {isMultiBroadcastOrCompilation ? (
             <button
               type="button"
@@ -300,13 +300,21 @@ const VideoCard = ({
                     onNavigateToCalendar?.(mostRecentDate || displayDate);
                   }
                 }}
-                className="bg-black/80 hover:bg-black/95 text-white text-xs font-medium px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-colors shadow-sm select-none"
+                className={cn("bg-black/80 hover:bg-black/95 text-white font-medium rounded backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-colors shadow-sm select-none whitespace-nowrap", isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-2 py-1")}
                 title="클릭하여 방송 목록 해당일로 이동"
               >
                 <span>생방일: {mostRecentDate || displayDate}</span>
               </button>
             </div>
           ) : null}
+          {uploadDate && (
+            <span className={cn(
+              "bg-black/80 text-white font-medium rounded backdrop-blur-sm shadow-sm select-none pointer-events-none whitespace-nowrap",
+              isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"
+            )}>
+              업로드: {uploadDate}
+            </span>
+          )}
           </div>
         )}
       </div>
@@ -332,21 +340,12 @@ const VideoCard = ({
           </button>
         </div>
 
-        {/* 업로드일 (생방일과 비교) */}
-        {uploadDate && (() => {
-          const liveDate = !video.isCompilation && !isMultiBroadcastOrCompilation ? (mostRecentDate || displayDate) : '';
-          const gap = liveDate && /^\d{4}-\d{2}-\d{2}$/.test(liveDate)
-            ? Math.round((Date.parse(`${uploadDate}T00:00:00Z`) - Date.parse(`${liveDate}T00:00:00Z`)) / 86400000)
-            : null;
-          return (
-            <p className={cn("mt-1 text-zinc-500 dark:text-zinc-400 tabular-nums", isCompact ? "text-[10px] sm:text-xs" : "text-xs")}>
-              업로드 {uploadDate.replace(/-/g, '.')}
-              {gap !== null && gap >= 0 && (
-                <span className="text-zinc-400 dark:text-zinc-500"> · {gap === 0 ? '생방 당일' : `생방 ${gap}일 후`}</span>
-              )}
-            </p>
-          );
-        })()}
+        {/* 업로드 경과 시간 (유튜브 표기 방식) */}
+        {videoMeta?.publishedAt && (
+          <p className={cn("mt-1 text-zinc-500 dark:text-zinc-400", isCompact ? "text-[10px] sm:text-xs" : "text-xs")}>
+            {formatRelativeTime(videoMeta.publishedAt)}
+          </p>
+        )}
         
         {/* 생방이 여러개이거나 몰아보기의 경우 펼치기 UI (몰아보기에는 산뜻하고 감각적인 보라 강조색 적용) */}
         {isMultiBroadcastOrCompilation ? (
@@ -498,7 +497,7 @@ const VideoCard = ({
                     <ShortsIcon className="w-4 h-4" /> 쇼츠 ({shorts.length}) <ChevronDown className="w-3 h-3 opacity-70" />
                   </button>
                   {showShortsMenu && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden z-20 flex flex-col">
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-[0_14px_36px_-6px_rgba(0,0,0,0.28),0_3px_8px_rgba(0,0,0,0.10)] dark:shadow-[0_18px_44px_-6px_rgba(0,0,0,0.85),0_3px_10px_rgba(0,0,0,0.5)] ring-1 ring-black/5 dark:ring-white/10 overflow-hidden z-30 flex flex-col">
                       <div className="px-3 py-2 text-[10px] font-bold text-zinc-500 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-700">
                         쇼츠 선택
                       </div>

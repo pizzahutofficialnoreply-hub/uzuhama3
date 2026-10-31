@@ -192,7 +192,7 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
       setIsSliding(true);
       setCurrentIndex(prev => (prev + 1) % totalItems);
       window.setTimeout(() => setIsSliding(false), 420);
-    }, 5000);
+    }, 9000); // 자동 넘김 간격 (머무는 시간 9초)
 
     return () => window.clearInterval(timer);
   }, [totalItems, isExpanded, isSearchTab]);
