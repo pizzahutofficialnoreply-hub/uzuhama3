@@ -43,6 +43,7 @@ import { useRealtimeNotification } from './hooks/useRealtimeNotification';
 import { Download, LogIn, ArrowLeft, Settings as SettingsIcon } from 'lucide-react';
 import { SettingsView } from './components/SettingsView';
 import { useAuth } from './hooks/useAuth';
+import { useGlassCardLight } from './hooks/useGlassCardLight';
 
 function MainApp() {
   const navigate = useNavigate();
@@ -117,6 +118,8 @@ function MainApp() {
       } catch {}
     }
   };
+
+  useGlassCardLight();
 
   useEffect(() => {
     applyTabGlassCssVars(getSavedTabGlassValue());

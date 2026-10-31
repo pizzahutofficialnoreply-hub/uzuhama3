@@ -369,7 +369,7 @@ export function CurrentProbability({
 
   if (liveData?.status === "OPEN") {
     return (
-      <div id="current-prob-live-card" className="bg-white dark:bg-zinc-900 border-2 border-red-500 dark:border-red-500/50 rounded-[24px] p-6 sm:p-8 shadow-xl dark:shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
+      <div id="current-prob-live-card" className="lg-card bg-white dark:bg-zinc-900 border-2 border-red-500 dark:border-red-500/50 rounded-[24px] p-6 sm:p-8 shadow-xl dark:shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
         <div className="absolute top-4 right-4 z-20">
           <WidgetShareButton targetId="current-prob-live-card" title="생방송 진행 중" />
         </div>
@@ -421,7 +421,7 @@ export function CurrentProbability({
   }
 
   return (
-    <div id="current-prob-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 sm:p-8 shadow-xl dark:shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
+    <div id="current-prob-card" className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 sm:p-8 shadow-xl dark:shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
       <div className="absolute top-4 right-4 z-20">
         <WidgetShareButton targetId="current-prob-card" title="현재 방송 확률" />
       </div>

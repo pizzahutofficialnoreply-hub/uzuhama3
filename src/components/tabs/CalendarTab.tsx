@@ -900,7 +900,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
           id="calendar-main-card" 
           onTouchStart={handleCalendarTouchStart}
           onTouchEnd={handleCalendarTouchEnd}
-          className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden shadow-sm touch-pan-y transition-colors duration-200"
+          className="lg-card w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden shadow-sm touch-pan-y transition-colors duration-200"
         >
           <div className="p-5 sm:p-6 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
@@ -1604,7 +1604,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
       </div>
 
       {/* 전체 방송 기록 표 */}
-      <div id="calendar-table-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden shadow-sm mt-8">
+      <div id="calendar-table-card" className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden shadow-sm mt-8">
         <div className="p-5 sm:p-6 lg:p-7 border-b border-zinc-200 dark:border-zinc-800 flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <div className="flex items-center gap-2.5">

@@ -1517,7 +1517,7 @@ export function RecommendTab({
       {/* 필터 카드 (최상단 배치: 실시간 연관 검색어 대신 필터가 맨 위에 위치) */}
       <div
         id="recommend-filter-card"
-        className="flex flex-col gap-3.5 bg-white dark:bg-zinc-900 p-4 sm:p-5 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm"
+        className="lg-card flex flex-col gap-3.5 bg-white dark:bg-zinc-900 p-4 sm:p-5 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -1849,7 +1849,7 @@ export function RecommendTab({
           })}
               
               {recommended.length === 0 && (
-                <div className="col-span-full py-12 text-center text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px]">
+                <div className="lg-card col-span-full py-12 text-center text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px]">
                   <YoutubeLogo className="w-12 h-12 mx-auto mb-4 opacity-20" />
                   <p>조건에 맞는 추천 영상을 찾을 수 없습니다.</p>
                 </div>

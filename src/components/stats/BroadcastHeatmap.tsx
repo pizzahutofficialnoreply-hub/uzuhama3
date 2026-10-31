@@ -282,7 +282,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
       </div>
 
       {/* 방송 활동 히트맵 보드 (라이트/다크 테마 정상 적용, 가로 스크롤 최소화) */}
-      <div id="broadcast-heatmap-board" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col space-y-5 text-zinc-900 dark:text-zinc-100 relative">
+      <div id="broadcast-heatmap-board" className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col space-y-5 text-zinc-900 dark:text-zinc-100 relative">
         {/* 상단 헤더 & 기간 토글 */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start justify-between sm:justify-start gap-3">

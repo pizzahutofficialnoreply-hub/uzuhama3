@@ -1000,7 +1000,7 @@ export function DetailedStatsTab({
             {activeSubTab !== 'category' && (
               <div className="space-y-6">
                 {/* 1. 주간 방송 횟수 추이 */}
-                <div id="detailed-legacy-trend-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative space-y-4">
+                <div id="detailed-legacy-trend-card" className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold">주간 방송 횟수 추이</h4>
                     <WidgetShareButton targetId="detailed-legacy-trend-card" title="주간 방송 횟수 추이" />
@@ -1046,7 +1046,7 @@ export function DetailedStatsTab({
                     {insights.dailySummary}
                   </StatInsightSummary>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
+                    <div className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
                       <h4 className="font-bold mb-4">요일별 방송 빈도 그래프</h4>
                       <div className="h-[300px] w-full">
                         {isActive && (
@@ -1074,7 +1074,7 @@ export function DetailedStatsTab({
                       </div>
                     </div>
 
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
+                    <div className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
                       <h4 className="font-bold mb-4">요일별 방송 확률 표</h4>
                       <div className="overflow-x-auto custom-scrollbar flex-1 w-full">
                         <table className="w-full min-w-[280px] text-left text-xs sm:text-sm whitespace-nowrap table-auto lg:table-fixed">
@@ -1118,7 +1118,7 @@ export function DetailedStatsTab({
           <>
             {activeSubTab === 'trend' && (
               <div className="space-y-6">
-                <div id="detailed-trend-weekly-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative space-y-4">
+                <div id="detailed-trend-weekly-card" className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold">주간 방송 횟수 추이</h4>
                     <WidgetShareButton targetId="detailed-trend-weekly-card" title="주간 방송 횟수 추이" />
@@ -1153,7 +1153,7 @@ export function DetailedStatsTab({
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div id="detailed-day-times-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm col-span-1 lg:col-span-2 relative space-y-4">
+                  <div id="detailed-day-times-card" className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm col-span-1 lg:col-span-2 relative space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="font-bold">요일별 자주 오는 시간</h4>
                       <WidgetShareButton targetId="detailed-day-times-card" title="요일별 자주 오는 시간" />
@@ -1176,7 +1176,7 @@ export function DetailedStatsTab({
                     </div>
                   </div>
                   
-                  <div id="detailed-start-hour-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col relative space-y-4">
+                  <div id="detailed-start-hour-card" className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col relative space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="font-bold">시작 시간대별 그래프 & 순위</h4>
                       <WidgetShareButton targetId="detailed-start-hour-card" title="시작 시간대별 분석" />
@@ -1227,7 +1227,7 @@ export function DetailedStatsTab({
                     </div>
                   </div>
 
-                  <div id="detailed-duration-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col relative space-y-4">
+                  <div id="detailed-duration-card" className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col relative space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="font-bold">1회당 방송 진행 시간(길이) 비율</h4>
                       <WidgetShareButton targetId="detailed-duration-card" title="방송 진행 시간 분석" />
@@ -1280,7 +1280,7 @@ export function DetailedStatsTab({
                     {insights.dailySummary}
                   </StatInsightSummary>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
+                    <div className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
                       <h4 className="font-bold mb-4">요일별 방송 빈도 그래프</h4>
                       <div className="h-[300px] w-full">
                         {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
@@ -1307,7 +1307,7 @@ export function DetailedStatsTab({
                       </div>
                     </div>
 
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
+                    <div className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
                       <h4 className="font-bold mb-4">요일별 방송 확률 표</h4>
                       <div className="overflow-x-auto custom-scrollbar flex-1 w-full">
                         <table className="w-full min-w-[280px] text-left text-xs sm:text-sm whitespace-nowrap table-auto lg:table-fixed">

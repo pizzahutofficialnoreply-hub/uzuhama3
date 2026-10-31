@@ -454,7 +454,7 @@ export function CategoryStatsTab({
       <div 
         id="detailed-category-pie-card"
         onClick={handleClearCategory}
-        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm cursor-default relative"
+        className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm cursor-default relative"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 sm:mb-6">
           <div>
@@ -644,7 +644,7 @@ export function CategoryStatsTab({
       </div>
 
       {/* 가장 많이 플레이한 게임 카테고리 순위표 (검색창이 순위표 상단에 통합, 카테고리 선택 제거) */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm">
+      <div className="lg-card bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm">
         {selectedCategory && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl text-xs text-purple-900 dark:text-purple-200">
             <div className="flex items-center gap-2">

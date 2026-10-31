@@ -10,6 +10,7 @@ import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react';
 import { Tab, SystemConfig, BroadcastLog } from '../types';
 import { cn } from '../utils';
 import { useTabGlass } from '../hooks/useTabGlass';
+import { LiquidRefractionLayer } from './liquid-glass/LiquidRefractionLayer';
 
 interface FloatingBottomNavProps {
   activeTab: Tab;
@@ -78,6 +79,16 @@ export function FloatingBottomNav({
     WebkitBackdropFilter: `blur(${Math.max(20, tabGlass.config.blurPx)}px) saturate(180%)`,
     backdropFilter: `blur(${Math.max(20, tabGlass.config.blurPx)}px) saturate(180%)`,
     backgroundColor: isDark ? tabGlass.config.darkBg : tabGlass.config.lightBg,
+    borderColor: isDark ? tabGlass.config.darkBorder : tabGlass.config.lightBorder,
+  };
+
+  // [dev] 탭바·검색 버튼: 아이폰식 굴절 유리 (뒤 화면이 가장자리에서 휘어 보임)
+  // 흐림 대신 굴절이 주인공이라 색은 설정값의 절반 정도만 얹어 글자 가독성만 확보
+  const halfAlpha = (rgba: string, factor: number) =>
+    rgba.replace(/rgba\(([^)]+),\s*([\d.]+)\)/, (_m, rgb, a) => `rgba(${rgb}, ${(parseFloat(a) * factor).toFixed(3)})`);
+  const liquidTint = isDark ? halfAlpha(tabGlass.config.darkBg, 0.55) : halfAlpha(tabGlass.config.lightBg, 0.5);
+  const liquidStyle: React.CSSProperties = {
+    backgroundColor: 'transparent',
     borderColor: isDark ? tabGlass.config.darkBorder : tabGlass.config.lightBorder,
   };
 
@@ -349,12 +360,13 @@ export function FloatingBottomNav({
                   <nav 
                     ref={navRef}
                     aria-label="하단 네비게이션"
-                    style={glassStyle}
+                    style={liquidStyle}
                     className={cn(
-                      "relative w-[268px] flex items-center h-[64px] p-1 rounded-full select-none touch-manipulation shrink-0 border backdrop-blur-xl",
+                      "lg-liquid relative isolate w-[268px] flex items-center h-[64px] p-1 rounded-full select-none touch-manipulation shrink-0 border",
                       "shadow-[0_10px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     )}
                   >
+                    <LiquidRefractionLayer tint={liquidTint} />
                     {/* 단일 GPU 가속 회색 원 인디케이터 */}
                     <motion.div
                       drag="x"
@@ -431,14 +443,15 @@ export function FloatingBottomNav({
                       onTabChange('recommend');
                     }}
                     aria-label="영상 검색 및 추천"
-                    style={glassStyle}
+                    style={liquidStyle}
                     className={cn(
-                      "relative flex items-center justify-center w-[64px] h-[64px] rounded-full active:scale-95 duration-150 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 border backdrop-blur-xl",
+                      "lg-liquid relative isolate flex items-center justify-center w-[64px] h-[64px] rounded-full active:scale-95 duration-150 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 border",
                       "shadow-[0_10px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     )}
                     title="영상 검색"
                   >
-                    <Search className="w-6 h-6 stroke-[2.3] text-zinc-700 hover:text-zinc-950 dark:text-zinc-200 dark:hover:text-white" />
+                    <LiquidRefractionLayer tint={liquidTint} />
+                    <Search className="relative z-10 w-6 h-6 stroke-[2.3] text-zinc-700 hover:text-zinc-950 dark:text-zinc-200 dark:hover:text-white" />
                   </button>
                 </motion.div>
               ) : (
