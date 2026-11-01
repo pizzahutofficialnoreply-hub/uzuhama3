@@ -47,6 +47,7 @@ function load() {
 
 let enrichRounds = 0;
 let enriching = false;
+let busyCount = 0;
 const tried = new Set<string>();
 async function enrich(ids: string[]) {
   // 화면을 열어 둔 동안 계속 조금씩 채움 (서버가 하루 한도·잠금으로 비용 제한)
@@ -76,7 +77,9 @@ async function enrich(ids: string[]) {
       if (json?.busy || !Object.keys(added).length) {
         if (!json?.busy) return;
         todo.forEach((id) => { if (!added[id]) tried.delete(id); });
-        await new Promise((r) => setTimeout(r, Math.max(20, Number(json?.retryAfter) || 20) * 1000));
+        busyCount += 1;
+        if (busyCount > 8) return; // 다른 기기가 계속 처리 중이면 이 기기는 그만
+        await new Promise((r) => setTimeout(r, Math.max(30, Number(json?.retryAfter) || 30) * 1000));
         continue;
       }
       await new Promise((r) => setTimeout(r, 4000)); // 분당 호출 수를 넘지 않게 조금 간격

@@ -174,26 +174,38 @@ export default async function handler(req: any, res: any) {
     const aiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY;
     if (!ytKey || !aiKey) return res.status(200).json({ added: {}, error: 'API 키 환경 변수가 없어요.' });
 
-    // 이미 처리한 영상은 건너뜀
-    const snaps = await db.getAll(...requested.map((id) => db.collection('video_search').doc(id)));
-    const todo = requested.filter((_, i) => !snaps[i].exists).slice(0, PER_REQUEST);
-    if (!todo.length) return res.status(200).json({ added: {}, remaining: 0 });
-
-    // 동시에 한 요청만 + 하루 한도
+    // 1) 잠금부터 확인 (다른 요청이 처리 중이거나 한도에 걸려 쉬는 중이면 문서 1개만 읽고 바로 돌려보냄)
     const metaRef = db.collection('youtube_cache').doc('search_index');
     const today = todayKst();
-    const allowed = await db.runTransaction(async (tx: any) => {
+    const gate = await db.runTransaction(async (tx: any) => {
       const m = (await tx.get(metaRef)).data() || {};
-      if (m.lockUntil && m.lockUntil > Date.now()) return 0;
-      if (m.coolUntil && m.coolUntil > Date.now()) return 0; // 한도에 걸린 직후엔 잠시 쉼
+      const nowMs = Date.now();
+      const waitUntil = Math.max(Number(m.lockUntil || 0), Number(m.coolUntil || 0));
+      if (waitUntil > nowMs) return { wait: Math.ceil((waitUntil - nowMs) / 1000) };
       const used = m.day === today ? Number(m.used || 0) : 0;
-      const n = Math.min(todo.length, DAILY_LIMIT - used);
-      if (n <= 0) return 0;
-      tx.set(metaRef, { lockUntil: Date.now() + 55000, day: today, used: used + n }, { merge: true });
-      return n;
+      if (used >= DAILY_LIMIT) return { full: true };
+      tx.set(metaRef, { lockUntil: nowMs + 55000 }, { merge: true });
+      return { used };
     });
-    if (!allowed) return res.status(200).json({ added: {}, busy: true });
-    const ids = todo.slice(0, allowed);
+    if ('wait' in gate) return res.status(200).json({ added: {}, busy: true, retryAfter: Math.max(20, gate.wait as number) });
+    if ('full' in gate) return res.status(200).json({ added: {}, error: '오늘 추출 한도를 다 썼어요.' });
+
+    let ids: string[] = [];
+    let allowed = 0;
+    try {
+      // 2) 이미 처리한 영상은 색인 묶음(몇 개 문서)으로 확인 (영상마다 문서를 읽지 않음)
+      const done = await readIndex(db);
+      ids = requested.filter((id) => !done[id]).slice(0, Math.min(PER_REQUEST, DAILY_LIMIT - (gate.used as number)));
+      allowed = ids.length;
+      if (!allowed) {
+        await metaRef.set({ lockUntil: 0 }, { merge: true });
+        return res.status(200).json({ added: {}, remaining: 0 });
+      }
+      await metaRef.set({ day: today, used: (gate.used as number) + allowed }, { merge: true });
+    } catch (e) {
+      await metaRef.set({ lockUntil: 0 }, { merge: true }).catch(() => {});
+      throw e;
+    }
 
     try {
       const snippets = await fetchYoutube(ids, ytKey);

@@ -304,7 +304,8 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', 'inline; filename="uzuhama_calendar.ics"');
     // 실시간 동기화를 위해 CDN 및 브라우저 캐시 무효화 (제때제때 새로고침 보장)
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, s-maxage=0');
+    // 구독 캘린더 앱이 자주 불러도 Firestore 를 매번 읽지 않도록 Vercel CDN 에 30분 보관
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=1800, stale-while-revalidate=3600');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 

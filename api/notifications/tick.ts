@@ -115,7 +115,11 @@ export default async function handler(req: any, res: any) {
     }
 
     // ── 3. 오늘 유력 시간 사전 알림 ──
-    if (liveStatus !== 'OPEN') {
+    // 사전 알림 확인은 5분에 한 번만 (알림 창이 15분이라 충분, 매번 13개월치 기록을 읽지 않도록)
+    const probDue = now.getTime() - Number(state.lastProbAt || 0) >= 5 * 60000;
+    if (liveStatus !== 'OPEN' && !probDue) result.prob = 'skipped (5분 간격)';
+    if (liveStatus !== 'OPEN' && probDue) {
+      await stateRef.set({ lastProbAt: now.getTime() }, { merge: true });
       const { minute: clockMinute, dateStr } = kstParts(now);
       const bToday = clockMinute < DAY_BOUNDARY_MIN
         ? new Date(Date.parse(`${dateStr}T00:00:00Z`) - 86400000).toISOString().slice(0, 10)
@@ -144,7 +148,8 @@ export default async function handler(req: any, res: any) {
         const toB = (m: number) => (m - DAY_BOUNDARY_MIN + 1440) % 1440;
         const minutesUntil = toB(peak) - toB(clockMinute);
         const sentLeads: number[] = state.peakSentDate === bToday && Array.isArray(state.peakSentLeads) ? state.peakSentLeads : [];
-        const subs = (await loadSubscriptions(db)).filter((s) => s.notifyPeakProb);
+        // 구독자 목록은 알림 보낼 수 있는 시간대(유력 시간 3시간 전 ~ 그 시각)에만 읽음
+        const subs = minutesUntil >= 0 && minutesUntil <= 180 ? (await loadSubscriptions(db)).filter((s) => s.notifyPeakProb) : [];
         const groups = new Map<number, typeof subs>();
         subs.forEach((s) => {
           const lead = s.leadTimeMinutes;
