@@ -71,14 +71,15 @@ async function enrich(ids: string[]) {
         persist();
         emit();
       }
-      // 오류·오늘 한도면 그만, 다른 기기가 처리 중이면 잠시 뒤 다시
+      // 오류·오늘 한도면 그만. 다른 기기가 처리 중이거나 분당 한도에 걸렸으면 잠시 쉬었다 다시
       if (json?.error) return;
-      if (!Object.keys(added).length) {
+      if (json?.busy || !Object.keys(added).length) {
         if (!json?.busy) return;
-        todo.forEach((id) => tried.delete(id));
-        await new Promise((r) => setTimeout(r, 20000));
+        todo.forEach((id) => { if (!added[id]) tried.delete(id); });
+        await new Promise((r) => setTimeout(r, Math.max(20, Number(json?.retryAfter) || 20) * 1000));
         continue;
       }
+      await new Promise((r) => setTimeout(r, 4000)); // 분당 호출 수를 넘지 않게 조금 간격
       // 서버가 한 번에 일부만 처리하므로, 처리 안 된 것은 다음 차례에 다시 넣을 수 있게
       todo.forEach((id) => { if (!added[id]) tried.delete(id); });
     } catch {

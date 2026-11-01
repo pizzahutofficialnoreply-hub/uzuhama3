@@ -18,11 +18,11 @@ import { setCorsHeaders } from '../_cors.js';
  */
 
 const ID_RE = /^[A-Za-z0-9_-]{11}$/;
-const PER_REQUEST = 40; // 요청 한 번에 새로 추출할 최대 영상 수 (8장 × 5번 동시 호출)
+const PER_REQUEST = 24; // 요청 한 번에 새로 추출할 최대 영상 수 (8장씩 3번, 차례로 호출해 분당 한도를 넘지 않게)
 const VISION_BATCH = 8; // Gemini 한 번 호출에 넣는 썸네일 수
 const DAILY_LIMIT = 4000; // 하루 새 추출 최대 영상 수 (8장 묶음이라 Gemini 호출은 약 500회, 무료 한도 안쪽)
 const CHUNK_SIZE = 400;
-const MODELS = [process.env.GEMINI_MODEL, 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest']
+const MODELS = [process.env.GEMINI_MODEL, 'gemini-flash-lite-latest', 'gemini-flash-latest']
   .filter(Boolean) as string[];
 
 /** 앱에 내려주는 짧은 형태: g=태그, t=썸네일 글자, k=키워드, d=설명 앞부분, x=영상 없음 */
@@ -185,6 +185,7 @@ export default async function handler(req: any, res: any) {
     const allowed = await db.runTransaction(async (tx: any) => {
       const m = (await tx.get(metaRef)).data() || {};
       if (m.lockUntil && m.lockUntil > Date.now()) return 0;
+      if (m.coolUntil && m.coolUntil > Date.now()) return 0; // 한도에 걸린 직후엔 잠시 쉼
       const used = m.day === today ? Number(m.used || 0) : 0;
       const n = Math.min(todo.length, DAILY_LIMIT - used);
       if (n <= 0) return 0;
@@ -216,18 +217,27 @@ export default async function handler(req: any, res: any) {
       const vision = new Map<string, { text: string; keywords: string[] }>();
       const groups: any[][] = [];
       for (let i = 0; i < withImg.length; i += VISION_BATCH) groups.push(withImg.slice(i, i + VISION_BATCH));
-      const results = await Promise.allSettled(groups.map((g) => readThumbnails(ai, g)));
+      // 동시에 보내지 않고 하나씩 (무료 한도는 분당 호출 수 제한이 있음). 한도에 걸리면 남은 묶음은 다음에
       const failedIds = new Set<string>();
       let visionError = '';
-      results.forEach((r, gi) => {
-        if (r.status === 'fulfilled') r.value.forEach((v, k) => vision.set(k, v));
-        else {
-          console.error('[search-index] vision failed:', r.reason);
-          visionError = String((r.reason as any)?.message || r.reason).slice(0, 300);
-          groups[gi].forEach((x) => failedIds.add(x.id));
+      let rateLimited = false;
+      for (const g of groups) {
+        if (rateLimited) { g.forEach((x: any) => failedIds.add(x.id)); continue; }
+        try {
+          (await readThumbnails(ai, g)).forEach((v, k) => vision.set(k, v));
+        } catch (err: any) {
+          console.error('[search-index] vision failed:', err);
+          visionError = String(err?.message || err).slice(0, 300);
+          rateLimited = /429|quota|RESOURCE_EXHAUSTED/i.test(visionError);
+          g.forEach((x: any) => failedIds.add(x.id));
         }
-      });
-      if (visionError) await metaRef.set({ lastError: visionError, lastErrorAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+      }
+      if (visionError) {
+        await metaRef.set({
+          lastError: visionError, lastErrorAt: new Date().toISOString(),
+          ...(rateLimited ? { coolUntil: Date.now() + 65000 } : {}),
+        }, { merge: true }).catch(() => {});
+      }
 
       // 썸네일 읽기에 실패한 영상은 저장하지 않고 다음에 다시 시도
       const added: Record<string, Entry> = {};
@@ -261,7 +271,11 @@ export default async function handler(req: any, res: any) {
         const { FieldValue } = await import('firebase-admin/firestore');
         await metaRef.set({ used: FieldValue.increment(-failedIds.size) }, { merge: true }).catch(() => {});
       }
-      return res.status(200).json({ added, failed: failedIds.size, error: failedIds.size && !Object.keys(added).length ? visionError : undefined });
+      return res.status(200).json({
+        added, failed: failedIds.size,
+        ...(rateLimited ? { busy: true, retryAfter: 65 } : {}),
+        error: !rateLimited && failedIds.size && !Object.keys(added).length ? visionError : undefined,
+      });
     } catch (e: any) {
       await metaRef.set({ lastError: String(e?.message || e).slice(0, 300), lastErrorAt: new Date().toISOString() }, { merge: true }).catch(() => {});
       throw e;
