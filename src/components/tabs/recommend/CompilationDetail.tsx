@@ -20,11 +20,13 @@ const dayLabel = (d: string) => {
   return `${m}월 ${dd}일 (${DAYS[new Date(y, m - 1, dd).getDay()]})`;
 };
 
-export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalendar }: {
+export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalendar, listOnly = false }: {
   video: any;
   allLogs: any;
   onClose: () => void;
   onNavigateToCalendar?: (date: string) => void;
+  /** 위쪽 큰 영상 부분 없이 목록만 */
+  listOnly?: boolean;
 }) {
   const [viewStyle, setViewStyle] = useViewStyle('compilation');
   const [page, setPage] = useState(1);
@@ -66,6 +68,7 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
       embedSrc={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`}
       playLabel="재생"
       showPublisher={false}
+      listOnly={listOnly}
       onClose={onClose}
       countLabel={`${dates.length}개 생방송`}
       viewStyle={viewStyle}

@@ -344,9 +344,13 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
   // 탭 재진입 감지: 다른 탭으로 이동했다가 다시 방송 기록(기록) 탭으로 돌아왔을 때
   // 외부 자동 이동 전 사용자가 보고 있던 상태로 원상 복구
   const prevIsActiveRef = useRef(isActive);
+  // 방금 다른 탭에서 날짜를 눌러 넘어온 경우: 탭이 켜지는 순간 '이전 상태 복구'가 그 날짜(연도)를 덮어쓰지 않게
+  const justNavigatedRef = useRef(false);
   useEffect(() => {
     if (!prevIsActiveRef.current && isActive) {
-      if (isNavigatedFromExternalRef.current) {
+      if (justNavigatedRef.current) {
+        justNavigatedRef.current = false;
+      } else if (isNavigatedFromExternalRef.current) {
         if (savedStateBeforeExternalNavRef.current) {
           const saved = savedStateBeforeExternalNavRef.current;
           setCurrentDate(saved.currentDate);
@@ -389,6 +393,8 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
       }
 
       isNavigatedFromExternalRef.current = true;
+      // 아직 탭이 꺼져 있을 때 도착한 이동이면, 탭이 켜질 때 복구 로직을 한 번 건너뜀
+      justNavigatedRef.current = !isActive;
       const parsed = parseISO(selectedDateStr);
       if (!isNaN(parsed.getTime())) {
         setCurrentDate(parsed);

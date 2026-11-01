@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp, Layers, Volume2, VolumeX, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { CompilationDetail } from '../tabs/recommend/CompilationDetail';
 import { extractYoutubeId } from '../../utils/urlUtils';
 import { PlaySquare, YoutubeLogo } from './MediaIcons';
 
@@ -15,11 +16,13 @@ export type ShortsPlayerItem = {
   url: string; title?: string; caption?: string; liveUrl?: string; editUrl?: string;
   /** 몰아보기 쇼츠: 연결된 생방송 목록 */
   compilation?: { date: string; games: string[]; liveUrl?: string; editUrl?: string }[];
+  /** 몰아보기 펼치기 화면에 넘길 영상 정보 (있으면 사이트의 펼치기 목록과 같은 모양) */
+  compilationVideo?: any;
 };
 
 const SWIPE_PX = 60;
 
-export function ShortsPlayer({ items, startIndex, onClose }: { items: ShortsPlayerItem[]; startIndex: number; onClose: () => void }) {
+export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: ShortsPlayerItem[]; startIndex: number; onClose: () => void; allLogs?: any }) {
   const [index, setIndex] = useState(Math.min(Math.max(0, startIndex), items.length - 1));
   const [drag, setDrag] = useState(0);
   const [animating, setAnimating] = useState(false);
@@ -298,7 +301,7 @@ export function ShortsPlayer({ items, startIndex, onClose }: { items: ShortsPlay
               key="sheet"
               role="dialog"
               aria-label="몰아보기 연결 생방송"
-              className="absolute inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[min(100vw,calc(100dvh*9/16))] max-h-[62dvh] flex flex-col rounded-t-[28px] bg-zinc-900/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
+              className="absolute inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[min(100vw,calc(100dvh*9/16))] max-h-[70dvh] flex flex-col rounded-t-[28px] bg-white/95 dark:bg-zinc-950/95 text-zinc-900 dark:text-white backdrop-blur-xl border-t border-zinc-200/70 dark:border-white/10 pb-[env(safe-area-inset-bottom)]"
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
@@ -308,13 +311,17 @@ export function ShortsPlayer({ items, startIndex, onClose }: { items: ShortsPlay
               dragElastic={{ top: 0, bottom: 0.6 }}
               onDragEnd={(_, info) => { if (info.offset.y > 90 || info.velocity.y > 600) setSheetOpen(false); }}
             >
-              <div className="pt-2.5 pb-1 flex justify-center"><span className="w-10 h-1.5 rounded-full bg-white/25" /></div>
-              <div className="px-4 pb-2 flex items-center justify-between">
-                <p className="text-sm font-bold">몰아보기 · 생방송 {cur.compilation.length}개</p>
-                <button type="button" onClick={() => setSheetOpen(false)} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
+              <div className="pt-2.5 pb-1 flex justify-center"><span className="w-10 h-1.5 rounded-full bg-zinc-300 dark:bg-white/25" /></div>
+              <div className="px-4 pb-1 flex items-center justify-between">
+                <p className="text-sm font-bold line-clamp-1">{cur.title || '몰아보기'}</p>
+                <button type="button" onClick={() => setSheetOpen(false)} className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-white/10 flex items-center justify-center cursor-pointer shrink-0" aria-label="닫기"><X className="w-4 h-4" /></button>
               </div>
-              <div className="overflow-y-auto px-2 pb-3" onPointerDownCapture={(e) => e.stopPropagation()}>
-                {cur.compilation.map((r) => (
+              <div className="overflow-y-auto pb-3" onPointerDownCapture={(e) => e.stopPropagation()}>
+                {cur.compilationVideo ? (
+                  // 사이트의 몰아보기 펼치기와 같은 목록 (위쪽 큰 영상 부분만 뺌)
+                  <CompilationDetail video={cur.compilationVideo} allLogs={allLogs} onClose={() => setSheetOpen(false)} listOnly />
+                ) : null}
+                {!cur.compilationVideo && cur.compilation.map((r) => (
                   <div key={r.date} className="flex items-center gap-3 px-2 py-2.5 rounded-2xl hover:bg-white/5">
                     <div className="w-12 shrink-0 text-center">
                       <p className="text-[10px] text-white/50">{r.date.slice(0, 4)}</p>

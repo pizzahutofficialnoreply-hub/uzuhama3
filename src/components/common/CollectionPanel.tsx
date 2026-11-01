@@ -11,7 +11,7 @@ import type { ViewStyle } from '../../hooks/useViewStyle';
  */
 export function CollectionPanel({
   thumbnail, title, metaLine, description, channelTitle = '우주하마', channelThumbnail, embedSrc, playLabel, onClose, countLabel,
-  viewStyle, onViewStyleChange, children, ariaLabel, showPublisher = true,
+  viewStyle, onViewStyleChange, children, ariaLabel, showPublisher = true, listOnly = false,
 }: {
   thumbnail: string;
   title: string;
@@ -30,8 +30,21 @@ export function CollectionPanel({
   ariaLabel: string;
   /** '게시자: 우주하마' 줄 표시 (몰아보기는 숨김) */
   showPublisher?: boolean;
+  /** 위쪽(큰 썸네일·제목·재생) 없이 목록만 (쇼츠 뷰어의 몰아보기 판) */
+  listOnly?: boolean;
 }) {
   const [playing, setPlaying] = useState(false);
+  if (listOnly) {
+    return (
+      <section aria-label={ariaLabel} className="px-1.5 sm:px-3 py-2">
+        <div className="flex items-center justify-between gap-2 px-1.5 mb-2">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">{countLabel}</span>
+          <ViewStyleToggle value={viewStyle} onChange={onViewStyleChange} />
+        </div>
+        {children}
+      </section>
+    );
+  }
   return (
     <section
       className="overflow-hidden rounded-[24px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[0_18px_44px_-14px_rgba(0,0,0,0.30)]"

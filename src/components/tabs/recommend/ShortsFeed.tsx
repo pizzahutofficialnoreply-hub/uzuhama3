@@ -23,7 +23,7 @@ interface ShortsFeedProps {
 
 const PAGE = 24;
 
-type ShortEntry = { id: string; url: string; title: string; date: string; category: string; genres: string[]; liveUrl?: string; editUrl?: string; publishedAt?: string; isCompilation?: boolean; compilation?: CompilationRow[] };
+type ShortEntry = { id: string; url: string; title: string; date: string; category: string; genres: string[]; liveUrl?: string; editUrl?: string; publishedAt?: string; isCompilation?: boolean; compilation?: CompilationRow[]; compilationVideo?: any };
 export type CompilationRow = { date: string; games: string[]; liveUrl?: string; editUrl?: string };
 
 const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
@@ -110,7 +110,9 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
             ...linksOf(l),
           };
         });
-        byId.set(id, { id, url: e.url, title: e.title || '', date: log?.date || '', category: e.category || '몰아보기', genres: genresOfLog ? genresOfLog({ ...log, games: e.games || log?.games }) : [], isCompilation: true, compilation });
+        byId.set(id, { id, url: e.url, title: e.title || '', date: log?.date || '', category: e.category || '몰아보기', genres: genresOfLog ? genresOfLog({ ...log, games: e.games || log?.games }) : [], isCompilation: true, compilation,
+          // 펼치기 화면(몰아보기 목록)에 그대로 넘기는 영상 정보
+          compilationVideo: { id, videoUrl: e.url, videoTitle: e.title || '', isCompilation: true, compilationId: e.compilationId, games: e.games || [], allBroadcastDates: dates, parentLog: log } });
       });
     });
     // 3) 유튜브 채널의 쇼츠 전체 (기록에 없는 것도 포함, 업로드일은 유튜브 값)
@@ -242,7 +244,8 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
       <Pagination currentPage={page} totalPages={totalPages} onChange={setPage} />
       {playerAt !== null && (
         <ShortsPlayer
-          items={sorted.map((s) => ({ url: s.url, title: s.title, caption: captionOf(s), liveUrl: s.liveUrl, editUrl: s.editUrl, compilation: s.compilation }))}
+          items={sorted.map((s) => ({ url: s.url, title: s.title, caption: captionOf(s), liveUrl: s.liveUrl, editUrl: s.editUrl, compilation: s.compilation, compilationVideo: s.compilationVideo }))}
+          allLogs={logs}
           startIndex={playerAt}
           onClose={() => setPlayerAt(null)}
         />
