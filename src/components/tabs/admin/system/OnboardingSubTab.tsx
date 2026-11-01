@@ -54,7 +54,8 @@ export function OnboardingSubTab({ systemEdit, handleChange, onSave, saving, onU
     setBusy(true);
     try {
       const version = (Number(systemEdit.onboardingVersion) || 1) + (reshow ? 1 : 0);
-      await setDoc(doc(db, 'config', 'onboarding'), { version, steps: cfg.steps, updatedAt: new Date().toISOString() });
+      // undefined 값은 Firestore 가 거부하므로 JSON 으로 한 번 걸러서 저장
+      await setDoc(doc(db, 'config', 'onboarding'), { version, steps: JSON.parse(JSON.stringify(cfg.steps)), updatedAt: new Date().toISOString() });
       if (reshow) {
         await onUpdateSystemConfig?.({ onboardingVersion: version });
         handleChange('onboardingVersion', version);
@@ -114,6 +115,7 @@ export function OnboardingSubTab({ systemEdit, handleChange, onSave, saving, onU
           <input value={st.title} onChange={(e) => update(i, { title: e.target.value })} placeholder="제목" className={input} />
           <textarea value={st.body || ''} onChange={(e) => update(i, { body: e.target.value })} placeholder="내용 (마크다운)" rows={4} className={input} />
           <input value={st.button || ''} onChange={(e) => update(i, { button: e.target.value })} placeholder="버튼 글자 (예: 확인했어요)" className={input} />
+          <input value={st.image || ''} onChange={(e) => update(i, { image: e.target.value.trim() || undefined })} placeholder="그림 이미지 주소 (비우면 단계 종류에 맞는 기본 그림)" className={input} />
 
           {st.type === 'terms' && (
             <div className="space-y-2 pt-1">

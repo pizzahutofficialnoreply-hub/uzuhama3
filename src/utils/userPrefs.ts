@@ -15,6 +15,10 @@ export interface UserPrefs {
   shortsOrder: 'desc' | 'asc';
   /** 휴대폰 자판 (검색 오타 보정에 사용) */
   keyboard: KeyboardLayout;
+  /** 검색했을 때 기본 정렬 */
+  searchSort: 'accuracy' | 'desc' | 'asc';
+  /** 카드/목록 보기: 모든 화면 같이 바꾸기 / 화면마다 따로 */
+  viewStyleScope: 'global' | 'per-page';
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -23,6 +27,8 @@ export const DEFAULT_PREFS: UserPrefs = {
   shortsSortBy: 'upload',
   shortsOrder: 'desc',
   keyboard: 'unknown',
+  searchSort: 'accuracy',
+  viewStyleScope: 'global',
 };
 
 export const PAGE_SIZE_OPTIONS = [8, 12, 20, 30];

@@ -111,6 +111,8 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   user-select: none;
+  /* 라이트 모드: 아이폰 설정 화면처럼 연한 회색 바탕 위에 흰 카드 (테두리 대신 그림자로 구분) */
+  background-color: #f2f2f7;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
@@ -119,6 +121,16 @@ html.dark, html.dark body {
   background-color: #000000;
   color: #f4f4f5;
 }
+
+/* 라이트 모드 카드: 회색 테두리를 없애고 아주 옅은 그림자만 (사진 액자처럼 보이지 않게) */
+html:not(.dark) .bg-white.border-zinc-200[class*="rounded-[2"],
+html:not(.dark) .bg-white.border-zinc-200.rounded-2xl,
+html:not(.dark) .bg-white.border-zinc-200.rounded-3xl {
+  border-color: transparent;
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.04), 0 6px 22px -12px rgba(0, 0, 0, 0.12);
+}
+/* 카드 안의 카드(설정 묶음 등)는 그림자 없이 */
+html:not(.dark) .bg-white .bg-white.border-zinc-200[class*="rounded-[2"] { box-shadow: none; border-color: rgba(0, 0, 0, 0.06); }
 
 #root {
   min-height: 100%;

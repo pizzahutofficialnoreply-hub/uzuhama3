@@ -93,7 +93,7 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
   onNavigateToCalendar?: (date: string) => void;
 }) {
   const [page, setPage] = useState(1);
-  const [viewStyle, setViewStyle] = useViewStyle();
+  const [viewStyle, setViewStyle] = useViewStyle('playlist');
   const ITEMS_PER_PAGE = usePrefs().collectionPageSize; // 설정에서 조절
   const total = playlist.items.length;
   // 게임 기록이 없는 영상은 재생목록 이름의 게임을 기본으로 표시

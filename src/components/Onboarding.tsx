@@ -8,6 +8,7 @@ import { db } from '../lib/firebase';
 import { cn } from '../utils';
 import { KEYBOARD_OPTIONS, getPrefs, setPref, type KeyboardLayout } from '../utils/userPrefs';
 import { TUTORIAL_DONE_KEY, TUTORIAL_START_EVENT } from './Tutorial';
+import { OnboardingArt } from './OnboardingArt';
 
 /**
  * 처음 시작 화면 (휴대폰을 처음 켰을 때 하는 초기 설정처럼)
@@ -18,7 +19,7 @@ import { TUTORIAL_DONE_KEY, TUTORIAL_START_EVENT } from './Tutorial';
 
 export type OnboardingStepType = 'welcome' | 'terms' | 'notice' | 'keyboard' | 'intro';
 export type OnboardingSection = { id: string; title: string; body: string; required: boolean };
-export type OnboardingStep = { id: string; type: OnboardingStepType; title: string; body?: string; button?: string; sections?: OnboardingSection[] };
+export type OnboardingStep = { id: string; type: OnboardingStepType; title: string; body?: string; button?: string; sections?: OnboardingSection[]; /** 그림 대신 쓸 이미지 주소 (비우면 기본 그림) */ image?: string };
 export type OnboardingConfig = { version: number; steps: OnboardingStep[] };
 
 export const ONBOARDING_DONE_KEY = 'uzuhama_onboarding_version';
@@ -70,20 +71,21 @@ function guessKeyboard(): KeyboardLayout {
 
 /** 은은하게 움직이는 흐린 배경 */
 function FluidBackdrop() {
+  // 사이트 바탕색(흰색 / 짙은 회색) 위에 아주 연한 보라빛이 천천히 흘러다님
   const blobs = [
-    { c: 'bg-purple-500/45 dark:bg-purple-600/40', s: 'w-[70vmax] h-[70vmax]', x: ['-20%', '10%', '-10%'], y: ['-25%', '-5%', '-20%'], d: 18 },
-    { c: 'bg-fuchsia-400/35 dark:bg-fuchsia-600/30', s: 'w-[60vmax] h-[60vmax]', x: ['40%', '15%', '35%'], y: ['30%', '50%', '20%'], d: 22 },
-    { c: 'bg-sky-400/35 dark:bg-indigo-600/35', s: 'w-[55vmax] h-[55vmax]', x: ['-15%', '20%', '0%'], y: ['55%', '35%', '60%'], d: 26 },
+    { c: 'bg-purple-300/25 dark:bg-purple-500/[0.12]', s: 'w-[60vmax] h-[60vmax]', x: ['-25%', '5%', '-15%'], y: ['-30%', '-10%', '-25%'], d: 24 },
+    { c: 'bg-violet-200/30 dark:bg-violet-500/[0.10]', s: 'w-[50vmax] h-[50vmax]', x: ['45%', '20%', '40%'], y: ['35%', '55%', '25%'], d: 30 },
+    { c: 'bg-sky-200/25 dark:bg-indigo-500/[0.08]', s: 'w-[45vmax] h-[45vmax]', x: ['-10%', '25%', '5%'], y: ['60%', '40%', '65%'], d: 36 },
   ];
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-      <div className="absolute inset-0 bg-white/70 dark:bg-zinc-950/75 backdrop-blur-2xl" />
+      <div className="absolute inset-0 bg-zinc-50/95 dark:bg-zinc-950/95 backdrop-blur-xl" />
       {blobs.map((b, i) => (
         <motion.div
           key={i}
           className={cn('absolute rounded-full blur-3xl', b.c, b.s)}
           initial={{ x: b.x[0], y: b.y[0], scale: 1 }}
-          animate={{ x: b.x, y: b.y, scale: [1, 1.15, 0.95, 1] }}
+          animate={{ x: b.x, y: b.y, scale: [1, 1.12, 0.96, 1] }}
           transition={{ duration: b.d, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
         />
       ))}
@@ -219,17 +221,16 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
             transition={IOS_SPRING}
             className="absolute inset-0 overflow-y-auto px-6"
           >
-            <div className={cn('mx-auto w-full max-w-md pb-8', step.type === 'welcome' ? 'min-h-full flex flex-col justify-center text-center' : 'pt-6 sm:pt-12')}>
-              {step.type === 'welcome' && (
-                <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ ...IOS_SPRING, delay: 0.1 }} className="mx-auto mb-6 w-20 h-20 rounded-[28px] bg-gradient-to-br from-purple-500 to-fuchsia-500 shadow-xl shadow-purple-500/30 flex items-center justify-center text-white text-3xl font-black">
-                  우
-                </motion.div>
-              )}
-              {step.type === 'keyboard' && (
-                <div className="mb-4 w-14 h-14 rounded-2xl bg-purple-600/10 dark:bg-purple-400/15 flex items-center justify-center text-purple-600 dark:text-purple-300">
-                  <Keyboard className="w-7 h-7" />
-                </div>
-              )}
+            {/* 휴대폰: 그림 위·글 아래 / 넓은 화면: 그림 왼쪽·글 오른쪽 (발표 자료처럼) */}
+            <div className="mx-auto w-full max-w-md md:max-w-4xl min-h-full flex flex-col md:flex-row md:items-center md:gap-12 pb-8">
+              <div className={cn(
+                'shrink-0 md:flex-1 md:h-[420px] flex items-center justify-center',
+                step.type === 'terms' || step.type === 'keyboard' ? 'h-[22vh] min-h-[150px] pt-2' : 'h-[34vh] min-h-[210px] pt-4',
+                step.type === 'keyboard' && 'max-md:hidden'
+              )}>
+                <OnboardingArt type={step.type} image={step.image} keyboard={keyboard} />
+              </div>
+            <div className={cn('w-full md:flex-1', step.type === 'welcome' ? 'text-center md:text-left' : '', 'pt-4 md:pt-0')}>
               <h2 className={cn('font-black tracking-tight break-keep', step.type === 'welcome' ? 'text-4xl sm:text-5xl' : 'text-2xl sm:text-3xl')}>{step.title}</h2>
               {step.body && (
                 <div className={cn('mt-3 text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-300 break-keep prose-sm [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mt-2 [&_p]:mt-2 [&_strong]:text-zinc-900 dark:[&_strong]:text-white', step.type === 'welcome' && 'whitespace-pre-line')}>
@@ -308,6 +309,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
                   ))}
                 </div>
               )}
+            </div>
             </div>
           </motion.div>
         </AnimatePresence>

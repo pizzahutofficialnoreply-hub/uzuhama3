@@ -21,18 +21,20 @@ import { useViewStyle } from '../../hooks/useViewStyle';
 import { YoutubeLogo, ShortsIcon, PlaySquare, GlassPlayButton } from '../common/MediaIcons';
 import { PlaylistsFeed } from './recommend/PlaylistsFeed';
 import { usePlaylists } from '../../hooks/usePlaylists';
+import { useRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../../hooks/useRecentSearches';
 import { getPrefs, usePrefs } from '../../utils/userPrefs';
 import { buildVocab, correctQuery, isKeysmash, squash, type Correction } from '../../utils/smartSearch';
 import { buildGameCatalog, buildPlaylistGameMap } from '../../utils/playlistGames';
 import { useSearchIndex, matchTag, matchRelated, gamesMatchingKeyword, normSearch } from '../../hooks/useSearchIndex';
 
 type RecommendSubTab = 'home' | 'recommend' | 'videos' | 'shorts' | 'playlists';
+// 순서: 검색 결과를 옆으로 넘기며 볼 수 있는 탭(홈·동영상·Shorts·재생목록) 먼저, 검색과 상관없는 추천은 맨 끝
 const RECOMMEND_SUB_TABS: { id: RecommendSubTab; label: string }[] = [
   { id: 'home', label: '홈' },
-  { id: 'recommend', label: '추천' },
   { id: 'videos', label: '동영상' },
   { id: 'shorts', label: 'Shorts' },
   { id: 'playlists', label: '재생목록' },
+  { id: 'recommend', label: '추천' },
 ];
 
 
@@ -687,13 +689,13 @@ export function RecommendTab({
     const prevTerm = prevSearchTermRef.current.trim();
     const currTerm = searchTerm.trim();
 
-    // 1. 검색어 입력 시 정확도순 자동 선택
+    // 1. 검색어 입력 시 설정의 '검색 기본 정렬'(기본 정확도순) 자동 선택
     if (!prevTerm && currTerm) {
       if (sortOrder !== 'accuracy') {
         previousNonAccuracySortRef.current = sortOrder;
       }
       userSelectedOtherSortDuringSearchRef.current = false;
-      setSortOrder('accuracy');
+      setSortOrder(getPrefs().searchSort || 'accuracy');
     }
     // 2. 검색어 삭제 시
     else if (prevTerm && !currTerm) {
@@ -710,44 +712,23 @@ export function RecommendTab({
   }, [searchTerm, sortOrder]);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('uzuhama_recent_searches');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // 최근 검색어 (모든 화면 공통). 같은 검색어를 1.5초 그대로 두면 저장
+  const recentSearches = useRecentSearches();
+  const clearAllRecentSearches = clearRecentSearches;
+  useEffect(() => {
+    const t = searchTerm.trim();
+    if (t.length < 2 || isVideoUrl(t)) return;
+    const id = window.setTimeout(() => addRecentSearch(t), 1500);
+    return () => window.clearTimeout(id);
+  }, [searchTerm]);
 
-  const saveRecentSearch = (term: string) => {
-    const clean = term.trim();
-    if (!clean || clean.length < 2) return;
-    setRecentSearches(prev => {
-      const filtered = prev.filter(s => s.toLowerCase() !== clean.toLowerCase());
-      const next = [clean, ...filtered].slice(0, 10);
-      try {
-        localStorage.setItem('uzuhama_recent_searches', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-  };
-
-  const removeRecentSearch = (term: string) => {
-    setRecentSearches(prev => {
-      const next = prev.filter(s => s !== term);
-      try {
-        localStorage.setItem('uzuhama_recent_searches', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-  };
-
-  const clearAllRecentSearches = () => {
-    setRecentSearches([]);
-    try {
-      localStorage.removeItem('uzuhama_recent_searches');
-    } catch {}
-  };
+  // 추천 탭은 검색과 상관없이 추천만 보여 줌 → 추천 탭에서 검색하면 홈 탭으로 옮겨 결과 표시
+  const prevSearchForTabRef = useRef(searchTerm);
+  useEffect(() => {
+    const prev = prevSearchForTabRef.current;
+    prevSearchForTabRef.current = searchTerm;
+    if (subTab === 'recommend' && searchTerm.trim() && searchTerm !== prev) changeSubTab('home');
+  }, [searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [showAllWithoutSearch, setShowAllWithoutSearch] = useState(false);
 
@@ -757,7 +738,7 @@ export function RecommendTab({
     return (localStorage.getItem('uzuhama_recommend_view_mode') as '1' | '2') || '1';
   });
 
-  const [viewStyle, setViewStyle] = useViewStyle();
+  const [viewStyle, setViewStyle] = useViewStyle('recommend');
   const handleViewModeChange = (mode: '1' | '2') => {
     setMobileViewMode(mode);
     try {
@@ -1263,7 +1244,7 @@ export function RecommendTab({
     const t = e.touches[0];
     const target = e.target as HTMLElement;
     const blocked = window.innerWidth >= 640 || e.touches.length > 1 ||
-      Boolean(target.closest('.overflow-x-auto, .no-scrollbar, input, textarea, select, iframe, .recharts-wrapper, [data-no-swipe]'));
+      Boolean(target.closest('.overflow-x-auto, .no-scrollbar, input, textarea, select, iframe, .recharts-wrapper, [data-no-swipe], [role="dialog"]'));
     swipeRef.current = t ? { x: t.clientX, y: t.clientY, t: Date.now(), ok: !blocked } : null;
   };
   const onSwipeEnd = (e: React.TouchEvent) => {
@@ -1284,8 +1265,8 @@ export function RecommendTab({
 
   const recommended = useMemo(() => {
     if (allVideos.length === 0) return [];
-    // 오타를 자동으로 고친 경우 고친 검색어로 찾음
-    const searchTerm = effectiveSearchTerm;
+    // 오타를 자동으로 고친 경우 고친 검색어로 찾음 (추천 탭은 검색과 상관없이 추천만)
+    const searchTerm = subTab === 'recommend' ? '' : effectiveSearchTerm;
 
     // 동영상 탭: 몰아보기를 뺀 편집본만
     let vids = subTab === 'videos' ? allVideos.filter((v) => !v.isCompilation) : allVideos;
@@ -1759,6 +1740,26 @@ export function RecommendTab({
         transition={{ type: 'spring', stiffness: 380, damping: 36 }}
         className="space-y-6"
       >
+      {(subTab === 'shorts' || subTab === 'playlists') && recentSearches.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mb-2" data-no-swipe>
+          <Clock className="w-3.5 h-3.5 text-zinc-400 shrink-0" aria-hidden="true" />
+          {recentSearches.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSearchTerm(s)}
+              className={cn(
+                "px-2.5 py-1 rounded-full text-xs font-medium shrink-0 border transition-colors cursor-pointer",
+                searchTerm.trim() === s
+                  ? "bg-purple-600 border-purple-600 text-white"
+                  : "bg-zinc-100 dark:bg-zinc-800 border-zinc-200/60 dark:border-zinc-700/60 text-zinc-700 dark:text-zinc-300 hover:text-purple-600"
+              )}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
       {subTab === 'shorts' ? (
         <ShortsFeed logs={data?.logs} searchTerm={searchTerm} selectedCategories={['전체']} onNavigateToCalendar={onNavigateToCalendar} genresOfLog={genresOfLog} />
       ) : subTab === 'playlists' ? (

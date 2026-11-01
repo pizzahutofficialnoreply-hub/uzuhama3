@@ -45,7 +45,7 @@ export function computeTabGlassConfig(sliderVal: number): TabGlassConfig {
     darkBg: `rgba(0, 0, 0, ${darkOp.toFixed(3)})`,
     lightBorder: `rgba(255, 255, 255, ${borderLightOp.toFixed(3)})`,
     darkBorder: `rgba(255, 255, 255, ${borderDarkOp.toFixed(3)})`,
-    bottomFadeLight: `rgba(255, 255, 255, ${(0.08 + t * 0.22).toFixed(3)})`,
+    bottomFadeLight: `rgba(242, 242, 247, ${(0.08 + t * 0.22).toFixed(3)})`,
     bottomFadeDark: `rgba(0, 0, 0, ${(0.10 + t * 0.22).toFixed(3)})`,
   };
 }

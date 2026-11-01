@@ -165,7 +165,14 @@ export function ShortsPlayer({ items, startIndex, onClose }: { items: ShortsPlay
   const translate = `translateY(calc(${-index * 100}% + ${drag}px))`;
 
   return createPortal(
-    <div className="fixed inset-0 z-[300] bg-black text-white select-none" role="dialog" aria-modal="true" aria-label="쇼츠 보기">
+    // 화면 위에 따로 떠 있어도 React 이벤트는 부모로 올라가므로, 뒤쪽 화면(하위 탭 좌우 밀기)에 손가락이 전달되지 않게 막음
+    <div
+      className="fixed inset-0 z-[300] bg-black text-white select-none overscroll-none"
+      role="dialog" aria-modal="true" aria-label="쇼츠 보기" data-no-swipe
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
+    >
       <div className="absolute inset-0 flex justify-center">
         <div ref={stageRef} className="relative h-full w-full max-w-[min(100vw,calc(100dvh*9/16))] overflow-hidden">
           {/* 쇼츠 썸네일 줄 (끌 때 다음·이전이 보이게) */}

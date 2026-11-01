@@ -1228,6 +1228,12 @@ function ViewPrefsPanel() {
       <Row title="추천 영상 기본 정렬" desc="홈·동영상 탭을 처음 열 때의 순서 (검색 중에는 정확도순)">
         <Seg k="recommendSort" options={[['desc', '최신순'], ['asc', '과거순']]} />
       </Row>
+      <Row title="검색했을 때 기본 정렬" desc="검색어를 넣으면 이 순서로 보여 줘요 (검색을 지우면 원래 정렬로)">
+        <Seg k="searchSort" options={[['accuracy', '정확도순'], ['desc', '최신순'], ['asc', '과거순']]} />
+      </Row>
+      <Row title="카드·목록 보기 바꾸기" desc="한 곳에서 바꾸면 모든 화면이 같이 바뀔지, 화면(추천 영상·재생목록·몰아보기)마다 따로 기억할지">
+        <Seg k="viewStyleScope" options={[['global', '모든 화면 같이'], ['per-page', '화면마다 따로']]} />
+      </Row>
       <Row title="쇼츠 기본 정렬" desc="정렬 기준과 순서">
         <div className="flex flex-wrap gap-2">
           <Seg k="shortsSortBy" options={[['upload', '업로드일'], ['live', '방송일']]} />

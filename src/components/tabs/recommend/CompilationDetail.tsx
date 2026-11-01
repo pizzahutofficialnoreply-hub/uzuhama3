@@ -26,7 +26,7 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
   onClose: () => void;
   onNavigateToCalendar?: (date: string) => void;
 }) {
-  const [viewStyle, setViewStyle] = useViewStyle();
+  const [viewStyle, setViewStyle] = useViewStyle('compilation');
   const [page, setPage] = useState(1);
   const PER_PAGE = usePrefs().collectionPageSize; // 설정에서 조절
   const logsList = useMemo(() => (allLogs ? (Array.isArray(allLogs) ? allLogs : Object.values(allLogs)) : []), [allLogs]);

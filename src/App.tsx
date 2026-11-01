@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Suspense, lazy, startTransition } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink, AlertTriangle, CheckCircle2, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -263,6 +263,7 @@ function MainApp() {
 
   // 상단 헤더 스크롤 방향 및 자동 스크롤 오프셋 감지
   const [isHeaderHidden, setIsHeaderHidden] = useState(false);
+  const scrollDirAccRef = useRef(0);
   const [isNoticeExpanded, setIsNoticeExpanded] = useState(false);
   const lastScrollYRef = useRef(0);
   const autoScrollBaseYRef = useRef(0);
@@ -368,10 +369,13 @@ function MainApp() {
         // 자동 스크롤 위치를 완전히 제외한 사용자의 순수 터치/휠 추가 스크롤 량(110px 초과)만 계산
         const effectiveScroll = currentScrollY - (autoScrollBaseYRef.current || 0);
 
-        if (effectiveScroll > 110 && deltaY > 6) {
+        // 방향이 바뀐 뒤 일정 거리 이상 같은 방향으로 움직였을 때만 바꿈 (손가락 떨림에 깜빡이지 않게)
+        const acc = scrollDirAccRef.current;
+        scrollDirAccRef.current = (deltaY > 0) === (acc > 0) ? acc + deltaY : deltaY;
+        if (effectiveScroll > 110 && scrollDirAccRef.current > 28) {
           // 아래로 스크롤 시 상단 바 사라짐 (위로 사라지는 애니메이션)
           setIsHeaderHidden(true);
-        } else if (deltaY < -4) {
+        } else if (scrollDirAccRef.current < -20) {
           // 위로 스크롤 시 다시 나타남
           setIsHeaderHidden(false);
         }
@@ -501,8 +505,9 @@ function MainApp() {
       tabScrollPositions.current[nextTab] = 0;
     }
 
-    // 2. 탭 전환
-    setActiveTab(nextTab);
+    // 2. 탭 전환: 무거운 화면을 그리는 동안에도 탭바가 바로 반응하도록 '급하지 않은 업데이트'로
+    //    (빠르게 연달아 눌러도 마지막으로 누른 탭이 이기고, 도중의 화면 그리기는 건너뜀)
+    startTransition(() => setActiveTab(nextTab));
     localStorage.setItem('uzuhama_active_tab', nextTab);
 
     // 3. 강제 최상단 이동 요청 시
@@ -830,7 +835,7 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-[100dvh] min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans selection:bg-purple-500/30 flex flex-col overflow-x-clip w-full">
+    <div className="min-h-[100dvh] min-h-screen bg-[#f2f2f7] dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans selection:bg-purple-500/30 flex flex-col overflow-x-clip w-full">
       
       {/* System Big Notice Modal (개별 공지 type이 'big' 또는 'both'이거나, 전역 noticeType이 'big' 또는 'both'인 경우) */}
       {(() => {
@@ -905,7 +910,7 @@ function MainApp() {
         }}
         className={cn(
           "fixed inset-x-0 top-0 pointer-events-none z-40 transition-opacity duration-400 ease-out",
-          "bg-gradient-to-b from-white/85 via-white/45 to-transparent dark:from-zinc-950/90 dark:via-zinc-950/50 dark:to-transparent",
+          "bg-gradient-to-b from-[#f2f2f7]/85 via-[#f2f2f7]/45 to-transparent dark:from-zinc-950/90 dark:via-zinc-950/50 dark:to-transparent",
           isHeaderHidden && !isNoticeExpanded ? "opacity-100" : "opacity-0"
         )}
       />
@@ -913,10 +918,13 @@ function MainApp() {
       <header 
         id="app-main-header"
         style={{ 
-          transform: isHeaderHidden ? 'translateY(-100%)' : 'translateY(0)',
+          // iOS 처럼 부드럽게: 흐림(filter)은 배경 흐림과 겹치면 버벅여서 빼고, 이동·투명도만 GPU 로
+          transform: isHeaderHidden ? 'translate3d(0,-100%,0)' : 'translate3d(0,0,0)',
           opacity: isHeaderHidden ? 0 : 1,
-          filter: isHeaderHidden ? 'blur(2px)' : 'blur(0px)',
-          transition: 'transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.58s cubic-bezier(0.16, 1, 0.3, 1), filter 0.58s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s',
+          transition: isHeaderHidden
+            ? 'transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.32s ease-out, background-color 0.2s'
+            : 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.38s ease-out 0.04s, background-color 0.2s',
+          willChange: 'transform, opacity',
           WebkitBackdropFilter: 'blur(28px) saturate(180%)', 
           backdropFilter: 'blur(28px) saturate(180%)' 
         }}

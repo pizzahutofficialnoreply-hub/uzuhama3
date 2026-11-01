@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { addRecentSearch } from '../hooks/useRecentSearches';
 import { 
   FileText, 
   Calendar as CalendarIcon, 
@@ -318,17 +319,54 @@ export function FloatingBottomNav({
     isFirstMountRef.current = false;
   }, []);
 
+  // 누른 탭을 바로 표시 (화면이 아직 바뀌는 중이어도 회색 원은 손가락을 즉시 따라감)
+  const [visualIndex, setVisualIndex] = useState(activeIndex);
+  useEffect(() => { setVisualIndex(activeIndex); }, [activeIndex]);
+  const PILL_SPRING = { type: 'spring' as const, stiffness: 520, damping: 40, mass: 0.7 };
+  const selectTab = (i: number) => {
+    setVisualIndex(i);
+    animate(pillX, i * slotWidth, PILL_SPRING);
+    onTabChange(navTabs[i].id);
+  };
+
   // 활성 탭 인덱스 또는 슬롯 폭 변경 시 부드럽게 글라이딩 이동
   useEffect(() => {
     if (slotWidth > 0 && !isDragging) {
-      animate(pillX, activeIndex * slotWidth, {
-        type: "spring",
-        stiffness: 520,
-        damping: 40,
-        mass: 0.7
-      });
+      animate(pillX, visualIndex * slotWidth, PILL_SPRING);
     }
-  }, [activeIndex, slotWidth, isDragging, pillX]);
+  }, [visualIndex, slotWidth, isDragging, pillX]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 회색 원을 손가락으로 밀어서 탭 이동 (탭 버튼 위 어디서 시작해도 됨)
+  const dragRef = useRef<{ x: number; start: number; moved: boolean; id: number } | null>(null);
+  const onNavPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragRef.current = { x: e.clientX, start: pillX.get(), moved: false, id: e.pointerId };
+  };
+  const onNavPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d || d.id !== e.pointerId) return;
+    const dx = e.clientX - d.x;
+    if (!d.moved) {
+      if (Math.abs(dx) < 6) return;
+      d.moved = true;
+      setIsDragging(true);
+      isDraggingRef.current = true;
+      try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* 무시 */ }
+    }
+    pillX.set(Math.min(slotWidth * 2, Math.max(0, d.start + dx)));
+    setVisualIndex(Math.min(2, Math.max(0, Math.round(pillX.get() / slotWidth))));
+  };
+  const onNavPointerUp = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (!d || !d.moved) return;
+    const target = Math.min(2, Math.max(0, Math.round(pillX.get() / slotWidth)));
+    animate(pillX, target * slotWidth, PILL_SPRING);
+    setVisualIndex(target);
+    onTabChange(navTabs[target].id);
+    // 손을 뗄 때 생기는 클릭은 무시
+    window.setTimeout(() => { setIsDragging(false); isDraggingRef.current = false; }, 80);
+  };
 
   return (
     <>
@@ -381,52 +419,27 @@ export function FloatingBottomNav({
                   {/* 3개 탭 캡슐 네비게이션: 실시간 블러 적용 반투명 글래스 */}
                   <nav 
                     ref={navRef}
+                    onPointerDown={onNavPointerDown}
+                    onPointerMove={onNavPointerMove}
+                    onPointerUp={onNavPointerUp}
+                    onPointerCancel={onNavPointerUp}
                     aria-label="하단 네비게이션"
                     style={glassStyle}
                     className={cn(
-                      "relative w-[268px] flex items-center h-[64px] p-1 rounded-full select-none touch-manipulation shrink-0 border backdrop-blur-xl",
+                      "relative w-[268px] flex items-center h-[64px] p-1 rounded-full select-none touch-none shrink-0 border backdrop-blur-xl",
                       "shadow-[0_10px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     )}
                   >
-                    {/* 단일 GPU 가속 회색 원 인디케이터 */}
+                    {/* 회색 원 인디케이터 (살짝 흐린 유리) — 끌기는 nav 전체에서 처리 */}
                     <motion.div
-                      drag="x"
-                      dragConstraints={{ left: 0, right: slotWidth * 2 }}
-                      dragElastic={0.08}
-                      dragMomentum={false}
-                      style={{
-                        x: pillX,
-                        width: slotWidth,
-                      }}
-                      onDragStart={() => {
-                        setIsDragging(true);
-                        isDraggingRef.current = true;
-                      }}
-                      onDragEnd={() => {
-                        const currentX = pillX.get();
-                        const targetIndex = Math.min(2, Math.max(0, Math.round(currentX / slotWidth)));
-                        const targetTab = navTabs[targetIndex].id;
-                        
-                        animate(pillX, targetIndex * slotWidth, {
-                          type: "spring",
-                          stiffness: 520,
-                          damping: 40,
-                          mass: 0.7
-                        });
-                        
-                        onTabChange(targetTab);
-
-                        setTimeout(() => {
-                          setIsDragging(false);
-                          isDraggingRef.current = false;
-                        }, 60);
-                      }}
-                      className="absolute top-1 bottom-1 left-1 rounded-full bg-zinc-200/90 dark:bg-white/20 dark:border dark:border-white/10 shadow-xs cursor-grab active:cursor-grabbing z-10 touch-none"
+                      aria-hidden="true"
+                      style={{ x: pillX, width: slotWidth }}
+                      className="absolute top-1 bottom-1 left-1 rounded-full bg-zinc-200/75 dark:bg-white/[0.16] backdrop-blur-md border border-white/50 dark:border-white/10 shadow-[0_2px_10px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.12)] z-10 pointer-events-none"
                     />
 
                     {/* 3개 탭 버튼들 */}
-                    {navTabs.map((tab) => {
-                      const isActive = effectiveTab === tab.id;
+                    {navTabs.map((tab, tabIndex) => {
+                      const isActive = visualIndex === tabIndex;
                       const Icon = tab.icon;
 
                       return (
@@ -434,9 +447,7 @@ export function FloatingBottomNav({
                           key={tab.id}
                           type="button"
                           onClick={() => {
-                            if (!isDraggingRef.current) {
-                              onTabChange(tab.id);
-                            }
+                            if (!isDraggingRef.current) selectTab(tabIndex);
                           }}
                           className={cn(
                             "relative z-20 flex-1 flex flex-col items-center justify-center h-full rounded-full touch-manipulation cursor-pointer select-none active:scale-95 outline-none focus:outline-none ring-0 border-0 p-0",
@@ -544,13 +555,7 @@ export function FloatingBottomNav({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           const term = (searchTerm || '').trim();
-                          if (term.length >= 2) {
-                            try {
-                              const saved = JSON.parse(localStorage.getItem('uzuhama_recent_searches') || '[]');
-                              const next = [term, ...saved.filter((s: string) => s.toLowerCase() !== term.toLowerCase())].slice(0, 10);
-                              localStorage.setItem('uzuhama_recent_searches', JSON.stringify(next));
-                            } catch {}
-                          }
+                          addRecentSearch(term);
                           inputRef.current?.blur();
                         }
                       }}
