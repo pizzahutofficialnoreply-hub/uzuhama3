@@ -13,6 +13,7 @@ const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
 ).replace(/\/+$/, '');
 const KEY = 'uzuhama_search_index_v1';
 const TTL = 6 * 3600 * 1000;
+const FULL_AT = 1500; // 이보다 적으면 아직 채우는 중이라 보고 자주 새로 받음
 const ID_RE = /^[A-Za-z0-9_-]{11}$/;
 
 let index: SearchIndex = {};
@@ -29,7 +30,7 @@ const persist = () => { try { localStorage.setItem(KEY, JSON.stringify({ entries
 let loading: Promise<void> | null = null;
 function load() {
   if (loading) return loading;
-  if (Date.now() - loadedAt < TTL && Object.keys(index).length) return (loading = Promise.resolve());
+  if (Date.now() - loadedAt < (Object.keys(index).length >= FULL_AT ? TTL : 5 * 60 * 1000)) return (loading = Promise.resolve());
   loading = fetch(`${API_BASE}/api/videos/search-index`)
     .then((r) => r.json())
     .then((json) => {
@@ -45,11 +46,15 @@ function load() {
 }
 
 let enrichRounds = 0;
+let enriching = false;
 const tried = new Set<string>();
 async function enrich(ids: string[]) {
-  // 한 번 방문에 최대 3번만 요청 (방문자가 많을수록 금방 다 채워짐)
-  while (enrichRounds < 3) {
-    const todo = ids.filter((id) => ID_RE.test(id) && !index[id] && !tried.has(id)).slice(0, 60);
+  // 화면을 열어 둔 동안 계속 조금씩 채움 (서버가 하루 한도·잠금으로 비용 제한)
+  if (enriching) return;
+  enriching = true;
+  try {
+  while (enrichRounds < 150) {
+    const todo = ids.filter((id) => ID_RE.test(id) && !index[id] && !tried.has(id)).slice(0, 40);
     if (!todo.length) return;
     enrichRounds += 1;
     todo.forEach((id) => tried.add(id));
@@ -66,13 +71,22 @@ async function enrich(ids: string[]) {
         persist();
         emit();
       }
-      // 다른 요청이 처리 중이거나 오늘 한도면 그만
-      if (json?.busy || json?.error || !Object.keys(added).length) return;
+      // 오류·오늘 한도면 그만, 다른 기기가 처리 중이면 잠시 뒤 다시
+      if (json?.error) return;
+      if (!Object.keys(added).length) {
+        if (!json?.busy) return;
+        todo.forEach((id) => tried.delete(id));
+        await new Promise((r) => setTimeout(r, 20000));
+        continue;
+      }
       // 서버가 한 번에 일부만 처리하므로, 처리 안 된 것은 다음 차례에 다시 넣을 수 있게
       todo.forEach((id) => { if (!added[id]) tried.delete(id); });
     } catch {
       return;
     }
+  }
+  } finally {
+    enriching = false;
   }
 }
 
@@ -87,7 +101,7 @@ export function useSearchIndex(knownIds?: string[]) {
   const idsKey = knownIds?.length || 0;
   useEffect(() => {
     if (!knownIds?.length) return;
-    const t = setTimeout(() => { load().then(() => enrich(knownIds)); }, 5000);
+    const t = setTimeout(() => { load().then(() => enrich(knownIds)); }, 1500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsKey]);

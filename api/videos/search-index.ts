@@ -18,9 +18,9 @@ import { setCorsHeaders } from '../_cors.js';
  */
 
 const ID_RE = /^[A-Za-z0-9_-]{11}$/;
-const PER_REQUEST = 24; // 요청 한 번에 새로 추출할 최대 영상 수
+const PER_REQUEST = 40; // 요청 한 번에 새로 추출할 최대 영상 수 (8장 × 5번 동시 호출)
 const VISION_BATCH = 8; // Gemini 한 번 호출에 넣는 썸네일 수
-const DAILY_LIMIT = 480; // 하루 새 추출 최대 영상 수 (Gemini 무료 호출 수 안쪽)
+const DAILY_LIMIT = 4000; // 하루 새 추출 최대 영상 수 (8장 묶음이라 Gemini 호출은 약 500회, 무료 한도 안쪽)
 const CHUNK_SIZE = 400;
 const MODELS = [process.env.GEMINI_MODEL, 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest']
   .filter(Boolean) as string[];
@@ -147,9 +147,20 @@ export default async function handler(req: any, res: any) {
   try {
     const { db } = await import('../_firebase.js');
 
+    if (req.method === 'GET' && req.query?.status) {
+      // 진행 상황 확인용 (색인 내용은 빼고)
+      const m = (await db.collection('youtube_cache').doc('search_index').get()).data() || {};
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).json({
+        count: m.count || 0, chunks: m.chunks || 0, updatedAt: m.updatedAt || null,
+        today: m.day || null, usedToday: m.day === todayKst() ? m.used || 0 : 0,
+        lastError: m.lastError || null, lastErrorAt: m.lastErrorAt || null,
+        keys: { youtube: Boolean(process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY), gemini: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY) },
+      });
+    }
     if (req.method === 'GET') {
       const entries = await readIndex(db);
-      res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=86400');
+      res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=3600');
       return res.status(200).json({ entries, count: Object.keys(entries).length });
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -207,10 +218,16 @@ export default async function handler(req: any, res: any) {
       for (let i = 0; i < withImg.length; i += VISION_BATCH) groups.push(withImg.slice(i, i + VISION_BATCH));
       const results = await Promise.allSettled(groups.map((g) => readThumbnails(ai, g)));
       const failedIds = new Set<string>();
+      let visionError = '';
       results.forEach((r, gi) => {
         if (r.status === 'fulfilled') r.value.forEach((v, k) => vision.set(k, v));
-        else { console.error('[search-index] vision failed:', r.reason); groups[gi].forEach((x) => failedIds.add(x.id)); }
+        else {
+          console.error('[search-index] vision failed:', r.reason);
+          visionError = String((r.reason as any)?.message || r.reason).slice(0, 300);
+          groups[gi].forEach((x) => failedIds.add(x.id));
+        }
       });
+      if (visionError) await metaRef.set({ lastError: visionError, lastErrorAt: new Date().toISOString() }, { merge: true }).catch(() => {});
 
       // 썸네일 읽기에 실패한 영상은 저장하지 않고 다음에 다시 시도
       const added: Record<string, Entry> = {};
@@ -244,7 +261,10 @@ export default async function handler(req: any, res: any) {
         const { FieldValue } = await import('firebase-admin/firestore');
         await metaRef.set({ used: FieldValue.increment(-failedIds.size) }, { merge: true }).catch(() => {});
       }
-      return res.status(200).json({ added, failed: failedIds.size });
+      return res.status(200).json({ added, failed: failedIds.size, error: failedIds.size && !Object.keys(added).length ? visionError : undefined });
+    } catch (e: any) {
+      await metaRef.set({ lastError: String(e?.message || e).slice(0, 300), lastErrorAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+      throw e;
     } finally {
       await metaRef.set({ lockUntil: 0 }, { merge: true }).catch(() => {});
     }
