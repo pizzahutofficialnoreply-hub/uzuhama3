@@ -50,6 +50,7 @@ import { Download, LogIn, ArrowLeft, Settings as SettingsIcon } from 'lucide-rea
 // 설정·처음 시작 화면은 열 때만 불러옴
 const SettingsView = lazy(() => import('./components/SettingsView').then((m) => ({ default: m.SettingsView })));
 import { Tutorial, TUTORIAL_START_EVENT } from './components/Tutorial';
+const NoticesView = lazy(() => import('./components/NoticesView').then((m) => ({ default: m.NoticesView })));
 const Onboarding = lazy(() => import('./components/Onboarding').then((m) => ({ default: m.Onboarding })));
 
 // 별도 페이지(관리자·패치노트·약관·라이선스)는 들어갈 때만 불러옴 → 메인 화면 첫 로딩 가볍게
@@ -167,6 +168,8 @@ function MainApp() {
   }, [activeTab]);
 
   const [showNotice, setShowNotice] = useState(false);
+  // 설정 > 공지사항: 지난 공지까지 카드 목록으로
+  const [showNoticesPage, setShowNoticesPage] = useState(false);
   const [dismissedSystemNotice, setDismissedSystemNotice] = useState(() => {
     const seen = localStorage.getItem('notice_seen_v2');
     if (!seen) return false;
@@ -1226,10 +1229,7 @@ function MainApp() {
                     onClose={() => closeSettings()}
                     onOpenFeedback={openFeedback}
                 onOpenTutorial={data.system?.tutorialEnabled !== false ? () => { closeSettings(); window.setTimeout(() => window.dispatchEvent(new Event(TUTORIAL_START_EVENT)), 450); } : undefined}
-                    onOpenNotice={() => {
-                      setShowNotice(true);
-                      setDismissedSystemNotice(false);
-                    }}
+                    onOpenNotice={() => setShowNoticesPage(true)}
                     onOpenTerms={() => setPolicyType('terms')}
                     onOpenPrivacy={() => setPolicyType('privacy')}
                     onOpenPatchNotes={() => {
@@ -1291,10 +1291,7 @@ function MainApp() {
                 onClose={() => closeSettings()}
                 onOpenFeedback={openFeedback}
                 onOpenTutorial={data.system?.tutorialEnabled !== false ? () => { closeSettings(); window.setTimeout(() => window.dispatchEvent(new Event(TUTORIAL_START_EVENT)), 450); } : undefined}
-                onOpenNotice={() => {
-                  setShowNotice(true);
-                  setDismissedSystemNotice(false);
-                }}
+                onOpenNotice={() => setShowNoticesPage(true)}
                 onOpenTerms={() => setPolicyType('terms')}
                 onOpenPrivacy={() => setPolicyType('privacy')}
                 onOpenPatchNotes={() => {
@@ -1310,6 +1307,13 @@ function MainApp() {
       </AnimatePresence>
       
       {/* Floating Bottom Nav Dock (Unified Island Tab Bar + Floating '+' Action Button) */}
+      <AnimatePresence>
+        {showNoticesPage && (
+          <Suspense fallback={null}>
+            <NoticesView key="notices" system={data.system} onClose={() => setShowNoticesPage(false)} />
+          </Suspense>
+        )}
+      </AnimatePresence>
       {/* 처음 시작 화면: 아직 안 본(또는 관리자가 버전을 올린) 경우에만 불러옴 */}
       {data.system?.onboardingEnabled !== false && onboardingSeenVersion() < (Number(data.system?.onboardingVersion) || 1) && (
         <Suspense fallback={null}>

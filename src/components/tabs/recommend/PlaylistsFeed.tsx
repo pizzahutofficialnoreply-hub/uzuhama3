@@ -164,6 +164,17 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
           )}
 
           <Pagination currentPage={page} totalPages={totalPages} onChange={setPage} className="flex justify-center items-center gap-1 sm:gap-2 mt-5" />
+          {/* 아래쪽 접기 (몰아보기 펼치기와 같은 모양) */}
+          <div className="mt-4 -mx-1.5 sm:-mx-3 -mb-3 px-4 sm:px-6 py-3.5 bg-zinc-50/50 dark:bg-black border-t border-zinc-200/60 dark:border-zinc-800 flex justify-center">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white shadow-2xs active:scale-95 font-hanna font-pro"
+            >
+              <X className="w-4 h-4" />
+              <span>재생목록 접기</span>
+            </button>
+          </div>
     </CollectionPanel>
   );
 }
