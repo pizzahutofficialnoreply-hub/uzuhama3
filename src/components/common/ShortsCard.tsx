@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Play, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { cn } from '../../utils';
 import { extractYoutubeId } from '../../utils/urlUtils';
+import { GlassPlayButton } from './MediaIcons';
 
 /**
  * 유튜브 쇼츠 카드 (세로 9:16, 유튜브 앱의 쇼츠 선반과 같은 모양)
@@ -59,9 +60,7 @@ export function ShortsCard({ url, title, caption, onCaptionClick, className }: S
             />
             <span className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/55 to-transparent pointer-events-none" />
             <span className="absolute inset-0 flex items-center justify-center">
-              <span className="w-10 h-10 rounded-full bg-black/45 backdrop-blur-sm text-white flex items-center justify-center opacity-90 group-hover/short:opacity-100 group-hover/short:scale-110 transition-all">
-                <Play className="w-4.5 h-4.5 fill-current ml-0.5" />
-              </span>
+              <GlassPlayButton size="sm" />
             </span>
           </button>
         ) : (

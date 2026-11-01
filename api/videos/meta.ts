@@ -36,7 +36,7 @@ export default async function handler(req: any, res: any) {
       const d = snap.exists ? snap.data() : null;
       if (d && typeof d.durationSec === 'number' && typeof d.publishedAt === 'string') {
         result[ids[i]] = { durationSec: d.durationSec, publishedAt: d.publishedAt };
-      } else if (d && d.notFound && Date.now() - Date.parse(d.fetchedAt || 0) < 7 * 86400000) result[ids[i]] = null;
+      } else if (d && d.notFound) result[ids[i]] = null; // 한 번 조회한 영상은 다시 부르지 않음
       else missing.push(ids[i]);
     });
 

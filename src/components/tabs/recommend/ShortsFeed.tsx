@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
-import { cn, fuzzyKoreanMatch } from '../../../utils';
+import React, { useEffect, useMemo, useState } from 'react';
+import { fuzzyKoreanMatch } from '../../../utils';
 import { extractYoutubeId } from '../../../utils/urlUtils';
 import { ShortsCard } from '../../common/ShortsCard';
+import { Pagination } from '../../common/Pagination';
 
 /** 추천 영상 > Shorts 탭: 기록에 등록된 모든 쇼츠를 최신 방송순으로 */
 interface ShortsFeedProps {
@@ -14,7 +15,7 @@ interface ShortsFeedProps {
 const PAGE = 24;
 
 export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToCalendar }: ShortsFeedProps) {
-  const [visible, setVisible] = useState(PAGE);
+  const [page, setPage] = useState(1);
 
   const allShorts = useMemo(() => {
     const list = Array.isArray(logs) ? logs : Object.values(logs || {});
@@ -52,6 +53,9 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
     });
   }, [allShorts, searchTerm, selectedCategories]);
 
+  useEffect(() => { setPage(1); }, [searchTerm]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE));
+
   if (filtered.length === 0) {
     return (
       <div className="py-12 text-center text-sm text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px]">
@@ -66,7 +70,7 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
         총 <strong className="text-purple-600 dark:text-purple-400 font-bold">{filtered.length}</strong>개 쇼츠
       </p>
       <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-3 gap-y-5">
-        {filtered.slice(0, visible).map((s) => (
+        {filtered.slice((page - 1) * PAGE, page * PAGE).map((s) => (
           <ShortsCard
             key={s.id}
             url={s.url}
@@ -76,20 +80,7 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
           />
         ))}
       </div>
-      {visible < filtered.length && (
-        <div className="flex justify-center mt-8">
-          <button
-            type="button"
-            onClick={() => setVisible((v) => v + PAGE)}
-            className={cn(
-              'px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-colors',
-              'bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700'
-            )}
-          >
-            쇼츠 더 보기 ({filtered.length - visible}개 남음)
-          </button>
-        </div>
-      )}
+      <Pagination currentPage={page} totalPages={totalPages} onChange={setPage} />
     </div>
   );
 }

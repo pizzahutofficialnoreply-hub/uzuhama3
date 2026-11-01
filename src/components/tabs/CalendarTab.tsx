@@ -27,8 +27,7 @@ import { triggerHaptic } from '../../utils/haptics';
 import { CalendarSubscribeModal } from '../CalendarSubscribeModal';
 import { SelectiveCalendarModal } from '../modals/SelectiveCalendarModal';
 import { GameTitle } from '../common/GameTitle';
-import { VideoCard } from './RecommendTab';
-import { ShortsShelf } from '../common/ShortsCard';
+import { GlassPlayButton } from '../common/MediaIcons';
 import { motion, AnimatePresence } from 'motion/react';
 
 const ShortsIcon = ({ className }: { className?: string }) => (
@@ -1328,25 +1327,6 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                           return cats.map(c => ({ name: c, link: '', category: '' }));
                         })();
 
-                        // 유튜브 영상은 추천 영상 탭과 같은 카드 컴포넌트로 표시 (치지직 다시보기 등은 아래 기존 카드)
-                        if (ytId) {
-                          return (
-                            <VideoCard
-                              video={{
-                                id: ytId,
-                                videoTitle: title,
-                                videoUrl: video.url,
-                                category: cats.join(', '),
-                                parentLog: selectedLog,
-                                allBroadcastDates: selectedLog?.date ? [selectedLog.date] : [],
-                                games: resolvedGames,
-                              }}
-                              allLogs={data.logs}
-                              isCompact={isVertical}
-                            />
-                          );
-                        }
-
                         return (
                           <div className={cn(
                             "flex flex-col overflow-hidden rounded-2xl border bg-white dark:bg-zinc-900 shadow-2xs hover:shadow-md transition-all duration-200 border-zinc-200 dark:border-zinc-800",
@@ -1391,13 +1371,8 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                   className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-500"
                                   loading="lazy"
                                 />
-                                <div className="absolute inset-0 bg-black/25 group-hover/thumb:bg-black/15 transition-colors flex items-center justify-center">
-                                  <div className={cn(
-                                    "rounded-full bg-red-600/90 group-hover/thumb:bg-red-600 text-white flex items-center justify-center shadow-lg group-hover/thumb:scale-110 transition-transform",
-                                    isVertical ? "w-9 h-9" : "w-11 h-11"
-                                  )}>
-                                    <Play className={cn("fill-current ml-0.5", isVertical ? "w-4 h-4" : "w-5 h-5")} />
-                                  </div>
+                                <div className="absolute inset-0 bg-black/10 group-hover/thumb:bg-black/0 transition-colors flex items-center justify-center">
+                                  <GlassPlayButton size={isVertical ? 'sm' : 'md'} />
                                 </div>
                               </div>
                             ) : null}
@@ -1559,7 +1534,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                             </div>
                           )}
 
-                          {/* 3. 쇼츠 영상 섹션 (세로 카드 가로 넘김) */}
+                          {/* 3. 쇼츠 영상 섹션 (세로 카드 2열) */}
                           {validShorts.length > 0 && (
                             <div className="space-y-3">
                               <h4 className="text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
@@ -1567,8 +1542,13 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                 <span>쇼츠 영상</span>
                                 <span className="text-[11px] font-normal text-zinc-400">({validShorts.length})</span>
                               </h4>
-                              {/* 좁은 패널에서도 글자가 세로로 쪼개지지 않도록 폭이 고정된 세로 카드를 가로로 넘겨 보기 */}
-                              <ShortsShelf items={validShorts.filter(v => Boolean(v.url)).map(v => ({ url: v.url, title: v.title }))} />
+                              <div className="grid grid-cols-2 gap-2.5">
+                                {validShorts.map((v, i) => (
+                                  <React.Fragment key={`shorts-${i}`}>
+                                    {renderVideoCard(v, 'shorts', true)}
+                                  </React.Fragment>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>

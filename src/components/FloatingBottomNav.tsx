@@ -6,7 +6,10 @@ import {
   Search,
   X
 } from 'lucide-react';
-import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react';
+import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'motion/react';
+
+// iOS 키보드·Liquid Glass 처럼 살짝 감기며 멈추는 스프링 (감쇠비 약 0.86)
+const KB_SPRING = { type: 'spring' as const, stiffness: 300, damping: 30, mass: 1, restDelta: 0.5 };
 import { Tab, SystemConfig, BroadcastLog } from '../types';
 import { cn } from '../utils';
 import { useTabGlass } from '../hooks/useTabGlass';
@@ -92,21 +95,22 @@ export function FloatingBottomNav({
   const defaultBlurHeight = 'calc(env(safe-area-inset-bottom, 0px) + 96px)';
   const defaultBlurMask = 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.92) 35%, rgba(0,0,0,0.45) 75%, transparent 100%)';
 
-  // ── 키보드 연동 (transform 전용: 레이아웃 재계산 없이 GPU 합성으로만 이동) ──
-  // 규칙
-  // - 키보드가 올라올 때: 키보드 높이가 잡히는 순간 키보드와 같은 곡선으로 함께 올라감 (먼저 튀어 오르지 않음)
-  // - 올라온 뒤: 높이를 고정. 스크롤·화면 이동에는 전혀 반응하지 않아 키보드와의 간격·블러가 그대로 유지됨
-  //   (키보드 종류가 바뀌어 높이가 달라질 때만 같은 곡선으로 따라감)
-  // - 내려갈 때: 같은 곡선으로 함께 내려감
-  // iOS: 레이아웃 뷰포트는 그대로이고 visualViewport 높이만 줄어듦 → 줄어든 만큼 도크를 위로 이동
+  // ── 키보드 연동 (iOS 식 스프링 움직임) ──
+  // - 키보드가 올라오는 순간: 키보드 높이만큼 스프링으로 함께 올라감 (살짝 감기는 자연스러운 감속, 먼저 튀어 오르지 않음)
+  //   왼쪽 버튼 접힘·검색창 늘어남도 같은 스프링으로 동시에
+  // - 올라온 뒤: 높이는 고정. 스크롤로 화면(visualViewport)이 밀려도 그만큼 매 프레임 되돌려 키보드 바로 위에 붙어 있음
+  // - 내려갈 때: 같은 스프링으로 함께 내려감
+  // iOS: 레이아웃 뷰포트는 그대로이고 visualViewport 만 줄어듦 → 줄어든 만큼 도크를 위로 이동
   // Android(interactive-widget=resizes-content): 레이아웃 자체가 줄어 이동량 0 (fixed 도크가 자동으로 키보드 위)
   const isIOSDevice = typeof navigator !== 'undefined' &&
     (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
   const KB_GAP = 10;
-  const KB_TRANSITION = 'transform 0.38s cubic-bezier(0.19, 0.91, 0.3, 1)';
   const appliedOffsetRef = useRef(0);
   const lockedKbRef = useRef(0);
   const keyboardUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const kbY = useMotionValue(0); // 키보드 높이만큼 올라간 양 (스프링)
+  const vvY = useMotionValue(0); // 스크롤로 밀린 화면 보정 (즉시)
+  const dockY = useTransform(() => kbY.get() + vvY.get());
 
   const getDockBaseBottom = useCallback(() => {
     const el = dockRef.current;
@@ -114,27 +118,29 @@ export function FloatingBottomNav({
     return parseFloat(getComputedStyle(el).bottom) || 0;
   }, []);
 
-  /** 도크와 하단 블러를 같은 양만큼 이동 (transform 전용) */
-  const setDockOffset = useCallback((kbHeight: number, transition: string) => {
+  /** 도크와 하단 블러를 같은 양만큼 이동 */
+  const setDockOffset = useCallback((kbHeight: number, animated: boolean) => {
     const kb = kbHeight > 40 ? kbHeight : 0;
     const target = kb > 0 ? Math.max(0, kb + KB_GAP - getDockBaseBottom()) : 0;
     if (Math.abs(target - appliedOffsetRef.current) < 1) return;
     appliedOffsetRef.current = target;
-    const tf = target > 0 ? `translate3d(0, ${-target}px, 0)` : 'translate3d(0, 0, 0)';
-    [dockRef.current, blurRef.current].forEach((el) => {
-      if (!el) return;
-      el.style.willChange = 'transform';
-      el.style.transition = transition;
-      el.style.transform = tf;
-    });
-  }, [getDockBaseBottom]);
+    if (animated) animate(kbY, -target, KB_SPRING);
+    else kbY.jump(-target);
+  }, [getDockBaseBottom, kbY]);
 
-  /** 키보드 높이: 화면 높이 - 보이는 영역 높이 (스크롤 위치 offsetTop 은 일부러 무시 → 스크롤해도 흔들리지 않음) */
+  /** 키보드 높이: 화면 높이 - 보이는 영역 높이 (스크롤 위치 offsetTop 은 별도로 보정) */
   const measureKeyboard = useCallback(() => {
     const vv = typeof window !== 'undefined' ? window.visualViewport : null;
     if (!vv) return 0;
     return Math.max(0, Math.round(window.innerHeight - vv.height));
   }, []);
+
+  /** 키보드가 떠 있는 동안 스크롤로 보이는 영역이 밀린 만큼(offsetTop) 도크를 되돌림 → 딸려 올라가지 않음 */
+  const syncViewportShift = useCallback(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    const shift = vv && lockedKbRef.current > 0 ? Math.max(0, vv.offsetTop) : 0;
+    if (Math.abs(shift - vvY.get()) >= 0.5) vvY.set(shift);
+  }, [vvY]);
 
   const syncKeyboard = useCallback(() => {
     if (document.activeElement !== inputRef.current) return;
@@ -142,25 +148,54 @@ export function FloatingBottomNav({
     if (kb <= 40) return; // 아직 안 올라왔거나(올라오는 신호 대기) Android
     if (Math.abs(kb - lockedKbRef.current) < 4) return;
     lockedKbRef.current = kb;
-    setDockOffset(kb, KB_TRANSITION);
+    setDockOffset(kb, true);
+    syncViewportShift();
     // 검색창이 옆으로 늘어나는 것(왼쪽 버튼 접힘)도 올라가는 순간 같은 곡선으로 동시에
     if (keyboardUpTimerRef.current) clearTimeout(keyboardUpTimerRef.current);
     setIsKeyboardUp(true);
-  }, [measureKeyboard, setDockOffset]);
+  }, [measureKeyboard, setDockOffset, syncViewportShift]);
 
   useEffect(() => {
     if (!isSearchActive || typeof window === 'undefined' || !window.visualViewport) return;
     const vv = window.visualViewport;
+    // 손가락으로 스크롤하는 동안엔 매 프레임 보정 (이벤트만 기다리면 한 박자 늦게 따라와 흔들림)
+    let raf = 0;
+    let until = 0;
+    const loop = () => {
+      syncViewportShift();
+      raf = performance.now() < until ? requestAnimationFrame(loop) : 0;
+    };
+    const kick = (ms: number) => {
+      until = Math.max(until, performance.now() + ms);
+      if (!raf) raf = requestAnimationFrame(loop);
+    };
+    const onTouchStart = () => kick(60000);
+    const onTouchEnd = () => { until = performance.now() + 1200; kick(1200); }; // 관성 스크롤까지
+    const onShift = () => { syncViewportShift(); kick(300); };
     vv.addEventListener('resize', syncKeyboard);
-    return () => vv.removeEventListener('resize', syncKeyboard);
-  }, [isSearchActive, syncKeyboard]);
+    vv.addEventListener('scroll', onShift);
+    window.addEventListener('scroll', onShift, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    return () => {
+      vv.removeEventListener('resize', syncKeyboard);
+      vv.removeEventListener('scroll', onShift);
+      window.removeEventListener('scroll', onShift);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [isSearchActive, syncKeyboard, syncViewportShift]);
 
   const resetKeyboardState = useCallback((animated = true) => {
     if (keyboardUpTimerRef.current) clearTimeout(keyboardUpTimerRef.current);
     lockedKbRef.current = 0;
     setIsKeyboardUp(false);
-    setDockOffset(0, animated ? KB_TRANSITION : 'none');
-  }, [setDockOffset]);
+    vvY.set(0);
+    setDockOffset(0, animated);
+  }, [setDockOffset, vvY]);
 
   // 검색 모드 해제 시 키보드 상태 및 위치 초기화
   useEffect(() => {
@@ -266,10 +301,11 @@ export function FloatingBottomNav({
     <>
       {/* 탭바 밑 화면 하단 고정 페이드 블러 레이어: 탭바 중후반부부터 바닥으로 자연스럽게 깔림 */}
       {!isSettingsOpen && (
-        <div 
+        <motion.div 
           ref={blurRef}
           aria-hidden="true"
           style={{
+            y: dockY,
             bottom: '0px',
             height: defaultBlurHeight,
             WebkitBackdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx)}px)`,
@@ -286,10 +322,11 @@ export function FloatingBottomNav({
 
       {/* Floating Bottom Nav Container: px-2로 안정적인 여백 유지 */}
       {!isSettingsOpen && (
-        <div 
+        <motion.div 
           ref={dockRef}
           id="floating-bottom-dock"
           style={{
+            y: dockY,
             bottom: defaultBottomStyle,
           }}
           className="sm:hidden fixed inset-x-0 z-50 flex items-center justify-center pointer-events-none px-2 select-none"
@@ -440,7 +477,7 @@ export function FloatingBottomNav({
                       marginRight: 0,
                       pointerEvents: 'auto'
                     }}
-                    transition={{ type: "tween", duration: 0.38, ease: [0.19, 0.91, 0.3, 1] }}
+                    transition={KB_SPRING}
                     style={glassStyle}
                     className={cn(
                       "relative flex items-center justify-center h-[48px] rounded-full active:scale-95 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 overflow-hidden border",
@@ -529,7 +566,7 @@ export function FloatingBottomNav({
               )}
             </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
       )}
     </>
   );

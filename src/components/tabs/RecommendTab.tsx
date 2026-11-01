@@ -13,6 +13,11 @@ import { getMolabogiCache, setMolabogiCache } from '../../utils/molabogiCache';
 import { GameTitle } from '../common/GameTitle';
 import { useVideoMeta, formatDuration, toKstDate, formatRelativeTime } from '../../hooks/useVideoDuration';
 import { ShortsFeed } from './recommend/ShortsFeed';
+import { Pagination } from '../common/Pagination';
+import { VideoListRow } from '../common/VideoListRow';
+import { ViewStyleToggle } from '../common/ViewStyleToggle';
+import { useViewStyle } from '../../hooks/useViewStyle';
+import { YoutubeLogo, ShortsIcon, PlaySquare, GlassPlayButton } from '../common/MediaIcons';
 import { PlaylistsFeed } from './recommend/PlaylistsFeed';
 
 type RecommendSubTab = 'home' | 'recommend' | 'videos' | 'shorts' | 'playlists';
@@ -24,24 +29,6 @@ const RECOMMEND_SUB_TABS: { id: RecommendSubTab; label: string }[] = [
   { id: 'playlists', label: '재생목록' },
 ];
 
-const YoutubeLogo = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-  </svg>
-);
-
-const ShortsIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path d="M17.77 10.32l-1.2-.5L18 9.06a3.74 3.74 0 00-3.5-6.62L6 6.94a3.74 3.74 0 00.23 6.74l1.2.49L6 14.93a3.75 3.75 0 003.5 6.63l8.5-4.5a3.74 3.74 0 00-.23-6.74zM10 14.65v-5.3L15 12l-5 2.65z" />
-  </svg>
-);
-
-const PlaySquare = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-    <polygon points="10 8 16 12 10 16 10 8"></polygon>
-  </svg>
-);
 
 export const VideoCard = ({ 
   video,
@@ -247,13 +234,8 @@ export const VideoCard = ({
               alt={video.videoTitle} 
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
             />
-            <div className="absolute inset-0 bg-black/25 group-hover/thumb:bg-black/10 transition-colors flex items-center justify-center">
-              <div className={cn(
-                "rounded-full bg-red-600/90 group-hover/thumb:bg-red-600 text-white flex items-center justify-center shadow-lg group-hover/thumb:scale-110 transition-transform",
-                isCompact ? "w-9 h-9 sm:w-12 sm:h-12" : "w-12 h-12"
-              )}>
-                <Play className={cn("fill-current ml-0.5", isCompact ? "w-4 h-4 sm:w-5 sm:h-5" : "w-5 h-5")} />
-              </div>
+            <div className="absolute inset-0 bg-black/10 group-hover/thumb:bg-black/0 transition-colors flex items-center justify-center">
+              <GlassPlayButton size={isCompact ? 'sm' : 'md'} />
             </div>
           </button>
         )}
@@ -763,6 +745,7 @@ export function RecommendTab({
     return (localStorage.getItem('uzuhama_recommend_view_mode') as '1' | '2') || '1';
   });
 
+  const [viewStyle, setViewStyle] = useViewStyle();
   const handleViewModeChange = (mode: '1' | '2') => {
     setMobileViewMode(mode);
     try {
@@ -1537,7 +1520,7 @@ export function RecommendTab({
   return (
     <div className="space-y-6 pb-28 sm:pb-12">
       {/* 하위 탭 (유튜브 채널 화면처럼 홈 / 추천 / 동영상 / Shorts / 재생목록) */}
-      <div role="tablist" aria-label="추천 영상 보기 방식" className="-mx-3 px-3 sm:mx-0 sm:px-0 flex items-center gap-2 overflow-x-auto no-scrollbar">
+      <div id="recommend-cards-top" role="tablist" aria-label="추천 영상 보기 방식" className="scroll-mt-24 -mx-3 px-3 sm:mx-0 sm:px-0 flex items-center gap-2 overflow-x-auto no-scrollbar">
         {RECOMMEND_SUB_TABS.map((t) => (
           <button
             key={t.id}
@@ -1560,7 +1543,7 @@ export function RecommendTab({
       {subTab === 'shorts' ? (
         <ShortsFeed logs={data?.logs} searchTerm={searchTerm} selectedCategories={['전체']} onNavigateToCalendar={onNavigateToCalendar} />
       ) : subTab === 'playlists' ? (
-        <PlaylistsFeed searchTerm={searchTerm} />
+        <PlaylistsFeed searchTerm={searchTerm} logs={data?.logs} onNavigateToCalendar={onNavigateToCalendar} />
       ) : (<>
       {/* 필터 카드 (최상단 배치: 실시간 연관 검색어 대신 필터가 맨 위에 위치) */}
       <div
@@ -1769,41 +1752,89 @@ export function RecommendTab({
 
       {/* 검색 결과 영상 카드 영역 (카드가 아래로/사각형으로 펼쳐지는 인라인 확장 UX) */}
       <div id="recommend-cards-container" className="min-h-[400px]">
-        {/* 모바일 전용 1개씩 보기 / 2개씩 보기 (두 줄) 전환 탭 */}
+        {/* 보기 방식: 카드 / 목록(유튜브 동영상 탭처럼) + 모바일 카드 1개·2개씩 */}
         {recommended.length > 0 && (
-          <div className="flex sm:hidden items-center justify-between gap-2 px-1 mb-3">
+          <div className="flex items-center justify-between gap-2 px-1 mb-3">
             <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
               총 <strong className="text-purple-600 dark:text-purple-400 font-bold">{recommended.length}</strong>개 영상
             </span>
-            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60">
-              <button
-                type="button"
-                onClick={() => handleViewModeChange('1')}
-                className={cn(
-                  "px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer",
-                  mobileViewMode === '1'
-                    ? "bg-white dark:bg-zinc-700 text-purple-600 dark:text-purple-300 shadow-2xs font-bold"
-                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
-                )}
-              >
-                1개씩 보기
-              </button>
-              <button
-                type="button"
-                onClick={() => handleViewModeChange('2')}
-                className={cn(
-                  "px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer",
-                  mobileViewMode === '2'
-                    ? "bg-white dark:bg-zinc-700 text-purple-600 dark:text-purple-300 shadow-2xs font-bold"
-                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
-                )}
-              >
-                2개씩 보기
-              </button>
+            <div className="flex items-center gap-1.5">
+              {viewStyle === 'card' && (
+                <div className="flex sm:hidden items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60">
+                  {(['1', '2'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => handleViewModeChange(m)}
+                      aria-pressed={mobileViewMode === m}
+                      className={cn(
+                        "px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer",
+                        mobileViewMode === m
+                          ? "bg-white dark:bg-zinc-700 text-purple-600 dark:text-purple-300 shadow-2xs font-bold"
+                          : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+                      )}
+                    >
+                      {m}열
+                    </button>
+                  ))}
+                </div>
+              )}
+              <ViewStyleToggle value={viewStyle} onChange={setViewStyle} />
             </div>
           </div>
         )}
 
+        {viewStyle === 'list' ? (
+          <div className="flex flex-col gap-1 -mx-2 sm:mx-0">
+            {paginatedVids.map((video, idx) => {
+              const ytId = extractYoutubeId(video.videoUrl) || video.id;
+              const isMulti = Boolean(video.isCompilation || (Array.isArray(video.allBroadcastDates) && video.allBroadcastDates.length > 1));
+              const isExpanded = Boolean(selectedBroadcastModalVideo && (selectedBroadcastModalVideo.id === video.id || (selectedBroadcastModalVideo.videoUrl && selectedBroadcastModalVideo.videoUrl === video.videoUrl)));
+              const toggle = () => setSelectedBroadcastModalVideo(isExpanded ? null : video);
+              return (
+                <div key={`${video.id}-${idx}`}>
+                  <VideoListRow
+                    videoId={ytId}
+                    title={video.videoTitle}
+                    href={video.videoUrl}
+                    isCompilation={video.isCompilation}
+                    badge={video.isCompilation
+                      ? `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임`
+                      : isMulti ? `${video.allBroadcastDates.length}개 생방` : undefined}
+                    liveUrl={!isMulti ? video.parentLog?.vods?.find((v: any) => v?.url)?.url : undefined}
+                    onLiveClick={isMulti ? toggle : undefined}
+                    liveActive={isExpanded}
+                    shorts={!isMulti ? (video.parentLog?.shorts || []) : []}
+                  />
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ type: 'spring', stiffness: 420, damping: 40 }}
+                        className="overflow-hidden mx-2 mb-2 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+                      >
+                        <BroadcastDetailModal
+                          video={video}
+                          allLogs={data?.logs}
+                          onClose={() => setSelectedBroadcastModalVideo(null)}
+                          onNavigateToCalendar={onNavigateToCalendar}
+                          hideMainVideoBanner={true}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+            {recommended.length === 0 && (
+              <div className="py-12 text-center text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px]">
+                조건에 맞는 추천 영상을 찾을 수 없습니다.
+              </div>
+            )}
+          </div>
+        ) : (
         <div className={cn(
           "grid",
           mobileViewMode === '2' 
@@ -1903,66 +1934,9 @@ export function RecommendTab({
                 </div>
               )}
             </div>
+        )}
 
-            {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-1 sm:gap-2 mt-8">
-                <button 
-                  onClick={() => setCurrentPage(p => Math.max(1, p - (isMobile ? 5 : 10)))}
-                  disabled={currentPage <= (isMobile ? 5 : 10)}
-                  className="p-1 sm:p-2 disabled:opacity-30 text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer disabled:cursor-not-allowed text-xs sm:text-sm font-semibold"
-                >
-                  &lt;&lt;
-                </button>
-                <button 
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="p-1 sm:p-2 disabled:opacity-30 text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer disabled:cursor-not-allowed text-xs sm:text-sm font-semibold"
-                >
-                  &lt;
-                </button>
-                
-                <div className="flex gap-1">
-                  {(() => {
-                    const blockSize = isMobile ? 5 : 10;
-                    const currentBlock = Math.floor((currentPage - 1) / blockSize);
-                    const startPage = currentBlock * blockSize + 1;
-                    const endPage = Math.min(startPage + blockSize - 1, totalPages);
-                    
-                    return Array.from({ length: endPage - startPage + 1 }).map((_, i) => {
-                      const page = startPage + i;
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
-                            currentPage === page 
-                              ? 'bg-purple-600 text-white border border-purple-600' 
-                              : 'border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      );
-                    });
-                  })()}
-                </div>
-
-                <button 
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="p-1 sm:p-2 disabled:opacity-30 text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer disabled:cursor-not-allowed text-xs sm:text-sm font-semibold"
-                >
-                  &gt;
-                </button>
-                <button 
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + (isMobile ? 5 : 10)))}
-                  disabled={currentPage > totalPages - (isMobile ? 5 : 10)}
-                  className="p-1 sm:p-2 disabled:opacity-30 text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer disabled:cursor-not-allowed text-xs sm:text-sm font-semibold"
-                >
-                  &gt;&gt;
-                </button>
-              </div>
-            )}
+            <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
       </div>
       
       </>)}
