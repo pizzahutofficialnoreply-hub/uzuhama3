@@ -282,9 +282,28 @@ export function CurrentProbability({
   // 자연스럽고 따뜻한 멘트 목록 (우주하마 개인 사정 자의적 추측 배제, 너무 딱딱하지 않은 어조)
   let messageContent: React.ReactNode = "";
   // AI 생성 문구가 있으면 우선 사용 (15분 단위로 바뀜), 없으면 아래 기본 문구
+  // AI 문구 안의 '영상'·'다시보기' 단어를 눌러 추천 영상으로 바로 이동 (느긋한 시간대 문구만)
+  const linkVideoWord = (text: string): React.ReactNode => {
+    const m = /(옛날 영상|지난 영상|영상|다시보기)/.exec(text);
+    if (!m) return text;
+    return (
+      <span>
+        {text.slice(0, m.index)}
+        <button
+          type="button"
+          onClick={() => (randomVideoId ? onNavigateToRecommend?.(undefined, undefined, randomVideoId) : onNavigateToRecommend?.())}
+          className="underline underline-offset-4 decoration-current font-extrabold hover:opacity-80 transition-opacity cursor-pointer inline"
+          title="눌러서 추천 영상 보기"
+        >
+          {m[0]}
+        </button>
+        {text.slice(m.index + m[0].length)}
+      </span>
+    );
+  };
   const pickAi = (list: string[] | undefined, withRecommend = false): React.ReactNode | null => {
     if (!list || list.length === 0) return null;
-    const options: React.ReactNode[] = withRecommend ? [...list, renderRecommendSpan()] : list;
+    const options: React.ReactNode[] = withRecommend ? [...list.map(linkVideoWord), renderRecommendSpan()] : list;
     return options[timeSlotSeed % options.length];
   };
 
