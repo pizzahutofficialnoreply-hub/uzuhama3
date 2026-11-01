@@ -188,7 +188,7 @@ export const VideoCard = ({
   return (
     <div 
       className={cn(
-        "group flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all",
+        "group relative isolate flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all",
         isExpanded 
           ? "rounded-t-[24px] rounded-b-none border-b-0 shadow-md z-10" 
           : "rounded-[24px] overflow-hidden hover:shadow-xl hover:-translate-y-1"
@@ -247,7 +247,7 @@ export const VideoCard = ({
           </button>
         )}
 
-        {/* 썸네일 배지: 우하단 재생 시간 / 좌하단 업로드일, 그 위에 생방일·몰아보기 (재생 중에는 숨김) */}
+        {/* 썸네일 배지: 우하단 재생 시간 / 좌하단 생방일·몰아보기 (재생 중에는 숨김) */}
         {!isPlayingInline && typeof durationSec === 'number' && durationSec > 0 && (
           <span className={cn(
             "absolute bottom-2 right-2 z-20 bg-black/80 text-white font-bold rounded backdrop-blur-sm shadow-sm select-none tabular-nums pointer-events-none",
@@ -307,14 +307,6 @@ export const VideoCard = ({
               </button>
             </div>
           ) : null}
-          {uploadDate && (
-            <span className={cn(
-              "bg-black/80 text-white font-normal rounded backdrop-blur-sm shadow-sm select-none pointer-events-none whitespace-nowrap",
-              isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"
-            )}>
-              업로드: {uploadDate}
-            </span>
-          )}
           </div>
         )}
       </div>
@@ -340,10 +332,12 @@ export const VideoCard = ({
           </button>
         </div>
 
-        {/* 업로드 경과 시간 (유튜브 표기 방식) */}
+        {/* 업로드일 · 경과 시간 (유튜브 표기 방식) */}
         {videoMeta?.publishedAt && (
-          <p className={cn("mt-1 text-zinc-500 dark:text-zinc-400", isCompact ? "text-[10px] sm:text-xs" : "text-xs")}>
-            {formatRelativeTime(videoMeta.publishedAt)}
+          <p className={cn("mt-1 text-zinc-500 dark:text-zinc-400 tabular-nums", isCompact ? "text-[10px] sm:text-xs" : "text-xs")}>
+            <span>{uploadDate}</span>
+            <span aria-hidden="true" className="mx-1">·</span>
+            <span>{formatRelativeTime(videoMeta.publishedAt)}</span>
           </p>
         )}
         
@@ -1190,9 +1184,8 @@ export function RecommendTab({
 
     if (!selectedCategories.includes('전체')) {
       vids = vids.filter(v => {
-        if (selectedCategories.includes('몰아보기') && v.isCompilation) {
-          return true;
-        }
+        // 몰아보기 영상은 '몰아보기' 카테고리에서만 보임 (게임 카테고리 검색에는 섞지 않음)
+        if (v.isCompilation) return selectedCategories.includes('몰아보기');
         const tokens = categoryIndex.videoTokens(v);
         if (tokens.some((t) => selectedCategories.includes(t))) return true;
         return false;
@@ -1517,7 +1510,7 @@ export function RecommendTab({
       {/* 필터 카드 (최상단 배치: 실시간 연관 검색어 대신 필터가 맨 위에 위치) */}
       <div
         id="recommend-filter-card"
-        className="flex flex-col gap-3.5 bg-white dark:bg-zinc-900 p-4 sm:p-5 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm"
+        className="relative z-30 flex flex-col gap-3.5 bg-white dark:bg-zinc-900 p-4 sm:p-5 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">

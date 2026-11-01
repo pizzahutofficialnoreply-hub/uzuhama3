@@ -57,8 +57,6 @@ import { CustomTooltip, DottedBarCursor } from '../CustomTooltip';
 import { parseTimeString, parseTimeTo24, cn, useBodyScrollLock } from '../../utils';
 import { Download, FileText, AlertCircle, X, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import jsPDF from 'jspdf';
-import * as htmlToImage from 'html-to-image';
 import { BroadcastHeatmap } from '../stats/BroadcastHeatmap';
 import { CategoryStatsTab } from '../stats/CategoryStatsTab';
 import { SmartTrendLabel } from '../stats/SmartTrendLabel';
@@ -187,7 +185,8 @@ export function DetailedStatsTab({
   }, [startDate, endDate, firstDateStr, maxDateStr]);
 
   // 관리자 설정: 과거(~2025) 카테고리 분석 표시 여부
-  const showLegacyCategory = data.system?.showLegacyCategoryAnalysis !== false;
+  // ~2025 과거 데이터도 카테고리 분석을 항상 제공 (예전 관리자 토글로 꺼 두었던 제한 해제)
+  const showLegacyCategory = true;
 
   const updateTooltipPosition = () => {
     if (!helpButtonRef.current) return;
@@ -337,6 +336,8 @@ export function DetailedStatsTab({
   const executeDownloadPDF = async () => {
     if (!printRef.current) return;
     try {
+      // 무거운 PDF·이미지 라이브러리는 내보낼 때만 불러옴 (첫 화면 로딩 가볍게)
+      const [{ default: jsPDF }, htmlToImage] = await Promise.all([import('jspdf'), import('html-to-image')]);
       const dataUrl = await htmlToImage.toPng(printRef.current, {
         quality: 1.0,
         pixelRatio: 2,
@@ -1016,7 +1017,7 @@ export function DetailedStatsTab({
                           <XAxis dataKey="week" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                           <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                           <Tooltip content={<TrendTooltip />} cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} />
-                          <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={3} dot={{ r: 4, fill: '#a855f7' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
+                          <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#a855f7' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
                             <LabelList 
                               dataKey="count" 
                               content={(props: any) => (
@@ -1133,7 +1134,7 @@ export function DetailedStatsTab({
                         <XAxis dataKey="week" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                         <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                         <Tooltip content={<TrendTooltip />} cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} />
-                        <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={3} dot={{ r: 4, fill: '#a855f7' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
+                        <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#a855f7' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
                           <LabelList 
                             dataKey="count" 
                             content={(props: any) => (
@@ -1377,7 +1378,7 @@ export function DetailedStatsTab({
                       <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
                       <XAxis dataKey="week" stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
-                      <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={3} dot={{ r: 4, fill: '#a855f7' }} isAnimationActive={false}>
+                      <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#a855f7' }} isAnimationActive={false}>
                         <LabelList dataKey="count" position="top" fill="#a855f7" fontSize={12} offset={10} formatter={(val: number) => `${val}회`} />
                       </Line>
                     </LineChart>
@@ -1700,7 +1701,7 @@ export function DetailedStatsTab({
                     <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
                     <XAxis dataKey="week" stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
-                    <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={3} dot={{ r: 4, fill: '#a855f7' }} isAnimationActive={false}>
+                    <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#a855f7' }} isAnimationActive={false}>
                       <LabelList 
                         dataKey="count" 
                         content={(props: any) => (

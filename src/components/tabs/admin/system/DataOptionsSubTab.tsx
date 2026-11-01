@@ -67,32 +67,6 @@ export const DataOptionsSubTab: React.FC<DataOptionsSubTabProps> = ({
           </div>
         </div>
 
-        {/* 과거(~2025) 데이터 카테고리 분석 표시 토글 */}
-        <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="space-y-0.5">
-            <div className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-              <span>과거(~2025) 데이터 카테고리 분석 메뉴 표시</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${systemEdit.showLegacyCategoryAnalysis !== false ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'}`}>
-                {systemEdit.showLegacyCategoryAnalysis !== false ? '활성화됨' : '비활성화'}
-              </span>
-            </div>
-            <p className="text-[11px] text-zinc-500">
-              상세 분석 탭에서 과거 데이터 조회 시 카테고리 분석 서브탭 표시 여부를 설정합니다.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => handleChange('showLegacyCategoryAnalysis', !(systemEdit.showLegacyCategoryAnalysis !== false))}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors shrink-0 cursor-pointer ${
-              systemEdit.showLegacyCategoryAnalysis !== false
-                ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
-            }`}
-          >
-            {systemEdit.showLegacyCategoryAnalysis !== false ? '카테고리 분석 켜짐' : '카테고리 분석 꺼짐'}
-          </button>
-        </div>
-
         <div>
           <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
             우주하마 생방송 아카이브 링크 (URL)

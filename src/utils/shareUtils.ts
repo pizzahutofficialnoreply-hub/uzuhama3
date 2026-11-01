@@ -1,4 +1,3 @@
-import * as htmlToImage from 'html-to-image';
 
 /**
  * Toast helper for showing brief notification
@@ -155,6 +154,7 @@ export async function shareElementAsImage(
     await new Promise((resolve) => setTimeout(resolve, 70));
 
     // 7. Convert offscreen element to high-res PNG blob in forced light mode (PDF-like clarity)
+    const htmlToImage = await import('html-to-image');
     const blob = await htmlToImage.toBlob(cloned, {
       pixelRatio: 3.0, // 3배 고해상도로 모바일/데스크톱 모두에서 텍스트와 숫자가 번짐 없이 또렷하게 렌더링
       quality: 1.0,

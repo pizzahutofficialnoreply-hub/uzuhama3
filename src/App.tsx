@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Suspense, lazy } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink, AlertTriangle, CheckCircle2, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -13,16 +13,12 @@ import { SummaryTab } from './components/tabs/SummaryTab';
 import { CalendarTab } from './components/tabs/CalendarTab';
 import { DetailedStatsTab } from './components/tabs/DetailedStatsTab';
 import { RecommendTab } from './components/tabs/RecommendTab';
-import { AdminRoute } from './components/AdminRoute';
 import { NoticeModal } from './components/NoticeModal';
 import { NoticeBanner } from './components/NoticeBanner';
 import { FeedbackModal } from './components/FeedbackModal';
 import { PolicyModal } from './components/PolicyModal';
-import { PolicyPage } from './components/PolicyPage';
 import { TermsRevisionModal } from './components/TermsRevisionModal';
 import { FloatingBottomNav } from './components/FloatingBottomNav';
-import { LicensePage } from './components/LicensePage';
-import { PatchNotesPage } from './components/PatchNotesPage';
 import { CurrentProbability } from './components/CurrentProbability';
 import { LoadingScreen } from './components/LoadingScreen';
 import { cn, useBodyScrollLock, resetBodyScrollLock } from './utils';
@@ -42,6 +38,12 @@ import { useInstallPrompt } from './hooks/useInstallPrompt';
 import { useRealtimeNotification } from './hooks/useRealtimeNotification';
 import { Download, LogIn, ArrowLeft, Settings as SettingsIcon } from 'lucide-react';
 import { SettingsView } from './components/SettingsView';
+
+// 별도 페이지(관리자·패치노트·약관·라이선스)는 들어갈 때만 불러옴 → 메인 화면 첫 로딩 가볍게
+const AdminRoute = lazy(() => import('./components/AdminRoute').then((m) => ({ default: m.AdminRoute })));
+const PatchNotesPage = lazy(() => import('./components/PatchNotesPage').then((m) => ({ default: m.PatchNotesPage })));
+const PolicyPage = lazy(() => import('./components/PolicyPage').then((m) => ({ default: m.PolicyPage })));
+const LicensePage = lazy(() => import('./components/LicensePage').then((m) => ({ default: m.LicensePage })));
 import { useAuth } from './hooks/useAuth';
 
 function MainApp() {
@@ -1289,7 +1291,7 @@ function MainApp() {
 
 export default function App() {
   return (
-    <>
+    <Suspense fallback={<LoadingScreen progress={60} statusText="페이지를 불러오는 중입니다..." />}>
       <Routes>
         <Route path="/" element={<MainApp />} />
         <Route path="/admin" element={<AdminRoute />} />
@@ -1299,6 +1301,6 @@ export default function App() {
         <Route path="/privacy" element={<PolicyPage type="privacy" />} />
         <Route path="/licenses" element={<LicensePage />} />
       </Routes>
-    </>
+    </Suspense>
   );
 }

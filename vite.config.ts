@@ -110,6 +110,23 @@ export default defineConfig(() => {
       tailwindcss(),
       calendarFeedPlugin()
     ],
+    build: {
+      chunkSizeWarningLimit: 900,
+      rollupOptions: {
+        output: {
+          // 자주 바뀌지 않는 라이브러리를 따로 묶어 배포 후에도 브라우저 캐시를 재사용
+          manualChunks(id: string) {
+            if (!id.includes('node_modules')) return undefined;
+            if (id.includes('firebase') || id.includes('@firebase')) return 'vendor-firebase';
+            if (id.includes('recharts') || id.includes('d3-') || id.includes('victory')) return 'vendor-charts';
+            if (id.includes('motion') || id.includes('framer')) return 'vendor-motion';
+            if (id.includes('react-markdown') || id.includes('remark') || id.includes('micromark') || id.includes('mdast') || id.includes('hast') || id.includes('unified')) return 'vendor-markdown';
+            if (id.includes('/react') || id.includes('scheduler')) return 'vendor-react';
+            return undefined;
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
