@@ -9,6 +9,9 @@ import {
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'motion/react';
 
 // iOS 키보드·Liquid Glass 처럼 살짝 감기며 멈추는 스프링 (감쇠비 약 0.86)
+// 도크 블러 윗부분 페이드 (위 → 아래로 점점 진하게)
+const DOCK_BLUR_MASK = 'linear-gradient(to bottom, transparent 0px, rgba(0,0,0,0.45) 33px, rgba(0,0,0,0.92) 85px, #000 120px)';
+
 const KB_SPRING = { type: 'spring' as const, stiffness: 300, damping: 30, mass: 1, restDelta: 0.5 };
 import { Tab, SystemConfig, BroadcastLog } from '../types';
 import { cn } from '../utils';
@@ -77,6 +80,13 @@ export function FloatingBottomNav({
   const blurRef = useRef<HTMLDivElement>(null);
 
   // 실시간 탭바 글래스모피즘 스타일 (설정 슬라이더 값에 따라 실시간 블러 및 투명도 반응)
+  // 검색창 쪽 버튼·입력칸: 뒤 화면이 어둡든 밝든 글씨가 읽히도록 탭바보다 진한 유리
+  const searchGlassStyle: React.CSSProperties = {
+    WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+    backdropFilter: 'blur(24px) saturate(180%)',
+    backgroundColor: isDark ? 'rgba(39, 39, 42, 0.78)' : 'rgba(255, 255, 255, 0.86)',
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(0, 0, 0, 0.06)',
+  };
   const glassStyle: React.CSSProperties = {
     WebkitBackdropFilter: `blur(${Math.max(20, tabGlass.config.blurPx)}px) saturate(180%)`,
     backdropFilter: `blur(${Math.max(20, tabGlass.config.blurPx)}px) saturate(180%)`,
@@ -112,8 +122,6 @@ export function FloatingBottomNav({
   const kbY = useMotionValue(0); // 키보드 높이만큼 올라간 양 (스프링)
   const vvY = useMotionValue(0); // 스크롤로 밀린 화면 보정 (즉시)
   const dockY = useTransform(() => kbY.get() + vvY.get());
-  // 블러: 화면이 밀린 만큼(vvY) 같이 내려 화면에 고정하고, 키보드 높이만큼(kbY) 위로 늘림
-  const blurHeight = useTransform(kbY, (y) => `calc(env(safe-area-inset-bottom, 0px) + ${96 + Math.max(0, -y)}px)`);
 
   const getDockBaseBottom = useCallback(() => {
     const el = dockRef.current;
@@ -302,29 +310,6 @@ export function FloatingBottomNav({
 
   return (
     <>
-      {/* 탭바 밑 화면 하단 고정 페이드 블러 레이어: 탭바 중후반부부터 바닥으로 자연스럽게 깔림 */}
-      {!isSettingsOpen && (
-        <motion.div 
-          ref={blurRef}
-          aria-hidden="true"
-          style={{
-            // 바닥에 붙인 채, 검색창이 올라간 만큼 높이만 늘려 원래 자리부터 검색창까지 이어지게
-            // (스크롤로 화면이 밀릴 때는 검색창과 똑같이 되돌려 화면에 고정)
-            y: vvY,
-            bottom: '0px',
-            height: blurHeight,
-            WebkitBackdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx)}px)`,
-            backdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx)}px)`,
-            WebkitMaskImage: defaultBlurMask,
-            maskImage: defaultBlurMask,
-            background: isDark
-              ? `linear-gradient(to top, ${tabGlass.config.bottomFadeDark}, transparent)`
-              : `linear-gradient(to top, ${tabGlass.config.bottomFadeLight}, transparent)`,
-          }}
-          className="sm:hidden fixed inset-x-0 pointer-events-none z-40 transition-opacity duration-200 opacity-100 rounded-t-2xl overflow-hidden backdrop-blur-xl"
-        />
-      )}
-
       {/* Floating Bottom Nav Container: px-2로 안정적인 여백 유지 */}
       {!isSettingsOpen && (
         <motion.div 
@@ -334,8 +319,24 @@ export function FloatingBottomNav({
             y: dockY,
             bottom: defaultBottomStyle,
           }}
-          className="sm:hidden fixed inset-x-0 z-50 flex items-center justify-center pointer-events-none px-2 select-none"
+          className="sm:hidden fixed inset-x-0 z-50 isolate flex items-center justify-center pointer-events-none px-2 select-none"
         >
+          {/* 하단 페이드 블러: 도크에 붙어 함께 움직임 → 검색창이 올라가면 원래 자리부터 검색창까지 자연스럽게 이어지고,
+              스크롤해도 검색창과 블러가 따로 놀지 않음 (도크 위 40px 에서 시작해 화면 아래 끝까지) */}
+          <div
+            ref={blurRef}
+            aria-hidden="true"
+            className="absolute inset-x-0 -z-10 pointer-events-none"
+            style={{
+              top: -40,
+              height: '130vh',
+              WebkitBackdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx)}px)`,
+              backdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx)}px)`,
+              WebkitMaskImage: DOCK_BLUR_MASK,
+              maskImage: DOCK_BLUR_MASK,
+              background: `linear-gradient(to bottom, transparent 0px, ${isDark ? tabGlass.config.bottomFadeDark : tabGlass.config.bottomFadeLight} 140px)`,
+            }}
+          />
           {/* 플로팅 바 래퍼: 키보드가 올라오면 자연스럽게 확장되며 시원하게 늘어나는 레이아웃 */}
           <div className={cn(
             "flex items-center justify-center pointer-events-auto w-full relative",
@@ -483,7 +484,7 @@ export function FloatingBottomNav({
                       pointerEvents: 'auto'
                     }}
                     transition={KB_SPRING}
-                    style={glassStyle}
+                    style={searchGlassStyle}
                     className={cn(
                       "relative flex items-center justify-center h-[48px] rounded-full active:scale-95 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 overflow-hidden border",
                       "shadow-[0_8px_24px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
@@ -496,7 +497,7 @@ export function FloatingBottomNav({
                   {/* 단일 지속형 중앙 검색창: 키보드가 올라올 때 시원하게 좌우로 길어지는 스프링 애니메이션 */}
                   <motion.div
                     transition={{ type: "spring", stiffness: 350, damping: 28 }}
-                    style={glassStyle}
+                    style={searchGlassStyle}
                     className={cn(
                       "relative flex items-center h-[48px] px-3.5 rounded-full flex-1 min-w-0 border",
                       "shadow-[0_10px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
@@ -558,7 +559,7 @@ export function FloatingBottomNav({
                     type="button"
                     onClick={handleReturnFromSearch}
                     aria-label="검색 닫기"
-                    style={glassStyle}
+                    style={searchGlassStyle}
                     className={cn(
                       "relative flex items-center justify-center w-[48px] h-[48px] rounded-full active:scale-95 duration-150 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 border",
                       "shadow-[0_8px_24px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
