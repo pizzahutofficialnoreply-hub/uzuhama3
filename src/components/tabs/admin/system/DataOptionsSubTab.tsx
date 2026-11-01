@@ -21,7 +21,7 @@ export const DataOptionsSubTab: React.FC<DataOptionsSubTabProps> = ({
   const [isMigrating, setIsMigrating] = useState(false);
 
   const handleStartMigration = async () => {
-    if (!window.confirm('기존 logs 컬렉션의 모든 데이터를 읽어 월별 묶음 문서(logs_by_month)로 이관하시겠습니까?\n\n이관 후에도 기존 logs 데이터는 보존되며 새 컬렉션에 동기화됩니다.')) {
+    if (!window.confirm('기존 logs 컬렉션의 모든 데이터를 읽어 월별 묶음 문서(logs_by_month)로 이관하시겠어요?\n\n이관 후에도 기존 logs 데이터는 보존되며 새 컬렉션에 동기화돼요.')) {
       return;
     }
     setIsMigrating(true);
@@ -53,7 +53,7 @@ export const DataOptionsSubTab: React.FC<DataOptionsSubTabProps> = ({
               placeholder="예: v1.0.0, v0.0.0+00"
               className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-zinc-900 dark:text-white"
             />
-            <p className="text-[11px] text-zinc-400 mt-1">버전 뒤에 빌드 번호(예: +00, +01, -beta)를 붙여 v0.0.0+00 형식으로 자유롭게 표기 가능합니다.</p>
+            <p className="text-[11px] text-zinc-400 mt-1">버전 뒤에 빌드 번호(예: +00, +01, -beta)를 붙여 v0.0.0+00 형식으로 자유롭게 표기 가능해요.</p>
           </div>
           <div>
             <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">약관 동의 버전 (termsVersion)</label>
@@ -63,8 +63,32 @@ export const DataOptionsSubTab: React.FC<DataOptionsSubTabProps> = ({
               onChange={e => handleChange('termsVersion', Number(e.target.value))}
               className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white"
             />
-            <p className="text-[11px] text-zinc-400 mt-1">숫자를 올리면 사용자들에게 재동의 팝업이 노출됩니다.</p>
+            <p className="text-[11px] text-zinc-400 mt-1">숫자를 올리면 사용자들에게 재동의 팝업이 노출돼요.</p>
           </div>
+        </div>
+
+        {/* 처음 방문자 사이트 둘러보기 (전체 차단 스위치) */}
+        <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+              <span>처음 방문자 사이트 둘러보기</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${systemEdit.tutorialEnabled !== false ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+                {systemEdit.tutorialEnabled !== false ? '켜짐' : '전체 차단'}
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-500">끄면 처음 들어온 사람에게도 둘러보기가 뜨지 않고, 설정의 '다시 보기' 버튼도 사라져요.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleChange('tutorialEnabled', !(systemEdit.tutorialEnabled !== false))}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors shrink-0 cursor-pointer ${
+              systemEdit.tutorialEnabled !== false
+                ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+            }`}
+          >
+            {systemEdit.tutorialEnabled !== false ? '둘러보기 켜짐' : '둘러보기 꺼짐'}
+          </button>
         </div>
 
         <div>
@@ -89,7 +113,7 @@ export const DataOptionsSubTab: React.FC<DataOptionsSubTabProps> = ({
               <MessageSquare className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               <span>의견 제보 대상 탭/위치 목록</span>
             </h3>
-            <p className="text-xs text-zinc-500">사용자가 피드백을 보낼 때 선택할 수 있는 위치 목록입니다.</p>
+            <p className="text-xs text-zinc-500">사용자가 피드백을 보낼 때 선택할 수 있는 위치 목록이에요.</p>
           </div>
           <button
             type="button"
@@ -175,7 +199,7 @@ export const DataOptionsSubTab: React.FC<DataOptionsSubTabProps> = ({
               <span>월별 데이터베이스 이관 (logs → logs_by_month)</span>
             </h3>
             <p className="text-xs text-zinc-500 mt-0.5">
-              기존 단일 일지 문서들을 월별 묶음 문서로 일괄 변환하여 트래픽 및 읽기 비용을 절감합니다.
+              기존 단일 일지 문서들을 월별 묶음 문서로 일괄 변환하여 트래픽 및 읽기 비용을 절감해요.
             </p>
           </div>
           <button

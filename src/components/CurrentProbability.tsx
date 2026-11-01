@@ -216,18 +216,18 @@ export function CurrentProbability({
         : system?.absenceReason || "";
 
   if (hasStreamedToday) {
-    patternMessage = "오늘 이미 방송을 진행했습니다.";
+    patternMessage = "오늘 이미 방송을 진행했어요.";
   } else if (isAbsencePeriod) {
     const lead = daysSinceLastStream >= 2 ? `${daysSinceLastStream}일째 ` : "";
     patternMessage = absenceDisplayReason
-      ? `${lead}${attachKoreanParticle(absenceDisplayReason, "으로/로")} 휴방 중입니다.${system?.absenceDuration ? ` (예상: ${system.absenceDuration})` : ""}`
-      : `${lead}예정된 휴방 기간입니다.`;
+      ? `${lead}${attachKoreanParticle(absenceDisplayReason, "으로/로")} 휴방 중이에요.${system?.absenceDuration ? ` (예상: ${system.absenceDuration})` : ""}`
+      : `${lead}예정된 휴방 기간이에요.`;
   } else if (daysSinceLastStream >= 3) {
-    patternMessage = `${daysSinceLastStream}일 연속 미방송 중입니다.`;
+    patternMessage = `${daysSinceLastStream}일 연속 미방송 중이에요.`;
   } else if (daysSinceLastStream === 2) {
     patternMessage = "2일째 미방송: 평소엔 이 간격 뒤에 방송이 잦았어요.";
   } else if (daysSinceLastStream === 1) {
-    patternMessage = "어제 방송을 진행했습니다.";
+    patternMessage = "어제 방송을 진행했어요.";
   }
 
   useEffect(() => {
@@ -241,7 +241,7 @@ export function CurrentProbability({
   const peakFormattedTime =
     prob.time.peakMinute !== null ? formatClockMinute(prob.time.peakMinute) : "";
   const likelyTimeInfo = !prob.time.hasData
-    ? "시간 기록이 부족하여 유력 시간을 분석 중입니다."
+    ? "시간 기록이 부족하여 유력 시간을 분석 중이에요."
     : prob.dayProb < 10
       ? ""
       : prob.time.peakIsToday
@@ -289,7 +289,7 @@ export function CurrentProbability({
   };
 
   if (prob.pattern.state === "noData") {
-    messageContent = "방송 기록이 없어 확률을 분석 중입니다.";
+    messageContent = "방송 기록이 없어 확률을 분석 중이에요.";
   } else if (hasStreamedToday) {
     messageContent = pickAi(aiMessages?.streamedToday, true) ?? renderRecommendSpan();
   } else if (isAbsencePeriod && aiMessages?.absence?.length) {
@@ -520,8 +520,10 @@ export function CurrentProbability({
         )}
       </div>
 
-      <div className="mt-4 w-full relative z-10 flex flex-col items-center">
+      <div data-tour="prob-details-area" className="mt-4 w-full relative z-10 flex flex-col items-center">
         <button
+          data-tour="prob-details"
+          aria-expanded={showDetails}
           onClick={handleViewDetails}
           className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors px-3 py-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
         >
@@ -603,7 +605,7 @@ export function CurrentProbability({
                         })}
                       </div>
                       <p className="px-1 pt-2.5 text-[11px] text-zinc-400 leading-relaxed break-keep">
-                        위에서부터 차례로 반영한 결과이며, 마지막 값이 지금 이후 오늘(오전 6시 기준) 방송이 켜질 확률입니다.
+                        위에서부터 차례로 반영한 결과이며, 마지막 값이 지금 이후 오늘(오전 6시 기준) 방송이 켜질 확률이에요.
                       </p>
                     </>
                   );

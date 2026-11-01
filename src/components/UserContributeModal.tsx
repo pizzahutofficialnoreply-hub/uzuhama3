@@ -194,7 +194,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
   // Manual save handler
   const handleManualSave = () => {
     if (!checkHasContent()) {
-      alert('저장할 내용이 없습니다. 최소 한 개 이상의 항목을 입력해주세요.');
+      alert('저장할 내용이 없어요. 최소 한 개 이상의 항목을 입력해주세요.');
       return;
     }
 
@@ -244,7 +244,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
 
   // Clear all drafts
   const handleClearAllDrafts = () => {
-    if (!window.confirm('임시 저장된 모든 목록을 삭제하시겠습니까?')) return;
+    if (!window.confirm('임시 저장된 모든 목록을 삭제하시겠어요?')) return;
     setSavedDrafts([]);
     localStorage.removeItem(`uzuhama_contribute_saved_drafts_${type}`);
   };
@@ -376,11 +376,11 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
 
         await Promise.all(promises);
         localStorage.removeItem(`uzuhama_contribute_auto_draft_${currentType}`);
-        alert(`총 ${validEntries.length}건의 생방송 추가 요청이 접수되었습니다! 관리자 승인 후 반영됩니다.`);
+        alert(`총 ${validEntries.length}건의 생방송 추가 요청이 접수되었어요! 관리자 승인 후 반영돼요.`);
         onClose();
       } catch (e) {
         console.error(e);
-        alert('접수 중 오류가 발생했습니다.');
+        alert('접수 중 오류가 발생했어요.');
       } finally {
         setIsSubmitting(false);
       }
@@ -418,11 +418,11 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
 
         await Promise.all(promises);
         localStorage.removeItem(`uzuhama_contribute_auto_draft_${currentType}`);
-        alert(`총 ${validItems.length}건의 ${currentType === 'shorts' ? '쇼츠' : '영상'} 추가 요청이 접수되었습니다! 관리자 승인 후 반영됩니다.`);
+        alert(`총 ${validItems.length}건의 ${currentType === 'shorts' ? '쇼츠' : '영상'} 추가 요청이 접수되었어요! 관리자 승인 후 반영돼요.`);
         onClose();
       } catch (e) {
         console.error(e);
-        alert('접수 중 오류가 발생했습니다.');
+        alert('접수 중 오류가 발생했어요.');
       } finally {
         setIsSubmitting(false);
       }
@@ -553,7 +553,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
           {/* Notices */}
           {autoRestoredNotice && (
             <div className="mb-2.5 px-3 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200/80 dark:border-purple-800/60 flex items-center justify-between text-xs text-purple-700 dark:text-purple-300">
-              <span className="font-medium">이전 작성 중이던 내용이 자동 복원되었습니다.</span>
+              <span className="font-medium">이전 작성 중이던 내용이 자동 복원되었어요.</span>
               <button
                 type="button"
                 onClick={handleClearAutoDraft}
@@ -567,7 +567,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
           {manualSavedNotice && (
             <div className="mb-2.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300">
               <Check className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="font-semibold">작성 내용이 임시 저장 목록에 저장되었습니다.</span>
+              <span className="font-semibold">작성 내용이 임시 저장 목록에 저장되었어요.</span>
             </div>
           )}
 
@@ -578,7 +578,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
                 type="button"
                 onClick={handleManualSave}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-semibold transition-colors cursor-pointer"
-                title="작성 중인 내용을 임시 저장 목록에 추가합니다"
+                title="작성 중인 내용을 임시 저장 목록에 추가해요"
               >
                 <Save className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                 <span>임시 저장</span>
@@ -589,7 +589,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
                   type="button"
                   onClick={() => setShowDraftListModal(true)}
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-semibold border border-purple-200/70 dark:border-purple-800/60 transition-colors cursor-pointer"
-                  title="임시 저장 목록을 열어 원하는 내용을 불러옵니다"
+                  title="임시 저장 목록을 열어 원하는 내용을 불러와요"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>임시 저장 목록 ({savedDrafts.length})</span>
@@ -848,7 +848,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
                                   ) : (
                                     <div className="text-zinc-400 flex items-center gap-1.5 py-1 text-[11px]">
                                       <ImageIcon className="w-3.5 h-3.5" />
-                                      <span>미리보기를 지원하지 않는 URL입니다.</span>
+                                      <span>미리보기를 지원하지 않는 URL이에요.</span>
                                     </div>
                                   )}
                                 </div>

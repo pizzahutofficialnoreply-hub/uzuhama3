@@ -100,7 +100,7 @@ export const SelectiveCalendarModal: React.FC<SelectiveCalendarModalProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  선택하신 방송 일정만 기기 캘린더에 1회성으로 추가합니다.
+                  선택하신 방송 일정만 기기 캘린더에 1회성으로 추가해요.
                 </p>
               </div>
             </div>
@@ -116,10 +116,10 @@ export const SelectiveCalendarModal: React.FC<SelectiveCalendarModalProps> = ({
               </div>
               <ul className="list-disc list-inside space-y-1 pl-1 text-[11.5px] text-zinc-600 dark:text-zinc-400">
                 <li>
-                  <strong className="text-purple-700 dark:text-purple-300 font-bold">선택 등록 (현재 기능):</strong> 지금 체크한 <strong>{selectedLogs.length}개 일정만</strong> 캘린더 앱에 1회성으로 등록합니다.
+                  <strong className="text-purple-700 dark:text-purple-300 font-bold">선택 등록 (현재 기능):</strong> 지금 체크한 <strong>{selectedLogs.length}개 일정만</strong> 캘린더 앱에 1회성으로 등록해요.
                 </li>
                 <li>
-                  <strong className="text-indigo-600 dark:text-indigo-400 font-bold">캘린더 구독 (자동 동기화):</strong> 데이터가 갱신되거나 새 방송이 추가될 때마다 사용자의 캘린더 앱에 자동으로 계속 동기화되는 방식입니다. (우측 '캘린더 구독' 버튼)
+                  <strong className="text-indigo-600 dark:text-indigo-400 font-bold">캘린더 구독 (자동 동기화):</strong> 데이터가 갱신되거나 새 방송이 추가될 때마다 사용자의 캘린더 앱에 자동으로 계속 동기화되는 방식이에요. (우측 '캘린더 구독' 버튼)
                 </li>
               </ul>
             </div>
@@ -172,7 +172,7 @@ export const SelectiveCalendarModal: React.FC<SelectiveCalendarModalProps> = ({
                   ))
                 ) : (
                   <div className="text-center py-4 text-xs text-zinc-400">
-                    선택된 방송 일정이 없습니다.
+                    선택된 방송 일정이 없어요.
                   </div>
                 )}
               </div>
@@ -201,7 +201,7 @@ export const SelectiveCalendarModal: React.FC<SelectiveCalendarModalProps> = ({
 
               {isExported && (
                 <p className="text-[11px] text-center text-emerald-600 dark:text-emerald-400 font-medium animate-in fade-in">
-                  ✓ 다운로드된 .ics 파일을 실행하시면 기기 캘린더(아이폰, 갤럭시, 맥, 윈도우 등)에 선택한 일정만 깔끔하게 등록됩니다.
+                  ✓ 다운로드된 .ics 파일을 실행하시면 기기 캘린더(아이폰, 갤럭시, 맥, 윈도우 등)에 선택한 일정만 깔끔하게 등록돼요.
                 </p>
               )}
             </div>

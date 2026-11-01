@@ -6,20 +6,20 @@ import { RichTextEditor } from '../../../common/RichTextEditor';
 
 export const DEFAULT_PREFACE_TEMPLATE = `### 📖 서비스 이용 일러두기
 
-본 사이트는 스트리머 **우주하마**의 생방송 데이터를 통계적으로 분석하여 방송 유력 시간대 및 패턴을 제공하는 비공식 팬 통계 팬사이트입니다.
+본 사이트는 스트리머 **우주하마**의 생방송 데이터를 통계적으로 분석하여 방송 유력 시간대 및 패턴을 제공하는 비공식 팬 통계 팬사이트예요.
 
 - **데이터 수집 기준**:
-  치지직(CHZZK) 및 유튜브(YouTube) 공식 공개 방송 일지와 아카이브를 바탕으로 2023년 이후 데이터를 실시간 집계합니다.
+  치지직(CHZZK) 및 유튜브(YouTube) 공식 공개 방송 일지와 아카이브를 바탕으로 2023년 이후 데이터를 실시간 집계해요.
 
 - **확률 산출 및 예측**:
-  요일별 패턴 가중치, 최근 30일/90일 방송 주기, 휴방 간격 및 최근 영상 업로드 여부 등을 복합 연산하여 산출되는 **통계적 추정치**입니다.
-  실제 스트리머의 개인 일정이나 당일 컨디션에 따라 실제 방송 시간은 변동될 수 있습니다.
+  요일별 패턴 가중치, 최근 30일/90일 방송 주기, 휴방 간격 및 최근 영상 업로드 여부 등을 복합 연산하여 산출되는 **통계적 추정치**예요.
+  실제 스트리머의 개인 일정이나 당일 컨디션에 따라 실제 방송 시간은 변동될 수 있어요.
 
 - **실시간 데이터 제보 및 심사**:
-  유저분들께서 제보해주신 방송 일지는 데이터 무결성을 위해 운영진 심사를 거쳐 승인 후 반영됩니다.
+  유저분들께서 제보해주신 방송 일지는 데이터 무결성을 위해 운영진 심사를 거쳐 승인 후 반영돼요.
 
 - **알림 및 개인정보**:
-  PWA 웹 푸시 알림 설정 및 테마 설정은 브라우저 로컬 저장소에 안전하게 유지되며, 불필요한 개인 식별 정보를 수집하지 않습니다.`;
+  PWA 웹 푸시 알림 설정 및 테마 설정은 브라우저 로컬 저장소에 안전하게 유지되며, 불필요한 개인 식별 정보를 수집하지 않아요.`;
 
 interface NoticesSubTabProps {
   systemEdit: Partial<SystemConfig>;
@@ -150,7 +150,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
   };
 
   const handleDeleteNotice = (id: string) => {
-    if (!confirm('삭제하시겠습니까?')) return;
+    if (!confirm('삭제하시겠어요?')) return;
     const currentList = systemEdit.noticeList || [];
     handleChange('noticeList', currentList.filter(n => n.id !== id));
     if (editingNoticeId === id) {
@@ -206,7 +206,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
         <h3 className="text-base font-bold text-zinc-900 dark:text-white mb-2">공통 공지사항 노출 방식</h3>
         <p className="text-xs text-zinc-500 mb-4">
-          사이트 전체에 표시될 메인 공지 배너 또는 모달 표시 방식을 선택합니다.
+          사이트 전체에 표시될 메인 공지 배너 또는 모달 표시 방식을 선택해요.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
@@ -263,7 +263,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
               type="text"
               value={systemEdit.noticeContent || ''}
               onChange={e => handleChange('noticeContent', e.target.value)}
-              placeholder="예: 최신 방송 데이터 업데이트가 완료되었습니다."
+              placeholder="예: 최신 방송 데이터 업데이트가 완료되었어요."
               className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white"
             />
           </div>
@@ -275,7 +275,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-zinc-900 dark:text-white">공지사항 목록 (다중 등록 및 관리)</h3>
-            <p className="text-xs text-zinc-500">등록된 공지 중 활성화된 항목이 사용자 화면에 표시됩니다.</p>
+            <p className="text-xs text-zinc-500">등록된 공지 중 활성화된 항목이 사용자 화면에 표시돼요.</p>
           </div>
           {editingNoticeId && (
             <span className="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-full font-bold">
@@ -394,7 +394,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
             </div>
 
             <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mb-2">
-              💡 외부 URL(https://...)뿐만 아니라 사이트 내 화면으로 펼쳐져 이동하는 <b>redirect://설정/일러두기</b>, <b>redirect://패치노트</b>, <b>redirect://기록</b>, <b>redirect://분석</b> 등을 입력할 수 있습니다.
+              💡 외부 URL(https://...)뿐만 아니라 사이트 내 화면으로 펼쳐져 이동하는 <b>redirect://설정/일러두기</b>, <b>redirect://패치노트</b>, <b>redirect://기록</b>, <b>redirect://분석</b> 등을 입력할 수 있어요.
             </p>
 
             {noticeLinks.map((link, idx) => (
@@ -448,7 +448,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
         {/* 공지 목록 */}
         <div className="space-y-2.5">
           {(!systemEdit.noticeList || systemEdit.noticeList.length === 0) && (
-            <p className="text-xs text-zinc-400 italic py-2">등록된 공지사항이 없습니다.</p>
+            <p className="text-xs text-zinc-400 italic py-2">등록된 공지사항이 없어요.</p>
           )}
           {(systemEdit.noticeList || []).map((notice, nIdx) => {
             const listLen = (systemEdit.noticeList || []).length;
@@ -580,13 +580,13 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
               <h3 className="text-base font-bold text-zinc-900 dark:text-white">일러두기 (서비스 가이드 & 이용 수칙) 편집</h3>
             </div>
             <p className="text-xs text-zinc-500 mt-0.5">
-              사용자 화면의 [설정] - [정보] 섹션에 노출되는 공식 '일러두기' 안내 문구를 서식 편집기로 작성합니다.
+              사용자 화면의 [설정] - [정보] 섹션에 노출되는 공식 '일러두기' 안내 문구를 서식 편집기로 작성해요.
             </p>
           </div>
           <button
             type="button"
             onClick={() => {
-              if (window.confirm('기본 일러두기 템플릿 문구를 불러오시겠습니까? 현재 작성 중인 내용이 대체됩니다.')) {
+              if (window.confirm('기본 일러두기 템플릿 문구를 불러오시겠어요? 현재 작성 중인 내용이 대체돼요.')) {
                 handleChange('preface', DEFAULT_PREFACE_TEMPLATE);
               }
             }}

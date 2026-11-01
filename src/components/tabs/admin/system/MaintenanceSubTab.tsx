@@ -53,9 +53,9 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
 
   // 점검 공지 상세 사전 설정 항목들
   const scope = systemEdit.maintenanceScope || '사이트 전체';
-  const impact = systemEdit.maintenanceImpact || '점검 시간 동안 **서비스에 접속 불가합니다.**';
-  const noticeGuide = systemEdit.maintenanceNoticeGuide || '점검 완료 및 변경사항 발생 시 본 공지에 업데이트하겠습니다.';
-  const durationNote = systemEdit.maintenanceDurationNote || '(상황에 따라 변동/연장될 수 있습니다)';
+  const impact = systemEdit.maintenanceImpact || '점검 시간 동안 **서비스에 접속 불가해요.**';
+  const noticeGuide = systemEdit.maintenanceNoticeGuide || '점검 완료 및 변경사항 발생 시 본 공지에 업데이트하겠어요.';
+  const durationNote = systemEdit.maintenanceDurationNote || '(상황에 따라 변동/연장될 수 있어요)';
   const statusText = systemEdit.maintenanceStatusText || (systemEdit.maintenance ? '점검 진행 중' : '점검 예정');
   const noteText = systemEdit.maintenanceNote || '없음';
 
@@ -175,7 +175,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
     handleChange('maintenanceContent', template);
     handleChange('maintenanceTitle', '서비스 안정화를 위한 정기 점검 안내');
 
-    alert(`다음 정기 점검 일정이 예약되었습니다:\n${next.nextStart.replace('T', ' ')} ~ ${next.nextEnd.replace('T', ' ')}`);
+    alert(`다음 정기 점검 일정이 예약되었어요:\n${next.nextStart.replace('T', ' ')} ~ ${next.nextEnd.replace('T', ' ')}`);
   };
 
   // 변경 사항 항목 추가/삭제
@@ -217,7 +217,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               <h3 className="text-base font-bold text-zinc-900 dark:text-white">점검 모드 마스터 설정</h3>
             </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-              점검이 활성화되면 일반 사용자의 사이트 접근이 차단되고 점검 안내 화면이 표시됩니다.
+              점검이 활성화되면 일반 사용자의 사이트 접근이 차단되고 점검 안내 화면이 표시돼요.
             </p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer select-none">
@@ -241,9 +241,9 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-3.5 flex items-center gap-3 text-amber-800 dark:text-amber-300 text-xs">
                 <Clock className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400" />
                 <div>
-                  <strong>점검 예약 대기 중:</strong> 시작 시간({startStr.replace('T', ' ')})이 되면 자동으로 일반 사용자 접근이 제한됩니다.
+                  <strong>점검 예약 대기 중:</strong> 시작 시간({startStr.replace('T', ' ')})이 되면 자동으로 일반 사용자 접근이 제한돼요.
                   <div className="mt-0.5 text-amber-700 dark:text-amber-400/90">
-                    당일 0시 (KST)부터 일반 사용자 화면 상단에 점검 사전 안내 배너가 자동 노출됩니다.
+                    당일 0시 (KST)부터 일반 사용자 화면 상단에 점검 사전 안내 배너가 자동 노출돼요.
                   </div>
                 </div>
               </div>
@@ -252,9 +252,9 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-400" />
                   <div>
-                    <strong>점검 종료 시간이 경과되었습니다.</strong> 점검을 정식 완료 처리하시겠습니까?
+                    <strong>점검 종료 시간이 경과되었어요.</strong> 점검을 정식 완료 처리하시겠어요?
                     <div className="text-blue-600 dark:text-blue-400 mt-0.5">
-                      완료 시 익일 0시(KST)까지 점검 완료 요약 공지가 사이트에 자동 표시됩니다.
+                      완료 시 익일 0시(KST)까지 점검 완료 요약 공지가 사이트에 자동 표시돼요.
                     </div>
                   </div>
                 </div>
@@ -270,7 +270,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl p-3.5 flex items-center justify-between gap-3 text-red-800 dark:text-red-300 text-xs">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
-                  <span><strong>실시간 점검 진행 중:</strong> 사이트 접근이 차단된 상태입니다.</span>
+                  <span><strong>실시간 점검 진행 중:</strong> 사이트 접근이 차단된 상태예요.</span>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
@@ -293,7 +293,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
           ) : (
             <div className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-500" />
-              <span>현재 서비스가 정상 운영 중입니다.</span>
+              <span>현재 서비스가 정상 운영 중이에요.</span>
             </div>
           )}
         </div>
@@ -309,7 +309,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
             <div>
               <h3 className="text-base font-bold text-zinc-900 dark:text-white">정기 점검 스케줄러 (알람 예약)</h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                매주 또는 격주 등 지정한 요일과 시간에 맞춰 정기점검을 반복 예약합니다.
+                매주 또는 격주 등 지정한 요일과 시간에 맞춰 정기점검을 반복 예약해요.
               </p>
             </div>
           </div>
@@ -375,7 +375,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
 
         <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
           <div className="text-xs text-zinc-500">
-            💡 위 스케줄러 버튼을 누르면 다음 해당 요일의 날짜를 자동 계산하여 아래 일시에 예약 세팅합니다.
+            💡 위 스케줄러 버튼을 누르면 다음 해당 요일의 날짜를 자동 계산하여 아래 일시에 예약 세팅해요.
           </div>
           <button
             type="button"
@@ -403,7 +403,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
                 </span>
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                점검 일정, 서비스 영향도, 점검 안내, 진행 상태, 특이 사항 등 상세 항목을 사전에 미리 구성해둘 수 있습니다.
+                점검 일정, 서비스 영향도, 점검 안내, 진행 상태, 특이 사항 등 상세 항목을 사전에 미리 구성해둘 수 있어요.
               </p>
             </div>
           </div>
@@ -431,7 +431,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white font-medium"
             />
             <p className="text-[11px] text-zinc-500 mt-1">
-              당일 0시 (KST)부터 일반 사용자 화면 상단에 점검 사전 안내가 자동 표시됩니다.
+              당일 0시 (KST)부터 일반 사용자 화면 상단에 점검 사전 안내가 자동 표시돼요.
             </p>
           </div>
 
@@ -446,7 +446,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white font-medium"
             />
             <p className="text-[11px] text-zinc-500 mt-1">
-              점검 완료 후 완료 익일 0시 (KST)까지 점검 완료 공지가 유지된 뒤 자동 삭제됩니다.
+              점검 완료 후 완료 익일 0시 (KST)까지 점검 완료 공지가 유지된 뒤 자동 삭제돼요.
             </p>
           </div>
         </div>
@@ -461,11 +461,11 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               type="text"
               value={durationNote}
               onChange={e => handleChange('maintenanceDurationNote', e.target.value)}
-              placeholder="예: (상황에 따라 변동/연장될 수 있습니다)"
+              placeholder="예: (상황에 따라 변동/연장될 수 있어요)"
               className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white font-medium"
             />
             <p className="text-[11px] text-zinc-500 mt-1">
-              계산된 시간({durationText || '예: 약 6시간'}) 뒤에 붙을 안내 문구입니다.
+              계산된 시간({durationText || '예: 약 6시간'}) 뒤에 붙을 안내 문구예요.
             </p>
           </div>
 
@@ -493,7 +493,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               type="text"
               value={impact}
               onChange={e => handleChange('maintenanceImpact', e.target.value)}
-              placeholder="예: 점검 시간 동안 **서비스에 접속 불가합니다.**"
+              placeholder="예: 점검 시간 동안 **서비스에 접속 불가해요.**"
               className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white font-medium"
             />
           </div>
@@ -506,7 +506,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               type="text"
               value={noticeGuide}
               onChange={e => handleChange('maintenanceNoticeGuide', e.target.value)}
-              placeholder="예: 점검 완료 및 변경사항 발생 시 본 공지에 업데이트하겠습니다."
+              placeholder="예: 점검 완료 및 변경사항 발생 시 본 공지에 업데이트하겠어요."
               className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white font-medium"
             />
           </div>
@@ -552,7 +552,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
                 변경 이력(History) 타임라인 사전 등록
               </label>
               <p className="text-[11px] text-zinc-500">
-                점검 시작/연장/종료 시점의 예상 또는 실제 이력을 등록합니다.
+                점검 시작/연장/종료 시점의 예상 또는 실제 이력을 등록해요.
               </p>
             </div>
           </div>
@@ -674,7 +674,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               rows={14}
               value={systemEdit.maintenanceContent || ''}
               onChange={e => handleChange('maintenanceContent', e.target.value)}
-              placeholder="상단의 '사전 설정 기반 본문 동기화'를 누르면 마크다운이 자동 생성됩니다."
+              placeholder="상단의 '사전 설정 기반 본문 동기화'를 누르면 마크다운이 자동 생성돼요."
               className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3.5 text-xs text-zinc-900 dark:text-white font-mono leading-relaxed"
             />
           </div>
@@ -728,7 +728,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
           <div>
             <h3 className="text-base font-bold text-zinc-900 dark:text-white">점검 완료 요약 공지 (사전 관리)</h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              점검 종료 시점부터 완료 익일 0시 (KST)까지 사이트 상단에 자동 노출되며, 익일 0시 경과 시 자동으로 종료/삭제됩니다.
+              점검 종료 시점부터 완료 익일 0시 (KST)까지 사이트 상단에 자동 노출되며, 익일 0시 경과 시 자동으로 종료/삭제돼요.
             </p>
           </div>
         </div>
@@ -790,7 +790,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-zinc-900 dark:text-white">점검 화면 외부 링크 버튼</h3>
-            <p className="text-xs text-zinc-500">치지직 채널, 디스코드, 공지 트위터 등 바로가기 링크를 추가할 수 있습니다.</p>
+            <p className="text-xs text-zinc-500">치지직 채널, 디스코드, 공지 트위터 등 바로가기 링크를 추가할 수 있어요.</p>
           </div>
           <button
             type="button"
@@ -806,7 +806,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
         </div>
 
         {(!systemEdit.maintenanceLinks || systemEdit.maintenanceLinks.length === 0) ? (
-          <p className="text-xs text-zinc-400 italic">추가된 링크가 없습니다.</p>
+          <p className="text-xs text-zinc-400 italic">추가된 링크가 없어요.</p>
         ) : (
           <div className="space-y-2">
             {systemEdit.maintenanceLinks.map((link, idx) => (

@@ -243,7 +243,7 @@ export function PatchNotesPage() {
 
               {/* 블로그 본문 (Markdown Content) */}
               <div className="prose prose-zinc dark:prose-invert max-w-none text-zinc-800 dark:text-zinc-200 leading-relaxed text-sm sm:text-base prose-headings:font-bold prose-headings:text-zinc-900 dark:prose-headings:text-white prose-h2:text-xl sm:prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-lg sm:prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-p:my-3 prose-ul:my-3 prose-li:my-1 prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800 prose-code:text-purple-600 dark:prose-code:text-purple-400 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-xs sm:prose-code:text-sm prose-pre:bg-zinc-900 dark:prose-pre:bg-zinc-950 prose-pre:border prose-pre:border-zinc-800 prose-pre:rounded-xl">
-                <Markdown>{activeNote.content || '등록된 상세 내용이 없습니다.'}</Markdown>
+                <Markdown>{activeNote.content || '등록된 상세 내용이 없어요.'}</Markdown>
               </div>
 
               <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
@@ -271,7 +271,7 @@ export function PatchNotesPage() {
                     시스템 릴리즈 노트
                   </h2>
                   <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400">
-                    우주하마 방송 통계 시스템의 신규 기능 및 업데이트 내역입니다. 카드를 클릭하면 블로그 형식의 상세 내용을 확인할 수 있습니다.
+                    우주하마 방송 통계 시스템의 신규 기능 및 업데이트 내역이에요. 카드를 클릭하면 블로그 형식의 상세 내용을 확인할 수 있어요.
                   </p>
                 </div>
 
@@ -318,11 +318,11 @@ export function PatchNotesPage() {
               {loading ? (
                 <div className="py-20 text-center text-zinc-400 space-y-2">
                   <div className="w-7 h-7 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                  <p className="text-xs font-medium">패치노트를 불러오는 중입니다...</p>
+                  <p className="text-xs font-medium">패치노트를 불러오는 중이에요...</p>
                 </div>
               ) : filteredNotes.length === 0 ? (
                 <div className="border border-dashed border-zinc-300 dark:border-zinc-800 rounded-2xl p-12 text-center text-zinc-500">
-                  <p className="text-sm font-medium">등록된 패치노트가 없습니다.</p>
+                  <p className="text-sm font-medium">등록된 패치노트가 없어요.</p>
                   {searchQuery && (
                     <button
                       type="button"

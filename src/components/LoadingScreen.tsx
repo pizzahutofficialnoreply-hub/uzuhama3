@@ -9,7 +9,7 @@ interface LoadingScreenProps {
 
 export function LoadingScreen({
   progress = 25,
-  statusText = '데이터를 불러오는 중입니다...',
+  statusText = '데이터를 불러오는 중이에요...',
   isFirstRun = false
 }: LoadingScreenProps) {
   const clampedProgress = Math.max(0, Math.min(100, Math.round(progress)));
@@ -69,8 +69,8 @@ export function LoadingScreen({
               <Sparkles className="w-3.5 h-3.5 text-purple-500" />
               <span>첫 실행 안내</span>
             </div>
-            <p>• 첫 실행 시 필요한 데이터를 다운로드하므로 잠시 시간이 소요될 수 있습니다.</p>
-            <p>• 네트워크 연결 상태에 따라 로딩 속도가 달라질 수 있습니다.</p>
+            <p>• 첫 실행 시 필요한 데이터를 다운로드하므로 잠시 시간이 소요될 수 있어요.</p>
+            <p>• 네트워크 연결 상태에 따라 로딩 속도가 달라질 수 있어요.</p>
           </motion.div>
         )}
       </div>

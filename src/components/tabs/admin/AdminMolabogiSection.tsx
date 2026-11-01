@@ -322,7 +322,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
     const trimmed = newGroupName.trim();
     if (!trimmed) return;
     if (customGroups.some(g => g.groupName === trimmed)) {
-      alert('이미 존재하는 그룹명입니다.');
+      alert('이미 존재하는 그룹명이에요.');
       return;
     }
     setCustomGroups(prev => [...prev, { groupName: trimmed, gameNames: [] }]);
@@ -402,7 +402,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
   // 기존 몰아보기 생방 데이터 다시 찾기 (JSON 데이터가 바뀐 경우 현재 logs 기준으로 자동 재매칭 및 동기화)
   const handleRefindBroadcasts = async (comp: ExistingCompilation) => {
     if (!onUpdateLog) {
-      alert('로그 수정 기능이 제공되지 않았습니다.');
+      alert('로그 수정 기능이 제공되지 않았어요.');
       return;
     }
 
@@ -442,7 +442,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
       });
 
       if (matchedLogs.length === 0) {
-        alert('현재 데이터(JSON)에서 연동 가능한 생방송을 찾지 못했습니다.');
+        alert('현재 데이터(JSON)에서 연동 가능한 생방송을 찾지 못했어요.');
         return;
       }
 
@@ -520,10 +520,10 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
         });
       }
 
-      alert(`최신 데이터 기준으로 연동 생방 ${matchedLogs.length}건을 다시 찾아 성공적으로 동기화했습니다!`);
+      alert(`최신 데이터 기준으로 연동 생방 ${matchedLogs.length}건을 다시 찾아 성공적으로 동기화했어요!`);
     } catch (e: any) {
       console.error('Refind error:', e);
-      alert('다시 찾기 중 오류가 발생했습니다: ' + (e?.message || '알 수 없는 오류'));
+      alert('다시 찾기 중 오류가 발생했어요: ' + (e?.message || '알 수 없는 오류'));
     } finally {
       setIsRefinding(null);
     }
@@ -555,7 +555,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
     });
 
     if (matchedLogs.length === 0) {
-      alert('현재 데이터에서 해당 영상과 연동된 생방을 찾지 못했습니다. 아래 목록에서 수동으로 선택해주세요.');
+      alert('현재 데이터에서 해당 영상과 연동된 생방을 찾지 못했어요. 아래 목록에서 수동으로 선택해주세요.');
       return;
     }
 
@@ -573,17 +573,17 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
 
     setSelectedBroadcasts(nextSelected);
     setSelectedBroadcastOrder(nextOrder);
-    alert(`현재 데이터(JSON)에서 연동 생방 ${matchedLogs.length}건을 성공적으로 다시 찾아 선택했습니다!`);
+    alert(`현재 데이터(JSON)에서 연동 생방 ${matchedLogs.length}건을 성공적으로 다시 찾아 선택했어요!`);
   };
 
   // 몰아보기 삭제 실행
   const handleDeleteCompilation = async (comp: ExistingCompilation) => {
-    if (!confirm(`몰아보기 영상 [${comp.title}]을(를) 삭제하시겠습니까?\n연동된 ${comp.associatedLogIds.length}개 생방 기록에서 모두 제거됩니다.`)) {
+    if (!confirm(`몰아보기 영상 [${comp.title}]을(를) 삭제하시겠어요?\n연동된 ${comp.associatedLogIds.length}개 생방 기록에서 모두 제거돼요.`)) {
       return;
     }
 
     if (!onUpdateLog) {
-      alert('로그 수정 기능이 제공되지 않았습니다.');
+      alert('로그 수정 기능이 제공되지 않았어요.');
       return;
     }
 
@@ -613,13 +613,13 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
         }
       }
 
-      alert('몰아보기 영상이 성공적으로 삭제되었습니다.');
+      alert('몰아보기 영상이 성공적으로 삭제되었어요.');
       if (editingCompId === comp.compilationId) {
         handleCancelEdit();
       }
     } catch (e: any) {
       console.error('Delete compilation error:', e);
-      alert('삭제 중 오류가 발생했습니다: ' + (e?.message || '알 수 없는 오류'));
+      alert('삭제 중 오류가 발생했어요: ' + (e?.message || '알 수 없는 오류'));
     } finally {
       setIsSubmitting(false);
     }
@@ -643,7 +643,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
     }
 
     if (!onUpdateLog) {
-      alert('로그 수정 기능이 초기화되지 않았습니다.');
+      alert('로그 수정 기능이 초기화되지 않았어요.');
       return;
     }
 
@@ -761,15 +761,15 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
 
       alert(
         editingCompId
-          ? `몰아보기 영상이 성공적으로 수정되었습니다!\n연동된 ${selectedKeys.length}개 생방 기록 및 추천 영상에 갱신되었습니다.`
-          : `몰아보기 영상이 성공적으로 등록되었습니다!\n선택하신 ${selectedKeys.length}개 생방 기록에 자동으로 연결되었습니다.`
+          ? `몰아보기 영상이 성공적으로 수정되었어요!\n연동된 ${selectedKeys.length}개 생방 기록 및 추천 영상에 갱신되었어요.`
+          : `몰아보기 영상이 성공적으로 등록되었어요!\n선택하신 ${selectedKeys.length}개 생방 기록에 자동으로 연결되었어요.`
       );
 
       handleCancelEdit();
       setActiveSubTab('list');
     } catch (e: any) {
       console.error('Error saving compilation video:', e);
-      alert('몰아보기 저장 중 오류가 발생했습니다: ' + (e?.message || '알 수 없는 오류'));
+      alert('몰아보기 저장 중 오류가 발생했어요: ' + (e?.message || '알 수 없는 오류'));
     } finally {
       setIsSubmitting(false);
     }
@@ -840,7 +840,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                 {editingCompId ? '몰아보기 영상 수정' : '몰아보기 영상 등록 및 게임 목록 그룹화/정렬'}
               </strong>
               몰아보기 영상의 제목과 링크를 입력하고, 포함된 생방과 게임을 선택하세요. 
-              <strong>게임 순서(최신순, 오래된순, 자유)</strong>를 직접 변경하고, <strong>게임 목록을 따로 그룹화</strong>하여 추천 탭과 캘린더에 일괄 적용할 수 있습니다.
+              <strong>게임 순서(최신순, 오래된순, 자유)</strong>를 직접 변경하고, <strong>게임 목록을 따로 그룹화</strong>하여 추천 탭과 캘린더에 일괄 적용할 수 있어요.
             </div>
           </div>
 
@@ -1029,7 +1029,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                     게임 순서 변경 & 따로 그룹화 설정
                   </h4>
                   <p className="text-xs text-zinc-500 mt-0.5">
-                    연동된 {customSortedGames.length}개 게임의 표시 순서(최신순, 오래된순, 자유)와 그룹화 방식을 설정합니다.
+                    연동된 {customSortedGames.length}개 게임의 표시 순서(최신순, 오래된순, 자유)와 그룹화 방식을 설정해요.
                   </p>
                 </div>
 
@@ -1105,7 +1105,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
 
                   {customGroups.length === 0 ? (
                     <p className="text-[11px] text-zinc-500">
-                      생성된 그룹이 없습니다. 위에서 그룹명을 입력하고 그룹 생성을 눌러주세요.
+                      생성된 그룹이 없어요. 위에서 그룹명을 입력하고 그룹 생성을 눌러주세요.
                     </p>
                   ) : (
                     <div className="space-y-2">
@@ -1260,7 +1260,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                 등록된 몰아보기 영상 목록 ({existingCompilations.length}개)
               </h4>
               <p className="text-xs text-zinc-500">
-                수정 버튼을 누르면 연동된 생방송, 게임 순서 및 그룹을 언제든지 다시 편집할 수 있습니다.
+                수정 버튼을 누르면 연동된 생방송, 게임 순서 및 그룹을 언제든지 다시 편집할 수 있어요.
               </p>
             </div>
 
@@ -1279,7 +1279,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
 
           {existingCompilations.length === 0 ? (
             <div className="p-8 text-center bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
-              아직 등록된 몰아보기 영상이 없습니다. [새 몰아보기 등록] 탭에서 추가해보세요!
+              아직 등록된 몰아보기 영상이 없어요. [새 몰아보기 등록] 탭에서 추가해보세요!
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3.5">

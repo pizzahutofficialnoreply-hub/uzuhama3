@@ -201,17 +201,17 @@ export async function shareElementAsImage(
     URL.revokeObjectURL(url);
 
     if (showToast) {
-      showToast('이미지가 저장되었습니다.');
+      showToast('이미지가 저장되었어요.');
     } else {
-      showSimpleToast('이미지가 저장되었습니다.');
+      showSimpleToast('이미지가 저장되었어요.');
     }
     return true;
   } catch (error) {
     console.error('Failed to share element as image:', error);
     if (showToast) {
-      showToast('이미지 캡처 중 오류가 발생했습니다.');
+      showToast('이미지 캡처 중 오류가 발생했어요.');
     } else {
-      showSimpleToast('이미지 캡처 중 오류가 발생했습니다.');
+      showSimpleToast('이미지 캡처 중 오류가 발생했어요.');
     }
     return false;
   } finally {
@@ -477,9 +477,9 @@ export async function shareTextOrClipboard(
     if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(text);
       if (showToast) {
-        showToast('클립보드에 복사되었습니다.');
+        showToast('클립보드에 복사되었어요.');
       } else {
-        showSimpleToast('클립보드에 복사되었습니다.');
+        showSimpleToast('클립보드에 복사되었어요.');
       }
       return true;
     }
@@ -497,9 +497,9 @@ export async function shareTextOrClipboard(
   try {
     document.execCommand('copy');
     if (showToast) {
-      showToast('클립보드에 복사되었습니다.');
+      showToast('클립보드에 복사되었어요.');
     } else {
-      showSimpleToast('클립보드에 복사되었습니다.');
+      showSimpleToast('클립보드에 복사되었어요.');
     }
     return true;
   } catch {

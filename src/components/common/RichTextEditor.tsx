@@ -412,7 +412,7 @@ export function RichTextEditor({
             {value.trim() ? (
               <RichTextRenderer content={value} />
             ) : (
-              <span className="text-zinc-400 italic">미리 볼 내용이 없습니다.</span>
+              <span className="text-zinc-400 italic">미리 볼 내용이 없어요.</span>
             )}
           </div>
         )}

@@ -118,7 +118,7 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
                   방송 캘린더 자동 구독 (동기화)
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  한 번 등록해두면 새 방송이 올라올 때마다 캘린더 앱에 자동으로 계속 동기화됩니다.
+                  한 번 등록해두면 새 방송이 올라올 때마다 캘린더 앱에 자동으로 계속 동기화돼요.
                 </p>
               </div>
             </div>
@@ -144,7 +144,7 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
                       Apple 캘린더 등록 (iPhone / iPad / Mac)
                     </span>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-                      클릭 시 기기 캘린더 앱이 열리며 즉시 구독됩니다
+                      클릭 시 기기 캘린더 앱이 열리며 즉시 구독돼요
                     </p>
                   </div>
                 </div>
@@ -167,7 +167,7 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
                       Google 캘린더에 추가 (Android / 웹)
                     </span>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-                      클릭 시 구글 캘린더 추가 페이지로 바로 이동합니다
+                      클릭 시 구글 캘린더 추가 페이지로 바로 이동해요
                     </p>
                   </div>
                 </div>
@@ -213,7 +213,7 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
                 </div>
                 {copied && (
                   <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                    ✓ 캘린더 구독 주소가 복사되었습니다. 캘린더 앱의 [URL로 추가] 메뉴에 붙여넣어 주세요.
+                    ✓ 캘린더 구독 주소가 복사되었어요. 캘린더 앱의 [URL로 추가] 메뉴에 붙여넣어 주세요.
                   </p>
                 )}
               </div>
@@ -236,9 +236,9 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
 
             {/* 심플한 안내 문구 */}
             <div className="p-3.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-800/40 text-zinc-600 dark:text-zinc-400 text-xs leading-relaxed space-y-1.5">
-              <p className="font-semibold text-purple-700 dark:text-purple-300">• 🔄 실시간 자동 갱신: 방송 기록 데이터가 업데이트되면 구독 중인 기기 캘린더에도 자동으로 일정이 최신화됩니다.</p>
+              <p className="font-semibold text-purple-700 dark:text-purple-300">• 🔄 실시간 자동 갱신: 방송 기록 데이터가 업데이트되면 구독 중인 기기 캘린더에도 자동으로 일정이 최신화돼요.</p>
               <p>• 📌 특정 방송만 1회성으로 추가하고 싶으시다면, 방송 기록 탭의 <strong>'캘린더 선택 등록'</strong> 기능을 이용해주세요.</p>
-              <p>• 구독을 중단하고 싶으실 때는 언제든 캘린더 앱 내 구독 목록에서 손쉽게 삭제하실 수 있습니다.</p>
+              <p>• 구독을 중단하고 싶으실 때는 언제든 캘린더 앱 내 구독 목록에서 손쉽게 삭제하실 수 있어요.</p>
             </div>
 
           </div>

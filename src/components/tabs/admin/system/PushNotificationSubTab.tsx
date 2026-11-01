@@ -5,13 +5,13 @@ import { auth } from '../../../../lib/firebase';
 export const PushNotificationSubTab: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [customTitle, setCustomTitle] = useState('[우주하마 방송 예측] 공지 알림');
-  const [customBody, setCustomBody] = useState('새로운 방송 일정 또는 공지사항이 등록되었습니다.');
+  const [customBody, setCustomBody] = useState('새로운 방송 일정 또는 공지사항이 등록되었어요.');
   const [customUrl, setCustomUrl] = useState('/');
   const [lastResult, setLastResult] = useState<any>(null);
 
   const handleSendNotification = async (isTest = false) => {
     const titleToSend = isTest ? '[우주하마 방송 예측] 테스트 전체 알림' : customTitle.trim();
-    const bodyToSend = isTest ? '푸시 알림 수신이 정상적으로 연결되어 있습니다.' : customBody.trim();
+    const bodyToSend = isTest ? '푸시 알림 수신이 정상적으로 연결되어 있어요.' : customBody.trim();
     const urlToSend = isTest ? '/' : (customUrl.trim() || '/');
 
     if (!titleToSend || !bodyToSend) {
@@ -19,7 +19,7 @@ export const PushNotificationSubTab: React.FC = () => {
       return;
     }
 
-    if (!window.confirm(isTest ? '모든 웹 푸시 구독 기기에 테스트 알림을 발송하시겠습니까?' : `모든 구독 기기에 다음 알림을 발송하시겠습니까?\n\n제목: ${titleToSend}\n내용: ${bodyToSend}`)) {
+    if (!window.confirm(isTest ? '모든 웹 푸시 구독 기기에 테스트 알림을 발송하시겠어요?' : `모든 구독 기기에 다음 알림을 발송하시겠어요?\n\n제목: ${titleToSend}\n내용: ${bodyToSend}`)) {
       return;
     }
 
@@ -29,7 +29,7 @@ export const PushNotificationSubTab: React.FC = () => {
     try {
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) {
-        alert('관리자 인증 세션이 만료되었습니다. 다시 로그인해주세요.');
+        alert('관리자 인증 세션이 만료되었어요. 다시 로그인해주세요.');
         return;
       }
 
@@ -72,7 +72,7 @@ export const PushNotificationSubTab: React.FC = () => {
       if (!res) {
         throw new Error(
           lastNetworkError?.message || 
-          '알림 서버에 연결할 수 없습니다. (CORS 차단 또는 네트워크 연결 상태를 확인해주세요.)'
+          '알림 서버에 연결할 수 없어요. (CORS 차단 또는 네트워크 연결 상태를 확인해주세요.)'
         );
       }
 
@@ -115,7 +115,7 @@ export const PushNotificationSubTab: React.FC = () => {
               <span>웹 푸시 인프라 연결 점검</span>
             </h3>
             <p className="text-xs text-zinc-500 mt-1">
-              FCM 푸시 알림을 구독한 모든 기기와 현재 브라우저에 실시간 테스트 알림을 발송하여 알림 인프라 연결 상태를 점검합니다.
+              FCM 푸시 알림을 구독한 모든 기기와 현재 브라우저에 실시간 테스트 알림을 발송하여 알림 인프라 연결 상태를 점검해요.
             </p>
           </div>
           <button

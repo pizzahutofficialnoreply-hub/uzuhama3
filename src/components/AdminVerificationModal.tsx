@@ -137,7 +137,7 @@ export function AdminVerificationModal({ onClose, onSuccess }: AdminVerification
       if (loggedUser && loggedUser.email === 'saramoriyo@gmail.com') {
         markAdminVerified();
       } else {
-        setAuthError('관리자 권한이 없는 계정입니다. (관리자 전용 계정으로 로그인 필요)');
+        setAuthError('관리자 권한이 없는 계정이에요. (관리자 전용 계정으로 로그인 필요)');
       }
     } catch (err: any) {
       console.error('Google Re-auth failed:', err);
@@ -147,11 +147,11 @@ export function AdminVerificationModal({ onClose, onSuccess }: AdminVerification
         return;
       }
       if (err.code === 'auth/popup-closed-by-user') {
-        setAuthError('인증 팝업이 닫혔습니다.');
+        setAuthError('인증 팝업이 닫혔어요.');
       } else if (err.code === 'auth/popup-blocked') {
-        setAuthError('브라우저에서 팝업이 차단되었습니다. 팝업 차단을 해제하거나 현재 로그인 상태를 확인해주세요.');
+        setAuthError('브라우저에서 팝업이 차단되었어요. 팝업 차단을 해제하거나 현재 로그인 상태를 확인해주세요.');
       } else {
-        setAuthError(err.message || '재인증에 실패했습니다. 다시 시도해주세요.');
+        setAuthError(err.message || '재인증에 실패했어요. 다시 시도해주세요.');
       }
     } finally {
       setIsVerifyingAuth(false);
@@ -264,7 +264,7 @@ export function AdminVerificationModal({ onClose, onSuccess }: AdminVerification
             Google 관리자 계정 재인증
           </div>
           <p className="text-[12px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-            관리자 보안 정책에 따라 관리자 페이지 진입 시마다 구글 계정 재인증이 필요합니다.
+            관리자 보안 정책에 따라 관리자 페이지 진입 시마다 구글 계정 재인증이 필요해요.
           </p>
         </div>
 

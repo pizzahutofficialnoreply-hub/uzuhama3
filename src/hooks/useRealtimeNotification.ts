@@ -125,8 +125,8 @@ export function useRealtimeNotification(logs: BroadcastLog[], system?: SystemCon
       if (diff >= minDiff && diff <= maxDiff) {
         const title = '우주하마 방송 예측';
         const body = leadTime > 0
-          ? `오늘 방송 최고 유력 시간(${formattedTime})이 약 ${leadTime}분 후 시작될 예정입니다.`
-          : `지금은 오늘 방송 최고 유력 시간(${formattedTime})입니다!`;
+          ? `오늘 방송 최고 유력 시간(${formattedTime})이 약 ${leadTime}분 후 시작될 예정이에요.`
+          : `지금은 오늘 방송 최고 유력 시간(${formattedTime})이에요!`;
 
         triggerNativeNotification(
           title,

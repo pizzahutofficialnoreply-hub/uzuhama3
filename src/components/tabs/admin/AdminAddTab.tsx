@@ -266,17 +266,17 @@ export function AdminAddTab({
       if (newLogs.length > 0) {
         setParsedLogs(newLogs);
       } else {
-        alert("인식된 데이터가 없습니다.");
+        alert("인식된 데이터가 없어요.");
       }
     } catch (e) {
-      alert("파싱에 실패했습니다. 형식에 맞게 텍스트를 입력해주세요.");
+      alert("파싱에 실패했어요. 형식에 맞게 텍스트를 입력해주세요.");
     }
   };
 
   const handleSaveParsedLogs = async () => {
     for (const log of parsedLogs) {
       if (!log.date || !log.time) {
-        alert('날짜와 시간은 필수입니다.');
+        alert('날짜와 시간은 필수예요.');
         return;
       }
     }
@@ -289,7 +289,7 @@ export function AdminAddTab({
       await onAddLog(newLog);
     }
 
-    alert('모든 데이터가 성공적으로 저장되었습니다.');
+    alert('모든 데이터가 성공적으로 저장되었어요.');
     setParsedLogs([createEmptyLog()]);
     setRawText('');
   };

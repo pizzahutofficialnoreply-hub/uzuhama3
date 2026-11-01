@@ -19,13 +19,19 @@ export const PlaySquare = ({ className }: { className?: string }) => (
   </svg>
 );
 
-/** 사이트 공통 재생 버튼: 블러가 들어간 반투명 회색 원 (쇼츠 카드와 같은 모양) */
+/**
+ * 사이트 공통 재생 버튼: 블러가 들어간 반투명 회색 원 (쇼츠 카드와 같은 모양)
+ * 삼각형은 무게중심이 원의 정중앙에 오도록 그려서 눈으로 봐도 가운데에 있어 보임
+ */
 export const GlassPlayButton = ({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) => {
-  const box = size === 'sm' ? 'w-9 h-9' : size === 'lg' ? 'w-14 h-14' : 'w-12 h-12';
-  const icon = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-6 h-6' : 'w-5 h-5';
+  const box = size === 'sm' ? 'w-11 h-11' : size === 'lg' ? 'w-16 h-16' : 'w-14 h-14';
+  const icon = size === 'sm' ? 'w-5 h-5' : size === 'lg' ? 'w-8 h-8' : 'w-7 h-7';
   return (
-    <span className={`${box} rounded-full bg-black/45 backdrop-blur-md ring-1 ring-white/20 text-white flex items-center justify-center shadow-lg transition-transform group-hover/thumb:scale-110 group-hover/short:scale-110`}>
-      <svg viewBox="0 0 24 24" fill="currentColor" className={`${icon} ml-0.5`} aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.29-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z" /></svg>
+    <span className={`${box} rounded-full bg-black/40 backdrop-blur-md ring-1 ring-white/25 text-white flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-transform duration-300 group-hover/thumb:scale-110 group-hover/short:scale-110 group-active/thumb:scale-95`}>
+      <svg viewBox="0 0 24 24" fill="currentColor" className={icon} aria-hidden="true">
+        {/* 꼭짓점 (8.5,5.5) (8.5,18.5) (19,12) → 무게중심 x≈12 */}
+        <path d="M9.6 5.9c-.7-.42-1.6.08-1.6.9v10.4c0 .82.9 1.32 1.6.9l8.66-5.2a1.05 1.05 0 0 0 0-1.8L9.6 5.9z" />
+      </svg>
     </span>
   );
 };

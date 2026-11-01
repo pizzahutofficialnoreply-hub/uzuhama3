@@ -154,31 +154,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
     };
   }, [onClose]);
 
-  // 몰아보기 펼치면 첫번째 영상으로 자동 부드러운 스크롤
-  useEffect(() => {
-    // 펼침 높이 애니메이션(0.35s)이 끝난 뒤, 이 패널 안의 첫 영상이 상단 헤더 바로 아래에 오도록 스크롤
-    // motion 의 높이 측정이 스크롤 위치를 원래대로 되돌리는 경우가 있어, 되돌려졌으면 한 번 더 시도
-    const startY = window.scrollY;
-    const scrollToFirst = () => {
-      const root = containerRef.current;
-      const firstItem = root?.querySelector<HTMLElement>('#first-broadcast-item') || root;
-      if (!firstItem) return;
-      const header = document.querySelector('header');
-      const headerOffset = (header?.getBoundingClientRect().bottom ?? 64) + 12;
-      const top = firstItem.getBoundingClientRect().top + window.scrollY - headerOffset;
-      if (Math.abs(top - window.scrollY) > 8) {
-        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-      }
-    };
-    const t1 = setTimeout(scrollToFirst, 450);
-    const t2 = setTimeout(() => {
-      if (Math.abs(window.scrollY - startY) < 4) scrollToFirst();
-    }, 1000);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, []);
+  // (펼칠 때 자동 스크롤은 하지 않음: 누른 자리에서 그대로 펼쳐짐)
 
   return (
     <motion.div 
@@ -600,7 +576,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
 
           {currentDates.length === 0 && (
             <div className="py-16 text-center text-zinc-400">
-              연동된 생방 정보를 찾을 수 없습니다.
+              연동된 생방 정보를 찾을 수 없어요.
             </div>
           )}
         </div>

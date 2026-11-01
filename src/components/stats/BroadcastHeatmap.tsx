@@ -291,7 +291,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                 방송 활동 히트맵
               </h4>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                날짜별 방송 진행 여부와 방송 시간을 20분 단위로 파악할 수 있는 히트맵입니다.
+                날짜별 방송 진행 여부와 방송 시간을 20분 단위로 파악할 수 있는 히트맵이에요.
               </p>
             </div>
             <div className="sm:hidden">
@@ -346,7 +346,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                   ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-xs"
                   : "bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700/60"
               )}
-              title={isZoomed ? "전체 크기로 축소" : "칸을 크게 확대하여 원하는 날짜를 정밀하게 선택합니다."}
+              title={isZoomed ? "전체 크기로 축소" : "칸을 크게 확대하여 원하는 날짜를 정밀하게 선택해요."}
             >
               {isZoomed ? <ZoomOut className="w-3.5 h-3.5" /> : <ZoomIn className="w-3.5 h-3.5" />}
               <span>{isZoomed ? "축소" : "확대"}</span>
@@ -400,7 +400,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                 </div>
               ) : (
                 <div className="text-zinc-400 dark:text-zinc-500 text-[11px] sm:text-xs">
-                  날짜 칸을 1번 누르면 정보가 표시되고, 한 번 더 누르면 달력 기록으로 이동합니다.
+                  날짜 칸을 1번 누르면 정보가 표시되고, 한 번 더 누르면 달력 기록으로 이동해요.
                 </div>
               )}
 
@@ -593,7 +593,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                 {getLegendLevelText(selectedLegendLevel)} 색상 칸 표시 중 (다시 클릭 시 해제)
               </span>
             ) : (
-              '색상 칸을 클릭하면 해당 히트맵 위치에 윤곽선이 강조 표시됩니다.'
+              '색상 칸을 클릭하면 해당 히트맵 위치에 윤곽선이 강조 표시돼요.'
             )}
           </span>
 

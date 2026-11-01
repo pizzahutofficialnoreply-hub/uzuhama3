@@ -71,6 +71,7 @@ export function AdminSystemTab({
     ...(data.system?.termsRevision ? { termsRevision: data.system.termsRevision } : {}),
     termsHistory: data.system?.termsHistory || [],
     showLegacyCategoryAnalysis: data.system?.showLegacyCategoryAnalysis !== false,
+    tutorialEnabled: data.system?.tutorialEnabled !== false,
     archiveSourceUrl: data.system?.archiveSourceUrl || '',
     absenceReasonOptions: data.system?.absenceReasonOptions || [
       "개인 사정",
@@ -145,10 +146,10 @@ export function AdminSystemTab({
       }
       await onUpdateSystemConfig(configToSave);
       setSystemEdit(configToSave);
-      alert('시스템 설정이 성공적으로 저장되었습니다.');
+      alert('시스템 설정이 성공적으로 저장되었어요.');
     } catch (err: any) {
       console.error('handleSave error:', err);
-      alert('시스템 설정 저장 중 오류가 발생했습니다:\n' + (err?.message || '알 수 없는 오류'));
+      alert('시스템 설정 저장 중 오류가 발생했어요:\n' + (err?.message || '알 수 없는 오류'));
     } finally {
       setSaving(false);
     }

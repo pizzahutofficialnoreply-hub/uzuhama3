@@ -86,7 +86,7 @@ export function AdminLogsTab({
           </div>
           <button 
             onClick={async () => {
-              if (confirm('정말로 기록을 전체 초기화하시겠습니까? (필터 무관 모든 데이터) 이 작업은 되돌릴 수 없습니다.')) {
+              if (confirm('정말로 기록을 전체 초기화하시겠어요? (필터 무관 모든 데이터) 이 작업은 되돌릴 수 없어요.')) {
                 await onDeleteAllLogs();
               }
             }}
@@ -179,7 +179,7 @@ export function AdminLogsTab({
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
-                      if(confirm('이 기록을 삭제하시겠습니까?')) onDeleteLog(log.id);
+                      if(confirm('이 기록을 삭제하시겠어요?')) onDeleteLog(log.id);
                     }}
                     className="p-1.5 sm:p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-xs sm:text-sm"
                   >
@@ -247,7 +247,7 @@ export function AdminLogsTab({
         
         {filteredLogs.length === 0 && (
           <div className="text-center py-12 text-zinc-500 dark:text-zinc-400 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl">
-            해당 기간에 저장된 기록이 없습니다.
+            해당 기간에 저장된 기록이 없어요.
           </div>
         )}
       </div>

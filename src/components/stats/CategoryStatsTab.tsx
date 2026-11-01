@@ -337,7 +337,7 @@ export function CategoryStatsTab({
     const topGame = topIndividualGames[0];
     return (
       <span>
-        가장 많이 플레이한 장르는 <strong className="text-purple-700 dark:text-purple-300 font-bold">{topCategory.name}</strong>(으)로 전체의 <strong className="font-bold">{topCategory.share.toFixed(1)}%</strong>({topCategory.count}회)를 차지하며, {topGame ? <>대표 게임은 <strong className="text-zinc-900 dark:text-white font-bold">{topGame.name}</strong>({topGame.count}회)입니다.</> : '다양한 게임들을 진행했습니다.'}
+        가장 많이 플레이한 장르는 <strong className="text-purple-700 dark:text-purple-300 font-bold">{topCategory.name}</strong>(으)로 전체의 <strong className="font-bold">{topCategory.share.toFixed(1)}%</strong>({topCategory.count}회)를 차지하며, {topGame ? <>대표 게임은 <strong className="text-zinc-900 dark:text-white font-bold">{topGame.name}</strong>({topGame.count}회)이에요.</> : '다양한 게임들을 진행했어요.'}
       </span>
     );
   }, [topCategory, totalPlays, topIndividualGames]);
@@ -378,7 +378,7 @@ export function CategoryStatsTab({
             "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between transition-all group",
             topCategory ? "cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md" : ""
           )}
-          title={topCategory ? `클릭 시 추천 영상 탭에서 "${topCategory.name}" 카테고리로 이동합니다.` : undefined}
+          title={topCategory ? `클릭 시 추천 영상 탭에서 "${topCategory.name}" 카테고리로 이동해요.` : undefined}
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
@@ -431,7 +431,7 @@ export function CategoryStatsTab({
             "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between transition-all group",
             topIndividualGames[0] ? "cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md" : ""
           )}
-          title={topIndividualGames[0] ? `클릭 시 추천 영상 탭에서 "${topIndividualGames[0].name}" 검색 결과로 이동합니다.` : undefined}
+          title={topIndividualGames[0] ? `클릭 시 추천 영상 탭에서 "${topIndividualGames[0].name}" 검색 결과로 이동해요.` : undefined}
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
@@ -462,7 +462,7 @@ export function CategoryStatsTab({
               카테고리별 비중 원그래프
             </h4>
             <p className="no-share text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              원하는 카테고리를 클릭하여 필터링하고, 한 번 더 클릭하면 추천 영상 목록으로 이동합니다. (빈 공간 클릭 시 해제)
+              원하는 카테고리를 클릭하여 필터링하고, 한 번 더 클릭하면 추천 영상 목록으로 이동해요. (빈 공간 클릭 시 해제)
             </p>
           </div>
           <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -558,7 +558,7 @@ export function CategoryStatsTab({
                     handleCategoryClick(selectedCategory, e);
                   }}
                   className="pointer-events-auto flex flex-col items-center justify-center p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/50 transition-colors group cursor-pointer max-w-[140px]"
-                  title="다시 클릭하면 해당 카테고리 추천 영상 목록으로 이동합니다"
+                  title="다시 클릭하면 해당 카테고리 추천 영상 목록으로 이동해요"
                 >
                   <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold block animate-pulse">
                     선택됨 (재클릭 시 이동)
@@ -650,7 +650,7 @@ export function CategoryStatsTab({
             <div className="flex items-center gap-2">
               <span className="font-bold">선택된 카테고리:</span>
               <span className="px-2 py-0.5 rounded-full bg-purple-200 dark:bg-purple-800 font-semibold">{selectedCategory}</span>
-              <span className="text-zinc-500 dark:text-zinc-400 hidden sm:inline">(원그래프 또는 아래 버튼을 클릭하면 추천 영상 탭으로 이동합니다)</span>
+              <span className="text-zinc-500 dark:text-zinc-400 hidden sm:inline">(원그래프 또는 아래 버튼을 클릭하면 추천 영상 탭으로 이동해요)</span>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -680,7 +680,7 @@ export function CategoryStatsTab({
               가장 많이 플레이한 게임 카테고리 순위표
             </h4>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              카테고리별 플레이 횟수, 총 방송 시간, 대표 게임 목록입니다. (게임 클릭 시 해당 방송일 달력으로 이동)
+              카테고리별 플레이 횟수, 총 방송 시간, 대표 게임 목록이에요. (게임 클릭 시 해당 방송일 달력으로 이동)
             </p>
           </div>
 
@@ -768,7 +768,7 @@ export function CategoryStatsTab({
               {filteredCategories.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-zinc-400 text-xs sm:text-sm">
-                    검색 조건에 일치하는 카테고리가 없습니다.
+                    검색 조건에 일치하는 카테고리가 없어요.
                   </td>
                 </tr>
               ) : (

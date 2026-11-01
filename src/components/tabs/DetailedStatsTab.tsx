@@ -551,18 +551,18 @@ export function DetailedStatsTab({
       const maxWeekly = Math.max(...stats.trendStatsArray.map(w => w.count));
       const minWeekly = Math.min(...stats.trendStatsArray.map(w => w.count));
       if (totalTrendCount === 0) {
-        weeklySummary = '조회 기간에 진행된 방송 기록이 없습니다.';
+        weeklySummary = '조회 기간에 진행된 방송 기록이 없어요.';
       } else if (stats.trendStatsArray.length === 1) {
         weeklySummary = (
-          <span>해당 주간에는 총 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{totalTrendCount}회</strong> 방송을 진행했습니다.</span>
+          <span>해당 주간에는 총 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{totalTrendCount}회</strong> 방송을 진행했어요.</span>
         );
       } else {
         weeklySummary = (
-          <span>조회 기간 동안 주 평균 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{avgWeekly}회</strong> 방송을 진행했으며, 한 주 최다 방송은 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{maxWeekly}회</strong>, 최소는 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{minWeekly}회</strong>입니다.</span>
+          <span>조회 기간 동안 주 평균 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{avgWeekly}회</strong> 방송을 진행했으며, 한 주 최다 방송은 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{maxWeekly}회</strong>, 최소는 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{minWeekly}회</strong>예요.</span>
         );
       }
     } else {
-      weeklySummary = '조회 기간에 방송 추이 데이터가 없습니다.';
+      weeklySummary = '조회 기간에 방송 추이 데이터가 없어요.';
     }
 
     // 2. 요일별 방송 확률 및 빈도 한줄 정리
@@ -572,10 +572,10 @@ export function DetailedStatsTab({
       const topDay = sortedDaily[0];
       const bottomDay = sortedDaily[sortedDaily.length - 1];
       dailySummary = (
-        <span>방송 확률이 가장 높은 요일은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topDay.day}요일</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDay.probability.toFixed(1)}%</strong>, <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDay.count}회</strong>)이며, 가장 낮은 요일은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{bottomDay.day}요일</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{bottomDay.probability.toFixed(1)}%</strong>, <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{bottomDay.count}회</strong>)입니다.</span>
+        <span>방송 확률이 가장 높은 요일은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topDay.day}요일</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDay.probability.toFixed(1)}%</strong>, <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDay.count}회</strong>)이며, 가장 낮은 요일은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{bottomDay.day}요일</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{bottomDay.probability.toFixed(1)}%</strong>, <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{bottomDay.count}회</strong>)이에요.</span>
       );
     } else {
-      dailySummary = '조회 기간에 요일별 방송 기록이 없습니다.';
+      dailySummary = '조회 기간에 요일별 방송 기록이 없어요.';
     }
 
     // 3. 요일별 자주 오는 시간 한줄 정리
@@ -588,15 +588,15 @@ export function DetailedStatsTab({
       const topTimeStr = sortedTimes[0];
       if (topTimeStr) {
         dayTimesSummary = (
-          <span>방송이 가장 잦은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topDay.day}요일</strong>(총 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDay.count}회</strong>)에는 주로 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topTimeStr}</strong>에 방송을 시작했습니다.</span>
+          <span>방송이 가장 잦은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topDay.day}요일</strong>(총 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDay.count}회</strong>)에는 주로 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topTimeStr}</strong>에 방송을 시작했어요.</span>
         );
       } else {
         dayTimesSummary = (
-          <span>방송이 가장 잦은 요일은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topDay.day}요일</strong>(총 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDay.count}회</strong>)입니다.</span>
+          <span>방송이 가장 잦은 요일은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topDay.day}요일</strong>(총 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDay.count}회</strong>)이에요.</span>
         );
       }
     } else {
-      dayTimesSummary = '조회 기간에 시간대별 방송 기록이 없습니다.';
+      dayTimesSummary = '조회 기간에 시간대별 방송 기록이 없어요.';
     }
 
     // 4. 시작 시간대별 분석 한줄 정리
@@ -607,15 +607,15 @@ export function DetailedStatsTab({
       const topExact = stats.exactTimeStatsArray[0];
       if (topExact) {
         hourSummary = (
-          <span>가장 선호하는 방송 시작 시간대는 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topHour.label}</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topHour.probability.toFixed(1)}%</strong>)이며, 단일 시간대로는 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topExact.label}</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topExact.probability.toFixed(1)}%</strong>)이 1위입니다.</span>
+          <span>가장 선호하는 방송 시작 시간대는 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topHour.label}</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topHour.probability.toFixed(1)}%</strong>)이며, 단일 시간대로는 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topExact.label}</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topExact.probability.toFixed(1)}%</strong>)이 1위예요.</span>
         );
       } else {
         hourSummary = (
-          <span>가장 선호하는 방송 시작 시간대는 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topHour.label}</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topHour.probability.toFixed(1)}%</strong>)입니다.</span>
+          <span>가장 선호하는 방송 시작 시간대는 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topHour.label}</strong> (<strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topHour.probability.toFixed(1)}%</strong>)이에요.</span>
         );
       }
     } else {
-      hourSummary = '조회 기간에 시작 시간대 데이터가 없습니다.';
+      hourSummary = '조회 기간에 시작 시간대 데이터가 없어요.';
     }
 
     // 5. 1회당 방송 진행 시간 한줄 정리
@@ -624,10 +624,10 @@ export function DetailedStatsTab({
       const sortedDurations = [...stats.durationStatsArray].sort((a, b) => b.count - a.count);
       const topDuration = sortedDurations[0];
       durationSummary = (
-        <span>1회 방송 진행 시간은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topDuration.label}</strong> 구간이 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDuration.probability.toFixed(1)}% ({topDuration.count}회)</strong>로 가장 높은 비중을 차지합니다.</span>
+        <span>1회 방송 진행 시간은 <strong className="text-purple-600 dark:text-purple-300 font-bold">{topDuration.label}</strong> 구간이 <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{topDuration.probability.toFixed(1)}% ({topDuration.count}회)</strong>로 가장 높은 비중을 차지해요.</span>
       );
     } else {
-      durationSummary = '진행 시간 데이터가 없습니다.';
+      durationSummary = '진행 시간 데이터가 없어요.';
     }
 
     return {
@@ -1353,7 +1353,7 @@ export function DetailedStatsTab({
       {/* 푸터 바로 윗부분: 레거시 데이터 안내문구 */}
       <div className="mt-8 p-4 rounded-[24px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2 leading-relaxed">
         <div>
-          <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 {firstYear}~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 파일 변환 시에 누락된 데이터나 잘못된 정보가 포함되어 있을 수 있습니다.
+          <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 {firstYear}~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 파일 변환 시에 누락된 데이터나 잘못된 정보가 포함되어 있을 수 있어요.
         </div>
       </div>
       
@@ -1977,7 +1977,7 @@ export function DetailedStatsTab({
         )}
 
           <div className="pt-8 text-center text-sm font-medium text-zinc-400 mt-12">
-            © {new Date().getFullYear()} 우주하마 방송 예측. All rights reserved. <br/> 본 자료는 비상업적 목적으로만 사용 가능합니다.
+            © {new Date().getFullYear()} 우주하마 방송 예측. All rights reserved. <br/> 본 자료는 비상업적 목적으로만 사용 가능해요.
           </div>
         </div>
       </div>
@@ -2032,7 +2032,7 @@ export function DetailedStatsTab({
                   </button>
                 </div>
                 <p className="text-zinc-600 dark:text-zinc-300 mb-3">
-                  {firstYear}~2025년 데이터는 방송 시작·종료 시간 및 쇼츠 정보는 미포함되어 있으나, <strong>방송 일자·요일{showLegacyCategory ? ' 및 게임 카테고리 분석은 ' : '은 '}정상적으로 제공</strong>됩니다.
+                  {firstYear}~2025년 데이터는 방송 시작·종료 시간 및 쇼츠 정보는 미포함되어 있으나, <strong>방송 일자·요일{showLegacyCategory ? ' 및 게임 카테고리 분석은 ' : '은 '}정상적으로 제공</strong>돼요.
                 </p>
                 <button
                   type="button"
@@ -2066,8 +2066,8 @@ export function DetailedStatsTab({
               </div>
               <h3 className="text-xl font-bold text-zinc-900 dark:text-white">이용 동의</h3>
               <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">
-                본 데이터 및 리포트의 <strong className="text-red-500 font-bold">상업적 이용을 엄격히 금지</strong>합니다.<br />
-                이에 동의하고 다운로드하시겠습니까?
+                본 데이터 및 리포트의 <strong className="text-red-500 font-bold">상업적 이용을 엄격히 금지</strong>해요.<br />
+                이에 동의하고 다운로드하시겠어요?
               </p>
             </div>
             <div className="flex border-t border-zinc-200 dark:border-zinc-800">

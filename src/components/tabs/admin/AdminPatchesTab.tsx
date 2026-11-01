@@ -30,11 +30,11 @@ const TEMPLATES: Record<PatchCategory, { title: string; highlights: string[]; co
     content: `## 🛠️ 패치 세부 내역
 
 ### 1. 주요 변경점
-- 방송 기록 집계 및 분석 알고리즘이 개선되었습니다.
-- UI 터치 반응 속도를 최적화하였습니다.
+- 방송 기록 집계 및 분석 알고리즘이 개선되었어요.
+- UI 터치 반응 속도를 최적화하였어요.
 
 ### 2. 버그 수정
-- 특정 모바일 기기에서의 레이아웃 밀림 현상을 수정하였습니다.`
+- 특정 모바일 기기에서의 레이아웃 밀림 현상을 수정하였어요.`
   },
   hotfix: {
     title: '긴급 오류 수정 및 데이터 보정 핫픽스',
@@ -42,29 +42,29 @@ const TEMPLATES: Record<PatchCategory, { title: string; highlights: string[]; co
     content: `## ⚡ 긴급 핫픽스 안내
 
 ### 1. 조치 사항
-- 방송 일정 집계 데이터에서 발생한 간헐적 지연 문제를 긴급 패치하였습니다.
-- 즉시 적용되었으며 별도의 재접속 없이 정상 반영됩니다.`
+- 방송 일정 집계 데이터에서 발생한 간헐적 지연 문제를 긴급 패치하였어요.
+- 즉시 적용되었으며 별도의 재접속 없이 정상 반영돼요.`
   },
   update: {
     title: '정기 대규모 기능 업데이트',
     highlights: ['신규 분석 위젯 추가', '데이터 내보내기 기능 신설'],
     content: `## 🌟 새로운 기능 업데이트
 
-우주하마 방송 통계 시스템에 새로운 기능이 추가되었습니다.
+우주하마 방송 통계 시스템에 새로운 기능이 추가되었어요.
 
 ### 📌 주요 신규 기능
-1. **신규 분석 뷰 도입**: 요일별/시간대별 통계를 더욱 입체적으로 분석할 수 있습니다.
-2. **공유 카드 고도화**: 그래프와 표를 한 장의 고화질 이미지로 저장할 수 있습니다.`
+1. **신규 분석 뷰 도입**: 요일별/시간대별 통계를 더욱 입체적으로 분석할 수 있어요.
+2. **공유 카드 고도화**: 그래프와 표를 한 장의 고화질 이미지로 저장할 수 있어요.`
   },
   dev: {
     title: '개발자 노트: 시스템 아키텍처 비하인드',
     highlights: ['기술 스택 개선기', '실시간 데이터베이스 설계'],
     content: `## 👨‍💻 개발자 노트: 비하인드 스토리
 
-이번 릴리즈를 준비하며 겪었던 기술적 고민과 개선 과정을 공유합니다.
+이번 릴리즈를 준비하며 겪었던 기술적 고민과 개선 과정을 공유해요.
 
-- **실시간 데이터 동기화**: Firestore 오프라인 캐시 및 실시간 스냅샷 리스너를 결합하여 데이터 사용량을 절감했습니다.
-- **클라이언트 최적화**: Recharts 렌더링 사이클을 최적화하여 저사양 기기에서도 부드러운 스크롤을 유지하도록 개선했습니다.`
+- **실시간 데이터 동기화**: Firestore 오프라인 캐시 및 실시간 스냅샷 리스너를 결합하여 데이터 사용량을 절감했어요.
+- **클라이언트 최적화**: Recharts 렌더링 사이클을 최적화하여 저사양 기기에서도 부드러운 스크롤을 유지하도록 개선했어요.`
   }
 };
 
@@ -157,7 +157,7 @@ export function AdminPatchesTab() {
           highlights,
           content: content.trim()
         });
-        alert(`v${cleanVersion} 패치노트가 성공적으로 수정되었습니다.`);
+        alert(`v${cleanVersion} 패치노트가 성공적으로 수정되었어요.`);
       } else {
         await addPatchNote({
           version: cleanVersion,
@@ -168,19 +168,19 @@ export function AdminPatchesTab() {
           highlights,
           content: content.trim()
         });
-        alert(`v${cleanVersion} 패치노트가 성공적으로 등록되었습니다. /patch-${cleanVersion} 경로로 확인 가능합니다.`);
+        alert(`v${cleanVersion} 패치노트가 성공적으로 등록되었어요. /patch-${cleanVersion} 경로로 확인 가능해요.`);
       }
       resetForm();
     } catch (err) {
       console.error(err);
-      alert('저장 중 오류가 발생했습니다.');
+      alert('저장 중 오류가 발생했어요.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string, ver: string) => {
-    if (window.confirm(`v${ver} 패치노트를 정말 삭제하시겠습니까?`)) {
+    if (window.confirm(`v${ver} 패치노트를 정말 삭제하시겠어요?`)) {
       await deletePatchNote(id);
       if (editingId === id) resetForm();
     }
@@ -213,7 +213,7 @@ export function AdminPatchesTab() {
             </h3>
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            등록 시 <code className="text-purple-600 dark:text-purple-400 font-bold font-mono">/patch-0.0.0</code> 형식으로 영구 링크가 자동 생성되며, 설정 메뉴의 패치노트 아카이브에 노출됩니다.
+            등록 시 <code className="text-purple-600 dark:text-purple-400 font-bold font-mono">/patch-0.0.0</code> 형식으로 영구 링크가 자동 생성되며, 설정 메뉴의 패치노트 아카이브에 노출돼요.
           </p>
         </div>
 
@@ -478,7 +478,7 @@ export function AdminPatchesTab() {
 
         {filteredNotes.length === 0 ? (
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-8 text-center text-zinc-400 text-xs">
-            등록된 패치노트가 없습니다.
+            등록된 패치노트가 없어요.
           </div>
         ) : (
           <div className="space-y-3">

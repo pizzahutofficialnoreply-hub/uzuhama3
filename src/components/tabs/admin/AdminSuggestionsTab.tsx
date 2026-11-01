@@ -95,14 +95,14 @@ export function AdminSuggestionsTab({
   }, []);
 
   const handleDeleteFeedback = async (id: string) => {
-    if (confirm('이 피드백을 삭제하시겠습니까?')) {
+    if (confirm('이 피드백을 삭제하시겠어요?')) {
       await deleteDoc(doc(db, 'feedbacks', id));
     }
   };
 
   const handleBulkDeleteFeedbacks = async () => {
     if (selectedFeedbacks.size === 0) return;
-    if (confirm(`선택한 ${selectedFeedbacks.size}개의 피드백을 삭제하시겠습니까?`)) {
+    if (confirm(`선택한 ${selectedFeedbacks.size}개의 피드백을 삭제하시겠어요?`)) {
       const batch = writeBatch(db);
       selectedFeedbacks.forEach(id => {
         batch.delete(doc(db, 'feedbacks', id));
@@ -163,7 +163,7 @@ export function AdminSuggestionsTab({
               <MessageSquare className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               피드백 및 버그 제보 ({feedbacks.length}건)
             </h3>
-            <p className="text-xs text-zinc-500 mt-1">사용자가 제출한 기능 제안 및 버그 리포트를 확인하고 처리합니다.</p>
+            <p className="text-xs text-zinc-500 mt-1">사용자가 제출한 기능 제안 및 버그 리포트를 확인하고 처리해요.</p>
           </div>
           {selectedFeedbacks.size > 0 && (
             <button onClick={handleBulkDeleteFeedbacks} className="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-colors cursor-pointer">
@@ -365,7 +365,7 @@ export function AdminSuggestionsTab({
           })}
           
           {feedbacks.length === 0 && (
-            <div className="text-center py-12 text-zinc-500">접수된 피드백이 없습니다.</div>
+            <div className="text-center py-12 text-zinc-500">접수된 피드백이 없어요.</div>
           )}
         </div>
       </div>

@@ -38,6 +38,7 @@ import { useInstallPrompt } from './hooks/useInstallPrompt';
 import { useRealtimeNotification } from './hooks/useRealtimeNotification';
 import { Download, LogIn, ArrowLeft, Settings as SettingsIcon } from 'lucide-react';
 import { SettingsView } from './components/SettingsView';
+import { Tutorial, TUTORIAL_START_EVENT } from './components/Tutorial';
 
 // 별도 페이지(관리자·패치노트·약관·라이선스)는 들어갈 때만 불러옴 → 메인 화면 첫 로딩 가볍게
 const AdminRoute = lazy(() => import('./components/AdminRoute').then((m) => ({ default: m.AdminRoute })));
@@ -469,6 +470,7 @@ function MainApp() {
     }
   }, [activeTab]);
 
+  const handleTabChangeRef = useRef<(t: Tab) => void>(() => {});
   const handleTabChange = (nextTab: Tab, forceTop = false, isAuto = false) => {
     closeSettings();
     if (nextTab === activeTab && !forceTop) return;
@@ -632,11 +634,13 @@ function MainApp() {
     }, 800);
   };
 
+  handleTabChangeRef.current = (t: Tab) => handleTabChange(t);
+
   if (loading || isLoggingOut) {
     return (
       <LoadingScreen 
         progress={isLoggingOut ? 95 : loadingProgress} 
-        statusText={isLoggingOut ? '로그아웃 세션을 안전하게 정리하는 중입니다...' : loadingStatusText} 
+        statusText={isLoggingOut ? '로그아웃 세션을 안전하게 정리하는 중이에요...' : loadingStatusText} 
         isFirstRun={isFirstRun} 
       />
     );
@@ -715,7 +719,7 @@ function MainApp() {
               {data.system?.maintenanceTitle?.trim() || "서비스 안정화를 위한 정기 점검 안내"}
             </h1>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-              점검 시간 동안 서비스에 접속 불가합니다. 이용에 불편을 드려 죄송합니다.
+              점검 시간 동안 서비스에 접속 불가해요. 이용에 불편을 드려 죄송해요.
             </p>
           </div>
 
@@ -754,7 +758,7 @@ function MainApp() {
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">패치노트 (작업 및 주요 변경 사항)</h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  이번 점검을 통해 반영되는 개선 사항 및 패치 항목입니다.
+                  이번 점검을 통해 반영되는 개선 사항 및 패치 항목이에요.
                 </p>
               </div>
             </div>
@@ -1038,6 +1042,7 @@ function MainApp() {
 
             {/* Desktop Tabs Navigation (상단 헤더와 유사한 블러 적용) */}
             <div 
+              id="desktop-tab-bar"
               style={{
                 WebkitBackdropFilter: 'blur(28px) saturate(180%)',
                 backdropFilter: 'blur(28px) saturate(180%)',
@@ -1148,11 +1153,7 @@ function MainApp() {
                 key="settings-desktop-panel"
                 initial={{ opacity: 0, x: 40, width: 0 }}
                 animate={{ opacity: 1, x: 0, width: '450px' }}
-                exit={
-                  isAppleDevice 
-                    ? { opacity: 0, width: 0, transition: { duration: 0.15 } }
-                    : { opacity: 0, x: 40, width: 0, transition: { duration: 0.24, ease: [0.32, 0, 0.67, 0] } }
-                }
+                exit={{ opacity: 0, x: 40, width: 0, transition: { type: 'spring', damping: 34, stiffness: 340 } }}
                 transition={{ type: 'spring', damping: 28, stiffness: 280 }}
                 className="hidden lg:block shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar overflow-x-hidden"
               >
@@ -1178,6 +1179,7 @@ function MainApp() {
                     onLogout={handleLogout}
                     onClose={() => closeSettings()}
                     onOpenFeedback={openFeedback}
+                onOpenTutorial={data.system?.tutorialEnabled !== false ? () => { closeSettings(); window.setTimeout(() => window.dispatchEvent(new Event(TUTORIAL_START_EVENT)), 450); } : undefined}
                     onOpenNotice={() => {
                       setShowNotice(true);
                       setDismissedSystemNotice(false);
@@ -1197,19 +1199,16 @@ function MainApp() {
         </div>
       </main>
 
-      {/* 모바일 설정창 (모든 기기 여는 애니메이션 적용, 애플 기기 제외 닫기 애니메이션 적용) */}
+      {/* 모바일 설정창 (열고 닫을 때 모두 iOS 화면 전환처럼 옆으로 밀림) */}
       <AnimatePresence>
         {isSettingsOpen && (
           <motion.div
             key="settings-mobile-drawer"
-            initial={{ opacity: 0, x: '100%' }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={
-              isAppleDevice 
-                ? { opacity: 0, transition: { duration: 0 } } 
-                : { opacity: 0, x: '100%', transition: { duration: 0.24, ease: [0.32, 0, 0.67, 0] } }
-            }
-            transition={{ type: 'spring', damping: 28, stiffness: 300, mass: 0.8 }}
+            initial={{ x: '100%', boxShadow: '-12px 0 40px rgba(0,0,0,0)' }}
+            animate={{ x: 0, boxShadow: '-12px 0 40px rgba(0,0,0,0.18)' }}
+            // iOS 뒤로가기처럼 오른쪽으로 밀려 나감 (모든 기기)
+            exit={{ x: '100%', boxShadow: '-12px 0 40px rgba(0,0,0,0)', transition: { type: 'spring', damping: 36, stiffness: 360, mass: 0.9 } }}
+            transition={{ type: 'spring', damping: 32, stiffness: 320, mass: 0.9 }}
             className="lg:hidden fixed inset-0 z-50 bg-zinc-50 dark:bg-zinc-950 overflow-y-auto"
           >
             {/* 모바일 설정 상단 헤더: 메인 헤더와 동일한 Safe Area 패딩 및 높이 적용 */}
@@ -1243,6 +1242,7 @@ function MainApp() {
                 onLogout={handleLogout}
                 onClose={() => closeSettings()}
                 onOpenFeedback={openFeedback}
+                onOpenTutorial={data.system?.tutorialEnabled !== false ? () => { closeSettings(); window.setTimeout(() => window.dispatchEvent(new Event(TUTORIAL_START_EVENT)), 450); } : undefined}
                 onOpenNotice={() => {
                   setShowNotice(true);
                   setDismissedSystemNotice(false);
@@ -1261,6 +1261,12 @@ function MainApp() {
       </AnimatePresence>
       
       {/* Floating Bottom Nav Dock (Unified Island Tab Bar + Floating '+' Action Button) */}
+      <Tutorial
+        enabled={data.system?.tutorialEnabled !== false}
+        activeTab={activeTab}
+        onTabChange={(t) => handleTabChangeRef.current(t)}
+      />
+
       <FloatingBottomNav 
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -1291,7 +1297,7 @@ function MainApp() {
 
 export default function App() {
   return (
-    <Suspense fallback={<LoadingScreen progress={60} statusText="페이지를 불러오는 중입니다..." />}>
+    <Suspense fallback={<LoadingScreen progress={60} statusText="페이지를 불러오는 중이에요..." />}>
       <Routes>
         <Route path="/" element={<MainApp />} />
         <Route path="/admin" element={<AdminRoute />} />

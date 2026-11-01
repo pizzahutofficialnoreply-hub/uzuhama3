@@ -28,6 +28,8 @@ const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
 const STORAGE_KEY = 'uzuhama_playlists_v2';
 const LOCAL_TTL_MS = 24 * 60 * 60 * 1000;
 const CARDS_PER_PAGE = 9;
+// iOS 처럼 살짝 감기며 멈추는 스프링
+const IOS_SPRING = { type: 'spring' as const, stiffness: 340, damping: 32, mass: 1 };
 const ITEMS_PER_PAGE = 30;
 
 function usePlaylists() {
@@ -137,12 +139,8 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
   const pageItems = playlist.items.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 12, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 12, scale: 0.98 }}
-      transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-      className="col-span-full overflow-hidden rounded-[24px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[0_18px_44px_-14px_rgba(0,0,0,0.30)]"
+    <section
+      className="overflow-hidden rounded-[24px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[0_18px_44px_-14px_rgba(0,0,0,0.30)]"
       aria-label={`${playlist.title} 재생목록`}
     >
       <div className="md:flex">
@@ -247,7 +245,7 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
           <Pagination currentPage={page} totalPages={totalPages} onChange={setPage} className="flex justify-center items-center gap-1 sm:gap-2 mt-5" />
         </div>
       </div>
-    </motion.section>
+    </section>
   );
 }
 
@@ -287,7 +285,6 @@ export function PlaylistsFeed({ searchTerm, logs, onNavigateToCalendar }: { sear
     );
   }
 
-  const open = results.find((r) => r.p.id === openId);
   const totalPages = Math.max(1, Math.ceil(results.length / CARDS_PER_PAGE));
   const pageResults = results.slice((page - 1) * CARDS_PER_PAGE, page * CARDS_PER_PAGE);
 
@@ -296,38 +293,57 @@ export function PlaylistsFeed({ searchTerm, logs, onNavigateToCalendar }: { sear
       <p className="px-1 mb-3 text-xs text-zinc-500 dark:text-zinc-400 font-medium">
         총 <strong className="text-purple-600 dark:text-purple-400 font-bold">{results.length}</strong>개 재생목록
       </p>
+      {/* 몰아보기처럼 누른 카드 자리에서 그대로 펼쳐짐 (닫기 전까지 원래 카드는 숨김, 자동 스크롤 없음) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <AnimatePresence mode="popLayout" initial={false}>
-          {open && (
-            <PlaylistDetail
-              key={`detail-${open.p.id}`}
-              playlist={open.p}
-              channelTitle={data?.channelTitle || '우주하마'}
-              channelThumbnail={data?.channelThumbnail || ''}
-              matchedIds={open.matched}
-              logIndex={logIndex}
-              logs={logs}
-              onClose={() => setOpenId(null)}
-              onNavigateToCalendar={onNavigateToCalendar}
-            />
-          )}
-        </AnimatePresence>
-        {pageResults.map(({ p, matched }) => (
-          <div key={p.id} className={cn(openId === p.id && 'ring-2 ring-purple-500/60 rounded-[26px]')}>
-            <PlaylistCard
-              playlist={p}
-              onOpen={() => {
-                setOpenId(p.id);
-                requestAnimationFrame(() => document.getElementById('recommend-cards-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-              }}
-            />
-            {matched && matched.size > 0 && (
-              <p className="mt-1.5 px-2 text-xs text-purple-600 dark:text-purple-400 font-semibold">검색어와 맞는 영상 {matched.size}개</p>
-            )}
-          </div>
-        ))}
+        {pageResults.map(({ p, matched }) => {
+          const isOpen = openId === p.id;
+          return (
+            <motion.div
+              key={p.id}
+              layout
+              transition={IOS_SPRING}
+              className={cn(isOpen && 'col-span-full')}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {isOpen ? (
+                  <motion.div
+                    key="detail"
+                    initial={{ opacity: 0, scale: 0.97 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.97 }}
+                    transition={IOS_SPRING}
+                  >
+                    <PlaylistDetail
+                      playlist={p}
+                      channelTitle={data?.channelTitle || '우주하마'}
+                      channelThumbnail={data?.channelThumbnail || ''}
+                      matchedIds={matched}
+                      logIndex={logIndex}
+                      logs={logs}
+                      onClose={() => setOpenId(null)}
+                      onNavigateToCalendar={onNavigateToCalendar}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="card"
+                    initial={{ opacity: 0, scale: 0.97 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.97 }}
+                    transition={IOS_SPRING}
+                  >
+                    <PlaylistCard playlist={p} onOpen={() => setOpenId(p.id)} />
+                    {matched && matched.size > 0 && (
+                      <p className="mt-1.5 px-2 text-xs text-purple-600 dark:text-purple-400 font-semibold">검색어와 맞는 영상 {matched.size}개</p>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })}
       </div>
-      <Pagination currentPage={page} totalPages={totalPages} onChange={setPage} />
+      <Pagination currentPage={page} totalPages={totalPages} onChange={(n) => { setOpenId(null); setPage(n); }} />
     </div>
   );
 }

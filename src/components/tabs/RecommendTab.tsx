@@ -801,7 +801,7 @@ export function RecommendTab({
     setSyncMessage('');
     try {
       await setDoc(doc(db, 'user_preferences', syncCode), { ratings, history, updatedAt: Date.now() });
-      setSyncMessage('클라우드에 저장되었습니다.');
+      setSyncMessage('클라우드에 저장되었어요.');
     } catch (e) {
       setSyncMessage('저장 실패!');
     }
@@ -828,7 +828,7 @@ export function RecommendTab({
         setSyncCode(inputSyncCode.toUpperCase());
         setSyncMessage('불러오기 완료!');
       } else {
-        setSyncMessage('코드를 찾을 수 없습니다.');
+        setSyncMessage('코드를 찾을 수 없어요.');
       }
     } catch (e) {
       setSyncMessage('불러오기 실패!');
@@ -1830,7 +1830,7 @@ export function RecommendTab({
             })}
             {recommended.length === 0 && (
               <div className="py-12 text-center text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px]">
-                조건에 맞는 추천 영상을 찾을 수 없습니다.
+                조건에 맞는 추천 영상을 찾을 수 없어요.
               </div>
             )}
           </div>
@@ -1909,7 +1909,7 @@ export function RecommendTab({
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ type: 'spring', stiffness: 340, damping: 34 }}
                         className="overflow-hidden w-full rounded-b-[24px] border border-t-0 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-md -mt-px"
                       >
                         <BroadcastDetailModal
@@ -1930,7 +1930,7 @@ export function RecommendTab({
               {recommended.length === 0 && (
                 <div className="col-span-full py-12 text-center text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px]">
                   <YoutubeLogo className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                  <p>조건에 맞는 추천 영상을 찾을 수 없습니다.</p>
+                  <p>조건에 맞는 추천 영상을 찾을 수 없어요.</p>
                 </div>
               )}
             </div>
@@ -1946,20 +1946,20 @@ export function RecommendTab({
         <div className="p-4 sm:p-5 rounded-[24px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2.5 leading-relaxed">
           <AlertCircle className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
           <div>
-            <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 {firstYear}~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 파일 변환 시에 누락된 데이터나 잘못된 정보가 포함되어 있을 수 있습니다. (또한 {firstYear}~2025년 데이터에는 쇼츠 영상 정보가 포함되지 않습니다)
+            <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 {firstYear}~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 파일 변환 시에 누락된 데이터나 잘못된 정보가 포함되어 있을 수 있어요. (또한 {firstYear}~2025년 데이터에는 쇼츠 영상 정보가 포함되지 않아요)
           </div>
         </div>
 
         <div className="p-4 sm:p-5 rounded-[24px] bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300/90 flex items-start gap-2.5 leading-relaxed">
           <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <strong className="font-bold text-amber-900 dark:text-amber-200">외부 링크 및 보안 주의 안내:</strong> 본 검색 결과에 표시되는 모든 외부 링크(유튜브 영상, 치지직 다시보기, 게임 및 외부 웹페이지 등)는 단순 검색 및 팬 아카이브 결과에 불과하며, 당 사이트에서 직접 보증하거나 관리하지 않습니다. 외부 링크 접속으로 인해 발생할 수 있는 해킹, 악성코드 감염, 피싱, 개인정보 유출 및 보안 피해 등에 대해 본 사이트는 일체의 책임을 지지 않으므로 링크 클릭 및 이용 시 각별히 주의하시기 바랍니다.
+            <strong className="font-bold text-amber-900 dark:text-amber-200">외부 링크 및 보안 주의 안내:</strong> 본 검색 결과에 표시되는 모든 외부 링크(유튜브 영상, 치지직 다시보기, 게임 및 외부 웹페이지 등)는 단순 검색 및 팬 아카이브 결과에 불과하며, 당 사이트에서 직접 보증하거나 관리하지 않아요. 외부 링크 접속으로 인해 발생할 수 있는 해킹, 악성코드 감염, 피싱, 개인정보 유출 및 보안 피해 등에 대해 본 사이트는 일체의 책임을 지지 않으므로 링크 클릭 및 이용 시 각별히 주의하시기 바라요.
           </div>
         </div>
       </div>
 
       <footer className="border-t border-zinc-200 dark:border-zinc-800 py-6 mt-8 text-center text-zinc-500 dark:text-zinc-500 text-sm">
-        <p className="mt-1 text-xs">※ 최신순 영상의 정렬 기준은 방송일(생방일)입니다.</p>
+        <p className="mt-1 text-xs">※ 최신순 영상의 정렬 기준은 방송일(생방일)이에요.</p>
       </footer>
     </div>
   );

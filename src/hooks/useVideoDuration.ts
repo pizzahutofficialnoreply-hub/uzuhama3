@@ -102,3 +102,35 @@ export function formatRelativeTime(iso: string, now: number = Date.now()) {
   if (day < 365) return `${Math.floor(day / 30)}개월 전`;
   return `${Math.floor(day / 365)}년 전`;
 }
+
+/** 여러 영상의 정보를 한꺼번에 (정렬용). 아직 모르는 것만 서버에 묻고, 다 오면 다시 그림 */
+export function useVideoMetaMany(videoIds: string[], enabled = true): Map<string, VideoMeta | null> {
+  const [, setTick] = useState(0);
+  const key = enabled ? videoIds.join(',') : '';
+  useEffect(() => {
+    if (!enabled) return;
+    const missing = videoIds.filter((id) => /^[A-Za-z0-9_-]{11}$/.test(id) && !cache.has(id));
+    if (missing.length === 0) return;
+    let left = new Set(missing);
+    let raf = 0;
+    const onValue = (id: string) => () => {
+      left.delete(id);
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; setTick((t) => t + 1); });
+    };
+    const subs: [string, (v: VideoMeta | null) => void][] = missing.map((id) => [id, onValue(id)]);
+    subs.forEach(([id, fn]) => {
+      if (!listeners.has(id)) listeners.set(id, new Set());
+      listeners.get(id)!.add(fn);
+      pending.add(id);
+    });
+    if (!timer) timer = setTimeout(flush, 120);
+    return () => {
+      subs.forEach(([id, fn]) => listeners.get(id)?.delete(fn));
+      if (raf) cancelAnimationFrame(raf);
+      left = new Set();
+    };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const out = new Map<string, VideoMeta | null>();
+  if (enabled) videoIds.forEach((id) => { if (cache.has(id)) out.set(id, cache.get(id)!); });
+  return out;
+}

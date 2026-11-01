@@ -158,9 +158,9 @@ export function generateMaintenanceNoticeMarkdown(options: {
     startStr, 
     endStr, 
     scope = '사이트 전체', 
-    impact = '점검 시간 동안 **서비스에 접속 불가합니다.**',
-    noticeGuide = '점검 완료 및 변경사항 발생 시 본 공지에 업데이트하겠습니다.',
-    durationNote = '(상황에 따라 변동/연장될 수 있습니다)',
+    impact = '점검 시간 동안 **서비스에 접속 불가해요.**',
+    noticeGuide = '점검 완료 및 변경사항 발생 시 본 공지에 업데이트하겠어요.',
+    durationNote = '(상황에 따라 변동/연장될 수 있어요)',
     status = '점검 진행 중', 
     note = '없음', 
     history 
@@ -173,7 +173,7 @@ export function generateMaintenanceNoticeMarkdown(options: {
 
   return `## 점검 공지
 
-안녕하세요. 서비스 안정화를 위해 아래와 같이 점검을 진행합니다.
+안녕하세요. 서비스 안정화를 위해 아래와 같이 점검을 진행해요.
 
 ### 1) 점검 일정
 
@@ -318,7 +318,7 @@ export function checkMaintenanceStatus(system?: SystemConfig, currentTimeMs?: nu
     if (nowMs >= todayMidnight) {
       isScheduledToday = true;
       const { fullText } = formatMaintenanceRange(maintenanceStart, maintenanceEnd);
-      upcomingNoticeText = `⚠️ 잠시 후 ${fullText} 에 시스템 점검이 시작될 예정입니다. 점검 시간 동안 서비스 접속이 불가하오니 이용에 참고해 주시기 바랍니다.`;
+      upcomingNoticeText = `⚠️ 잠시 후 ${fullText} 에 시스템 점검이 시작될 예정이에요. 점검 시간 동안 서비스 접속이 불가하오니 이용에 참고해 주시기 바라요.`;
     }
   }
 

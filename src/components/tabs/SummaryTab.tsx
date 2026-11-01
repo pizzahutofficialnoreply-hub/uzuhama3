@@ -246,7 +246,7 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
     ...(data.system?.absenceReason ? [{
       id: 'guide-0',
       title: '⚠️ 장기 휴방 사유 안내',
-      content: `현재 우주하마님은 **${displayAbsenceReason}** 사유로 휴방 중입니다.${data.system.absenceDuration ? ` (예상 기간: **${data.system.absenceDuration}**)` : ''} 이로 인해 평소 패턴과 다르게 당분간 휴방이 지속될 가능성이 높으니 참고하시기 바랍니다.`,
+      content: `현재 우주하마님은 **${displayAbsenceReason}** 사유로 휴방 중이에요.${data.system.absenceDuration ? ` (예상 기간: **${data.system.absenceDuration}**)` : ''} 이로 인해 평소 패턴과 다르게 당분간 휴방이 지속될 가능성이 높으니 참고하시기 바라요.`,
       illnessName: illnessNameForGuide,
       illnessSummary: isIllness ? data.system?.illnessSummary : undefined,
       illnessSource: isIllness ? data.system?.illnessSource : undefined,
@@ -259,7 +259,7 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
         : '최근 60일';
       const periodShort = r.isFallback ? '같은 기간' : '최근 60일';
       if (r.streamCount === 0) {
-        return [{ id: 'guide-1', title: '최근 60일 방송 패턴', content: `최근 60일(**${r.windowStart.slice(5).replace('-', '/')}~${r.windowEnd.slice(5).replace('-', '/')}**) 동안 방송 기록이 없습니다.${r.prevWeeklyAvg ? ` 그 전 60일에는 주 평균 **${r.prevWeeklyAvg}회** 방송했어요.` : ''}` }];
+        return [{ id: 'guide-1', title: '최근 60일 방송 패턴', content: `최근 60일(**${r.windowStart.slice(5).replace('-', '/')}~${r.windowEnd.slice(5).replace('-', '/')}**) 동안 방송 기록이 없어요.${r.prevWeeklyAvg ? ` 그 전 60일에는 주 평균 **${r.prevWeeklyAvg}회** 방송했어요.` : ''}` }];
       }
       const dowRate = (d: string) => r.byDow.find((w) => w.day === d);
       const top = r.topDays.map((d) => `**${d}요일**(${dowRate(d)?.count}/${dowRate(d)?.occurrences}회)`).join(', ');
@@ -267,10 +267,10 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
       const trend = r.prevWeeklyAvg === null
         ? ''
         : r.weeklyAvg > r.prevWeeklyAvg + 0.3
-          ? ` 그 전 60일(주 **${r.prevWeeklyAvg}회**)보다 늘었습니다.`
+          ? ` 그 전 60일(주 **${r.prevWeeklyAvg}회**)보다 늘었어요.`
           : r.weeklyAvg < r.prevWeeklyAvg - 0.3
-            ? ` 그 전 60일(주 **${r.prevWeeklyAvg}회**)보다 줄었습니다.`
-            : ` 그 전 60일(주 **${r.prevWeeklyAvg}회**)과 비슷합니다.`;
+            ? ` 그 전 60일(주 **${r.prevWeeklyAvg}회**)보다 줄었어요.`
+            : ` 그 전 60일(주 **${r.prevWeeklyAvg}회**)과 비슷해요.`;
       const nd = r.nextDayRate;
       const lines = [
         nd.afterOne !== null ? `- **하루 쉬고 방송한 다음 날:** 이어서 방송할 확률 **${nd.afterOne}%** (${nd.samples.one}회 기준)` : '',
@@ -281,18 +281,18 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
         {
           id: 'guide-1',
           title: '최근 60일 방송 요일과 시간',
-          content: `${period} 기준 방송이 가장 잦은 요일은 ${top}입니다.${r.typicalStart ? ` 방송은 보통 **${r.typicalStart}** 즈음 시작했어요.` : ''}${bottom ? ` 가장 드문 요일은 **${bottom.day}요일**(${bottom.count}/${bottom.occurrences}회)입니다.` : ''}`
+          content: `${period} 기준 방송이 가장 잦은 요일은 ${top}이에요.${r.typicalStart ? ` 방송은 보통 **${r.typicalStart}** 즈음 시작했어요.` : ''}${bottom ? ` 가장 드문 요일은 **${bottom.day}요일**(${bottom.count}/${bottom.occurrences}회)이에요.` : ''}`
         },
         {
           id: 'guide-2',
           title: '최근 60일 방송 빈도',
-          content: `${periodShort} 동안 **${r.streamCount}회**, 주 평균 **${r.weeklyAvg}회** 방송했습니다.${trend}`
+          content: `${periodShort} 동안 **${r.streamCount}회**, 주 평균 **${r.weeklyAvg}회** 방송했어요.${trend}`
         },
         ...(lines.length
           ? [{
               id: 'guide-3',
               title: '방송 다음 날 패턴',
-              content: `${periodShort} 기록에서 방송한 다음 날의 실제 방송 비율입니다.\n\n${lines.join('\n')}`
+              content: `${periodShort} 기록에서 방송한 다음 날의 실제 방송 비율이에요.\n\n${lines.join('\n')}`
             }]
           : [])
       ];

@@ -44,7 +44,7 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
 
   const handleToggle = async (key: keyof PushSettings) => {
     if (!isSupported) {
-      alert('현재 브라우저는 웹 푸시 알림을 지원하지 않습니다.');
+      alert('현재 브라우저는 웹 푸시 알림을 지원하지 않아요.');
       return;
     }
 
@@ -61,7 +61,7 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
   };
 
   const handleClearCache = () => {
-    if (window.confirm('캐시 데이터를 삭제하시겠습니까? 로그인 정보 및 설정이 초기화됩니다.')) {
+    if (window.confirm('캐시 데이터를 삭제하시겠어요? 로그인 정보 및 설정이 초기화돼요.')) {
       localStorage.clear();
       sessionStorage.clear();
       window.location.reload();
@@ -69,7 +69,7 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
   };
 
   const handleDeleteAccount = async () => {
-    if (!window.confirm('정말 회원탈퇴를 진행하시겠습니까? 계정과 관련된 정보가 영구히 삭제됩니다.')) {
+    if (!window.confirm('정말 회원탈퇴를 진행하시겠어요? 계정과 관련된 정보가 영구히 삭제돼요.')) {
       return;
     }
 
@@ -84,12 +84,12 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
       localStorage.clear();
       sessionStorage.clear();
       onLogout();
-      alert('회원탈퇴 처리가 완료되었습니다.');
+      alert('회원탈퇴 처리가 완료되었어요.');
     } catch (error: any) {
       if (error?.code === 'auth/requires-recent-login') {
-        alert('보안을 위해 다시 로그인한 직후에 회원탈퇴를 다시 시도해 주시기 바랍니다.');
+        alert('보안을 위해 다시 로그인한 직후에 회원탈퇴를 다시 시도해 주시기 바라요.');
       } else {
-        alert(`회원탈퇴 처리 중 오류가 발생했습니다: ${error?.message || error}`);
+        alert(`회원탈퇴 처리 중 오류가 발생했어요: ${error?.message || error}`);
       }
     }
   };

@@ -175,13 +175,13 @@ export function usePushNotification() {
     const isStandalone = checkIsStandalone();
 
     if (isIOS && !isStandalone) {
-      alert('📱 iPhone(iOS) 알림 설정 안내\n\nApple의 보안 정책상 Safari 브라우저 탭에서는 알림이 제한됩니다.\n\n1. Safari 하단 중앙의 [공유 (네모에 위 화살표)] 아이콘 클릭\n2. [홈 화면에 추가] 선택 후 완료\n3. 홈 화면에 생성된 앱을 열고 알림을 켜주세요!\n\n홈 화면 앱에서 실행하시면 정상적으로 알림을 받으실 수 있습니다.');
+      alert('📱 iPhone(iOS) 알림 설정 안내\n\nApple의 보안 정책상 Safari 브라우저 탭에서는 알림이 제한돼요.\n\n1. Safari 하단 중앙의 [공유 (네모에 위 화살표)] 아이콘 클릭\n2. [홈 화면에 추가] 선택 후 완료\n3. 홈 화면에 생성된 앱을 열고 알림을 켜주세요!\n\n홈 화면 앱에서 실행하시면 정상적으로 알림을 받으실 수 있어요.');
       return false;
     }
 
     const hasNotification = typeof window !== 'undefined' && 'Notification' in window && typeof window.Notification !== 'undefined';
     if (!hasNotification) {
-      alert('이 브라우저는 웹 푸시 알림을 지원하지 않습니다.');
+      alert('이 브라우저는 웹 푸시 알림을 지원하지 않아요.');
       return false;
     }
 
@@ -191,19 +191,19 @@ export function usePushNotification() {
       setPermission(perm);
 
       if (perm !== 'granted') {
-        alert('알림 권한이 허용되지 않았습니다. 브라우저 설정에서 알림을 허용해주세요.');
+        alert('알림 권한이 허용되지 않았어요. 브라우저 설정에서 알림을 허용해주세요.');
         setLoading(false);
         return false;
       }
 
       const registration = await getReadyServiceWorker();
       if (!registration) {
-        throw new Error('Service Worker 준비에 실패했습니다. 페이지를 새로고침 후 다시 시도해주세요.');
+        throw new Error('Service Worker 준비에 실패했어요. 페이지를 새로고침 후 다시 시도해주세요.');
       }
 
       const msg = await messaging();
       if (!msg) {
-        throw new Error('Firebase Messaging 객체를 불러올 수 없습니다.');
+        throw new Error('Firebase Messaging 객체를 불러올 수 없어요.');
       }
 
       // 정식 FCM 토큰 획득 (가짜 토큰 발급 금지)
@@ -223,7 +223,7 @@ export function usePushNotification() {
       }
 
       if (!token || typeof token !== 'string' || token.trim().length < 20 || token.startsWith('local_dev_')) {
-        throw new Error('유효한 FCM 토큰을 발급받지 못했습니다.');
+        throw new Error('유효한 FCM 토큰을 발급받지 못했어요.');
       }
 
       const newSettings: PushSettings = {
@@ -253,7 +253,7 @@ export function usePushNotification() {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `서버 구독 등록에 실패했습니다 (상태 코드: ${response.status})`);
+        throw new Error(errData.error || `서버 구독 등록에 실패했어요 (상태 코드: ${response.status})`);
       }
 
       currentTokenRef.current = token;
@@ -267,7 +267,7 @@ export function usePushNotification() {
       try {
         if (registration && 'showNotification' in registration) {
           await registration.showNotification('[우주하마] 알림 설정 완료', {
-            body: '방송 시작 및 휴방 알림을 정상적으로 수신하실 수 있습니다.',
+            body: '방송 시작 및 휴방 알림을 정상적으로 수신하실 수 있어요.',
             icon: '/icon.png',
             badge: '/icon.png',
             data: { url: '/' }

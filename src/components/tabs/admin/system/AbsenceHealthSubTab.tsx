@@ -208,7 +208,7 @@ export const AbsenceHealthSubTab: React.FC<AbsenceHealthSubTabProps> = ({
           <div className="space-y-1">
             <p className="font-semibold">장기 휴방 상태 적용 기준</p>
             <p className="text-[11px] leading-relaxed text-purple-600 dark:text-purple-400">
-              장기 휴방 모드가 켜지면 4일 이상 미방송 시 방송 확률이 급격히 떨어지는 대신 점진적인 완만한 감소가 적용됩니다. 또한 영상이 업로드되었을 경우 팬들의 복귀 기대감을 반영하여 확률에 보너스 가산점이 부여됩니다.
+              장기 휴방 모드가 켜지면 4일 이상 미방송 시 방송 확률이 급격히 떨어지는 대신 점진적인 완만한 감소가 적용돼요. 또한 영상이 업로드되었을 경우 팬들의 복귀 기대감을 반영하여 확률에 보너스 가산점이 부여돼요.
             </p>
           </div>
         </div>

@@ -424,7 +424,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
 
   const handleExportBatchToCalendar = async () => {
     if (!tableLogs || tableLogs.length === 0) {
-      alert('선택한 기간에 등록할 방송 일정이 없습니다.');
+      alert('선택한 기간에 등록할 방송 일정이 없어요.');
       return;
     }
 
@@ -1560,7 +1560,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                 <div className="w-12 h-12 sm:w-16 sm:h-16 mb-3 sm:mb-4 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
                   <span className="text-xl sm:text-2xl font-bold">{format(selectedDate, 'd')}</span>
                 </div>
-                <p className="text-zinc-500 font-medium text-center text-sm sm:text-base">{format(selectedDate, 'M월 d일')} 방송 기록이 없습니다.</p>
+                <p className="text-zinc-500 font-medium text-center text-sm sm:text-base">{format(selectedDate, 'M월 d일')} 방송 기록이 없어요.</p>
               </div>
             )}
           </div>
@@ -1776,7 +1776,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-purple-600 shrink-0" />
               <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                선택된 날짜({selectedDate ? format(selectedDate, 'yyyy-MM-dd') : selectedDateStr})의 방송 기록만 조회 중입니다.
+                선택된 날짜({selectedDate ? format(selectedDate, 'yyyy-MM-dd') : selectedDateStr})의 방송 기록만 조회 중이에요.
               </span>
             </div>
             <button
@@ -2098,7 +2098,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
             {tableLogs.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-6 py-14 text-center text-zinc-500">
-                    <p className="text-sm font-medium">해당 조건에 일치하는 방송 기록이 없습니다.</p>
+                    <p className="text-sm font-medium">해당 조건에 일치하는 방송 기록이 없어요.</p>
                     {(selectedDate || selectedDateStr) && (
                       <button
                         type="button"
@@ -2121,14 +2121,14 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
         <div className="p-4 sm:p-5 rounded-[24px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2.5 leading-relaxed">
           <AlertCircle className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
           <div>
-            <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 2020~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 파일 변환 시에 누락된 데이터나 잘못된 정보가 포함되어 있을 수 있습니다. (또한 과거 아카이브 데이터에는 쇼츠 영상 정보가 포함되지 않습니다)
+            <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 2020~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 파일 변환 시에 누락된 데이터나 잘못된 정보가 포함되어 있을 수 있어요. (또한 과거 아카이브 데이터에는 쇼츠 영상 정보가 포함되지 않아요)
           </div>
         </div>
 
         <div className="p-4 sm:p-5 rounded-[24px] bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300/90 flex items-start gap-2.5 leading-relaxed">
           <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <strong className="font-bold text-amber-900 dark:text-amber-200">외부 링크 및 보안 주의 안내:</strong> 본 방송 기록 및 상세보기에 표시되는 모든 외부 링크(유튜브 영상, 치지직 다시보기, 게임 및 외부 웹페이지 등)는 단순 검색 및 팬 아카이브 결과에 불과하며, 당 사이트에서 직접 보증하거나 관리하지 않습니다. 외부 링크 접속으로 인해 발생할 수 있는 해킹, 악성코드 감염, 피싱, 개인정보 유출 및 보안 피해 등에 대해 본 사이트는 일체의 책임을 지지 않으므로 링크 클릭 및 이용 시 각별히 주의하시기 바랍니다.
+            <strong className="font-bold text-amber-900 dark:text-amber-200">외부 링크 및 보안 주의 안내:</strong> 본 방송 기록 및 상세보기에 표시되는 모든 외부 링크(유튜브 영상, 치지직 다시보기, 게임 및 외부 웹페이지 등)는 단순 검색 및 팬 아카이브 결과에 불과하며, 당 사이트에서 직접 보증하거나 관리하지 않아요. 외부 링크 접속으로 인해 발생할 수 있는 해킹, 악성코드 감염, 피싱, 개인정보 유출 및 보안 피해 등에 대해 본 사이트는 일체의 책임을 지지 않으므로 링크 클릭 및 이용 시 각별히 주의하시기 바라요.
           </div>
         </div>
       </div>
@@ -2177,7 +2177,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full text-zinc-400 text-sm">
-                      재생 가능한 영상 링크가 아닙니다.
+                      재생 가능한 영상 링크가 아녀요.
                     </div>
                   );
                 })()}

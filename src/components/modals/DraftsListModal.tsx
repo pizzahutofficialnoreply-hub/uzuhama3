@@ -47,7 +47,7 @@ export function DraftsListModal({
           {drafts.length === 0 ? (
             <div className="py-12 text-center text-zinc-400 dark:text-zinc-500 flex flex-col items-center gap-2">
               <AlertCircle className="w-8 h-8 stroke-1" />
-              <p className="text-sm">저장된 임시 저장 내역이 없습니다.</p>
+              <p className="text-sm">저장된 임시 저장 내역이 없어요.</p>
             </div>
           ) : (
             drafts.map((draft) => (

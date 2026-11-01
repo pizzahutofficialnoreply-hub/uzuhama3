@@ -45,7 +45,7 @@ export function ContributionProcessModal({ item, logs, onClose, onSubmit }: Cont
       onClose();
     } catch (err) {
       console.error('제보 처리 중 오류 발생:', err);
-      alert('처리 중 오류가 발생했습니다.');
+      alert('처리 중 오류가 발생했어요.');
     } finally {
       setIsSubmitting(false);
     }

@@ -93,7 +93,8 @@ export function FloatingBottomNav({
 
   // 탭바 및 바닥으로 깔리는 정밀 점진적 블러 높이 (탭바를 포함하여 바닥까지 넉넉하고 자연스럽게 깔림)
   const defaultBlurHeight = 'calc(env(safe-area-inset-bottom, 0px) + 96px)';
-  const defaultBlurMask = 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.92) 35%, rgba(0,0,0,0.45) 75%, transparent 100%)';
+  // 위쪽 페이드 모양은 높이와 상관없이 일정하게 (블러가 길어져도 검색창 뒤는 똑같이 흐림)
+  const defaultBlurMask = 'linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.92) calc(100% - 85px), rgba(0,0,0,0.45) calc(100% - 33px), transparent 100%)';
 
   // ── 키보드 연동 (iOS 식 스프링 움직임) ──
   // - 키보드가 올라오는 순간: 키보드 높이만큼 스프링으로 함께 올라감 (살짝 감기는 자연스러운 감속, 먼저 튀어 오르지 않음)
@@ -111,6 +112,7 @@ export function FloatingBottomNav({
   const kbY = useMotionValue(0); // 키보드 높이만큼 올라간 양 (스프링)
   const vvY = useMotionValue(0); // 스크롤로 밀린 화면 보정 (즉시)
   const dockY = useTransform(() => kbY.get() + vvY.get());
+  const blurHeight = useTransform(dockY, (y) => `calc(env(safe-area-inset-bottom, 0px) + ${96 + Math.max(0, -y)}px)`);
 
   const getDockBaseBottom = useCallback(() => {
     const el = dockRef.current;
@@ -305,9 +307,9 @@ export function FloatingBottomNav({
           ref={blurRef}
           aria-hidden="true"
           style={{
-            y: dockY,
+            // 위치는 바닥에 그대로 두고, 검색창이 올라간 만큼 높이만 늘려 원래 자리부터 검색창까지 이어지게
             bottom: '0px',
-            height: defaultBlurHeight,
+            height: blurHeight,
             WebkitBackdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx)}px)`,
             backdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx)}px)`,
             WebkitMaskImage: defaultBlurMask,

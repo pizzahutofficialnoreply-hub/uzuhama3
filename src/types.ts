@@ -223,6 +223,7 @@ export interface SystemConfig {
   termsVersion?: number;
   termsRevision?: TermsRevision;
   termsHistory?: TermsRevision[];
+  tutorialEnabled?: boolean; // 처음 방문자 사이트 둘러보기 표시 여부 (기본 true, 관리자가 전체 차단 가능)
   showLegacyCategoryAnalysis?: boolean; // ~2025 과거 데이터 카테고리 분석 표시 여부 (기본 true/토글 가능)
   absenceReasonOptions?: string[];
   archiveSourceUrl?: string;

@@ -63,7 +63,7 @@ export function LoginOnboardingModal({ onClose, onLogin }: LoginOnboardingModalP
               {termsAgreed && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 pointer-events-none" />}
             </div>
             <span className="text-sm text-zinc-700 dark:text-zinc-300">
-              <a href="/terms" target="_blank" rel="noreferrer" className="text-purple-600 dark:text-purple-400 hover:underline font-medium" onClick={(e) => e.stopPropagation()}>이용약관</a>에 동의합니다. (필수)
+              <a href="/terms" target="_blank" rel="noreferrer" className="text-purple-600 dark:text-purple-400 hover:underline font-medium" onClick={(e) => e.stopPropagation()}>이용약관</a>에 동의해요. (필수)
             </span>
           </label>
           <label className="flex items-start gap-3 cursor-pointer group">
@@ -72,7 +72,7 @@ export function LoginOnboardingModal({ onClose, onLogin }: LoginOnboardingModalP
               {privacyAgreed && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 pointer-events-none" />}
             </div>
             <span className="text-sm text-zinc-700 dark:text-zinc-300">
-              <a href="/privacy" target="_blank" rel="noreferrer" className="text-purple-600 dark:text-purple-400 hover:underline font-medium" onClick={(e) => e.stopPropagation()}>개인정보 처리방침</a>에 동의합니다. (필수)
+              <a href="/privacy" target="_blank" rel="noreferrer" className="text-purple-600 dark:text-purple-400 hover:underline font-medium" onClick={(e) => e.stopPropagation()}>개인정보 처리방침</a>에 동의해요. (필수)
             </span>
           </label>
         </motion.div>

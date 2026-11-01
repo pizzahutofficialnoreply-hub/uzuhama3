@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../utils';
 import { extractYoutubeId } from '../../utils/urlUtils';
-import { GlassPlayButton } from './MediaIcons';
+import { GlassPlayButton, PlaySquare, YoutubeLogo } from './MediaIcons';
 
 /**
  * 유튜브 쇼츠 카드 (세로 9:16, 유튜브 앱의 쇼츠 선반과 같은 모양)
@@ -15,10 +15,13 @@ export interface ShortsCardProps {
   /** 제목 아래 작은 글씨 (방송일 등) */
   caption?: string;
   onCaptionClick?: () => void;
+  /** 같은 방송의 생방송 다시보기 / 유튜브 편집본 링크 (있으면 아이콘으로 표시) */
+  liveUrl?: string;
+  editUrl?: string;
   className?: string;
 }
 
-export function ShortsCard({ url, title, caption, onCaptionClick, className }: ShortsCardProps) {
+export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editUrl, className }: ShortsCardProps) {
   const ytId = extractYoutubeId(url);
   const [playing, setPlaying] = useState(false);
   const label = title?.trim() || '유튜브 쇼츠';
@@ -83,18 +86,36 @@ export function ShortsCard({ url, title, caption, onCaptionClick, className }: S
       >
         {label}
       </a>
-      {caption && (
-        onCaptionClick ? (
-          <button
-            type="button"
-            onClick={onCaptionClick}
-            className="mt-0.5 px-0.5 text-left text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-purple-600 dark:hover:text-purple-400 tabular-nums cursor-pointer"
-          >
-            {caption}
-          </button>
-        ) : (
-          <span className="mt-0.5 px-0.5 text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">{caption}</span>
-        )
+      {(caption || liveUrl || editUrl) && (
+        <div className="mt-1 px-0.5 flex items-center justify-between gap-1.5">
+          {caption ? (
+            onCaptionClick ? (
+              <button
+                type="button"
+                onClick={onCaptionClick}
+                className="min-w-0 truncate text-left text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-purple-600 dark:hover:text-purple-400 tabular-nums cursor-pointer"
+              >
+                {caption}
+              </button>
+            ) : (
+              <span className="min-w-0 truncate text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">{caption}</span>
+            )
+          ) : <span />}
+          <span className="flex items-center gap-1 shrink-0">
+            {liveUrl && (
+              <a href={liveUrl} target="_blank" rel="noreferrer" title="생방송 (풀영상)" aria-label="생방송 (풀영상) 보기"
+                className="w-7 h-7 rounded-lg flex items-center justify-center bg-purple-50 dark:bg-purple-900/10 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/20 transition-colors">
+                <PlaySquare className="w-3.5 h-3.5" />
+              </a>
+            )}
+            {editUrl && (
+              <a href={editUrl} target="_blank" rel="noreferrer" title="유튜브 편집본" aria-label="유튜브 편집본 보기"
+                className="w-7 h-7 rounded-lg flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
+                <YoutubeLogo className="w-3.5 h-3.5" />
+              </a>
+            )}
+          </span>
+        </div>
       )}
     </div>
   );

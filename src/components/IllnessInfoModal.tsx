@@ -14,52 +14,52 @@ interface IllnessInfoModalProps {
 // 자주 발생하는 일반적인 병명에 대한 공식 의학정보 기본 요약 사전 (구글 검색 AI 개요 양식)
 const KNOWN_ILLNESS_MAP: Record<string, { summary: string; source: string; sourceUrl: string }> = {
   '독감': {
-    summary: '독감(인플루엔자)은 인플루엔자 바이러스에 의한 급성 호흡기 감염 질환입니다. 38도 이상의 갑작스러운 고열, 두통, 전신 근육통과 피로감이 급격히 동반됩니다. 충분한 휴식과 수분 섭취, 항바이러스제 복용이 필수적입니다.',
+    summary: '독감(인플루엔자)은 인플루엔자 바이러스에 의한 급성 호흡기 감염 질환이에요. 38도 이상의 갑작스러운 고열, 두통, 전신 근육통과 피로감이 급격히 동반돼요. 충분한 휴식과 수분 섭취, 항바이러스제 복용이 필수적이에요.',
     source: '질병관리청 국가건강정보포털',
     sourceUrl: 'https://health.kdca.go.kr'
   },
   '인플루엔자': {
-    summary: '인플루엔자(독감)는 인플루엔자 바이러스에 의한 급성 호흡기 감염 질환입니다. 38도 이상의 갑작스러운 고열, 두통, 전신 근육통과 피로감이 급격히 동반됩니다. 충분한 휴식과 수분 섭취, 항바이러스제 복용이 필수적입니다.',
+    summary: '인플루엔자(독감)는 인플루엔자 바이러스에 의한 급성 호흡기 감염 질환이에요. 38도 이상의 갑작스러운 고열, 두통, 전신 근육통과 피로감이 급격히 동반돼요. 충분한 휴식과 수분 섭취, 항바이러스제 복용이 필수적이에요.',
     source: '질병관리청 국가건강정보포털',
     sourceUrl: 'https://health.kdca.go.kr'
   },
   '감기': {
-    summary: '바이러스에 의해 상부 호흡기에 발생하는 급성 카타르성 염증입니다. 인후통, 콧물, 기침 등이 주 증상이며 충분한 수면과 휴식을 통해 면역력을 회복하는 것이 치료의 핵심입니다.',
+    summary: '바이러스에 의해 상부 호흡기에 발생하는 급성 카타르성 염증이에요. 인후통, 콧물, 기침 등이 주 증상이며 충분한 수면과 휴식을 통해 면역력을 회복하는 것이 치료의 핵심이에요.',
     source: '국가건강정보포털',
     sourceUrl: 'https://health.kdca.go.kr'
   },
   '몸살': {
-    summary: '과도한 피로, 면역 저하 또는 감염 초기 발생하는 전신성 피로 및 근육통 상태입니다. 전신 쇠약감과 발열감이 발생하므로 신체 에너지 소모를 최소화하고 안정을 취해야 합니다.',
+    summary: '과도한 피로, 면역 저하 또는 감염 초기 발생하는 전신성 피로 및 근육통 상태예요. 전신 쇠약감과 발열감이 발생하므로 신체 에너지 소모를 최소화하고 안정을 취해야 해요.',
     source: '대한가정의학회',
     sourceUrl: 'https://www.kafm.or.kr'
   },
   '장염': {
-    summary: '장 점막에 염증이 생기는 질환으로 복통, 구토, 설사, 탈수 증상을 유발합니다. 탈수 예방을 위한 이온음료/미온수 섭취가 매우 중요하며, 자극적인 음식 섭취를 중단하고 휴식이 필요합니다.',
+    summary: '장 점막에 염증이 생기는 질환으로 복통, 구토, 설사, 탈수 증상을 유발해요. 탈수 예방을 위한 이온음료/미온수 섭취가 매우 중요하며, 자극적인 음식 섭취를 중단하고 휴식이 필요해요.',
     source: '질병관리청 국가건강정보포털',
     sourceUrl: 'https://health.kdca.go.kr'
   },
   '성대결절': {
-    summary: '지속적인 음성 남용이나 무리한 발성으로 인해 성대 점막에 발생하는 양성 결절 질환입니다. 쉰 목소리와 목의 건조감, 통증이 발생하며 말을 하지 않는 음성 휴식이 필수적인 치료법입니다.',
+    summary: '지속적인 음성 남용이나 무리한 발성으로 인해 성대 점막에 발생하는 양성 결절 질환이에요. 쉰 목소리와 목의 건조감, 통증이 발생하며 말을 하지 않는 음성 휴식이 필수적인 치료법이에요.',
     source: '대한이비인후과학회',
     sourceUrl: 'https://www.korl.or.kr'
   },
   '후두염': {
-    summary: '성대를 포함하는 후두 부위에 염증이 생기는 질환입니다. 목 통증, 쉰 목소리, 기침이 동반되며 목소리 사용을 최대한 자제하고 수분을 충분히 보충해야 합니다.',
+    summary: '성대를 포함하는 후두 부위에 염증이 생기는 질환이에요. 목 통증, 쉰 목소리, 기침이 동반되며 목소리 사용을 최대한 자제하고 수분을 충분히 보충해야 해요.',
     source: '국가건강정보포털',
     sourceUrl: 'https://health.kdca.go.kr'
   },
   '손목터널증후군': {
-    summary: '수근관(손목 앞쪽 통로)이 좁아져 정중신경이 압박을 받는 질환입니다. 손가락 저림, 감각 이상, 손목 통증이 나타나며 마우스/키보드 등 손목 사용을 즉시 중단하고 고정 보호가 필요합니다.',
+    summary: '수근관(손목 앞쪽 통로)이 좁아져 정중신경이 압박을 받는 질환이에요. 손가락 저림, 감각 이상, 손목 통증이 나타나며 마우스/키보드 등 손목 사용을 즉시 중단하고 고정 보호가 필요해요.',
     source: '대한정형외과학회',
     sourceUrl: 'https://www.koa.or.kr'
   },
   '허리디스크': {
-    summary: '척추 뼈 사이의 추간판이 탈출하여 신경을 압박하는 질환입니다. 요통과 다리 저림이 발생하며 무리한 착석이나 구부정한 자세를 피하고 전문의 치료 및 절대 안정이 요구됩니다.',
+    summary: '척추 뼈 사이의 추간판이 탈출하여 신경을 압박하는 질환이에요. 요통과 다리 저림이 발생하며 무리한 착석이나 구부정한 자세를 피하고 전문의 치료 및 절대 안정이 요구돼요.',
     source: '대한척추신경외과학회',
     sourceUrl: 'https://www.neurospine.or.kr'
   },
   '이명': {
-    summary: '외부 소리 자극이 없음에도 귀나 머릿속에서 소리가 들리는 증상입니다. 과도한 스트레스, 피로, 소음 노출 등이 원인이 될 수 있으며 조용한 환경에서의 안정과 스트레스 완화가 권장됩니다.',
+    summary: '외부 소리 자극이 없음에도 귀나 머릿속에서 소리가 들리는 증상이에요. 과도한 스트레스, 피로, 소음 노출 등이 원인이 될 수 있으며 조용한 환경에서의 안정과 스트레스 완화가 권장돼요.',
     source: '국가건강정보포털',
     sourceUrl: 'https://health.kdca.go.kr'
   }
@@ -77,7 +77,7 @@ export function IllnessInfoModal({
   const cleanName = illnessName.trim();
   const known = KNOWN_ILLNESS_MAP[cleanName] || Object.entries(KNOWN_ILLNESS_MAP).find(([key]) => cleanName.includes(key))?.[1];
 
-  const summary = propSummary || known?.summary || `${cleanName} 증상으로 인한 신체 컨디션 저하 및 건강 회복을 위해 일정이 조정되었습니다. 충분한 휴식과 안정을 취하고 있습니다.`;
+  const summary = propSummary || known?.summary || `${cleanName} 증상으로 인한 신체 컨디션 저하 및 건강 회복을 위해 일정이 조정되었어요. 충분한 휴식과 안정을 취하고 있어요.`;
   const source = propSource || known?.source || '공식 보건의료 정보';
   const effectiveSourceUrl = propSourceUrl || known?.sourceUrl || '';
 
@@ -226,7 +226,7 @@ export function IllnessInfoModal({
           <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-zinc-100/80 dark:bg-zinc-800/60 text-[11.5px] text-zinc-600 dark:text-zinc-400 leading-relaxed text-left border border-zinc-200/60 dark:border-zinc-700/50">
             <ShieldAlert className="w-4 h-4 text-zinc-500 shrink-0 mt-0.5" />
             <span className="text-left">
-              본 정보는 보건의료기관 공식 자료를 바탕으로 요약된 건강 안내 정보이며, 전문 의료진의 진료나 처방을 대신하지 않습니다.
+              본 정보는 보건의료기관 공식 자료를 바탕으로 요약된 건강 안내 정보이며, 전문 의료진의 진료나 처방을 대신하지 않아요.
             </span>
           </div>
         </div>

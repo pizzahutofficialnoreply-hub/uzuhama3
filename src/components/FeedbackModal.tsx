@@ -569,7 +569,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
       }, 1400);
     } catch (e: any) {
       console.error(e);
-      alert('전송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      alert('전송 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
     } finally {
       setIsSubmitting(false);
     }
@@ -588,14 +588,10 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
 
       {/* Main Panel */}
       <motion.div
-        initial={{ opacity: 0, x: '100%' }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={
-          isAppleDevice
-            ? { opacity: 0, transition: { duration: 0 } }
-            : { opacity: 0, x: '100%', transition: { duration: 0.22, ease: [0.32, 0, 0.67, 0] } }
-        }
-        transition={{ type: 'spring', damping: 28, stiffness: 320, mass: 0.8 }}
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%', transition: { type: 'spring', damping: 36, stiffness: 360, mass: 0.9 } }}
+        transition={{ type: 'spring', damping: 32, stiffness: 320, mass: 0.9 }}
         className="relative z-10 w-full lg:max-w-2xl h-full bg-zinc-50 dark:bg-zinc-950 flex flex-col shadow-2xl overflow-hidden feedback-modal"
       >
         {/* Sticky Header */}
@@ -633,9 +629,9 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
               <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center animate-bounce">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
-              <h3 className="text-xl font-bold text-zinc-900 dark:text-white">소중한 의견이 접수되었습니다!</h3>
+              <h3 className="text-xl font-bold text-zinc-900 dark:text-white">소중한 의견이 접수되었어요!</h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xs">
-                보내주신 피드백을 신속히 검토하여 더 쾌적한 트래커를 만들겠습니다. 감사합니다.
+                보내주신 피드백을 신속히 검토하여 더 쾌적한 트래커를 만들겠어요. 감사해요.
               </p>
             </div>
           ) : (
@@ -897,7 +893,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                           })
                         ) : (
                           <div className="text-center py-6 text-xs text-zinc-400">
-                            일치하는 날짜, 영상, 쇼츠 또는 게임 데이터가 없습니다.
+                            일치하는 날짜, 영상, 쇼츠 또는 게임 데이터가 없어요.
                           </div>
                         )}
                       </div>
@@ -1401,7 +1397,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                         <span className="text-[10px] text-zinc-400 font-normal">PC: F12 → Console 붉은 에러 문구</span>
                       </label>
                       <textarea 
-                        placeholder="복사한 에러 로그나 비정상 동작 증상을 적어주시면 빠른 원인 파악이 가능합니다."
+                        placeholder="복사한 에러 로그나 비정상 동작 증상을 적어주시면 빠른 원인 파악이 가능해요."
                         className="w-full bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-3 text-xs min-h-[60px] text-red-600 dark:text-red-400 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono resize-y"
                         value={consoleLog}
                         onChange={e => setConsoleLog(e.target.value)}
@@ -1433,7 +1429,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                         : dataRequestType === 'edit'
                         ? '수정 사유나 관리자에게 전달할 추가 요청 사항을 자유롭게 적어주세요.'
                         : dataRequestType === 'delete'
-                        ? '예시:\n- 삭제 요청 사유: 해당 날짜는 방송이 진행되지 않았거나 잘못 등록된 중복 데이터입니다.'
+                        ? '예시:\n- 삭제 요청 사유: 해당 날짜는 방송이 진행되지 않았거나 잘못 등록된 중복 데이터예요.'
                         : '예시:\n- 방송 일자: 2024-08-15\n- 방송 제목: 특별 생방송\n- 플레이 게임: 게임A (2시간), 게임B (1시간)\n- 참고 출처/다시보기 링크: https://...'
                     }
                     className="w-full bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-3.5 text-sm min-h-[100px] text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none leading-relaxed"

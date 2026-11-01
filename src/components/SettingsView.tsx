@@ -4,7 +4,7 @@ import {
   BookOpen, FileText, ExternalLink, Mail, AlertCircle, Gavel, 
   ShieldCheck, Trash2, LogOut, ChevronRight, Check, RefreshCw,
   Copy, Smartphone, Sun, Moon, Laptop, Sparkles, Youtube, X, Share2, Type,
-  FileCode2, Lock
+  FileCode2, Lock, Compass
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePushNotification, PushSettings } from '../hooks/usePushNotification';
@@ -128,7 +128,7 @@ export function SettingsView({
 
   const handleTogglePush = async (key: keyof PushSettings) => {
     if (!isSupported) {
-      alert('현재 브라우저는 웹 푸시 알림을 지원하지 않습니다.');
+      alert('현재 브라우저는 웹 푸시 알림을 지원하지 않아요.');
       return;
     }
 
@@ -240,7 +240,7 @@ export function SettingsView({
                     관리자 대시보드
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-600 text-white font-semibold">인앱 이동</span>
                   </p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">시스템 설정 및 방송 데이터 관리 대시보드로 이동합니다.</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">시스템 설정 및 방송 데이터 관리 대시보드로 이동해요.</p>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-purple-500 shrink-0 group-hover:translate-x-0.5 transition-transform" />
@@ -293,7 +293,7 @@ export function SettingsView({
                     관리자 모드 (새 페이지로 열기)
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 font-semibold">PWA 지원</span>
                   </p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">새 브라우저 탭 또는 독립 창에서 /admin 관리자 페이지를 엽니다.</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">새 브라우저 탭 또는 독립 창에서 /admin 관리자 페이지를 열어요.</p>
                 </div>
               </div>
               <ExternalLink className="w-4 h-4 text-purple-500 shrink-0" />
@@ -472,7 +472,7 @@ export function SettingsView({
                             }
                             await triggerLocalNotification(
                               '[우주하마] 테스트 알림',
-                              '알림이 정상적으로 수신됩니다. 방송 시작 및 휴방 공지를 실시간으로 받아보실 수 있습니다!'
+                              '알림이 정상적으로 수신돼요. 방송 시작 및 휴방 공지를 실시간으로 받아보실 수 있어요!'
                             );
                           }}
                           className="px-3 py-1.5 text-xs font-bold rounded-xl bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 transition-colors shrink-0 cursor-pointer"
@@ -483,7 +483,7 @@ export function SettingsView({
 
                       <div className="p-2.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-800/50 text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1 leading-relaxed">
                         <p className="font-semibold text-zinc-700 dark:text-zinc-300">💡 알림이 오지 않는 경우 체크리스트:</p>
-                        <p>• <strong>아이폰(iOS)</strong>: 사파리 공유 버튼 &gt; <strong>'홈 화면에 추가'</strong> 후 실행해야 웹 푸시가 작동합니다.</p>
+                        <p>• <strong>아이폰(iOS)</strong>: 사파리 공유 버튼 &gt; <strong>'홈 화면에 추가'</strong> 후 실행해야 웹 푸시가 작동해요.</p>
                         <p>• <strong>안드로이드/PC</strong>: 브라우저 주소창 좌측 자물쇠(설정) 아이콘에서 <strong>알림 '허용'</strong>인지 확인해주세요.</p>
                       </div>
                     </div>
@@ -601,7 +601,7 @@ export function SettingsView({
 
                       {/* 안내 문구 */}
                       <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                        왼쪽으로 갈수록 블러가 많아지고 더 투명해지며, 오른쪽으로 갈수록 블러가 적어지고 더 불투명해집니다.
+                        왼쪽으로 갈수록 블러가 많아지고 더 투명해지며, 오른쪽으로 갈수록 블러가 적어지고 더 불투명해져요.
                       </p>
 
                       {/* 슬라이더 트랙 및 좌우 라벨 */}
@@ -775,6 +775,23 @@ export function SettingsView({
             <ChevronRight className="w-4 h-4 text-zinc-400" />
           </button>
 
+          {onOpenTutorial && (
+            <button
+              type="button"
+              onClick={onOpenTutorial}
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <Compass className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <div>
+                  <span className="text-sm font-semibold text-zinc-900 dark:text-white">사이트 둘러보기 다시 보기</span>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">처음 왔을 때 나온 기능 안내를 다시 볼 수 있어요</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-zinc-400" />
+            </button>
+          )}
+
           <a 
             href="https://hushed-sailboat-ece.notion.site/d176b75d9cf94efbb96f5e5168bbe18a?source=copy_link"
             target="_blank"
@@ -900,9 +917,9 @@ export function SettingsView({
                   className="overflow-hidden"
                 >
                   <div className="px-4 pb-4 pt-2 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50 space-y-2">
-                    <p>※ 본 데이터는 <b>{firstYear}년 이후</b> 방송 데이터만 포함하며, 실제 방송 일정과 다를 수 있는 통계적 예측치입니다.</p>
-                    <p>※ 본 사이트는 사용자 설정(테마, 알림 설정 등) 유지를 위해 브라우저 로컬 저장소를 일부 사용합니다.</p>
-                    <p>※ 치지직 및 유튜브 데이터는 공용 API 및 공식 채널 공개 정보를 바탕으로 정기 수집/분석됩니다.</p>
+                    <p>※ 본 데이터는 <b>{firstYear}년 이후</b> 방송 데이터만 포함하며, 실제 방송 일정과 다를 수 있는 통계적 예측치예요.</p>
+                    <p>※ 본 사이트는 사용자 설정(테마, 알림 설정 등) 유지를 위해 브라우저 로컬 저장소를 일부 사용해요.</p>
+                    <p>※ 치지직 및 유튜브 데이터는 공용 API 및 공식 채널 공개 정보를 바탕으로 정기 수집/분석돼요.</p>
                   </div>
                 </motion.div>
               )}
@@ -972,7 +989,7 @@ export function SettingsView({
                     <p>• <b>서체 제공:</b> (주)우아한형제들 (Woowa Brothers Corp.)</p>
                     <p>• <b>사용 영역:</b> 제목/헤드라인 (한나체 Pro), 본문/줄글 (한나체 Air)</p>
                     <p>• <b>라이선스:</b> SIL Open Font License (OFL-1.1) / 무료 이용</p>
-                    <p>• <b>라이선스 전문 요약:</b> 배달의민족 한나체의 지적재산권은 (주)우아한형제들에 있습니다. 개인 및 기업 사용자를 포함한 모든 사용자에게 무료로 제공되며 자유롭게 수정하고 재배포할 수 있습니다. (단, 폰트 파일 자체를 유료로 판매하는 행위는 금지됩니다.)</p>
+                    <p>• <b>라이선스 전문 요약:</b> 배달의민족 한나체의 지적재산권은 (주)우아한형제들에 있어요. 개인 및 기업 사용자를 포함한 모든 사용자에게 무료로 제공되며 자유롭게 수정하고 재배포할 수 있어요. (단, 폰트 파일 자체를 유료로 판매하는 행위는 금지돼요.)</p>
                     <div className="pt-1">
                       <a 
                         href="https://www.woowahan.com/#/fonts" 
@@ -1096,9 +1113,9 @@ export function SettingsView({
                 </div>
 
                 <div className="text-zinc-600 dark:text-zinc-300 leading-relaxed text-sm whitespace-pre-wrap py-2 select-text">
-                  브라우저에 저장된 캐시 데이터(Cache Storage, Session Storage, 서비스 워커 및 PWA 캐시)를 완전히 정리하고 최신 상태로 새로고침합니다.
+                  브라우저에 저장된 캐시 데이터(Cache Storage, Session Storage, 서비스 워커 및 PWA 캐시)를 완전히 정리하고 최신 상태로 새로고침해요.
                   {'\n\n'}
-                  ※ 기존에 설정하신 다크/라이트 화면 테마는 보존되며, 방송 통계 및 공지 데이터가 최신 서버 상태로 새로 동기화됩니다. 계속 진행하시겠습니까?
+                  ※ 기존에 설정하신 다크/라이트 화면 테마는 보존되며, 방송 통계 및 공지 데이터가 최신 서버 상태로 새로 동기화돼요. 계속 진행하시겠어요?
                 </div>
               </div>
 
