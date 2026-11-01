@@ -36,9 +36,9 @@ export const STEP_TYPE_LABEL: Record<OnboardingStepType, string> = {
 export const DEFAULT_ONBOARDING: OnboardingConfig = {
   version: 1,
   steps: [
-    { id: 'welcome', type: 'welcome', title: '환영해요', body: '우주하마 방송 예측에 오신 걸 환영해요.\n몇 가지만 확인하고 바로 시작할게요.', button: '시작하기' },
+    { id: 'welcome', type: 'welcome', title: '우주하마 방송 예측', body: '오늘 방송이 켜질지, 지난 방송에선 뭘 했는지\n여기서 한눈에 볼 수 있어요.', button: '시작하기' },
     {
-      id: 'terms', type: 'terms', title: '약관에 동의해 주세요', body: '사이트를 쓰려면 아래 내용에 동의가 필요해요. 제목을 누르면 내용을 볼 수 있어요.', button: '동의하고 계속',
+      id: 'terms', type: 'terms', title: '약관 확인', body: '쓰기 전에 아래 내용을 한 번 확인해 주세요. 제목을 누르면 펼쳐져요.', button: '동의하고 다음',
       sections: [
         { id: 'tos', title: '서비스 이용약관', body: '{{termsOfService}}', required: true },
         { id: 'privacy', title: '개인정보처리방침', body: '{{privacyPolicy}}', required: true },
@@ -46,13 +46,13 @@ export const DEFAULT_ONBOARDING: OnboardingConfig = {
     },
     {
       id: 'fanmade', type: 'notice', title: '팬이 만든 사이트예요',
-      body: '이 사이트는 우주하마님을 응원하는 팬이 만든 **비공식** 사이트예요.\n\n- 우주하마님, 치지직, 유튜브와는 관계가 없어요.\n- 방송 예측은 지난 방송 기록으로 계산한 **참고용**이에요.\n- 영상과 링크의 권리는 각 원작자에게 있어요.',
-      button: '확인했어요',
+      body: '우주하마님을 좋아하는 팬이 만든 **비공식** 사이트예요.\n\n- 우주하마님, 치지직, 유튜브와는 관련이 없어요.\n- 방송 확률은 지난 기록으로 계산한 거라 틀릴 때도 있어요.\n- 영상과 이미지의 권리는 원작자에게 있어요.',
+      button: '알겠어요',
     },
-    { id: 'keyboard', type: 'keyboard', title: '어떤 자판을 쓰세요?', body: '검색할 때 오타를 자판 배열에 맞춰 고쳐 드려요. 설정에서 언제든 바꿀 수 있어요.', button: '다음' },
+    { id: 'keyboard', type: 'keyboard', title: '어떤 자판 쓰세요?', body: '검색어에 오타가 나면 쓰는 자판에 맞춰 고쳐 드릴게요. 나중에 설정에서 바꿀 수 있어요.', button: '다음' },
     {
-      id: 'intro', type: 'intro', title: '이런 사이트예요',
-      body: '- **방송 켜질 확률**: 지난 기록으로 오늘 방송 가능성과 유력 시간을 알려 줘요.\n- **방송 기록**: 날짜별 방송과 게임, 다시보기를 달력으로 봐요.\n- **상세 분석**: 요일·시간대·방송 길이 통계를 봐요.\n- **추천 영상**: 편집본·쇼츠·재생목록을 검색하고 골라 봐요.',
+      id: 'intro', type: 'intro', title: '이렇게 쓰면 돼요',
+      body: '- **요약**: 오늘 방송 확률과 켜질 만한 시간\n- **기록**: 날짜별 방송·게임·다시보기 달력\n- **분석**: 요일·시간대·방송 길이 통계\n- **검색**: 편집본·쇼츠·재생목록 찾아보기',
       button: '시작해볼까요?',
     },
   ],

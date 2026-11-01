@@ -23,7 +23,8 @@ interface ShortsFeedProps {
 
 const PAGE = 24;
 
-type ShortEntry = { id: string; url: string; title: string; date: string; category: string; genres: string[]; liveUrl?: string; editUrl?: string; publishedAt?: string; isCompilation?: boolean };
+type ShortEntry = { id: string; url: string; title: string; date: string; category: string; genres: string[]; liveUrl?: string; editUrl?: string; publishedAt?: string; isCompilation?: boolean; compilation?: CompilationRow[] };
+export type CompilationRow = { date: string; games: string[]; liveUrl?: string; editUrl?: string };
 
 const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')
@@ -97,7 +98,19 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
         if (!/#?shorts|쇼츠/.test(tag)) return;
         const id = extractYoutubeId(e?.url || '');
         if (!id || byId.has(id)) return;
-        byId.set(id, { id, url: e.url, title: e.title || '', date: log?.date || '', category: e.category || '몰아보기', genres: genresOfLog ? genresOfLog({ ...log, games: e.games || log?.games }) : [], isCompilation: true });
+        // 몰아보기 쇼츠: 연결된 생방송 목록 (쇼츠 뷰어에서 아래에서 올라오는 목록으로 보여 줌)
+        const dates: string[] = (Array.isArray(e.allBroadcastDates) && e.allBroadcastDates.length ? e.allBroadcastDates : [log?.date]).filter(Boolean);
+        const compilation: CompilationRow[] = [...new Set(dates)].sort((a, b) => b.localeCompare(a)).map((d) => {
+          const l: any = list.find((x: any) => x?.date === d) || (log?.date === d ? log : null);
+          const games = (Array.isArray(e.games) ? e.games : [])
+            .filter((g: any) => !g?.date || g.date === d).map((g: any) => (typeof g === 'string' ? g : g?.name)).filter(Boolean);
+          return {
+            date: d,
+            games: games.length ? games : (Array.isArray(l?.games) ? l.games.map((g: any) => g?.name).filter(Boolean) : l?.game ? [l.game] : []),
+            ...linksOf(l),
+          };
+        });
+        byId.set(id, { id, url: e.url, title: e.title || '', date: log?.date || '', category: e.category || '몰아보기', genres: genresOfLog ? genresOfLog({ ...log, games: e.games || log?.games }) : [], isCompilation: true, compilation });
       });
     });
     // 3) 유튜브 채널의 쇼츠 전체 (기록에 없는 것도 포함, 업로드일은 유튜브 값)
@@ -229,7 +242,7 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
       <Pagination currentPage={page} totalPages={totalPages} onChange={setPage} />
       {playerAt !== null && (
         <ShortsPlayer
-          items={sorted.map((s) => ({ url: s.url, title: s.title, caption: captionOf(s), liveUrl: s.liveUrl, editUrl: s.editUrl }))}
+          items={sorted.map((s) => ({ url: s.url, title: s.title, caption: captionOf(s), liveUrl: s.liveUrl, editUrl: s.editUrl, compilation: s.compilation }))}
           startIndex={playerAt}
           onClose={() => setPlayerAt(null)}
         />

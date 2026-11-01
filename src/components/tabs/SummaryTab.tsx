@@ -252,7 +252,7 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
     ...(data.system?.absenceReason ? [{
       id: 'guide-0',
       title: '⚠️ 장기 휴방 사유 안내',
-      content: `현재 우주하마님은 **${displayAbsenceReason}** 사유로 휴방 중이에요.${data.system.absenceDuration ? ` (예상 기간: **${data.system.absenceDuration}**)` : ''} 이로 인해 평소 패턴과 다르게 당분간 휴방이 지속될 가능성이 높으니 참고하시기 바라요.`,
+      content: `현재 우주하마님은 **${displayAbsenceReason}** 사유로 휴방 중이에요.${data.system.absenceDuration ? ` (예상 기간: **${data.system.absenceDuration}**)` : ''} 이로 인해 평소 패턴과 다르게 당분간 휴방이 지속될 가능성이 높으니 참고해 주세요.`,
       illnessName: illnessNameForGuide,
       illnessSummary: isIllness ? data.system?.illnessSummary : undefined,
       illnessSource: isIllness ? data.system?.illnessSource : undefined,

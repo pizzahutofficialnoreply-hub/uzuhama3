@@ -2128,7 +2128,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
         <div className="p-4 sm:p-5 rounded-[24px] bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300/90 flex items-start gap-2.5 leading-relaxed">
           <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <strong className="font-bold text-amber-900 dark:text-amber-200">외부 링크 및 보안 주의 안내:</strong> 본 방송 기록 및 상세보기에 표시되는 모든 외부 링크(유튜브 영상, 치지직 다시보기, 게임 및 외부 웹페이지 등)는 단순 검색 및 팬 아카이브 결과에 불과하며, 당 사이트에서 직접 보증하거나 관리하지 않아요. 외부 링크 접속으로 인해 발생할 수 있는 해킹, 악성코드 감염, 피싱, 개인정보 유출 및 보안 피해 등에 대해 본 사이트는 일체의 책임을 지지 않으므로 링크 클릭 및 이용 시 각별히 주의하시기 바라요.
+            <strong className="font-bold text-amber-900 dark:text-amber-200">외부 링크 및 보안 주의 안내:</strong> 본 방송 기록 및 상세보기에 표시되는 모든 외부 링크(유튜브 영상, 치지직 다시보기, 게임 및 외부 웹페이지 등)는 단순 검색 및 팬 아카이브 결과에 불과하며, 당 사이트에서 직접 보증하거나 관리하지 않아요. 외부 링크 접속으로 인해 발생할 수 있는 해킹, 악성코드 감염, 피싱, 개인정보 유출 및 보안 피해 등에 대해 본 사이트는 일체의 책임을 지지 않으므로 링크 클릭 및 이용 시 각별히 주의해 주세요.
           </div>
         </div>
       </div>

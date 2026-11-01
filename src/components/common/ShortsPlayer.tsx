@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronUp, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Layers, Volume2, VolumeX, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { extractYoutubeId } from '../../utils/urlUtils';
 import { PlaySquare, YoutubeLogo } from './MediaIcons';
 
@@ -10,7 +11,11 @@ import { PlaySquare, YoutubeLogo } from './MediaIcons';
  * - 화면을 톡 누르면 일시정지/재생, 끝나면 처음부터 반복
  * - 플레이어 하나를 계속 쓰면서 영상만 바꿈 (한 번 소리를 켜면 다음 쇼츠도 소리 나게, 휴대폰 자동재생 제한 때문)
  */
-export type ShortsPlayerItem = { url: string; title?: string; caption?: string; liveUrl?: string; editUrl?: string };
+export type ShortsPlayerItem = {
+  url: string; title?: string; caption?: string; liveUrl?: string; editUrl?: string;
+  /** 몰아보기 쇼츠: 연결된 생방송 목록 */
+  compilation?: { date: string; games: string[]; liveUrl?: string; editUrl?: string }[];
+};
 
 const SWIPE_PX = 60;
 
@@ -21,6 +26,7 @@ export function ShortsPlayer({ items, startIndex, onClose }: { items: ShortsPlay
   const [muted, setMuted] = useState(true);
   const [paused, setPaused] = useState(false);
   const [ready, setReady] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   // 다음 쇼츠로 넘어가는 동안은 플레이어를 숨기고 썸네일을 보여 줌 (이전 영상이 잠깐 보이지 않게)
   const [switching, setSwitching] = useState(true);
   const pausedRef = useRef(false);
@@ -81,6 +87,7 @@ export function ShortsPlayer({ items, startIndex, onClose }: { items: ShortsPlay
   // 바뀐 쇼츠 불러오기
   useEffect(() => {
     const id = idOf(index);
+    setSheetOpen(false);
     if (!id || id === loadedId.current) return;
     loadedId.current = id;
     setSwitching(true);
@@ -267,10 +274,64 @@ export function ShortsPlayer({ items, startIndex, onClose }: { items: ShortsPlay
               <a href={`https://www.youtube.com/shorts/${idOf(index)}`} target="_blank" rel="noreferrer" className="h-9 px-3 rounded-full bg-white/15 backdrop-blur-md flex items-center text-xs font-semibold">
                 유튜브에서 보기
               </a>
+              {!!cur.compilation?.length && (
+                <button type="button" onClick={() => setSheetOpen(true)} className="h-9 px-3 rounded-full bg-purple-600/90 backdrop-blur-md flex items-center gap-1 text-xs font-bold cursor-pointer">
+                  <Layers className="w-4 h-4" /> 몰아보기 펼치기 · {cur.compilation.length}
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* 몰아보기 목록: 아래에서 위로 올라오는 판 */}
+      <AnimatePresence>
+        {sheetOpen && cur.compilation?.length ? (
+          <>
+            <motion.div
+              key="sheet-backdrop"
+              className="absolute inset-0 z-20 bg-black/40"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setSheetOpen(false)}
+            />
+            <motion.div
+              key="sheet"
+              role="dialog"
+              aria-label="몰아보기 연결 생방송"
+              className="absolute inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[min(100vw,calc(100dvh*9/16))] max-h-[62dvh] flex flex-col rounded-t-[28px] bg-zinc-900/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)]"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0, bottom: 0.6 }}
+              onDragEnd={(_, info) => { if (info.offset.y > 90 || info.velocity.y > 600) setSheetOpen(false); }}
+            >
+              <div className="pt-2.5 pb-1 flex justify-center"><span className="w-10 h-1.5 rounded-full bg-white/25" /></div>
+              <div className="px-4 pb-2 flex items-center justify-between">
+                <p className="text-sm font-bold">몰아보기 · 생방송 {cur.compilation.length}개</p>
+                <button type="button" onClick={() => setSheetOpen(false)} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="overflow-y-auto px-2 pb-3" onPointerDownCapture={(e) => e.stopPropagation()}>
+                {cur.compilation.map((r) => (
+                  <div key={r.date} className="flex items-center gap-3 px-2 py-2.5 rounded-2xl hover:bg-white/5">
+                    <div className="w-12 shrink-0 text-center">
+                      <p className="text-[10px] text-white/50">{r.date.slice(0, 4)}</p>
+                      <p className="text-sm font-black tabular-nums">{r.date.slice(5).replace('-', '.')}</p>
+                    </div>
+                    <p className="flex-1 min-w-0 text-xs text-white/80 line-clamp-2">{r.games.length ? r.games.join(', ') : '게임 정보 없음'}</p>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {r.liveUrl && <a href={r.liveUrl} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center" aria-label="생방송 보기"><PlaySquare className="w-4 h-4" /></a>}
+                      {r.editUrl && <a href={r.editUrl} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center" aria-label="편집본 보기"><YoutubeLogo className="w-4 h-4" /></a>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        ) : null}
+      </AnimatePresence>
 
       {/* 데스크톱: 위·아래 버튼 */}
       <div className="hidden md:flex absolute right-6 top-1/2 -translate-y-1/2 flex-col gap-3">

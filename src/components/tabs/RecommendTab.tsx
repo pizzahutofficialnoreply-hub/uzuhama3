@@ -1566,9 +1566,14 @@ export function RecommendTab({
            matchScore = 76;
            isHighConfidence = true;
          }
-         // 3. 방송 날짜 직접 일치
-         else if (v.parentLog?.date && fuzzyDateMatch(q, v.parentLog.date)) {
-           matchScore = 75;
+         // 3. 게임 이름에 그대로 들어 있으면 날짜보다 먼저 (예: "2077" → 사이버펑크 2077 이 2077년 날짜 결과보다 위)
+         else if (primaryGame.includes(q) || [...(v.parentLog?.games || []), ...(v.games || [])].some((g: any) => (g?.name || '').toLowerCase().includes(q))) {
+           matchScore = 76;
+           isHighConfidence = true;
+         }
+         // 4. 방송 날짜 일치 (날짜끼리는 아래 정렬에서 최신 날짜부터)
+         else if ((v.parentLog?.date && fuzzyDateMatch(q, v.parentLog.date)) || (Array.isArray(v.allBroadcastDates) && v.allBroadcastDates.some((d: string) => fuzzyDateMatch(q, d)))) {
+           matchScore = 60;
            isHighConfidence = true;
          }
          // 4. 메인 게임명/카테고리 직접 포함
@@ -1634,6 +1639,8 @@ export function RecommendTab({
           if ((b.matchScore || 0) !== (a.matchScore || 0)) {
             return (b.matchScore || 0) - (a.matchScore || 0);
           }
+          // 날짜로 찾은 영상끼리는 최신 방송부터
+          if (a.matchScore === 60 && b.matchScore === 60) return getVideoSortTime(b) - getVideoSortTime(a);
         }
         return (b.weight || 0) - (a.weight || 0);
       });
@@ -1746,6 +1753,8 @@ export function RecommendTab({
   }, [isAccuracySort, recommended]);
   const hasMainResults = useMemo(() => recommended.some((v) => !v.isRelated), [recommended]);
   const isTagSearch = searchTerm.trim().startsWith('#');
+  // 날짜처럼 생긴 검색어 (2024, 5월, 5/12, 24년 5월, 2024.05.12 …) → 정렬 이름을 '날짜 최신순/과거순'으로
+  const isDateQuery = /^(\d{4}|\d{1,2}\s*월(\s*\d{1,2}\s*일?)?|\d{1,2}\s*[./-]\s*\d{0,2}|\d{2,4}\s*년(\s*\d{1,2}\s*월)?(\s*\d{1,2}\s*일?)?|\d{2,4}\.\d{1,2}\.\d{1,2}|\d{4}-\d{2}(-\d{2})?)$/.test(searchTerm.trim());
 
   // 검색 결과 구분선: ① 일치 확률이 낮은 결과 ② 썸네일·태그 등에서 찾은 연관 검색 결과 (카드·목록 공통)
   const renderSearchDivider = (video: any, idx: number, className: string) => {
@@ -1989,8 +1998,8 @@ export function RecommendTab({
                 className="w-full pl-3 pr-7 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-1.5 focus:ring-zinc-400 dark:focus:ring-zinc-600 text-xs appearance-none dark:text-zinc-200 font-medium cursor-pointer"
               >
                 {Boolean(searchTerm.trim()) && <option value="accuracy">정확도순</option>}
-                <option value="desc">최신순</option>
-                <option value="asc">과거순 (첫 기록부터)</option>
+                <option value="desc">{isDateQuery ? '날짜 최신순' : '최신순'}</option>
+                <option value="asc">{isDateQuery ? '날짜 과거순' : '과거순 (첫 기록부터)'}</option>
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
             </div>
@@ -2268,7 +2277,7 @@ export function RecommendTab({
         <div className="p-4 sm:p-5 rounded-[24px] bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300/90 flex items-start gap-2.5 leading-relaxed">
           <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <strong className="font-bold text-amber-900 dark:text-amber-200">외부 링크 및 보안 주의 안내:</strong> 본 검색 결과에 표시되는 모든 외부 링크(유튜브 영상, 치지직 다시보기, 게임 및 외부 웹페이지 등)는 단순 검색 및 팬 아카이브 결과에 불과하며, 당 사이트에서 직접 보증하거나 관리하지 않아요. 외부 링크 접속으로 인해 발생할 수 있는 해킹, 악성코드 감염, 피싱, 개인정보 유출 및 보안 피해 등에 대해 본 사이트는 일체의 책임을 지지 않으므로 링크 클릭 및 이용 시 각별히 주의하시기 바라요.
+            <strong className="font-bold text-amber-900 dark:text-amber-200">외부 링크 및 보안 주의 안내:</strong> 본 검색 결과에 표시되는 모든 외부 링크(유튜브 영상, 치지직 다시보기, 게임 및 외부 웹페이지 등)는 단순 검색 및 팬 아카이브 결과에 불과하며, 당 사이트에서 직접 보증하거나 관리하지 않아요. 외부 링크 접속으로 인해 발생할 수 있는 해킹, 악성코드 감염, 피싱, 개인정보 유출 및 보안 피해 등에 대해 본 사이트는 일체의 책임을 지지 않으므로 링크 클릭 및 이용 시 각별히 주의해 주세요.
           </div>
         </div>
       </div>

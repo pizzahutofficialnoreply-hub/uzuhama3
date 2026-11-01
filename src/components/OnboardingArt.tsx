@@ -20,25 +20,17 @@ const float = (d: number, amp = 6) => ({
 });
 
 function Welcome() {
-  const chips = [
-    { icon: TrendingUp, label: '방송 확률 72%', cls: 'left-0 top-6', d: 0.35 },
-    { icon: CalendarDays, label: '11월 방송 12회', cls: 'right-0 top-0', d: 0.5 },
-    { icon: Play, label: '추천 영상', cls: 'left-4 bottom-2', d: 0.65 },
-    { icon: Sparkles, label: '유력 시간 21시', cls: 'right-2 bottom-8', d: 0.8 },
-  ];
+  // 실제 앱 아이콘 하나만 조용히 (떠다니는 장식 없이)
   return (
-    <div className="relative h-full w-full max-w-[300px] mx-auto">
-      <motion.div {...pop(0.1)} className="absolute inset-0 m-auto w-24 h-24 rounded-[30px] bg-purple-600 text-white shadow-xl shadow-purple-600/25 flex items-center justify-center text-4xl font-black">
-        <motion.span {...float(3.2, 4)}>우</motion.span>
-      </motion.div>
-      {chips.map(({ icon: Icon, label, cls, d }) => (
-        <motion.div key={label} {...pop(d)} className={cn('absolute', cls)}>
-          <motion.div {...float(3 + d * 2, 5)} className={cn(card, 'flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-zinc-700 dark:text-zinc-200')}>
-            <Icon className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-            {label}
-          </motion.div>
-        </motion.div>
-      ))}
+    <div className="h-full w-full flex items-center justify-center">
+      <motion.img
+        src="/icon.png"
+        alt="우주하마 방송 예측 아이콘"
+        initial={{ opacity: 0, scale: 0.85, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 220, damping: 22, delay: 0.1 }}
+        className="w-36 h-36 sm:w-44 sm:h-44 rounded-[28%] object-cover shadow-[0_18px_40px_-14px_rgba(0,0,0,0.35)] ring-1 ring-black/5 dark:ring-white/10"
+      />
     </div>
   );
 }

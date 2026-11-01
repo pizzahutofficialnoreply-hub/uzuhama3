@@ -318,7 +318,7 @@ export function checkMaintenanceStatus(system?: SystemConfig, currentTimeMs?: nu
     if (nowMs >= todayMidnight) {
       isScheduledToday = true;
       const { fullText } = formatMaintenanceRange(maintenanceStart, maintenanceEnd);
-      upcomingNoticeText = `⚠️ 잠시 후 ${fullText} 에 시스템 점검이 시작될 예정이에요. 점검 시간 동안 서비스 접속이 불가하오니 이용에 참고해 주시기 바라요.`;
+      upcomingNoticeText = `⚠️ 잠시 후 ${fullText} 에 시스템 점검이 시작될 예정이에요. 점검 시간 동안 사이트에 들어올 수 없으니 이용에 참고해 주세요.`;
     }
   }
 

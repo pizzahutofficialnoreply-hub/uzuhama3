@@ -87,7 +87,7 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
       alert('회원탈퇴 처리가 완료되었어요.');
     } catch (error: any) {
       if (error?.code === 'auth/requires-recent-login') {
-        alert('보안을 위해 다시 로그인한 직후에 회원탈퇴를 다시 시도해 주시기 바라요.');
+        alert('보안을 위해 다시 로그인한 직후에 회원탈퇴를 다시 시도해 주세요.');
       } else {
         alert(`회원탈퇴 처리 중 오류가 발생했어요: ${error?.message || error}`);
       }

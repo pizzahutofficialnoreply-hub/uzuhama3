@@ -7,7 +7,7 @@ import {
   Search,
   X
 } from 'lucide-react';
-import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'motion/react';
+import { motion, AnimatePresence, useMotionValue, useTransform, useVelocity, animate } from 'motion/react';
 
 // iOS 키보드·Liquid Glass 처럼 살짝 감기며 멈추는 스프링 (감쇠비 약 0.86)
 // 도크 블러 윗부분 페이드 (위 → 아래로 점점 진하게)
@@ -322,17 +322,13 @@ export function FloatingBottomNav({
   // 누른 탭을 바로 표시 (화면이 아직 바뀌는 중이어도 회색 원은 손가락을 즉시 따라감)
   const [visualIndex, setVisualIndex] = useState(activeIndex);
   useEffect(() => { setVisualIndex(activeIndex); }, [activeIndex]);
-  const PILL_SPRING = { type: 'spring' as const, stiffness: 520, damping: 40, mass: 0.7 };
-  // iOS 26 처럼: 움직이는 동안 회색 원이 투명한 유리 렌즈로 커졌다가, 도착하면 다시 회색 원으로
-  const [lens, setLens] = useState(false);
-  const lensTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pulseLens = (ms = 380) => {
-    setLens(true);
-    if (lensTimerRef.current) clearTimeout(lensTimerRef.current);
-    lensTimerRef.current = setTimeout(() => setLens(false), ms);
-  };
+  // 빠릿하지만 끝에서 아주 살짝 출렁이고 멈추는 스프링
+  const PILL_SPRING = { type: 'spring' as const, stiffness: 700, damping: 42, mass: 0.6 };
+  // 움직이는 속도만큼 진행 방향으로 아주 살짝 늘어났다가(관성) 멈추면 원래 모양으로 — 실제 물체처럼
+  const pillVelocity = useVelocity(pillX);
+  const pillStretch = useTransform(pillVelocity, [-2400, 0, 2400], [1.07, 1, 1.07], { clamp: true });
+  const pillSquash = useTransform(pillVelocity, [-2400, 0, 2400], [0.95, 1, 0.95], { clamp: true });
   const selectTab = (i: number) => {
-    if (i !== visualIndex) pulseLens();
     setVisualIndex(i);
     animate(pillX, i * slotWidth, PILL_SPRING);
     onTabChange(navTabs[i].id);
@@ -358,8 +354,6 @@ export function FloatingBottomNav({
     if (!d.moved) {
       if (Math.abs(dx) < 6) return;
       d.moved = true;
-      setLens(true);
-      if (lensTimerRef.current) clearTimeout(lensTimerRef.current);
       setIsDragging(true);
       isDraggingRef.current = true;
       try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* 무시 */ }
@@ -371,10 +365,12 @@ export function FloatingBottomNav({
     const d = dragRef.current;
     dragRef.current = null;
     if (!d || !d.moved) return;
-    const target = Math.min(2, Math.max(0, Math.round(pillX.get() / slotWidth)));
-    animate(pillX, target * slotWidth, PILL_SPRING);
+    // 손을 놓을 때의 속도를 이어받아 던지듯 (빠르게 튕기면 옆 탭으로 넘어감)
+    const v = pillVelocity.get();
+    const projected = pillX.get() + v * 0.12;
+    const target = Math.min(2, Math.max(0, Math.round(projected / slotWidth)));
+    animate(pillX, target * slotWidth, { ...PILL_SPRING, velocity: v });
     setVisualIndex(target);
-    pulseLens(260);
     onTabChange(navTabs[target].id);
     // 손을 뗄 때 생기는 클릭은 무시
     window.setTimeout(() => { setIsDragging(false); isDraggingRef.current = false; }, 80);
@@ -408,21 +404,6 @@ export function FloatingBottomNav({
               maskImage: DOCK_BLUR_MASK,
               background: `linear-gradient(to bottom, transparent 0px, ${isDark ? tabGlass.config.bottomFadeDark : tabGlass.config.bottomFadeLight} 140px)`,
             }}
-          />
-          {/* 키보드가 올라오면: 아이폰 기본 앱처럼 검색창이 키보드 색 판 위에 얹힌 모양 (검색창~키보드 사이 빈틈도 채움) */}
-          <motion.div
-            aria-hidden="true"
-            className="absolute inset-x-0 -z-10 pointer-events-none rounded-t-[30px] border-t border-white/60 dark:border-white/10 shadow-[0_-8px_30px_rgba(0,0,0,0.08)]"
-            style={{
-              top: -12,
-              height: '130vh',
-              WebkitBackdropFilter: 'blur(30px) saturate(180%)',
-              backdropFilter: 'blur(30px) saturate(180%)',
-              background: isDark ? 'rgba(44, 44, 46, 0.86)' : 'rgba(214, 217, 223, 0.82)',
-            }}
-            initial={false}
-            animate={{ opacity: isKeyboardUp ? 1 : 0, y: isKeyboardUp ? 0 : 28 }}
-            transition={isKeyboardUp ? KB_SPRING : { type: 'spring', stiffness: 380, damping: 36 }}
           />
           {/* 플로팅 바 래퍼: 키보드가 올라오면 자연스럽게 확장되며 시원하게 늘어나는 레이아웃 */}
           <div className={cn(
@@ -460,17 +441,8 @@ export function FloatingBottomNav({
                     {/* 회색 원 인디케이터 (살짝 흐린 유리) — 끌기는 nav 전체에서 처리 */}
                     <motion.div
                       aria-hidden="true"
-                      style={{ x: pillX, width: slotWidth }}
-                      animate={lens ? { scaleX: 1.12, scaleY: 1.3 } : { scaleX: 1, scaleY: 1 }}
-                      transition={{ type: 'spring', stiffness: 420, damping: lens ? 22 : 26, mass: 0.6 }}
-                      className={cn(
-                        "absolute top-1 bottom-1 left-1 rounded-full z-10 pointer-events-none transition-[background-color,box-shadow,border-color] duration-200",
-                        lens
-                          // 움직이는 중: 속이 비치는 유리 렌즈 (밝은 테두리·안쪽 반사광)
-                          ? "bg-white/[0.06] dark:bg-white/[0.04] backdrop-blur-[2px] border border-white/80 dark:border-white/35 shadow-[0_8px_24px_rgba(0,0,0,0.18),inset_0_1px_2px_rgba(255,255,255,0.9),inset_0_-2px_6px_rgba(255,255,255,0.25)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.5),inset_0_1px_2px_rgba(255,255,255,0.35),inset_0_-2px_6px_rgba(255,255,255,0.08)]"
-                          // 멈춤: 살짝 흐린 회색 원
-                          : "bg-zinc-200/75 dark:bg-white/[0.16] backdrop-blur-md border border-white/50 dark:border-white/10 shadow-[0_2px_10px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.12)]"
-                      )}
+                      style={{ x: pillX, width: slotWidth, scaleX: pillStretch, scaleY: pillSquash }}
+                      className="absolute top-1 bottom-1 left-1 rounded-full z-10 pointer-events-none bg-zinc-200/75 dark:bg-white/[0.16] backdrop-blur-md border border-white/50 dark:border-white/10 shadow-[0_2px_10px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     />
 
                     {/* 3개 탭 버튼들 */}
