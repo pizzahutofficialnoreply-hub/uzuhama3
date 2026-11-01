@@ -20,6 +20,7 @@ import { ViewStyleToggle } from '../common/ViewStyleToggle';
 import { useViewStyle } from '../../hooks/useViewStyle';
 import { YoutubeLogo, ShortsIcon, PlaySquare, GlassPlayButton } from '../common/MediaIcons';
 import { PlaylistsFeed } from './recommend/PlaylistsFeed';
+import { useSearchIndex, matchTag, matchRelated } from '../../hooks/useSearchIndex';
 
 type RecommendSubTab = 'home' | 'recommend' | 'videos' | 'shorts' | 'playlists';
 const RECOMMEND_SUB_TABS: { id: RecommendSubTab; label: string }[] = [
@@ -1116,6 +1117,10 @@ export function RecommendTab({
     return Array.from(videoMap.values());
   }, [data]);
 
+  // 태그·썸네일 글자 검색 색인 (한 번 받아 기기에 저장, 없는 영상만 서버가 한 번씩 추출)
+  const knownYtIds = useMemo(() => [...new Set(allVideos.map((v: any) => extractYoutubeId(v.videoUrl) || v.id).filter((id: any) => typeof id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(id)))] as string[], [allVideos]);
+  const searchIndex = useSearchIndex(knownYtIds);
+
   // 카테고리 사전: 게임 장르(games[].category)를 기준으로 만들고, 게임명이 섞여 들어간 값은 제외
   const categoryIndex = useMemo(() => {
     const normKey = (c: string) => c.replace(/\s+/g, '').toLowerCase();
@@ -1233,6 +1238,12 @@ export function RecommendTab({
       });
     }
 
+    const rawSearch = searchTerm.trim();
+    const isTagMode = rawSearch.startsWith('#') && rawSearch.replace(/^#+/, '').trim().length > 0;
+    const tagQuery = isTagMode ? rawSearch.replace(/^#+/, '').trim() : '';
+    const tagMatches = new Map<string, 'exact' | 'partial'>();
+    const relatedVia = new Map<string, string>();
+
     if (searchTerm && searchTerm.trim() !== '') {
       const term = searchTerm.trim();
       const ytId = extractYoutubeId(term);
@@ -1260,7 +1271,16 @@ export function RecommendTab({
 
       // 영상 URL 또는 ID 검색 시에는 카테고리 필터와 무관하게 전체 영상 풀에서 대조
       const searchTarget = isUrl ? allVideos : vids;
+      const entryOf = (v: any) => searchIndex[extractYoutubeId(v.videoUrl) || v.id];
 
+      if (isTagMode) {
+        // '#태그' 검색: 유튜브 태그(설명의 #해시태그 포함)로만 찾음. 완전히 같은 태그가 위, 일부만 같은 태그는 아래
+        vids = searchTarget.filter((v) => {
+          const m = matchTag(entryOf(v), tagQuery);
+          if (m) tagMatches.set(v.id, m);
+          return Boolean(m);
+        });
+      } else {
       vids = searchTarget.filter(v => {
         // 1. 영상, 쇼츠, 생방 링크 대조 (11자리 Video ID 고유 식별자 파싱 및 LIKE 대조)
         if (isUrl) {
@@ -1311,6 +1331,19 @@ export function RecommendTab({
         if (v.parentLog?.category && (fuzzyKoreanMatch(term, v.parentLog.category) || v.parentLog.category.toLowerCase().includes(qLower))) return true;
         return false;
       });
+
+      // 연관 검색: 제목 등에는 없지만 썸네일 글자·키워드·태그·설명에 검색어가 있는 영상 (맨 아래에 따로 표시)
+      if (!isUrl) {
+        const found = new Set(vids.map((v) => v.id));
+        const extra = searchTarget.filter((v) => {
+          if (found.has(v.id)) return false;
+          const via = matchRelated(entryOf(v), term);
+          if (via) relatedVia.set(v.id, via);
+          return Boolean(via);
+        });
+        vids = [...vids, ...extra];
+      }
+      }
     }
 
     const now = Date.now();
@@ -1350,7 +1383,15 @@ export function RecommendTab({
        let matchScore = 0;
        let isHighConfidence = true;
 
-       if (searchTerm.trim()) {
+       const isRelated = relatedVia.has(v.id);
+       if (isTagMode) {
+         const m = tagMatches.get(v.id);
+         matchScore = m === 'exact' ? 90 : 40;
+         isHighConfidence = m === 'exact';
+       } else if (isRelated) {
+         matchScore = 0;
+         isHighConfidence = false;
+       } else if (searchTerm.trim()) {
          const q = searchTerm.trim().toLowerCase();
          const rawTerm = searchTerm.trim();
          const ytId = extractYoutubeId(rawTerm);
@@ -1412,7 +1453,7 @@ export function RecommendTab({
          }
        }
 
-       return { ...v, rType, weight, matchScore, isHighConfidence };
+       return { ...v, rType, weight, matchScore, isHighConfidence, isRelated, relatedVia: relatedVia.get(v.id) };
     });
     
     const getVideoSortTime = (v: any): number => {
@@ -1477,6 +1518,14 @@ export function RecommendTab({
       });
     }
 
+    // 연관 검색 결과는 정렬 방식과 상관없이 항상 맨 아래
+    if (relatedVia.size) {
+      const main = scoredVids.filter((v) => !v.isRelated);
+      const rel = scoredVids.filter((v) => v.isRelated);
+      scoredVids.length = 0;
+      scoredVids.push(...main, ...rel);
+    }
+
     if (pinnedVideoId && (effectiveSortOrder === 'recommend' || !searchTerm.trim())) {
       const pinIndex = scoredVids.findIndex(v => 
         v.id === pinnedVideoId || 
@@ -1490,7 +1539,7 @@ export function RecommendTab({
     }
 
     return scoredVids;
-  }, [allVideos, categoryIndex, selectedCategories, searchTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, categoryIndex, selectedCategories, searchTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex]); // Removed ratings and history to prevent jumping on watch
 
   const handleRefresh = () => {
     Object.keys(baseWeights.current).forEach(id => {
@@ -1545,6 +1594,41 @@ export function RecommendTab({
   const hasAnyHighConfidence = useMemo(() => {
     return isAccuracySort && recommended.some(v => v.isHighConfidence);
   }, [isAccuracySort, recommended]);
+  const hasMainResults = useMemo(() => recommended.some((v) => !v.isRelated), [recommended]);
+  const isTagSearch = searchTerm.trim().startsWith('#');
+
+  // 검색 결과 구분선: ① 일치 확률이 낮은 결과 ② 썸네일·태그 등에서 찾은 연관 검색 결과 (카드·목록 공통)
+  const renderSearchDivider = (video: any, idx: number, className: string) => {
+    const prev = idx > 0 ? paginatedVids[idx - 1] : null;
+    const firstRelated = video.isRelated && (prev ? !prev.isRelated : true);
+    const firstLow = !video.isRelated && isAccuracySort && !video.isHighConfidence &&
+      (prev ? prev.isHighConfidence : (currentPage > 1 || !hasAnyHighConfidence));
+    if (!firstRelated && !firstLow) return null;
+    const label = firstRelated
+      ? (hasMainResults ? '연관 검색 결과 · 썸네일·태그 등에서 찾았어요' : '제목엔 없지만 썸네일·태그 등에서 찾았어요')
+      : isTagSearch
+        ? (hasAnyHighConfidence ? '비슷한 태그' : '비슷한 태그 (같은 태그 없음)')
+        : (hasAnyHighConfidence ? '일치 확률이 비교적 낮은 검색 결과' : '유사 검색 결과 (직접 일치 항목 없음)');
+    return (
+      <div className={className}>
+        <div className="flex items-center gap-3">
+          <div className="h-px bg-zinc-200 dark:bg-zinc-800 flex-1" />
+          <div className={cn(
+            "flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold shadow-sm",
+            firstRelated
+              ? "bg-purple-50 dark:bg-purple-950/40 border-purple-200/80 dark:border-purple-800/60 text-purple-700 dark:text-purple-300"
+              : "bg-amber-50 dark:bg-amber-950/50 border-amber-200/80 dark:border-amber-800/60 text-amber-700 dark:text-amber-300"
+          )}>
+            {firstRelated
+              ? <Sparkles className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 shrink-0" />
+              : <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />}
+            <span>{label}</span>
+          </div>
+          <div className="h-px bg-zinc-200 dark:bg-zinc-800 flex-1" />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6 pb-28 sm:pb-12" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
@@ -1829,6 +1913,7 @@ export function RecommendTab({
               const toggle = () => setSelectedBroadcastModalVideo(isExpanded ? null : video);
               return (
                 <div key={`${video.id}-${idx}`} className={cn(isExpanded && "my-2 mx-2 sm:mx-0")}>
+                  {renderSearchDivider(video, idx, 'my-2 py-2 px-2 sm:px-0')}
                   <AnimatePresence mode="wait" initial={false}>
                     {isExpanded ? (
                       <motion.div key="detail" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }} transition={{ type: 'spring', stiffness: 340, damping: 32 }}>
@@ -1841,9 +1926,12 @@ export function RecommendTab({
                           title={video.videoTitle}
                           href={video.videoUrl}
                           isCompilation={video.isCompilation}
-                          badge={video.isCompilation
-                            ? `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임`
-                            : isMulti ? `${video.allBroadcastDates.length}개 생방` : undefined}
+                          badge={[
+                            video.isCompilation
+                              ? `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임`
+                              : isMulti ? `${video.allBroadcastDates.length}개 생방` : '',
+                            video.relatedVia ? `${video.relatedVia}에서 찾음` : '',
+                          ].filter(Boolean).join(' · ') || undefined}
                           liveUrl={!isMulti ? video.parentLog?.vods?.find((v: any) => v?.url)?.url : undefined}
                           onLiveClick={isMulti ? toggle : undefined}
                           liveActive={isExpanded}
@@ -1881,11 +1969,6 @@ export function RecommendTab({
           )}
 
           {paginatedVids.map((video, idx) => {
-            const isFirstLowConfidenceOnPage = isAccuracySort && !video.isHighConfidence && (
-              (idx === 0 && (currentPage > 1 || !hasAnyHighConfidence)) ||
-              (idx > 0 && paginatedVids[idx - 1]?.isHighConfidence)
-            );
-
             const isExpanded = Boolean(
               selectedBroadcastModalVideo &&
               (selectedBroadcastModalVideo.id === video.id || 
@@ -1894,18 +1977,7 @@ export function RecommendTab({
 
             return (
               <React.Fragment key={`${video.id}-${idx}`}>
-                {isFirstLowConfidenceOnPage && (
-                  <div className="col-span-full my-2 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-px bg-zinc-200 dark:bg-zinc-800 flex-1" />
-                      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-200/80 dark:border-amber-800/60 text-xs font-semibold text-amber-700 dark:text-amber-300 shadow-sm">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                        <span>{hasAnyHighConfidence ? '일치 확률이 비교적 낮은 검색 결과' : '유사 검색 결과 (직접 일치 항목 없음)'}</span>
-                      </div>
-                      <div className="h-px bg-zinc-200 dark:bg-zinc-800 flex-1" />
-                    </div>
-                  </div>
-                )}
+                {renderSearchDivider(video, idx, 'col-span-full my-2 py-3')}
 
                 {/* 몰아보기·연동 생방: 누른 카드 자리에서 재생목록 화면처럼 펼쳐짐 (닫기 전까지 원래 카드는 숨김) */}
                 <div className={cn(isExpanded && "col-span-full")}>
