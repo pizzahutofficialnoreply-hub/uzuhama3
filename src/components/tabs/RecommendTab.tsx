@@ -20,7 +20,9 @@ import { ViewStyleToggle } from '../common/ViewStyleToggle';
 import { useViewStyle } from '../../hooks/useViewStyle';
 import { YoutubeLogo, ShortsIcon, PlaySquare, GlassPlayButton } from '../common/MediaIcons';
 import { PlaylistsFeed } from './recommend/PlaylistsFeed';
-import { useSearchIndex, matchTag, matchRelated } from '../../hooks/useSearchIndex';
+import { usePlaylists } from '../../hooks/usePlaylists';
+import { buildGameCatalog, buildPlaylistGameMap } from '../../utils/playlistGames';
+import { useSearchIndex, matchTag, matchRelated, gamesMatchingKeyword, normSearch } from '../../hooks/useSearchIndex';
 
 type RecommendSubTab = 'home' | 'recommend' | 'videos' | 'shorts' | 'playlists';
 const RECOMMEND_SUB_TABS: { id: RecommendSubTab; label: string }[] = [
@@ -871,6 +873,13 @@ export function RecommendTab({
     localStorage.setItem('userVideoHistory', JSON.stringify(newHistory));
   };
 
+  // 재생목록 이름(예: 우주하마 배틀그라운드)으로, 게임이 안 붙은 영상에 그 게임을 기본으로 붙임
+  const { data: playlistData } = usePlaylists();
+  const playlistGameMap = useMemo(
+    () => buildPlaylistGameMap(playlistData?.playlists, buildGameCatalog(data?.logs)),
+    [playlistData, data?.logs]
+  );
+
   const allVideos = useMemo(() => {
     if (!data || !data.logs) return [];
 
@@ -1114,12 +1123,33 @@ export function RecommendTab({
       }
     });
 
+    // 게임이 하나도 없는 영상: 재생목록 이름에서 찾은 게임을 붙임
+    if (playlistGameMap.size) {
+      videoMap.forEach((v) => {
+        const hasGame = (Array.isArray(v.games) && v.games.length > 0) ||
+          (Array.isArray(v.parentLog?.games) && v.parentLog.games.length > 0) || Boolean(v.parentLog?.game);
+        if (hasGame) return;
+        const g = playlistGameMap.get(extractYoutubeId(v.videoUrl) || v.id);
+        if (g) { v.games = [{ ...g }]; v.gameFromPlaylist = true; }
+      });
+    }
+
     return Array.from(videoMap.values());
-  }, [data]);
+  }, [data, playlistGameMap]);
 
   // 태그·썸네일 글자 검색 색인 (한 번 받아 기기에 저장, 없는 영상만 서버가 한 번씩 추출)
   const knownYtIds = useMemo(() => [...new Set(allVideos.map((v: any) => extractYoutubeId(v.videoUrl) || v.id).filter((id: any) => typeof id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(id)))] as string[], [allVideos]);
-  const searchIndex = useSearchIndex(knownYtIds);
+  const knownGameNames = useMemo(() => {
+    const set = new Set<string>();
+    allVideos.forEach((v: any) => {
+      if (v.parentLog?.game) set.add(String(v.parentLog.game).trim());
+      [...(v.parentLog?.games || []), ...(v.games || [])].forEach((g: any) => g?.name && set.add(String(g.name).trim()));
+    });
+    return [...set].filter((n) => n.length > 0 && n.length <= 80);
+  }, [allVideos]);
+  const searchData = useSearchIndex(knownYtIds, knownGameNames);
+  const searchIndex = searchData.entries;
+  const gameKeywordMap = searchData.games;
 
   // 카테고리 사전: 게임 장르(games[].category)를 기준으로 만들고, 게임명이 섞여 들어간 값은 제외
   const categoryIndex = useMemo(() => {
@@ -1186,6 +1216,8 @@ export function RecommendTab({
     return { videoTokens };
   }, [allVideos]);
 
+  const genresOfLog = React.useCallback((log: any) => (log ? categoryIndex.videoTokens({ parentLog: log }) : []), [categoryIndex]);
+
   const categories = useMemo(() => {
     const counts = new Map<string, number>();
     allVideos.forEach((v) => {
@@ -1243,6 +1275,8 @@ export function RecommendTab({
     const tagQuery = isTagMode ? rawSearch.replace(/^#+/, '').trim() : '';
     const tagMatches = new Map<string, 'exact' | 'partial'>();
     const relatedVia = new Map<string, string>();
+    // 검색어가 장르(카테고리) 이름과 같은지
+    const genreKey = !isTagMode && rawSearch ? (categories.some((c) => c !== '전체' && normSearch(c) === normSearch(rawSearch)) ? normSearch(rawSearch) : '') : '';
 
     if (searchTerm && searchTerm.trim() !== '') {
       const term = searchTerm.trim();
@@ -1332,12 +1366,22 @@ export function RecommendTab({
         return false;
       });
 
-      // 연관 검색: 제목 등에는 없지만 썸네일 글자·키워드·태그·설명에 검색어가 있는 영상 (맨 아래에 따로 표시)
+      // 장르 검색: 검색어가 장르 이름과 같으면 옆 카테고리 필터와 똑같은 영상을 모두 포함
+      if (genreKey) {
+        const found = new Set(vids.map((v) => v.id));
+        const extra = searchTarget.filter((v) => !found.has(v.id) && categoryIndex.videoTokens(v).some((t) => normSearch(t) === genreKey));
+        vids = [...vids, ...extra];
+      }
+
+      // 연관 검색: 제목 등에는 없지만 썸네일 글자·키워드·태그·설명, 또는 게임의 한국어 키워드(예: 도서관 → Librarian)에 검색어가 있는 영상 (맨 아래)
       if (!isUrl) {
         const found = new Set(vids.map((v) => v.id));
+        const kwGames = gamesMatchingKeyword(gameKeywordMap, term);
+        const gameNamesOf = (v: any) => [v.parentLog?.game, ...(v.parentLog?.games || []).map((g: any) => g?.name), ...(v.games || []).map((g: any) => g?.name)]
+          .filter(Boolean).map((n: string) => normSearch(n));
         const extra = searchTarget.filter((v) => {
           if (found.has(v.id)) return false;
-          const via = matchRelated(entryOf(v), term);
+          const via = matchRelated(entryOf(v), term) || (kwGames.size && gameNamesOf(v).some((n) => kwGames.has(n)) ? '게임' : null);
           if (via) relatedVia.set(v.id, via);
           return Boolean(via);
         });
@@ -1391,6 +1435,9 @@ export function RecommendTab({
        } else if (isRelated) {
          matchScore = 0;
          isHighConfidence = false;
+       } else if (genreKey && categoryIndex.videoTokens(v).some((t) => normSearch(t) === genreKey) && !(v.videoTitle || '').toLowerCase().includes(searchTerm.trim().toLowerCase())) {
+         matchScore = 72;
+         isHighConfidence = true;
        } else if (searchTerm.trim()) {
          const q = searchTerm.trim().toLowerCase();
          const rawTerm = searchTerm.trim();
@@ -1518,12 +1565,13 @@ export function RecommendTab({
       });
     }
 
-    // 연관 검색 결과는 정렬 방식과 상관없이 항상 맨 아래
+    // 순서: 직접 일치 → 연관 검색(썸네일·태그·게임 키워드) → 일치 확률이 낮은 결과(초성·오타 등)
     if (relatedVia.size) {
-      const main = scoredVids.filter((v) => !v.isRelated);
+      const main = scoredVids.filter((v) => !v.isRelated && (v.isHighConfidence || effectiveSortOrder !== 'accuracy'));
       const rel = scoredVids.filter((v) => v.isRelated);
+      const low = scoredVids.filter((v) => !v.isRelated && !v.isHighConfidence && effectiveSortOrder === 'accuracy');
       scoredVids.length = 0;
-      scoredVids.push(...main, ...rel);
+      scoredVids.push(...main, ...rel, ...low);
     }
 
     if (pinnedVideoId && (effectiveSortOrder === 'recommend' || !searchTerm.trim())) {
@@ -1539,7 +1587,7 @@ export function RecommendTab({
     }
 
     return scoredVids;
-  }, [allVideos, categoryIndex, selectedCategories, searchTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, categoryIndex, categories, selectedCategories, searchTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap]); // Removed ratings and history to prevent jumping on watch
 
   const handleRefresh = () => {
     Object.keys(baseWeights.current).forEach(id => {
@@ -1602,10 +1650,10 @@ export function RecommendTab({
     const prev = idx > 0 ? paginatedVids[idx - 1] : null;
     const firstRelated = video.isRelated && (prev ? !prev.isRelated : true);
     const firstLow = !video.isRelated && isAccuracySort && !video.isHighConfidence &&
-      (prev ? prev.isHighConfidence : (currentPage > 1 || !hasAnyHighConfidence));
+      (prev ? (prev.isHighConfidence || prev.isRelated) : (currentPage > 1 || !hasAnyHighConfidence));
     if (!firstRelated && !firstLow) return null;
     const label = firstRelated
-      ? (hasMainResults ? '연관 검색 결과 · 썸네일·태그 등에서 찾았어요' : '제목엔 없지만 썸네일·태그 등에서 찾았어요')
+      ? (hasMainResults ? '연관 검색 결과 · 썸네일·태그·게임 정보에서 찾았어요' : '제목엔 없지만 썸네일·태그·게임 정보에서 찾았어요')
       : isTagSearch
         ? (hasAnyHighConfidence ? '비슷한 태그' : '비슷한 태그 (같은 태그 없음)')
         : (hasAnyHighConfidence ? '일치 확률이 비교적 낮은 검색 결과' : '유사 검색 결과 (직접 일치 항목 없음)');
@@ -1662,7 +1710,7 @@ export function RecommendTab({
         className="space-y-6"
       >
       {subTab === 'shorts' ? (
-        <ShortsFeed logs={data?.logs} searchTerm={searchTerm} selectedCategories={['전체']} onNavigateToCalendar={onNavigateToCalendar} />
+        <ShortsFeed logs={data?.logs} searchTerm={searchTerm} selectedCategories={['전체']} onNavigateToCalendar={onNavigateToCalendar} genresOfLog={genresOfLog} />
       ) : subTab === 'playlists' ? (
         <PlaylistsFeed searchTerm={searchTerm} logs={data?.logs} onNavigateToCalendar={onNavigateToCalendar} />
       ) : (<>

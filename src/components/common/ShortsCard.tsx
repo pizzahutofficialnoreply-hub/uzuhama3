@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { cn } from '../../utils';
 import { extractYoutubeId } from '../../utils/urlUtils';
 import { GlassPlayButton, PlaySquare, YoutubeLogo } from './MediaIcons';
+import { ShortsPlayer } from './ShortsPlayer';
 
 /**
  * 유튜브 쇼츠 카드 (세로 9:16, 유튜브 앱의 쇼츠 선반과 같은 모양)
@@ -19,9 +20,11 @@ export interface ShortsCardProps {
   liveUrl?: string;
   editUrl?: string;
   className?: string;
+  /** 있으면 썸네일을 눌렀을 때 그 자리 재생 대신 전체 화면 쇼츠로 */
+  onPlay?: () => void;
 }
 
-export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editUrl, className }: ShortsCardProps) {
+export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editUrl, className, onPlay }: ShortsCardProps) {
   const ytId = extractYoutubeId(url);
   const [playing, setPlaying] = useState(false);
   const label = title?.trim() || '유튜브 쇼츠';
@@ -50,7 +53,7 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
         ) : ytId ? (
           <button
             type="button"
-            onClick={() => setPlaying(true)}
+            onClick={() => (onPlay ? onPlay() : setPlaying(true))}
             className="group/short absolute inset-0 w-full h-full cursor-pointer"
             aria-label={`${label} 재생`}
           >
@@ -123,11 +126,13 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
 
 /** 가로로 넘겨 보는 쇼츠 선반 (좁은 패널에서도 카드 폭을 일정하게 유지) */
 export function ShortsShelf({ items }: { items: { url: string; title?: string; caption?: string }[] }) {
+  const [playerAt, setPlayerAt] = useState<number | null>(null);
   return (
     <div className="-mx-1 px-1 flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 no-scrollbar">
       {items.map((s, i) => (
-        <ShortsCard key={`${s.url}-${i}`} url={s.url} title={s.title} caption={s.caption} className="w-[136px] sm:w-[150px] shrink-0 snap-start" />
+        <ShortsCard key={`${s.url}-${i}`} url={s.url} title={s.title} caption={s.caption} onPlay={() => setPlayerAt(i)} className="w-[136px] sm:w-[150px] shrink-0 snap-start" />
       ))}
+      {playerAt !== null && <ShortsPlayer items={items} startIndex={playerAt} onClose={() => setPlayerAt(null)} />}
     </div>
   );
 }

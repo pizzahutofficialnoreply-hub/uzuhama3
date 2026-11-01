@@ -18,52 +18,13 @@ import { VideoCard } from '../RecommendTab';
  * - 서버는 유튜브를 처음 한 번만 부르고 저장해 둔 것을 돌려줌. 브라우저에도 하루 보관
  */
 
-export interface PlaylistItem { videoId: string; title: string; publishedAt: string; position: number }
-export interface Playlist { id: string; title: string; description: string; publishedAt: string; thumbnail: string; itemCount: number; items: PlaylistItem[] }
-interface PlaylistsResponse { playlists: Playlist[]; channelTitle: string; channelThumbnail: string }
-
-const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
-  (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')
-).replace(/\/+$/, '');
-const STORAGE_KEY = 'uzuhama_playlists_v2';
-const LOCAL_TTL_MS = 24 * 60 * 60 * 1000;
+import { usePlaylists, type Playlist } from '../../../hooks/usePlaylists';
+import { buildGameCatalog, inferPlaylistGame } from '../../../utils/playlistGames';
+export type { Playlist, PlaylistItem } from '../../../hooks/usePlaylists';
 const CARDS_PER_PAGE = 9;
 // iOS 처럼 살짝 감기며 멈추는 스프링
 const IOS_SPRING = { type: 'spring' as const, stiffness: 340, damping: 32, mass: 1 };
 const ITEMS_PER_PAGE = 30;
-
-function usePlaylists() {
-  const [state, setState] = useState<{ data: PlaylistsResponse | null; loading: boolean; error: string | null }>(() => {
-    try {
-      localStorage.removeItem('uzuhama_playlists_v1');
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (saved?.data?.playlists) return { data: saved.data, loading: Date.now() - saved.at > LOCAL_TTL_MS, error: null };
-    } catch {}
-    return { data: null, loading: true, error: null };
-  });
-
-  useEffect(() => {
-    if (!state.loading) return;
-    let cancelled = false;
-    fetch(`${API_BASE}/api/videos/playlists`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (cancelled) return;
-        const ok = Array.isArray(json?.playlists) && json.playlists.length > 0;
-        const data: PlaylistsResponse | null = ok
-          ? { playlists: json.playlists, channelTitle: json.channelTitle || '우주하마', channelThumbnail: json.channelThumbnail || '' }
-          : null;
-        if (data) {
-          try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ data, at: Date.now() })); } catch {}
-        }
-        setState((prev) => ({ data: data || prev.data, loading: false, error: data ? null : (json?.error || 'empty') }));
-      })
-      .catch((e) => !cancelled && setState((prev) => ({ ...prev, loading: false, error: String(e?.message || e) })));
-    return () => { cancelled = true; };
-  }, [state.loading]);
-
-  return state;
-}
 
 /** 유튜브 영상 ID → 그 영상이 등록된 방송 기록 (생방송·쇼츠 버튼, 카드 미리보기용) */
 function useLogIndex(logs: any) {
@@ -134,6 +95,8 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
   const [page, setPage] = useState(1);
   const [viewStyle, setViewStyle] = useViewStyle();
   const total = playlist.items.length;
+  // 게임 기록이 없는 영상은 재생목록 이름의 게임을 기본으로 표시
+  const playlistGame = useMemo(() => inferPlaylistGame(playlist.title, buildGameCatalog(logs)), [playlist.title, logs]);
   const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
   const pageItems = playlist.items.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
@@ -167,6 +130,7 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
                     href={`https://www.youtube.com/watch?v=${it.videoId}&list=${playlist.id}`}
                     liveUrl={hit?.log?.vods?.find((v: any) => v?.url)?.url}
                     shorts={hit?.log?.shorts || []}
+                    badge={!hit && playlistGame ? playlistGame.name : undefined}
                     highlighted={matchedIds?.has(it.videoId)}
                   />
                 );
@@ -186,7 +150,9 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
                       category: hit?.edit?.category || '',
                       parentLog: hit?.log,
                       allBroadcastDates: hit?.log?.date ? [hit.log.date] : [],
-                      games: Array.isArray(hit?.edit?.games) ? hit.edit.games : [],
+                      games: Array.isArray(hit?.edit?.games) && hit.edit.games.length
+                        ? hit.edit.games
+                        : (hit?.log?.games?.length || hit?.log?.game) ? [] : (playlistGame ? [playlistGame] : []),
                     }}
                     allLogs={logs}
                     onNavigateToCalendar={onNavigateToCalendar}
