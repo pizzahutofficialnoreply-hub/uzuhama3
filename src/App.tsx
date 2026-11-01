@@ -145,9 +145,17 @@ function MainApp() {
     }
   }, []);
 
+  // 설정 > 공지사항: 지난 공지까지 카드 목록으로
+  const [showNoticesPage, setShowNoticesPage] = useState(false);
+
   useEffect(() => {
     const handlePopState = () => {
       // 기기 뒤로가기 버튼 또는 브라우저 뒤로가기
+      // 0. 공지사항 화면이 열려 있으면: 공지사항만 닫고 설정창은 유지
+      if (showNoticesPage) {
+        setShowNoticesPage(false);
+        return;
+      }
       // 1. 의견 보내기 모달이 열려있으면: 한 번 나가면 의견 보내기만 닫고 설정창 유지
       if (showFeedbackModal) {
         setShowFeedbackModal(false);
@@ -161,15 +169,13 @@ function MainApp() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isSettingsOpen, showFeedbackModal]);
+  }, [isSettingsOpen, showFeedbackModal, showNoticesPage]);
 
   useEffect(() => {
     localStorage.setItem('uzuhama_active_tab', activeTab);
   }, [activeTab]);
 
   const [showNotice, setShowNotice] = useState(false);
-  // 설정 > 공지사항: 지난 공지까지 카드 목록으로
-  const [showNoticesPage, setShowNoticesPage] = useState(false);
   const [dismissedSystemNotice, setDismissedSystemNotice] = useState(() => {
     const seen = localStorage.getItem('notice_seen_v2');
     if (!seen) return false;

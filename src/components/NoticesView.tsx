@@ -35,21 +35,35 @@ export function collectNotices(system?: SystemConfig): Row[] {
   if (system.noticeContent?.trim() && system.noticeType !== 'none' && !rows.some((r) => r.content.trim() === system.noticeContent.trim())) {
     rows.push({ id: 'legacy-notice', title: system.noticeTitle || '공지', content: system.noticeContent, type: system.noticeType, date: '', active: true, links: [] });
   }
-  // 게시 중인 것 먼저, 그 안에서는 최신 날짜부터
-  return rows.sort((a, b) => Number(b.active) - Number(a.active) || (b.date || '').localeCompare(a.date || ''));
+  // 순서: 관리자가 정한 공지 목록 순서 그대로 (위에서부터)
+  return rows;
 }
 
 export function NoticesView({ system, onClose }: { system?: SystemConfig; onClose: () => void }) {
   const notices = useMemo(() => collectNotices(system), [system]);
   const [open, setOpen] = useState<string | null>(() => notices[0]?.id || null);
 
+  // 휴대폰 뒤로가기(밀어서 뒤로 포함)로 닫히게: 열 때 기록을 하나 쌓고, 뒤로가기가 오면 닫음
+  const closedByBackRef = React.useRef(false);
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.history.pushState({ noticesView: true }, '');
+    const onPop = () => { closedByBackRef.current = true; onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') window.history.back(); };
+    window.addEventListener('popstate', onPop);
     window.addEventListener('keydown', onKey);
-    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey); };
-  }, [onClose]);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // 화면의 '뒤로' 버튼도 브라우저 뒤로가기로 (쌓아 둔 기록을 함께 정리)
+  const goBack = () => {
+    if (window.history.state?.noticesView) window.history.back();
+    else onClose();
+  };
 
   return createPortal(
     <motion.div
@@ -64,7 +78,7 @@ export function NoticesView({ system, onClose }: { system?: SystemConfig; onClos
     >
       <header className="sticky top-0 z-10 bg-white/85 dark:bg-zinc-950/85 backdrop-blur-xl border-b border-zinc-200/70 dark:border-zinc-800/70 pt-[env(safe-area-inset-top,0px)]">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center gap-2">
-          <button type="button" onClick={onClose} className="p-2 -ml-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" aria-label="뒤로">
+          <button type="button" onClick={goBack} className="p-2 -ml-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" aria-label="뒤로">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-lg font-black tracking-tight">공지사항</h1>
@@ -91,8 +105,8 @@ export function NoticesView({ system, onClose }: { system?: SystemConfig; onClos
                 className="w-full text-left p-5 cursor-pointer"
               >
                 <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                  <span className={cn('px-2.5 py-0.5 rounded-md font-semibold', t.cls)}>{t.label}</span>
-                  {n.prefix && <span className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 font-semibold text-zinc-700 dark:text-zinc-300">{n.prefix}</span>}
+                  {/* 띠 공지 앞머리 태그 그대로 ([공지], [안내], [업데이트] …) */}
+                  <span className={cn('px-2.5 py-0.5 rounded-md font-bold', t.cls)}>{(n.prefix || '').trim() || ((system as any)?.defaultNoticePrefix || '').trim() || '[공지]'}</span>
                   <span className={cn('px-2 py-0.5 rounded-md font-semibold', n.active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400')}>
                     {n.active ? '게시 중' : '지난 공지'}
                   </span>
