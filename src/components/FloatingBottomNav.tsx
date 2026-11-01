@@ -169,34 +169,43 @@ export function FloatingBottomNav({
   useEffect(() => {
     if (!isSearchActive || typeof window === 'undefined' || !window.visualViewport) return;
     const vv = window.visualViewport;
-    // 손가락으로 스크롤하는 동안엔 매 프레임 보정 (이벤트만 기다리면 한 박자 늦게 따라와 흔들림)
-    let raf = 0;
-    let until = 0;
-    const loop = () => {
-      syncViewportShift();
-      raf = performance.now() < until ? requestAnimationFrame(loop) : 0;
+    // iOS 기본 앱처럼: 키보드가 떠 있을 때 화면을 끌어 스크롤하면 키보드를 내림
+    // (키보드가 뜬 채로 스크롤하면 iOS 가 보이는 영역 자체를 밀어 고정 요소가 흔들리고 블러가 끊기는데,
+    //  이를 매 프레임 되돌리는 방식은 한 박자씩 늦어 흔들림이 남음 → 아예 그 상황을 만들지 않음)
+    let startY = 0;
+    let startX = 0;
+    let tracking = false;
+    const onTouchStart = (e: TouchEvent) => {
+      if (document.activeElement !== inputRef.current) return;
+      const t = e.touches[0];
+      if (!t) return;
+      if (dockRef.current?.contains(e.target as Node)) return; // 검색창·버튼을 누른 건 제외
+      startY = t.clientY; startX = t.clientX; tracking = true;
     };
-    const kick = (ms: number) => {
-      until = Math.max(until, performance.now() + ms);
-      if (!raf) raf = requestAnimationFrame(loop);
+    const onTouchMove = (e: TouchEvent) => {
+      if (!tracking) return;
+      const t = e.touches[0];
+      if (!t) return;
+      if (Math.abs(t.clientY - startY) > 10 && Math.abs(t.clientY - startY) > Math.abs(t.clientX - startX)) {
+        tracking = false;
+        inputRef.current?.blur();
+      }
     };
-    const onTouchStart = () => kick(60000);
-    const onTouchEnd = () => { until = performance.now() + 1200; kick(1200); }; // 관성 스크롤까지
-    const onShift = () => { syncViewportShift(); kick(300); };
+    const onTouchEnd = () => { tracking = false; };
+    const onVvScroll = () => syncViewportShift();
     vv.addEventListener('resize', syncKeyboard);
-    vv.addEventListener('scroll', onShift);
-    window.addEventListener('scroll', onShift, { passive: true });
+    vv.addEventListener('scroll', onVvScroll);
     window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
     window.addEventListener('touchend', onTouchEnd, { passive: true });
     window.addEventListener('touchcancel', onTouchEnd, { passive: true });
     return () => {
       vv.removeEventListener('resize', syncKeyboard);
-      vv.removeEventListener('scroll', onShift);
-      window.removeEventListener('scroll', onShift);
+      vv.removeEventListener('scroll', onVvScroll);
       window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('touchcancel', onTouchEnd);
-      if (raf) cancelAnimationFrame(raf);
     };
   }, [isSearchActive, syncKeyboard, syncViewportShift]);
 
