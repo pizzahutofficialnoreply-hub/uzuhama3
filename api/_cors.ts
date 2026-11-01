@@ -9,13 +9,8 @@ export const ALLOWED_ORIGINS = new Set([
 export function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) return false;
   if (ALLOWED_ORIGINS.has(origin)) return true;
-  // uzuhama preview domains
-  if (/^https:\/\/uzuhama(-[a-z0-9-]+)?\.web\.app$/i.test(origin)) return true;
-  if (/^https:\/\/uzuhama(-[a-z0-9-]+)?\.vercel\.app$/i.test(origin)) return true;
-  // AI Studio preview domains
-  if (/^https:\/\/ais-(dev|pre)-[a-z0-9-]+\.[a-z0-9-]+\.run\.app$/i.test(origin)) return true;
-  // Published AI Studio app origins (e.g. https://uzuhama-3.ai.studio).
-  if (/^https:\/\/[a-z0-9-]+\.ai\.studio$/i.test(origin)) return true;
+  // 이 프로젝트의 Vercel 미리보기 주소만 (팀 이름 '-uzuhama' 로 끝나는 것) — 남이 만든 uzuhama-xxx.vercel.app 은 차단
+  if (/^https:\/\/uzuhama-[a-z0-9-]+-uzuhama\.vercel\.app$/i.test(origin)) return true;
   return false;
 }
 

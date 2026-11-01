@@ -1,4 +1,8 @@
 rules_version = '2';
+// 보안 원칙
+//  - 기본은 전부 차단, 공개가 필요한 컬렉션만 읽기 허용
+//  - 쓰기는 관리자만 (일반 방문자는 제보·기여·의견 '생성'만, 내용 형식 검사)
+//  - 서버(Vercel, Admin SDK)는 규칙과 무관하게 동작하므로 서버 전용 데이터는 클라이언트에서 완전히 막음
 service cloud.firestore {
   match /databases/{database}/documents {
     function isAdmin() {
@@ -11,95 +15,82 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // 0. 사용자 프로필
+    // 방문자가 만드는 문서: 필드 수 제한 + 다른 사람 행세 금지(uid·email 은 비우거나 본인 것만)
+    function validVisitorDoc() {
+      let d = request.resource.data;
+      return d.keys().size() <= 40
+        && (!('uid' in d) || d.uid == null || (isAuthenticated() && d.uid == request.auth.uid))
+        && (!('email' in d) || d.email == null || (isAuthenticated() && d.email == request.auth.token.email));
+    }
+
+    // ── 공개 읽기 (사이트 화면에 필요한 데이터) ──
+    match /live_status/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /config/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /system/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /logs/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /logs_by_month/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /compilations/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /patch_notes/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── 사용자 본인 데이터 ──
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && request.auth.uid == userId;
+      allow read, write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
     }
-
-    // 1. 치지직 실시간 방송 상태 (외부 Worker 또는 관리자 기록)
-    match /live_status/{document=**} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // 2. 앱 기본 설정
-    match /config/{document=**} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    match /system/{document=**} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // 3. 메인 방송 일지 (기존 logs 및 신규 logs_by_month)
-    // 읽기는 전체 허용, 쓰기는 관리자만 가능하도록 잠금
-    match /logs/{document=**} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    match /logs_by_month/{document=**} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    // 4. 피드백 및 버그 제보: 일반 사용자도 로그인 없이 바로 제보 가능
-    match /feedbacks/{feedbackId} {
-      allow read: if isAdmin();
-      allow create: if true;
-      allow update, delete: if isAdmin();
-    }
-
-    // 5. 기여 데이터: 비로그인 사용자 기여 허용
-    match /contributions/{contributionId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if isAdmin();
-    }
-    
-    // 6. 기타 제안: 비로그인 사용자 제안 허용
-    match /suggestions/{suggestionId} {
-      allow read: if isAdmin();
-      allow create: if true;
-      allow update, delete: if isAdmin();
-    }
-    
-    // 7. 알림
-    match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAdmin();
-      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    // 추천 영상 기기 간 동기화: 동기화 코드(문서 ID)를 아는 사람만 그 문서 하나를 읽고 씀 (목록 조회 불가)
+    match /user_preferences/{code} {
+      allow get: if code.size() >= 6;
+      allow list: if false;
+      allow create, update: if code.size() >= 6 && request.resource.data.keys().hasOnly(['ratings', 'history', 'updatedAt']);
       allow delete: if isAdmin();
     }
 
-
-    // 9. 몰아보기 영상
-    match /compilations/{compilationId} {
-      allow read: if true;
-      allow write: if isAdmin();
+    // ── 방문자 제보 (생성만, 읽기는 관리자) ──
+    match /feedbacks/{id} {
+      allow create: if validVisitorDoc();
+      allow read, update, delete: if isAdmin();
+    }
+    match /contributions/{id} {
+      allow create: if validVisitorDoc() && request.resource.data.status == 'pending';
+      allow read, update, delete: if isAdmin();
+    }
+    match /suggestions/{id} {
+      allow create: if validVisitorDoc();
+      allow read, update, delete: if isAdmin();
     }
 
-    // 10. 패치노트 아카이브: 누구나 조회 가능, 관리자 및 시스템 등록/수정/삭제 허용
-    match /patch_notes/{patchId} {
-      allow read: if true;
-      allow write: if isAdmin();
+    // ── 알림함 ──
+    match /notifications/{id} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin()
+        || (isAuthenticated() && resource.data.userId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']));
+      allow create, delete: if isAdmin();
     }
 
-    // 10. 푸시 알림 구독: 클라이언트 직접 수정 차단 (Vercel API만 제어)
-    match /push_subscriptions/{subId} {
-      allow read, write: if false;
-    }
-
-    // 11. 푸시 발송 큐: 클라이언트 직접 접근 차단
-    match /push_queue/{queueId} {
-      allow read, write: if false;
-    }
-
-    // 기본 차단
+    // ── 그 밖의 모든 컬렉션 (푸시 구독, 알림 상태, 캐시, AI 문구 등): 관리자만 ──
     match /{document=**} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
   }
 }

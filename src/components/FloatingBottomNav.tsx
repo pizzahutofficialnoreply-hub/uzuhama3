@@ -193,6 +193,18 @@ export function FloatingBottomNav({
     };
     const onTouchEnd = () => { tracking = false; };
     const onVvScroll = () => syncViewportShift();
+    // 안드로이드(갤럭시 등): 뒤로가기로 키보드만 내려가면 입력창 포커스가 남아 있으므로,
+    // 화면 높이가 키보드 전 높이로 돌아오면 포커스를 풀어 검색창을 원래 모양으로
+    let tallest = window.innerHeight;
+    let shrunk = false;
+    const onWinResize = () => {
+      const h = window.innerHeight;
+      if (document.activeElement !== inputRef.current) { tallest = Math.max(tallest, h); shrunk = false; return; }
+      if (h < tallest - 120) shrunk = true;
+      else if (shrunk && h >= tallest - 60) { shrunk = false; inputRef.current?.blur(); }
+      tallest = Math.max(tallest, h);
+    };
+    window.addEventListener('resize', onWinResize);
     vv.addEventListener('resize', syncKeyboard);
     vv.addEventListener('scroll', onVvScroll);
     window.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -206,6 +218,7 @@ export function FloatingBottomNav({
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('touchcancel', onTouchEnd);
+      window.removeEventListener('resize', onWinResize);
     };
   }, [isSearchActive, syncKeyboard, syncViewportShift]);
 

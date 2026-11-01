@@ -1,4 +1,13 @@
+import { timingSafeEqual } from 'node:crypto';
 import { setCorsHeaders } from '../_cors.js';
+
+/** 비밀값 비교: 길이·내용과 상관없이 같은 시간이 걸리게 (추측 공격 방지) */
+function safeEqual(a: unknown, b: string) {
+  if (typeof a !== 'string') return false;
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
 
 // --- [API 핸들러: FCM 푸시 알림 발송] ---
 export default async function handler(req: any, res: any) {
@@ -24,9 +33,9 @@ export default async function handler(req: any, res: any) {
 
     // A. Secret 기반 인증 (백엔드 Cron / 스크립트 자동화)
     if (configuredSecret && configuredSecret.length > 8) {
-      if (cronSecretHeader === configuredSecret) {
+      if (safeEqual(cronSecretHeader, configuredSecret)) {
         isAuthorized = true;
-      } else if (authHeader.startsWith('Bearer ') && authHeader.substring(7).trim() === configuredSecret) {
+      } else if (authHeader.startsWith('Bearer ') && safeEqual(authHeader.substring(7).trim(), configuredSecret)) {
         isAuthorized = true;
       }
     }

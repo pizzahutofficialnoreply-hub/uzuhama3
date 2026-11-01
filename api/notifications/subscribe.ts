@@ -49,7 +49,7 @@ export default async function handler(req: any, res: any) {
     }
 
     // 가짜 토큰 및 빈 토큰 엄격 차단
-    if (effectiveToken.startsWith('local_dev_') || effectiveToken.length < 20) {
+    if (effectiveToken.startsWith('local_dev_') || effectiveToken.length < 100 || !/^[A-Za-z0-9_:\-]+$/.test(effectiveToken)) {
       return res.status(400).json({ 
         error: '유효한 FCM Web Push 토큰이 아닙니다. 실제 브라우저 권한 및 FCM 초기화가 필요합니다.' 
       });

@@ -11,7 +11,7 @@ import type { ViewStyle } from '../../hooks/useViewStyle';
  */
 export function CollectionPanel({
   thumbnail, title, metaLine, description, channelTitle = '우주하마', channelThumbnail, embedSrc, playLabel, onClose, countLabel,
-  viewStyle, onViewStyleChange, children, ariaLabel,
+  viewStyle, onViewStyleChange, children, ariaLabel, showPublisher = true,
 }: {
   thumbnail: string;
   title: string;
@@ -28,6 +28,8 @@ export function CollectionPanel({
   onViewStyleChange: (v: ViewStyle) => void;
   children: React.ReactNode;
   ariaLabel: string;
+  /** '게시자: 우주하마' 줄 표시 (몰아보기는 숨김) */
+  showPublisher?: boolean;
 }) {
   const [playing, setPlaying] = useState(false);
   return (
@@ -62,14 +64,14 @@ export function CollectionPanel({
               )}
             </div>
             <h3 className="mt-4 text-xl sm:text-2xl font-extrabold leading-tight break-keep">{title}</h3>
-            <div className="mt-3 flex items-center gap-2 text-sm text-white/85">
+            {showPublisher && <div className="mt-3 flex items-center gap-2 text-sm text-white/85">
               {channelThumbnail ? (
                 <img src={channelThumbnail} alt="" className="w-7 h-7 rounded-full object-cover bg-white/20" />
               ) : (
                 <span className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">우</span>
               )}
               <span>게시자: <b className="font-semibold text-white">{channelTitle}</b></span>
-            </div>
+            </div>}
             <p className="mt-2 text-xs sm:text-[13px] text-white/70">{metaLine}</p>
             {description && <p className="mt-2 text-xs text-white/70 line-clamp-3 whitespace-pre-line">{description}</p>}
             <button

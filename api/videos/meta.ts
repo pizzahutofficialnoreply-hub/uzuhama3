@@ -7,6 +7,7 @@ import { setCorsHeaders } from '../_cors.js';
  */
 
 const ID_RE = /^[A-Za-z0-9_-]{11}$/;
+const DAILY_NEW_LOOKUP_LIMIT = 3000; // 하루에 처음 보는 영상 조회 최대 개수 (기존 영상은 저장된 값 사용)
 
 function parseIsoDuration(iso: string): number | null {
   const m = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso || '');
@@ -42,6 +43,19 @@ export default async function handler(req: any, res: any) {
 
     // 2. 없는 것만 YouTube API 로 조회
     const key = process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY;
+    // 남이 아무 영상 ID 나 대량으로 넣어 유튜브 할당량을 소진시키지 못하도록 하루 새 조회 수 제한
+    if (missing.length > 0 && key) {
+      const budgetRef = db.collection('youtube_cache').doc('meta_budget');
+      const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+      const allowed = await db.runTransaction(async (tx: any) => {
+        const b = (await tx.get(budgetRef)).data() || {};
+        const used = b.day === today ? Number(b.count || 0) : 0;
+        if (used + missing.length > DAILY_NEW_LOOKUP_LIMIT) return false;
+        tx.set(budgetRef, { day: today, count: used + missing.length });
+        return true;
+      });
+      if (!allowed) return res.status(200).json({ videos: result, error: '오늘 새 영상 조회 한도를 넘었어요.' });
+    }
     if (missing.length > 0 && key) {
       const url = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=${missing.join(',')}&key=${encodeURIComponent(key)}`;
       const r = await fetch(url, { signal: AbortSignal.timeout(6000) });

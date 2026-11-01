@@ -608,8 +608,14 @@ export function RecommendTab({
     const saved = sessionStorage.getItem('rec_subTab') as RecommendSubTab | null;
     return saved && RECOMMEND_SUB_TABS.some((t) => t.id === saved) ? saved : 'home';
   });
+  const [subTabDir, setSubTabDir] = useState(0); // 넘어가는 방향 (밀기 애니메이션용)
   const changeSubTab = (next: RecommendSubTab) => {
+    const from = RECOMMEND_SUB_TABS.findIndex((t) => t.id === subTab);
+    const to = RECOMMEND_SUB_TABS.findIndex((t) => t.id === next);
+    setSubTabDir(to > from ? 1 : to < from ? -1 : 0);
     setSubTab(next);
+    // 선택한 탭 버튼이 보이도록 탭 줄을 옆으로 맞춤
+    requestAnimationFrame(() => document.getElementById(`rec-subtab-${next}`)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }));
     sessionStorage.setItem('rec_subTab', next);
     setCurrentPage(1);
     setSelectedBroadcastModalVideo(null);
@@ -1186,6 +1192,28 @@ export function RecommendTab({
     return ['전체', '몰아보기', ...otherCats];
   }, [allVideos, categoryIndex]);
 
+  // 휴대폰: 화면을 옆으로 밀어 하위 탭 이동 (가로 스크롤 영역·입력칸·영상 위에서는 동작 안 함)
+  const swipeRef = useRef<{ x: number; y: number; t: number; ok: boolean } | null>(null);
+  const onSwipeStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    const target = e.target as HTMLElement;
+    const blocked = window.innerWidth >= 640 || e.touches.length > 1 ||
+      Boolean(target.closest('.overflow-x-auto, .no-scrollbar, input, textarea, select, iframe, .recharts-wrapper, [data-no-swipe]'));
+    swipeRef.current = t ? { x: t.clientX, y: t.clientY, t: Date.now(), ok: !blocked } : null;
+  };
+  const onSwipeEnd = (e: React.TouchEvent) => {
+    const s0 = swipeRef.current;
+    swipeRef.current = null;
+    const t = e.changedTouches[0];
+    if (!s0?.ok || !t) return;
+    const dx = t.clientX - s0.x;
+    const dy = t.clientY - s0.y;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - s0.t > 700) return;
+    const idx = RECOMMEND_SUB_TABS.findIndex((x) => x.id === subTab);
+    const next = RECOMMEND_SUB_TABS[idx + (dx < 0 ? 1 : -1)];
+    if (next) changeSubTab(next.id);
+  };
+
   // 추천 탭은 항상 추천순 (검색 중에는 정확도순 유지)
   const effectiveSortOrder = subTab === 'recommend' && sortOrder !== 'accuracy' ? 'recommend' : sortOrder;
 
@@ -1519,12 +1547,13 @@ export function RecommendTab({
   }, [isAccuracySort, recommended]);
 
   return (
-    <div className="space-y-6 pb-28 sm:pb-12">
+    <div className="space-y-6 pb-28 sm:pb-12" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
       {/* 하위 탭 (유튜브 채널 화면처럼 홈 / 추천 / 동영상 / Shorts / 재생목록) */}
       <div id="recommend-cards-top" role="tablist" aria-label="추천 영상 보기 방식" className="scroll-mt-24 -mx-3 px-3 sm:mx-0 sm:px-0 flex items-center gap-2 overflow-x-auto no-scrollbar">
         {RECOMMEND_SUB_TABS.map((t) => (
           <button
             key={t.id}
+            id={`rec-subtab-${t.id}`}
             type="button"
             role="tab"
             aria-selected={subTab === t.id}
@@ -1541,6 +1570,13 @@ export function RecommendTab({
         ))}
       </div>
 
+      <motion.div
+        key={subTab}
+        initial={subTabDir ? { opacity: 0, x: subTabDir * 36 } : false}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 36 }}
+        className="space-y-6"
+      >
       {subTab === 'shorts' ? (
         <ShortsFeed logs={data?.logs} searchTerm={searchTerm} selectedCategories={['전체']} onNavigateToCalendar={onNavigateToCalendar} />
       ) : subTab === 'playlists' ? (
@@ -1927,6 +1963,7 @@ export function RecommendTab({
       </div>
       
       </>)}
+      </motion.div>
 
       {/* 푸터 바로 윗부분: 과거 데이터 안내 및 외부 링크 보안 주의 경고 */}
       <div className="mt-8 space-y-3">

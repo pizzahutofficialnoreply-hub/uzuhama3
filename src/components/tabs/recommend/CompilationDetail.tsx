@@ -64,6 +64,7 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
       metaLine={isCompilation ? `몰아보기 · 게임 ${gameCount}개 · 생방송 ${dates.length}개` : `영상 연동 · 생방송 ${dates.length}개`}
       embedSrc={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`}
       playLabel="재생"
+      showPublisher={false}
       onClose={onClose}
       countLabel={`${dates.length}개 생방송`}
       viewStyle={viewStyle}

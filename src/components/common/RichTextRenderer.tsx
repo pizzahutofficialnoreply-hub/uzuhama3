@@ -118,12 +118,19 @@ export function RichTextRenderer({ content, className = '' }: RichTextRendererPr
 
   // 인라인 스타일 및 마크다운/HTML 태그 처리
   const renderInlineElements = (text: string): React.ReactNode => {
-    // 안전한 HTML 생성
-    let parsed = text;
+    // 안전한 HTML 생성: 먼저 모든 HTML 을 글자로 바꾼 뒤(스크립트·이벤트 속성 차단),
+    // 허용한 서식 태그(b, strong, i, em, u, s, del, small)만 다시 살림
+    let parsed = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/&lt;(\/?)(b|strong|i|em|u|s|del|small)&gt;/gi, '<$1$2>');
 
     // 링크 [텍스트](url)
     parsed = parsed.replace(
-      /\[(.*?)\]\((https?:\/\/[^\s]+)\)/g,
+      /\[(.*?)\]\((https?:\/\/[^\s<>"']+)\)/g,
       '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-purple-600 dark:text-purple-400 underline font-semibold hover:opacity-80 break-all">$1</a>'
     );
 
