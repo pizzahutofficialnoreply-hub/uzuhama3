@@ -7,7 +7,7 @@ import { format, startOfMonth, endOfMonth, parseISO, startOfWeek, isSameDay, add
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, Cell, LabelList } from 'recharts';
 import { CustomTooltip, DottedBarCursor } from '../CustomTooltip';
 import { SmartTrendLabel } from '../stats/SmartTrendLabel';
-import { parseTimeString, parseTimeTo24 } from '../../utils';
+import { parseTimeString, parseTimeTo24, formatWeekTick } from '../../utils';
 import { computeRecentPatternStats } from '../../utils/probability';
 
 interface SummaryTabProps {
@@ -72,28 +72,31 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
       const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
       dailyMap[dayNames[dateObj.getDay()]]++;
 
-      const timeObj = parseTimeTo24(log.time);
-      const format12 = (h: number, m: number) => {
-        let roundedM = Math.round(m / 10) * 10;
-        let finalH = h;
-        if (roundedM === 60) {
-           roundedM = 0;
-           finalH += 1;
-        }
-        const period = finalH >= 12 && finalH < 24 ? '오후' : '오전';
-        const hour12 = finalH % 12 || 12;
-        return `${period} ${Math.floor(hour12)}:${roundedM.toString().padStart(2, '0')}`;
-      };
-      const timeLabel = format12(timeObj.hour, timeObj.minute);
-      timeMap[timeLabel] = (timeMap[timeLabel] || 0) + 1;
-      const dayName = dayNames[dateObj.getDay()];
-      dailyTimeMap[dayName][timeLabel] = (dailyTimeMap[dayName][timeLabel] || 0) + 1;
+      // 시작 시각이 없는 기록(2025년 이전 아카이브)은 시간대 집계에서 제외 (없으면 '오전 12:00'으로 잘못 잡힘)
+      if (typeof log.time === 'string' && /^\s*\d{1,2}:\d{2}/.test(log.time)) {
+        const timeObj = parseTimeTo24(log.time);
+        const format12 = (h: number, m: number) => {
+          let roundedM = Math.round(m / 10) * 10;
+          let finalH = h;
+          if (roundedM === 60) {
+             roundedM = 0;
+             finalH += 1;
+          }
+          const period = finalH >= 12 && finalH < 24 ? '오후' : '오전';
+          const hour12 = finalH % 12 || 12;
+          return `${period} ${Math.floor(hour12)}:${roundedM.toString().padStart(2, '0')}`;
+        };
+        const timeLabel = format12(timeObj.hour, timeObj.minute);
+        timeMap[timeLabel] = (timeMap[timeLabel] || 0) + 1;
+        const dayName = dayNames[dateObj.getDay()];
+        dailyTimeMap[dayName][timeLabel] = (dailyTimeMap[dayName][timeLabel] || 0) + 1;
+      }
 
       // 분석 탭(DetailedStatsTab)과 100% 동일한 주간 기준일자 및 집계 로직 적용
       const weekStart = format(startOfWeek(dateObj), 'yyyy-MM-dd');
       if (!trendMap[weekStart]) trendMap[weekStart] = { count: 0, dates: new Set() };
       trendMap[weekStart].count++;
-      trendMap[weekStart].dates.add(format(dateObj, 'M/d'));
+      trendMap[weekStart].dates.add(log.date);
     });
 
     const topDay = Object.keys(dailyMap).reduce((a, b) => dailyMap[a] > dailyMap[b] ? a : b, '목');
@@ -125,8 +128,11 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
       }
       return {
         week: weekStartLabel,
+        // 축·툴팁은 연도까지 포함한 고유 키로 (기간이 1년을 넘으면 MM/dd 가 겹쳐 툴팁이 엉뚱한 주를 가리키던 문제)
+        weekKey: week,
+        weekFull: format(weekStartDate, 'yyyy.MM.dd'),
         count: trendMap[week].count,
-        datesDesc: trendMap[week].dates.size > 0 ? Array.from(trendMap[week].dates).sort().join(', ') : '방송 없음 (0회)'
+        datesDesc: trendMap[week].dates.size > 0 ? Array.from(trendMap[week].dates).sort().map((d) => format(parseISO(d), 'M/d')).join(', ') : '방송 없음 (0회)'
       };
     });
 
@@ -314,7 +320,7 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
             {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
               <LineChart data={stats.trendStatsArray} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
-                <XAxis dataKey="week" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
+                <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                 <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                 <RechartsTooltip 
                   content={({ active, payload, label }: any) => {
@@ -322,7 +328,7 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
                     const dataItem = payload[0].payload;
                     return (
                       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 shadow-lg text-xs space-y-1">
-                        <p className="font-bold text-zinc-900 dark:text-zinc-100">{label}</p>
+                        <p className="font-bold text-zinc-900 dark:text-zinc-100">{dataItem?.weekFull || label} 주간</p>
                         <p className="text-purple-600 dark:text-purple-400 font-extrabold">{payload[0].value}회 방송</p>
                         {dataItem?.datesDesc && (
                           <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{dataItem.datesDesc}</p>

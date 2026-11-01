@@ -27,12 +27,14 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
   // 현재 호스트 기준 구독 피드 주소 산출 (버튼 누른 사이트 링크 반영, vercel.app일 경우 https://uzuhama.web.app)
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://uzuhama.web.app';
   const resolvedOrigin = (!currentOrigin || currentOrigin.includes('vercel.app')) ? 'https://uzuhama.web.app' : currentOrigin;
-  const webcalBase = resolvedOrigin.replace(/^https?:\/\//i, '');
-  const httpsFeedUrl = `${resolvedOrigin}/api/calendar.ics?siteUrl=${encodeURIComponent(resolvedOrigin)}`;
-  const webcalFeedUrl = `webcal://${webcalBase}/api/calendar.ics?siteUrl=${encodeURIComponent(resolvedOrigin)}`;
+  // 피드는 항상 실시간으로 만드는 Vercel 서버에서 (web.app 은 정적 호스팅이라 /api 가 없음)
+  const FEED_HOST = 'uzuhama.vercel.app';
+  const feedPath = `/api/calendar.ics?siteUrl=${encodeURIComponent(resolvedOrigin)}`;
+  const httpsFeedUrl = `https://${FEED_HOST}${feedPath}`;
+  const webcalFeedUrl = `webcal://${FEED_HOST}${feedPath}`;
 
   // 구글 캘린더 등록 링크 (https:// 스킴을 넘겨야 구글 서버가 정상 처리)
-  const googleCalendarSubscribeUrl = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(httpsFeedUrl)}`;
+  const googleCalendarSubscribeUrl = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcalFeedUrl)}`;
 
   const markAsSubscribed = (val: boolean = true) => {
     try {

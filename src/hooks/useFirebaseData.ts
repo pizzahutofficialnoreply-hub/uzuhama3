@@ -16,6 +16,7 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
+import { overlayMonthDocs } from '../utils/archiveOverlay';
 import { BroadcastLog, DailyStat, TimeStat, DurationStat, MonthlyStat, AppData, PatternGuide, SystemConfig, GameItem, LinkItem } from '../types';
 import { dailyStats as defaultDaily, timeStats as defaultTime, durationStats as defaultDuration, monthlyStats as defaultMonthly, patternGuides as defaultGuides } from '../data';
 
@@ -146,51 +147,7 @@ const normalizeGameLinks = (log: any) =>
     ? log.games.map((g: any) => ({ ...g, link: g?.link || g?.url || g?.gameUrl || g?.steamUrl || log.gameLink || '' }))
     : log?.games;
 
-function applyArchivePatch(base: BroadcastLog, patch: any): BroadcastLog {
-  const merged: any = { ...base };
-  Object.keys(patch).forEach((k) => {
-    if (PATCH_META_KEYS.has(k)) return;
-    if (patch[k] === null) delete merged[k];
-    else merged[k] = patch[k];
-  });
-  merged.id = base.id;
-  merged.games = normalizeGameLinks(merged);
-  return merged as BroadcastLog;
-}
 
-function mergeLegacyArchiveCopy(base: BroadcastLog, copy: any): BroadcastLog {
-  const unionByUrl = (a: any[] = [], b: any[] = [], preferB: (x: any) => boolean) => {
-    const out = [...(Array.isArray(a) ? a : [])];
-    (Array.isArray(b) ? b : []).forEach((item) => {
-      if (!item?.url) return;
-      const idx = out.findIndex((x) => x?.url === item.url);
-      if (idx < 0) out.push(item);
-      else if (preferB(item)) out[idx] = { ...out[idx], ...item };
-    });
-    return out;
-  };
-  const isComp = (x: any) => Boolean(x?.isCompilation || x?.compilationId);
-  const baseGames: any[] = Array.isArray(base.games) ? base.games.map((g) => ({ ...g })) : [];
-  (Array.isArray(copy.games) ? copy.games : []).forEach((g: any) => {
-    if (!g?.name) return;
-    const key = String(g.name).trim().toLowerCase();
-    const found = baseGames.find((bg) => String(bg?.name || '').trim().toLowerCase() === key);
-    const link = g.link || g.url || g.gameUrl || g.steamUrl || '';
-    if (found) {
-      if (!found.link && link) found.link = link;
-    } else {
-      baseGames.push({ name: g.name, link, category: typeof g.category === 'string' ? g.category : '' });
-    }
-  });
-  return {
-    ...base,
-    games: baseGames,
-    // 몰아보기 항목은 Firestore 쪽 정보(연동 날짜·게임 목록)가 최신이므로 우선
-    edited: unionByUrl(base.edited, copy.edited, isComp),
-    vods: unionByUrl(base.vods, copy.vods, () => false),
-    shorts: unionByUrl(base.shorts, copy.shorts, () => false),
-  } as BroadcastLog;
-}
 
 /** 관리자가 아카이브 기록을 저장할 때 JSON 원본과 다른 필드만 추린 수정분 생성 (원본이 없으면 null) */
 export async function buildArchivePatch(log: BroadcastLog): Promise<any | null> {
@@ -248,35 +205,10 @@ export function useFirebaseData() {
       //    - JSON 에 없는 날짜(2026년 이후 등): 그대로 추가
       //    - JSON 에 있는 날짜: 관리자 수정분으로 보고 덮어씀 (logs 컬렉션은 읽지 않음)
       try {
-        const byDate = new Map<string, BroadcastLog>();
-        Object.values(historicalLogs).forEach((l) => {
-          if (l?.date && !byDate.has(l.date)) byDate.set(l.date, l);
-        });
-        const entries: { key: string; val: any }[] = [];
+        const monthDocs: any[] = [];
         const monthSnaps = await getDocs(collection(db, 'logs_by_month'));
-        monthSnaps.forEach((docSnap) => {
-          const docData = docSnap.data();
-          if (docData?.items && typeof docData.items === 'object') {
-            Object.entries(docData.items).forEach(([k, val]: [string, any]) => entries.push({ key: val?.id || k, val }));
-          }
-          Object.entries(docData || {}).forEach(([key, val]) => {
-            if (key !== 'month' && key !== 'updatedAt' && key !== 'items' && val && typeof val === 'object' && (val as any).date) {
-              entries.push({ key: (val as any).id || key, val });
-            }
-          });
-        });
-        // 옛 전체 사본을 먼저, 새 방식 수정분(_patch)을 나중에 적용
-        entries.sort((x, y) => Number(Boolean(x.val?._patch)) - Number(Boolean(y.val?._patch)));
-        entries.forEach(({ key, val }) => {
-          if (!val || !val.date) return;
-          const base = historicalLogs[key] || byDate.get(val.date);
-          if (!base) {
-            logsMap[key] = { ...val, id: key, games: normalizeGameLinks(val) } as BroadcastLog;
-            return;
-          }
-          const current = logsMap[base.id] || base;
-          logsMap[base.id] = val._patch ? applyArchivePatch(current, val) : mergeLegacyArchiveCopy(current, val);
-        });
+        monthSnaps.forEach((docSnap) => monthDocs.push(docSnap.data()));
+        Object.assign(logsMap, overlayMonthDocs(historicalLogs, monthDocs));
       } catch (e: any) {
         console.warn('logs_by_month 컬렉션 조회 경고:', e?.message);
       }

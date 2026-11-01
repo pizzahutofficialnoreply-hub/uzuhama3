@@ -26,12 +26,16 @@ export interface VideoListRowProps {
   shorts?: { url: string; title?: string }[];
   highlighted?: boolean;
   dense?: boolean;
+  /** 유튜브 영상이 없을 때 썸네일 자리에 보여 줄 글자 (예: 날짜) */
+  placeholder?: string;
+  /** 업로드 정보 대신 보여 줄 문구 */
+  subline?: string;
 }
 
 export function VideoListRow({
-  videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense,
+  videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense, placeholder, subline,
 }: VideoListRowProps) {
-  const meta = useVideoMeta(videoId);
+  const meta = useVideoMeta(videoId || null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -41,7 +45,7 @@ export function VideoListRow({
     return () => document.removeEventListener('mousedown', close);
   }, [menuOpen]);
 
-  const link = href || `https://www.youtube.com/watch?v=${videoId}`;
+  const link = href || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : '#');
   const upload = meta?.publishedAt ? `${toKstDate(meta.publishedAt)} · ${formatRelativeTime(meta.publishedAt)}` : '';
   const validShorts = shorts.filter((s) => s?.url);
   const iconBtn = 'w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 cursor-pointer';
@@ -56,7 +60,11 @@ export function VideoListRow({
       )}
 
       <div className="relative w-[42%] max-w-[176px] sm:max-w-[200px] aspect-video rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 shrink-0 pointer-events-none">
-        <img src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
+        {videoId ? (
+          <img src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
+        ) : (
+          <span className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-zinc-100 dark:from-purple-950/60 dark:to-zinc-900 text-purple-700 dark:text-purple-300 text-xs font-bold tabular-nums">{placeholder}</span>
+        )}
         {typeof meta?.durationSec === 'number' && meta.durationSec > 0 && (
           <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/75 text-white text-[11px] font-bold tabular-nums">
             {formatDuration(meta.durationSec)}
@@ -72,7 +80,7 @@ export function VideoListRow({
             {badge}
           </p>
         )}
-        {upload && <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{upload}</p>}
+        {(subline || upload) && <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{subline || upload}</p>}
       </div>
 
       {(liveUrl || onLiveClick || validShorts.length > 0) && (

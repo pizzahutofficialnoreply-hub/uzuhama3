@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { db, hasAdminCredentials } from './_firebase.js';
+import { normalizeHistorical, overlayMonthDocs } from '../src/utils/archiveOverlay.js';
 
 interface GameItem {
   name: string;
@@ -33,8 +34,32 @@ function pad(n: number): string {
   return n.toString().padStart(2, '0');
 }
 
+/** UTC 시각 (끝에 Z) — 서버 시간대와 상관없이 모든 캘린더 앱이 같은 시각으로 표시 */
 function formatDateToIcs(date: Date): string {
-  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}T${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`;
+}
+
+/** RFC 5545: 한 줄은 75바이트 이하, 넘으면 줄바꿈 + 공백으로 이어 씀 (구글 캘린더 호환) */
+function foldLine(line: string): string {
+  const enc = new TextEncoder();
+  if (enc.encode(line).length <= 75) return line;
+  const out: string[] = [];
+  let cur = '';
+  let curBytes = 0;
+  for (const ch of line) {
+    const b = enc.encode(ch).length;
+    const limit = out.length === 0 ? 75 : 74; // 이어지는 줄은 앞 공백 1바이트
+    if (curBytes + b > limit) { out.push(cur); cur = ''; curBytes = 0; }
+    cur += ch; curBytes += b;
+  }
+  if (cur) out.push(cur);
+  return out.join('\r\n ');
+}
+
+function nextDay(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + 1));
+  return `${t.getUTCFullYear()}${pad(t.getUTCMonth() + 1)}${pad(t.getUTCDate())}`;
 }
 
 function formatDateOnlyToIcs(dateStr: string): string {
@@ -69,18 +94,6 @@ function logToVEvent(log: BroadcastLog, nowStr: string, index: number, origin: s
     `📅 방송일: ${dateStr}`
   ];
 
-  if (log.games && log.games.length > 0) {
-    const withLinks = log.games.filter(g => Boolean(g.link || g.vodUrl));
-    if (withLinks.length > 0) {
-      descLines.push('');
-      descLines.push('🔗 게임 링크:');
-      withLinks.forEach(g => {
-        if (g.link) descLines.push(`- ${g.name} 링크: ${g.link}`);
-        if (g.vodUrl) descLines.push(`- ${g.name} 구간 VOD: ${g.vodUrl}`);
-      });
-    }
-  }
-
   if (log.time || log.durationHours) {
     const timeInfo = log.time ? (log.endTime ? `${log.time} ~ ${log.endTime}` : log.time) : '';
     const duration = log.durationHours ? ` (${log.durationHours}시간)` : '';
@@ -113,11 +126,12 @@ function logToVEvent(log: BroadcastLog, nowStr: string, index: number, origin: s
 
   const siteOrigin = (!origin || origin.includes('vercel.app')) ? 'https://uzuhama.web.app' : origin;
   descLines.push('');
-  descLines.push(`🌐 구독한 페이지 링크: ${siteOrigin}`);
-  descLines.push(`📌 우주하마 방송 통계: ${siteOrigin}`);
+  descLines.push(`📌 우주하마 방송 예측: ${siteOrigin}`);
 
   const description = descLines.join('\n');
-  const uid = `uzuhama-${dateStr}-${index}@uzuhama-prediction`;
+  // 기록이 추가돼도 바뀌지 않는 고유 ID (순서 번호를 쓰면 구독 캘린더에서 일정이 뒤섞임)
+  const stableKey = String((log as any).id || `${(log.time || 'allday').replace(/[^0-9a-z]/gi, '')}-${index}`).replace(/[^0-9A-Za-z_-]/g, '');
+  const uid = `uzuhama-${dateStr}-${stableKey}@uzuhama-prediction`;
 
   let timeFields = '';
   if (log.time) {
@@ -125,7 +139,8 @@ function logToVEvent(log: BroadcastLog, nowStr: string, index: number, origin: s
       const [h, m] = log.time.split(':').map(Number);
       if (!isNaN(h) && !isNaN(m)) {
         const [y, mon, d] = dateStr.split('-').map(Number);
-        const startDate = new Date(y, mon - 1, d, h, m, 0);
+        // 기록 시각은 한국 시간(KST, UTC+9)
+        const startDate = new Date(Date.UTC(y, mon - 1, d, h - 9, m, 0));
         let durationMins = (log.durationHours && !isNaN(log.durationHours)) ? Math.round(log.durationHours * 60) : 180;
         const endDate = new Date(startDate.getTime() + durationMins * 60 * 1000);
         timeFields = [
@@ -138,9 +153,10 @@ function logToVEvent(log: BroadcastLog, nowStr: string, index: number, origin: s
 
   if (!timeFields) {
     const dStr = formatDateOnlyToIcs(dateStr);
+    // 종일 일정의 끝 날짜는 다음 날 (RFC 5545: DTEND 는 포함하지 않음)
     timeFields = [
       `DTSTART;VALUE=DATE:${dStr}`,
-      `DTEND;VALUE=DATE:${dStr}`
+      `DTEND;VALUE=DATE:${nextDay(dateStr)}`
     ].join('\r\n');
   }
 
@@ -155,7 +171,7 @@ function logToVEvent(log: BroadcastLog, nowStr: string, index: number, origin: s
     `URL:${primaryUrl}`,
     'STATUS:CONFIRMED',
     'END:VEVENT'
-  ].join('\r\n');
+  ].map(foldLine).join('\r\n');
 }
 
 function parseFirestoreValue(valueObj: any): any {
@@ -194,94 +210,45 @@ function parseFirestoreDoc(doc: any): any {
  * 전체 방송 로그를 수집하여 iCalendar(RFC 5545) 포맷 문자열 생성
  */
 export async function buildFullCalendarFeed(origin: string): Promise<string> {
-  const logsMap: Record<string, BroadcastLog> = {};
-
-  // 1. 과거 아카이브 파일 로드
+  // 1. 과거 아카이브 JSON (사이트와 같은 원본)
+  let historical: Record<string, any> = {};
   try {
     const jsonPath = path.resolve(process.cwd(), 'public/data/historical_logs.json');
-    if (fs.existsSync(jsonPath)) {
-      const raw = fs.readFileSync(jsonPath, 'utf-8');
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        Object.assign(logsMap, parsed);
-      }
-    }
+    if (fs.existsSync(jsonPath)) historical = normalizeHistorical(JSON.parse(fs.readFileSync(jsonPath, 'utf-8')));
   } catch (err) {
     console.warn('[Calendar Feed] Historical logs read warning:', err);
   }
 
-  // 2. Firestore 실시간 데이터 수집 (logs_by_month 및 logs 컬렉션)
-  // 2-1. Firestore REST API로 우선 수집 (인증/권한 환경 제약 없이 2026년 최신 데이터 100% 보장)
-  try {
-    const firestoreBase = 'https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents';
-    
-    // 월별 아카이브 (2026년도 월별 로그 포함) 수집
-    const monthRes = await fetch(`${firestoreBase}/logs_by_month?pageSize=100`, { headers: { 'Accept': 'application/json' } });
-    if (monthRes.ok) {
-      const monthData: any = await monthRes.json();
-      const docs = monthData?.documents || [];
-      for (const doc of docs) {
-        const parsed = parseFirestoreDoc(doc);
-        if (parsed.items && typeof parsed.items === 'object') {
-          Object.assign(logsMap, parsed.items);
-        }
-        Object.entries(parsed).forEach(([key, val]) => {
-          if (key !== 'month' && key !== 'updatedAt' && key !== 'items' && val && typeof val === 'object' && (val as any).date) {
-            logsMap[key] = val as BroadcastLog;
-          }
-        });
-      }
-    }
-
-    // 최신 개별 로그 수집 (최대 100개)
-    const logsRes = await fetch(`${firestoreBase}/logs?pageSize=100`, { headers: { 'Accept': 'application/json' } });
-    if (logsRes.ok) {
-      const logsData: any = await logsRes.json();
-      const docs = logsData?.documents || [];
-      for (const doc of docs) {
-        const parsed = parseFirestoreDoc(doc);
-        const docId = doc.name ? doc.name.split('/').pop() : '';
-        if (parsed.date && docId) {
-          logsMap[docId] = parsed as BroadcastLog;
-        }
-      }
-    }
-  } catch (restErr) {
-    console.warn('[Calendar Feed] Firestore REST fetch notice:', restErr);
-  }
-
-  // 2-2. Firestore Admin SDK 자격 증명이 유효한 경우에만 안전하게 추가 병합
+  // 2. Firestore logs_by_month (관리자 권한이 있으면 Admin SDK, 없으면 공개 REST)
+  //    logs 컬렉션은 읽지 않음 (사이트와 동일: 예전 사본이 섞여 일정이 중복되던 원인)
+  const monthDocs: any[] = [];
+  let loaded = false;
   if (hasAdminCredentials && db) {
     try {
       const snaps = await db.collection('logs_by_month').get();
-      if (!snaps.empty) {
-        snaps.forEach(docSnap => {
-          const data = docSnap.data();
-          if (data?.items && typeof data.items === 'object') {
-            Object.assign(logsMap, data.items);
-          }
-          Object.entries(data || {}).forEach(([key, val]) => {
-            if (key !== 'month' && key !== 'updatedAt' && key !== 'items' && val && typeof val === 'object' && (val as any).date) {
-              logsMap[key] = val as BroadcastLog;
-            }
-          });
-        });
-      }
-
-      // 실시간으로 새로 추가된 최신 개별 로그도 병합
-      const directLogsSnap = await db.collection('logs').get();
-      if (!directLogsSnap.empty) {
-        directLogsSnap.forEach(docSnap => {
-          const data = docSnap.data();
-          if (data && data.date) {
-            logsMap[docSnap.id] = data as BroadcastLog;
-          }
-        });
-      }
-    } catch {
-      // Admin SDK 오류 발생 시 이미 2-1 REST API에서 수집되었으므로 조용히 처리
+      snaps.forEach((d: any) => monthDocs.push(d.data()));
+      loaded = true;
+    } catch (e) {
+      console.warn('[Calendar Feed] Admin SDK read failed, falling back to REST:', e);
     }
   }
+  if (!loaded) {
+    try {
+      const base = 'https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month';
+      let pageToken = '';
+      do {
+        const r = await fetch(`${base}?pageSize=300${pageToken ? `&pageToken=${pageToken}` : ''}`, { headers: { Accept: 'application/json' } });
+        if (!r.ok) break;
+        const json: any = await r.json();
+        (json?.documents || []).forEach((doc: any) => monthDocs.push(parseFirestoreDoc(doc)));
+        pageToken = json?.nextPageToken || '';
+      } while (pageToken);
+    } catch (restErr) {
+      console.warn('[Calendar Feed] Firestore REST fetch notice:', restErr);
+    }
+  }
+
+  const logsMap: Record<string, BroadcastLog> = overlayMonthDocs(historical, monthDocs);
 
   // 3. 로그 정렬 (첫 데이터부터 마지막 데이터까지 전체 수집)
   const logsList = Object.values(logsMap).filter(l => Boolean(l && l.date));
@@ -305,9 +272,10 @@ export async function buildFullCalendarFeed(origin: string): Promise<string> {
     'REFRESH-INTERVAL;VALUE=DURATION:PT15M',
     'X-PUBLISHED-TTL:PT15M',
     'X-WR-RELOAD:PT15M',
+  ].map(foldLine).concat([
     ...vevents,
     'END:VCALENDAR'
-  ];
+  ]);
 
   return icsLines.join('\r\n');
 }

@@ -86,20 +86,7 @@ function calendarFeedPlugin() {
         next();
       });
     },
-    async closeBundle() {
-      try {
-        const { buildFullCalendarFeed } = await import('./api/calendar');
-        const ics = await buildFullCalendarFeed('https://uzuhama.vercel.app');
-        const distApi = path.resolve(process.cwd(), 'dist/api');
-        if (!fs.existsSync(distApi)) {
-          fs.mkdirSync(distApi, { recursive: true });
-        }
-        fs.writeFileSync(path.join(distApi, 'calendar.ics'), ics, 'utf-8');
-        fs.writeFileSync(path.resolve(process.cwd(), 'dist/feed.ics'), ics, 'utf-8');
-      } catch (err) {
-        console.warn('[Calendar Static Export]:', err);
-      }
-    }
+    // 정적 .ics 파일은 만들지 않음: 빌드 시점 사본이 실시간 피드(/api/calendar.ics)를 가려 업데이트가 안 보이던 원인
   };
 }
 

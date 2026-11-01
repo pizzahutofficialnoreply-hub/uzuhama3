@@ -13,6 +13,7 @@ import { getMolabogiCache, setMolabogiCache } from '../../utils/molabogiCache';
 import { GameTitle } from '../common/GameTitle';
 import { useVideoMeta, formatDuration, toKstDate, formatRelativeTime } from '../../hooks/useVideoDuration';
 import { ShortsFeed } from './recommend/ShortsFeed';
+import { CompilationDetail } from './recommend/CompilationDetail';
 import { Pagination } from '../common/Pagination';
 import { VideoListRow } from '../common/VideoListRow';
 import { ViewStyleToggle } from '../common/ViewStyleToggle';
@@ -638,8 +639,7 @@ export function RecommendTab({
   useEffect(() => {
     if (pinnedVideoId) {
       isNavigatedFromExternalRef.current = true;
-      setSortOrder('recommend');
-      setSubTab('home'); sessionStorage.setItem('rec_subTab', 'home'); // 다른 화면에서 넘어오면 홈 탭으로
+      setSubTab('recommend'); sessionStorage.setItem('rec_subTab', 'recommend'); // 특정 영상 추천으로 넘어오면 추천 탭 (맨 앞에 고정)
       setSearchTerm('');
       setSelectedCategories(['전체']);
       setCurrentPage(1);
@@ -659,6 +659,7 @@ export function RecommendTab({
     const saved = sessionStorage.getItem('rec_sortOrder');
     const hasSearch = Boolean(sessionStorage.getItem('rec_searchTerm')?.trim());
     if (saved === 'accuracy' && !hasSearch) return 'desc';
+    if (saved === 'recommend') return 'desc'; // 추천순은 '추천' 탭으로 옮김
     return saved || 'desc';
   });
 
@@ -1693,7 +1694,6 @@ export function RecommendTab({
                 {Boolean(searchTerm.trim()) && <option value="accuracy">정확도순</option>}
                 <option value="desc">최신순</option>
                 <option value="asc">과거순 (첫 기록부터)</option>
-                <option value="recommend">추천순 (랜덤)</option>
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
             </div>
@@ -1792,35 +1792,26 @@ export function RecommendTab({
               const isExpanded = Boolean(selectedBroadcastModalVideo && (selectedBroadcastModalVideo.id === video.id || (selectedBroadcastModalVideo.videoUrl && selectedBroadcastModalVideo.videoUrl === video.videoUrl)));
               const toggle = () => setSelectedBroadcastModalVideo(isExpanded ? null : video);
               return (
-                <div key={`${video.id}-${idx}`}>
-                  <VideoListRow
-                    videoId={ytId}
-                    title={video.videoTitle}
-                    href={video.videoUrl}
-                    isCompilation={video.isCompilation}
-                    badge={video.isCompilation
-                      ? `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임`
-                      : isMulti ? `${video.allBroadcastDates.length}개 생방` : undefined}
-                    liveUrl={!isMulti ? video.parentLog?.vods?.find((v: any) => v?.url)?.url : undefined}
-                    onLiveClick={isMulti ? toggle : undefined}
-                    liveActive={isExpanded}
-                    shorts={!isMulti ? (video.parentLog?.shorts || []) : []}
-                  />
-                  <AnimatePresence initial={false}>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ type: 'spring', stiffness: 420, damping: 40 }}
-                        className="overflow-hidden mx-2 mb-2 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
-                      >
-                        <BroadcastDetailModal
-                          video={video}
-                          allLogs={data?.logs}
-                          onClose={() => setSelectedBroadcastModalVideo(null)}
-                          onNavigateToCalendar={onNavigateToCalendar}
-                          hideMainVideoBanner={true}
+                <div key={`${video.id}-${idx}`} className={cn(isExpanded && "my-2 mx-2 sm:mx-0")}>
+                  <AnimatePresence mode="wait" initial={false}>
+                    {isExpanded ? (
+                      <motion.div key="detail" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }} transition={{ type: 'spring', stiffness: 340, damping: 32 }}>
+                        <CompilationDetail video={video} allLogs={data?.logs} onClose={() => setSelectedBroadcastModalVideo(null)} onNavigateToCalendar={onNavigateToCalendar} />
+                      </motion.div>
+                    ) : (
+                      <motion.div key="row" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                        <VideoListRow
+                          videoId={ytId}
+                          title={video.videoTitle}
+                          href={video.videoUrl}
+                          isCompilation={video.isCompilation}
+                          badge={video.isCompilation
+                            ? `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임`
+                            : isMulti ? `${video.allBroadcastDates.length}개 생방` : undefined}
+                          liveUrl={!isMulti ? video.parentLog?.vods?.find((v: any) => v?.url)?.url : undefined}
+                          onLiveClick={isMulti ? toggle : undefined}
+                          liveActive={isExpanded}
+                          shorts={!isMulti ? (video.parentLog?.shorts || []) : []}
                         />
                       </motion.div>
                     )}
@@ -1844,7 +1835,7 @@ export function RecommendTab({
           {/* 만약 펼쳐진 영상이 현재 페이지에 없다면 맨 위에 사각형 카드로 펼침 */}
           {selectedBroadcastModalVideo && !paginatedVids.some(v => v.id === selectedBroadcastModalVideo.id || (selectedBroadcastModalVideo.videoUrl && v.videoUrl === selectedBroadcastModalVideo.videoUrl)) && (
             <div className="col-span-full my-1">
-              <BroadcastDetailModal
+              <CompilationDetail
                 video={selectedBroadcastModalVideo}
                 allLogs={data?.logs}
                 onClose={() => setSelectedBroadcastModalVideo(null)}
@@ -1880,44 +1871,40 @@ export function RecommendTab({
                   </div>
                 )}
 
-                {/* 기존 카드를 온전히 유지한 채로, 그 밑으로 자연스럽게 펼쳐지는 연동 생방 목록 */}
-                <div 
-                  className={cn(
-                    "flex flex-col transition-all duration-300",
-                    isExpanded ? "col-span-full" : ""
-                  )}
-                >
-                  <VideoCard 
-                    video={video} 
-                    allLogs={data?.logs} 
-                    onNavigateToCalendar={onNavigateToCalendar} 
-                    onOpenBroadcastModal={(v) => {
-                      if (selectedBroadcastModalVideo?.id === v.id || (selectedBroadcastModalVideo?.videoUrl && selectedBroadcastModalVideo.videoUrl === v.videoUrl)) {
-                        setSelectedBroadcastModalVideo(null);
-                      } else {
-                        setSelectedBroadcastModalVideo(v);
-                      }
-                    }}
-                    isExpanded={isExpanded}
-                    isCompact={mobileViewMode === '2' && !isExpanded}
-                  />
-
-                  <AnimatePresence>
-                    {isExpanded && (
+                {/* 몰아보기·연동 생방: 누른 카드 자리에서 재생목록 화면처럼 펼쳐짐 (닫기 전까지 원래 카드는 숨김) */}
+                <div className={cn(isExpanded && "col-span-full")}>
+                  <AnimatePresence mode="wait" initial={false}>
+                    {isExpanded ? (
                       <motion.div
-                        key={`expanded-list-${video.id}`}
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ type: 'spring', stiffness: 340, damping: 34 }}
-                        className="overflow-hidden w-full rounded-b-[24px] border border-t-0 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-md -mt-px"
+                        key="detail"
+                        initial={{ opacity: 0, scale: 0.97 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.97 }}
+                        transition={{ type: 'spring', stiffness: 340, damping: 32 }}
                       >
-                        <BroadcastDetailModal
+                        <CompilationDetail
                           video={video}
                           allLogs={data?.logs}
                           onClose={() => setSelectedBroadcastModalVideo(null)}
                           onNavigateToCalendar={onNavigateToCalendar}
-                          hideMainVideoBanner={true}
+                        />
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="card"
+                        className="flex flex-col h-full"
+                        initial={{ opacity: 0, scale: 0.97 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.97 }}
+                        transition={{ type: 'spring', stiffness: 340, damping: 32 }}
+                      >
+                        <VideoCard 
+                          video={video} 
+                          allLogs={data?.logs} 
+                          onNavigateToCalendar={onNavigateToCalendar} 
+                          onOpenBroadcastModal={(v) => setSelectedBroadcastModalVideo(v)}
+                          isExpanded={false}
+                          isCompact={mobileViewMode === '2'}
                         />
                       </motion.div>
                     )}

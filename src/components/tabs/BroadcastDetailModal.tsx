@@ -30,6 +30,8 @@ interface BroadcastDetailModalProps {
   onClose: () => void;
   onNavigateToCalendar?: (dateStr: string) => void;
   hideMainVideoBanner?: boolean;
+  /** 위쪽 '접기' 막대까지 숨김 (몰아보기 패널 안에 카드로 넣을 때) */
+  bare?: boolean;
 }
 
 const getKoreanDayOfWeek = (dateStr: string): string => {
@@ -47,20 +49,11 @@ const getKoreanDayOfWeek = (dateStr: string): string => {
   }
 };
 
-export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
-  video,
-  allLogs,
-  onClose,
-  onNavigateToCalendar,
-  hideMainVideoBanner = false,
-}) => {
-  const isCompilation = !!(video.isCompilation || video.compilationId);
-  const logsList = useMemo(() => {
-    return allLogs ? (Array.isArray(allLogs) ? allLogs : Object.values(allLogs || {})) : [];
-  }, [allLogs]);
 
-  // 방송일 순서 추출 (몰아보기 지정 순서 반영)
-  const broadcastDates = useMemo(() => {
+/** 영상(몰아보기·여러 생방 연동)에 연결된 방송일 목록 (몰아보기는 등록 순서 유지) */
+export function getBroadcastDates(video: any, logsList: any[]): string[] {
+  const isCompilation = !!(video?.isCompilation || video?.compilationId);
+
     if (isCompilation && Array.isArray(video.games) && video.games.length > 0) {
       const datesFromGames: string[] = [];
 
@@ -95,7 +88,23 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
       return [video.parentLog.date];
     }
     return [];
-  }, [video, isCompilation, logsList]);
+}
+
+export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
+  video,
+  allLogs,
+  onClose,
+  onNavigateToCalendar,
+  hideMainVideoBanner = false,
+  bare = false,
+}) => {
+  const isCompilation = !!(video.isCompilation || video.compilationId);
+  const logsList = useMemo(() => {
+    return allLogs ? (Array.isArray(allLogs) ? allLogs : Object.values(allLogs || {})) : [];
+  }, [allLogs]);
+
+  // 방송일 순서 추출 (몰아보기 지정 순서 반영)
+  const broadcastDates = useMemo(() => getBroadcastDates(video, logsList), [video, logsList]);
 
   // 몰아보기 총 게임 개수 산출 (사용자 요청: 개수는 생방 개수가 아닌 게임 개수 - 총개수 표시의 경우)
   const totalGamesCount = useMemo(() => {
@@ -171,7 +180,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
       )}
     >
       {/* 1. 상단 컨트롤 바: 접기 버튼 */}
-      <div className="px-4 sm:px-6 py-2.5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
+      {!bare && <div className="px-4 sm:px-6 py-2.5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
         <span className="text-xs font-bold text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 font-hanna font-pro">
           <Layers className="w-4 h-4 text-purple-600 dark:text-purple-400" />
           <span>{isCompilation ? '몰아보기 연동 생방송' : '영상 연동 생방송'}</span>
@@ -185,7 +194,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
           <span>접기</span>
           <X className="w-4 h-4" />
         </button>
-      </div>
+      </div>}
 
 
       {/* 2. 대상 영상 요약 배너: 메인 카드 형태 유지 시 중복 배너 숨김 */}
@@ -247,7 +256,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
       )}
 
       {/* 3. 본문: 한 생방당 한 카드 (PC 9개 그리드, 모바일 9개 스택) */}
-      <div className="p-4 sm:p-6 bg-zinc-50 dark:bg-zinc-950">
+      <div className={bare ? "p-1.5" : "p-4 sm:p-6 bg-zinc-50 dark:bg-zinc-950"}>
         <div className={
           isMobile
             ? 'flex flex-col gap-3.5'

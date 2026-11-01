@@ -412,3 +412,11 @@ export function autoFixKoreanParticles(text: string): string {
     .replace(/([가-힣0-9a-zA-Z]+)\(과\/와\)/g, (_, word) => `${word}${getKoreanParticle(word, '과/와')}`)
     .replace(/([가-힣0-9a-zA-Z]+)으로\/로/g, (_, word) => `${word}${getKoreanParticle(word, '으로/로')}`);
 }
+
+
+/** 주간 추이 그래프 x축 글자: 1년 넘게 보면 'yy.MM', 아니면 'MM/dd' (키는 'yyyy-MM-dd') */
+export function formatWeekTick(key: string, totalPoints: number) {
+  if (!key || key.length < 10) return key;
+  const [y, m, d] = key.slice(0, 10).split('-');
+  return totalPoints > 60 ? `${y.slice(2)}.${m}` : `${m}/${d}`;
+}

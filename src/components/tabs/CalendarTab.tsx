@@ -1587,7 +1587,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
           </div>
           
           {/* [1:1 길이 캘린더 선택 등록 버튼 및 구독 버튼] - 검색창 바로 위에 각각 1:1 너비 배치 */}
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full">
+          <div data-tour="calendar-export" className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full">
             {/* 1. 캘린더 선택 등록 버튼 */}
             <button 
               type="button"

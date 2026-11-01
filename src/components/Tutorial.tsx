@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, X, Check, Pointer } from 'lucide-react';
 import type { Tab } from '../types';
 
 /**
@@ -20,77 +20,114 @@ type Step = {
   body: string;
   /** 강조할 요소 (모바일/PC 각각, 쉼표로 여러 후보) — 없으면 가운데 카드 */
   target?: { mobile?: string; desktop?: string };
+  /** 이 단계 들어올 때 맞춰 둘 탭 */
   tab?: Tab;
   scrollTop?: boolean;
-  /** 단계에 들어올 때 / 나갈 때 시연 */
-  demo?: 'tabs' | 'details';
+  /**
+   * 직접 해 보는 단계: 강조된 부분만 누를 수 있고, 조건이 맞으면 다음 설명으로 자동 진행
+   * (아무 곳이나 눌러 넘기는 일반 단계와 구분)
+   */
+  action?: { hint: string; done: (ctx: { activeTab: Tab }) => boolean; reset?: () => void };
 };
 
+const detailsOpen = () => document.querySelector('[data-tour="prob-details"]')?.getAttribute('aria-expanded') === 'true';
+const closeDetails = () => {
+  const btn = document.querySelector<HTMLButtonElement>('[data-tour="prob-details"]');
+  if (btn?.getAttribute('aria-expanded') === 'true') btn.click();
+};
+
+// 누구나 아는 건 짧게, 숨은 기능은 직접 눌러 보며 알아가도록
 const STEPS: Step[] = [
   {
     id: 'welcome',
     title: '우주하마 방송 예측에 오신 걸 환영해요',
-    body: '처음이라 볼 게 많죠? 중요한 것만 하나씩 짚어 드릴게요.\n화면 아무 곳이나 누르면 다음으로 넘어가요.',
+    body: '처음이라 볼 게 많죠? 숨은 기능 위주로 직접 눌러 보며 알려 드릴게요.\n언제든 오른쪽 위 X로 닫을 수 있어요.',
   },
   {
     id: 'prob',
     title: '지금 방송이 켜질 확률',
-    body: '요일, 최근 방송 간격, 평소 시작 시간을 바탕으로 1분마다 다시 계산해요. 아래에는 오늘 가장 유력한 시간도 나와요.',
+    body: '요일, 최근 방송 간격, 평소 시작 시간을 보고 1분마다 다시 계산해요.',
     target: { mobile: '#current-prob-card, #current-prob-live-card', desktop: '#current-prob-card, #current-prob-live-card' },
     tab: 'summary',
     scrollTop: true,
   },
   {
+    id: 'details-try',
+    title: '어떻게 나온 숫자인지 볼까요?',
+    body: '',
+    target: { mobile: '[data-tour="prob-details"]', desktop: '[data-tour="prob-details"]' },
+    tab: 'summary',
+    action: { hint: "'확률 계산 자세히 보기'를 눌러 보세요", done: () => detailsOpen(), reset: closeDetails },
+  },
+  {
     id: 'details',
-    title: '어떻게 계산됐는지도 볼 수 있어요',
-    body: "'확률 계산 자세히 보기'를 누르면 단계별로 확률이 어떻게 바뀌었는지 펼쳐져요.",
+    title: '단계별 계산',
+    body: '요일 → 방송 간격 → 휴방 여부 → 남은 시간 순서로 확률이 바뀌는 과정이에요. 마지막 줄이 위의 큰 숫자와 같아요.',
     target: { mobile: '[data-tour="prob-details-area"]', desktop: '[data-tour="prob-details-area"]' },
     tab: 'summary',
-    demo: 'details',
   },
   {
-    id: 'summary',
-    title: '최근 방송 흐름',
-    body: '최근 주간 방송 횟수와 요일별 집중도를 차트로 보여줘요. 오른쪽 위 버튼으로 이미지로 공유할 수도 있어요.',
-    target: { mobile: '#summary-weekly-trend-card', desktop: '#summary-weekly-trend-card' },
-    tab: 'summary',
-  },
-  {
-    id: 'tabs',
-    title: '탭으로 화면을 옮겨요',
-    body: '요약 · 기록 · 분석 탭이에요. 눌러도 되고, 회색 동그라미를 옆으로 끌어도 넘어가요.',
+    id: 'tab-try',
+    title: '방송 기록으로 가 볼까요?',
+    body: '',
     target: { mobile: 'nav[aria-label="하단 네비게이션"]', desktop: '#desktop-tab-bar' },
     tab: 'summary',
-    demo: 'tabs',
+    action: {
+      hint: "탭바에서 '기록'을 눌러 보세요. 회색 동그라미를 옆으로 끌어도 넘어가요",
+      done: ({ activeTab }) => activeTab === 'calendar',
+    },
   },
   {
     id: 'calendar',
     title: '방송 기록 달력',
-    body: '방송한 날이 표시돼요. 날짜를 누르면 그날 한 게임, 다시보기, 편집 영상, 쇼츠가 나와요.',
+    body: '방송한 날에 표시가 있어요. 날짜를 누르면 그날 한 게임, 다시보기, 편집 영상, 쇼츠가 한곳에 모여 나와요.',
     target: { mobile: '#calendar-main-card', desktop: '#calendar-main-card' },
     tab: 'calendar',
   },
   {
+    id: 'calendar-export',
+    title: '내 캘린더에 넣기',
+    body: "'캘린더 구독'을 하면 새 방송이 기록될 때마다 아이폰·구글 캘린더에 자동으로 들어와요. '선택 등록'은 원하는 날만 골라 한 번에 추가해요.",
+    target: { mobile: '[data-tour="calendar-export"]', desktop: '[data-tour="calendar-export"]' },
+    tab: 'calendar',
+  },
+  {
+    id: 'detailed-try',
+    title: '이번엔 분석 탭',
+    body: '',
+    target: { mobile: 'nav[aria-label="하단 네비게이션"]', desktop: '#desktop-tab-bar' },
+    tab: 'calendar',
+    action: { hint: "'분석'을 눌러 보세요", done: ({ activeTab }) => activeTab === 'detailed' },
+  },
+  {
     id: 'detailed',
     title: '기간별 상세 분석',
-    body: '기간을 골라 방송 추이, 요일별 패턴, 게임 카테고리를 분석해 볼 수 있어요.',
+    body: '기간을 골라 조회하면 방송 추이, 요일·시간 패턴, 게임 카테고리가 나와요. 그래프 점을 누르면 그 주에 방송한 날짜가 보이고, CSV·PDF로 내보낼 수도 있어요.',
     target: { mobile: '#detailed-main-card', desktop: '#detailed-main-card' },
     tab: 'detailed',
   },
   {
-    id: 'search',
+    id: 'search-try',
     title: '영상 찾기',
-    body: '편집 영상, 쇼츠, 재생목록을 모아 둔 곳이에요. 게임 이름이나 영상 링크로 검색해 보세요.',
+    body: '',
     target: { mobile: 'button[aria-label="영상 검색 및 추천"]', desktop: '#desktop-tab-bar > button:nth-of-type(4)' },
-    tab: 'summary',
+    tab: 'detailed',
+    action: { hint: '돋보기(추천 영상)를 눌러 보세요', done: ({ activeTab }) => activeTab === 'recommend' },
+  },
+  {
+    id: 'search',
+    title: '영상은 여기서',
+    body: '홈 · 추천 · 동영상 · Shorts · 재생목록으로 나뉘어 있어요. 게임 이름뿐 아니라 유튜브·치지직 링크를 붙여 넣어도 그 방송을 찾아 줘요. 카드/목록 버튼으로 보기 방식도 바꿀 수 있어요.',
+    target: { mobile: '#recommend-cards-top', desktop: '#recommend-cards-top' },
+    tab: 'recommend',
     scrollTop: true,
   },
   {
     id: 'settings',
-    title: '알림과 설정',
-    body: '방송 시작 알림, 테마, 캘린더 구독은 여기서 켤 수 있어요. 이 둘러보기도 설정에서 다시 볼 수 있어요.',
+    title: '알림 받기',
+    body: '설정에서 방송 시작 알림과 "오늘 유력 시간 몇 분 전" 알림을 켤 수 있어요. 이 둘러보기도 설정에서 다시 볼 수 있어요.',
     target: { mobile: '#header-settings-btn', desktop: '#header-settings-btn' },
-    tab: 'summary',
+    tab: 'recommend',
     scrollTop: true,
   },
   {
@@ -144,7 +181,10 @@ export function Tutorial({ enabled, activeTab, onTabChange }: {
   const rootRef = useRef<HTMLDivElement>(null);
   const originalTabRef = useRef<Tab>(activeTab);
   const demoTimers = useRef<number[]>([]);
-  const openedDetailsRef = useRef(false);
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const [actionDone, setActionDone] = useState(false);
+  const [nudgeKey, setNudgeKey] = useState(0);
   const isMobile = vp.w < 640;
   const step = STEPS[index];
 
@@ -187,11 +227,6 @@ export function Tutorial({ enabled, activeTab, onTabChange }: {
   const clearDemo = useCallback(() => {
     demoTimers.current.forEach((t) => { window.clearTimeout(t); window.clearInterval(t); });
     demoTimers.current = [];
-    if (openedDetailsRef.current) {
-      const btn = document.querySelector<HTMLButtonElement>('[data-tour="prob-details"]');
-      if (btn?.getAttribute('aria-expanded') === 'true') btn.click();
-      openedDetailsRef.current = false;
-    }
   }, []);
 
   const finish = useCallback(() => {
@@ -219,7 +254,9 @@ export function Tutorial({ enabled, activeTab, onTabChange }: {
   useEffect(() => {
     if (!running) return;
     setRect(null);
+    setActionDone(false);
     if (step.tab) onTabChange(step.tab);
+    step.action?.reset?.();
     if (!step.target) return;
     let cancelled = false;
     let tries = 0;
@@ -254,19 +291,24 @@ export function Tutorial({ enabled, activeTab, onTabChange }: {
       ensureVisible();
       const iv = window.setInterval(ensureVisible, 700);
       demoTimers.current.push(iv as unknown as number);
-      // 시연
-      if (step.demo === 'tabs' && isMobile) {
-        const order: Tab[] = ['calendar', 'detailed', 'summary'];
-        order.forEach((t, i) => demoTimers.current.push(window.setTimeout(() => onTabChange(t), 900 + i * 1100)));
-      } else if (step.demo === 'details') {
-        demoTimers.current.push(window.setTimeout(() => {
-          const btn = document.querySelector<HTMLButtonElement>('[data-tour="prob-details"]');
-          if (btn && btn.getAttribute('aria-expanded') !== 'true') { btn.click(); openedDetailsRef.current = true; }
-        }, 700));
-      }
     };
     const t = window.setTimeout(locate, 120);
     return () => { cancelled = true; window.clearTimeout(t); };
+  }, [running, index]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 직접 해 보는 단계: 조건이 맞으면 잠깐 칭찬 후 다음 설명으로 ──
+  useEffect(() => {
+    if (!running || !step.action) return;
+    let fired = false;
+    const id = window.setInterval(() => {
+      if (fired) return;
+      if (step.action!.done({ activeTab: activeTabRef.current })) {
+        fired = true;
+        setActionDone(true);
+        window.setTimeout(() => setIndex((i) => (STEPS[i]?.id === step.id ? Math.min(i + 1, STEPS.length - 1) : i)), 650);
+      }
+    }, 120);
+    return () => window.clearInterval(id);
   }, [running, index]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 대상 위치를 매 프레임 따라감 (스크롤·펼침·화면 회전에도 정확히) ──
@@ -319,16 +361,35 @@ export function Tutorial({ enabled, activeTab, onTabChange }: {
   const centered = !step.target;
   const total = STEPS.length;
 
+  const isAction = Boolean(step.action);
+  const nudge = () => {
+    setNudgeKey((k) => k + 1);
+  };
+  // 직접 해 보는 단계: 강조된 구멍 밖만 막고(누르면 말풍선이 살짝 흔들림), 구멍 안은 실제 화면을 누를 수 있음
+  const blockers = isAction && rect
+    ? [
+        { left: 0, top: 0, width: vp.w, height: Math.max(0, rect.y) },
+        { left: 0, top: rect.y + rect.h, width: vp.w, height: Math.max(0, vp.h - rect.y - rect.h) },
+        { left: 0, top: rect.y, width: Math.max(0, rect.x), height: rect.h },
+        { left: rect.x + rect.w, top: rect.y, width: Math.max(0, vp.w - rect.x - rect.w), height: rect.h },
+      ]
+    : null;
+
   return (
     <div
       ref={rootRef}
-      className="fixed inset-0 z-[400] select-none"
-      style={{ touchAction: 'none' }}
-      onClick={next}
+      className="fixed inset-0 z-[400] select-none pointer-events-none"
       role="dialog"
       aria-modal="true"
       aria-label="사이트 둘러보기"
     >
+      {blockers ? (
+        blockers.map((b, i) => (
+          <div key={i} className="absolute pointer-events-auto" style={{ ...b, touchAction: 'none' }} onClick={nudge} />
+        ))
+      ) : (
+        <div className="absolute inset-0 pointer-events-auto" style={{ touchAction: 'none' }} onClick={next} />
+      )}
       {/* 어둡게 덮고 대상 부분만 뚫기 */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" width={vp.w} height={vp.h} aria-hidden="true">
         <defs>
@@ -373,7 +434,7 @@ export function Tutorial({ enabled, activeTab, onTabChange }: {
 
       {/* 말풍선 (바깥 상자가 자리를 잡고, 안쪽만 스프링으로 등장) */}
       <div
-        className="absolute"
+        className="absolute pointer-events-auto"
         style={centered
           ? { left: bubble.left, top: '50%', width: bubble.w, transform: 'translateY(-50%)' }
           : { left: bubble.left, top: bubble.top, width: bubble.w, transform: bubble.below ? undefined : 'translateY(-100%)' }}
@@ -387,29 +448,37 @@ export function Tutorial({ enabled, activeTab, onTabChange }: {
           exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.12 } }}
           transition={SPRING}
         >
+          <motion.div key={`nudge-${nudgeKey}`} initial={{ x: 0 }} animate={nudgeKey > 0 ? { x: [0, -8, 8, -5, 5, 0] } : { x: 0 }} transition={{ duration: 0.4 }}>
           <div className="rounded-[22px] bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] ring-1 ring-black/5 dark:ring-white/10 p-5">
             {centered && (
               <div className="w-12 h-12 rounded-2xl bg-purple-600/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3">
                 <Sparkles className="w-6 h-6" />
               </div>
             )}
-            <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400 tabular-nums">{index + 1} / {total}</p>
-            <h3 className="mt-1 text-base sm:text-lg font-extrabold leading-snug break-keep">{step.title}</h3>
-            <p className="mt-1.5 text-[13px] sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line break-keep">{step.body}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400 tabular-nums">{index + 1} / {total}</p>
+              <button type="button" onClick={finish} className="-mt-2 -mr-2 w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" aria-label="둘러보기 닫기">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <h3 className="mt-0.5 text-base sm:text-lg font-extrabold leading-snug break-keep">{step.title}</h3>
+            {step.body && <p className="mt-1.5 text-[13px] sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line break-keep">{step.body}</p>}
+            {step.action && (
+              <div className={`mt-2.5 flex items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-bold transition-colors ${actionDone ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300'}`}>
+                {actionDone ? <Check className="w-4 h-4 shrink-0" /> : <Pointer className="w-4 h-4 shrink-0 animate-bounce" />}
+                <span className="break-keep">{actionDone ? '잘했어요!' : step.action.hint}</span>
+              </div>
+            )}
             <div className="mt-4 flex items-center justify-between gap-2">
-              {index < total - 1 ? (
-                <button type="button" onClick={finish} className="px-2 py-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer">
-                  건너뛰기
-                </button>
-              ) : <span />}
+              <span />
               <div className="flex items-center gap-2">
                 {index > 0 && index < total - 1 && (
                   <button type="button" onClick={prev} className="px-3.5 py-2 rounded-xl text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 cursor-pointer">
                     이전
                   </button>
                 )}
-                <button type="button" onClick={index < total - 1 ? next : finish} className="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white cursor-pointer">
-                  {index === 0 ? '둘러보기 시작' : index < total - 1 ? '다음' : '시작하기'}
+                <button type="button" onClick={index < total - 1 ? next : finish} className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer ${isAction ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}>
+                  {index === 0 ? '둘러보기 시작' : isAction ? '넘어가기' : index < total - 1 ? '다음' : '시작하기'}
                 </button>
               </div>
             </div>
@@ -419,6 +488,7 @@ export function Tutorial({ enabled, activeTab, onTabChange }: {
               ))}
             </div>
           </div>
+          </motion.div>
         </motion.div>
       </AnimatePresence>
       </div>

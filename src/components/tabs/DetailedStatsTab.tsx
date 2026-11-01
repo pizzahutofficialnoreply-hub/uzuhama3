@@ -40,7 +40,7 @@ const TrendTooltip = ({ active, payload, label }: any) => {
   if (visible && active && payload && payload.length) {
     return (
       <div className="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md p-3 rounded-xl shadow-xl border border-zinc-200 dark:border-zinc-700 text-sm pointer-events-none transition-opacity duration-300">
-        <p className="font-bold text-zinc-900 dark:text-white mb-1">{label} 주간</p>
+        <p className="font-bold text-zinc-900 dark:text-white mb-1">{payload[0]?.payload?.weekFull || label} 주간</p>
         <p className="text-purple-600 dark:text-purple-400 font-medium">방송 횟수: {payload[0].value}회</p>
         <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-1">방송일: {payload[0].payload.datesDesc}</p>
       </div>
@@ -54,7 +54,7 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianG
 import { format, startOfYear, startOfMonth, endOfMonth, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, subDays, subYears, formatISO, addDays } from 'date-fns';
 import { AppData, BroadcastLog } from '../../types';
 import { CustomTooltip, DottedBarCursor } from '../CustomTooltip';
-import { parseTimeString, parseTimeTo24, cn, useBodyScrollLock } from '../../utils';
+import { parseTimeString, parseTimeTo24, cn, useBodyScrollLock, formatWeekTick } from '../../utils';
 import { Download, FileText, AlertCircle, X, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BroadcastHeatmap } from '../stats/BroadcastHeatmap';
@@ -380,6 +380,9 @@ export function DetailedStatsTab({
     const trendMap: Record<string, { count: number, dates: Set<string> }> = {};
 
     let total = logsArray.length;
+    let timedTotal = 0;
+    let durationTotal = 0;
+    const hasValidTime = (l: any) => typeof l?.time === 'string' && /^\s*\d{1,2}:\d{2}/.test(l.time);
 
     // 조회 기간 내 모든 주차(week)를 사전에 0으로 초기화하여, 방송이 없던 주도 누락 없이 표시
     let rangeStartWeek: Date | null = null;
@@ -414,25 +417,31 @@ export function DetailedStatsTab({
       const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
       dailyMap[dayNames[dateObj.getDay()]]++;
 
-      const timeObj = parseTimeTo24(log.time);
-      const hourLabel = `${timeObj.hour}:00`;
-      hourMap[hourLabel] = (hourMap[hourLabel] || 0) + 1;
-      
-      const exactLabel = `${timeObj.hour}시 대`;
-      exactTimeMap[exactLabel] = (exactTimeMap[exactLabel] || 0) + 1;
-      const dayName = dayNames[dateObj.getDay()];
-      const approxLabel = `${timeObj.hour}시 대`;
-      dailyTimeMap[dayName][approxLabel] = (dailyTimeMap[dayName][approxLabel] || 0) + 1;
+      // 시작 시각·방송 길이가 없는 기록(2025년 이전 아카이브 등)은 시간·길이 통계에서 제외
+      // (예전에는 시각 없음 → 0시, 길이 없음 → 4시간 이상으로 잘못 집계됨)
+      if (hasValidTime(log)) {
+        timedTotal++;
+        const timeObj = parseTimeTo24(log.time);
+        const hourLabel = `${timeObj.hour}:00`;
+        hourMap[hourLabel] = (hourMap[hourLabel] || 0) + 1;
+        const exactLabel = `${timeObj.hour}시 대`;
+        exactTimeMap[exactLabel] = (exactTimeMap[exactLabel] || 0) + 1;
+        const dayName = dayNames[dateObj.getDay()];
+        dailyTimeMap[dayName][exactLabel] = (dailyTimeMap[dayName][exactLabel] || 0) + 1;
+      }
 
-      if (log.durationHours < 2) durationMap['1시간 대']++;
-      else if (log.durationHours < 3) durationMap['2시간 대']++;
-      else if (log.durationHours < 4) durationMap['3시간 대']++;
-      else durationMap['4시간 이상']++;
+      if (typeof log.durationHours === 'number' && log.durationHours > 0) {
+        durationTotal++;
+        if (log.durationHours < 2) durationMap['1시간 대']++;
+        else if (log.durationHours < 3) durationMap['2시간 대']++;
+        else if (log.durationHours < 4) durationMap['3시간 대']++;
+        else durationMap['4시간 이상']++;
+      }
 
       const weekStart = format(startOfWeek(dateObj), 'yyyy-MM-dd');
       if (!trendMap[weekStart]) trendMap[weekStart] = { count: 0, dates: new Set() };
       trendMap[weekStart].count++;
-      trendMap[weekStart].dates.add(format(dateObj, 'M/d'));
+      trendMap[weekStart].dates.add(log.date);
     });
 
     // 조회 기간 내 각 요일이 실제로 몇 번 존재했는지 산출하여 요일별 실제 방송 확률 및 평균 계산
@@ -495,7 +504,7 @@ export function DetailedStatsTab({
         time,
         label: `${h >= 12 ? '오후' : '오전'} ${h % 12 || 12}시대`,
         count: hourMap[time],
-        probability: total > 0 ? (hourMap[time] / total) * 100 : 0,
+        probability: timedTotal > 0 ? (hourMap[time] / timedTotal) * 100 : 0,
         hour: h
       };
     }).filter(stat => stat.hour >= 12 || stat.count > 0)
@@ -505,14 +514,14 @@ export function DetailedStatsTab({
       return {
         label,
         count: exactTimeMap[label],
-        probability: total > 0 ? (exactTimeMap[label] / total) * 100 : 0
+        probability: timedTotal > 0 ? (exactTimeMap[label] / timedTotal) * 100 : 0
       };
     }).sort((a, b) => b.count - a.count);
 
     const durationStatsArray = Object.keys(durationMap).map(label => ({
       label,
       count: durationMap[label],
-      probability: total > 0 ? (durationMap[label] / total) * 100 : 0
+      probability: durationTotal > 0 ? (durationMap[label] / durationTotal) * 100 : 0
     }));
 
     const trendStatsArray = Object.keys(trendMap).sort().map(week => {
@@ -528,8 +537,11 @@ export function DetailedStatsTab({
       }
       return {
         week: weekStartLabel,
+        // 축·툴팁은 연도까지 포함한 고유 키로 (기간이 1년을 넘으면 MM/dd 가 겹쳐 툴팁이 엉뚱한 주를 가리키던 문제)
+        weekKey: week,
+        weekFull: format(weekStartDate, 'yyyy.MM.dd'),
         count: trendMap[week].count,
-        datesDesc: trendMap[week].dates.size > 0 ? Array.from(trendMap[week].dates).sort().join(', ') : '방송 없음 (0회)'
+        datesDesc: trendMap[week].dates.size > 0 ? Array.from(trendMap[week].dates).sort().map((d) => format(parseISO(d), 'M/d')).join(', ') : '방송 없음 (0회)'
       };
     });
 
@@ -1014,7 +1026,7 @@ export function DetailedStatsTab({
                       <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                         <LineChart data={stats.trendStatsArray} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
-                          <XAxis dataKey="week" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
+                          <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                           <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                           <Tooltip content={<TrendTooltip />} cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} />
                           <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#a855f7' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
@@ -1131,7 +1143,7 @@ export function DetailedStatsTab({
                     {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                       <LineChart data={stats.trendStatsArray} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
-                        <XAxis dataKey="week" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
+                        <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                         <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                         <Tooltip content={<TrendTooltip />} cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} />
                         <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#a855f7' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
@@ -1376,7 +1388,7 @@ export function DetailedStatsTab({
                   {isActive && (
                     <LineChart width={880} height={250} data={stats.trendStatsArray} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
-                      <XAxis dataKey="week" stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
+                      <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                       <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#a855f7' }} isAnimationActive={false}>
                         <LabelList dataKey="count" position="top" fill="#a855f7" fontSize={12} offset={10} formatter={(val: number) => `${val}회`} />
@@ -1699,7 +1711,7 @@ export function DetailedStatsTab({
                 {isActive && (
                   <LineChart width={880} height={260} data={stats.trendStatsArray} margin={{ top: 30, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
-                    <XAxis dataKey="week" stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
+                    <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                     <Line type="monotone" dataKey="count" stroke="#a855f7" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#a855f7' }} isAnimationActive={false}>
                       <LabelList 

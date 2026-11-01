@@ -6,7 +6,7 @@ import { extractYoutubeId } from '../../../utils/urlUtils';
 import { GlassPlayButton } from '../../common/MediaIcons';
 import { Pagination } from '../../common/Pagination';
 import { VideoListRow } from '../../common/VideoListRow';
-import { ViewStyleToggle } from '../../common/ViewStyleToggle';
+import { CollectionPanel } from '../../common/CollectionPanel';
 import { useViewStyle } from '../../../hooks/useViewStyle';
 import { VideoCard } from '../RecommendTab';
 
@@ -131,7 +131,6 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
   onClose: () => void;
   onNavigateToCalendar?: (date: string) => void;
 }) {
-  const [playing, setPlaying] = useState(false);
   const [page, setPage] = useState(1);
   const [viewStyle, setViewStyle] = useViewStyle();
   const total = playlist.items.length;
@@ -139,66 +138,21 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
   const pageItems = playlist.items.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   return (
-    <section
-      className="overflow-hidden rounded-[24px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[0_18px_44px_-14px_rgba(0,0,0,0.30)]"
-      aria-label={`${playlist.title} 재생목록`}
+    <CollectionPanel
+      ariaLabel={`${playlist.title} 재생목록`}
+      thumbnail={playlist.thumbnail}
+      title={playlist.title}
+      channelTitle={channelTitle}
+      channelThumbnail={channelThumbnail}
+      metaLine={`재생목록 · 동영상 ${total}개`}
+      description={playlist.description}
+      embedSrc={`https://www.youtube.com/embed/videoseries?list=${playlist.id}&autoplay=1&rel=0`}
+      playLabel="모두 재생"
+      onClose={onClose}
+      countLabel={`${total}개 영상`}
+      viewStyle={viewStyle}
+      onViewStyleChange={setViewStyle}
     >
-      <div className="md:flex">
-        {/* 머리 부분: 썸네일을 크게 흐려 깐 배경 */}
-        <div className="relative isolate overflow-hidden text-white md:w-[360px] md:shrink-0">
-          <img src={playlist.thumbnail} alt="" aria-hidden="true" className="absolute inset-0 -z-10 w-full h-full object-cover scale-150 blur-3xl saturate-150" />
-          <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/30 via-black/45 to-black/75" />
-          <div className="p-4 sm:p-5 md:sticky md:top-20">
-            <div className="flex justify-end -mt-1 -mr-1 mb-2">
-              <button type="button" onClick={onClose} className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md flex items-center justify-center cursor-pointer" aria-label="재생목록 닫기">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="relative aspect-video rounded-2xl overflow-hidden bg-black/40 shadow-xl">
-              {playing ? (
-                <iframe
-                  src={`https://www.youtube.com/embed/videoseries?list=${playlist.id}&autoplay=1&rel=0`}
-                  title={playlist.title}
-                  className="absolute inset-0 w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <button type="button" onClick={() => setPlaying(true)} className="group/thumb absolute inset-0 cursor-pointer" aria-label="재생목록 재생">
-                  <img src={playlist.thumbnail} alt="" className="w-full h-full object-cover" />
-                  <span className="absolute inset-0 flex items-center justify-center"><GlassPlayButton size="lg" /></span>
-                </button>
-              )}
-            </div>
-            <h3 className="mt-4 text-xl sm:text-2xl font-extrabold leading-tight break-keep">{playlist.title}</h3>
-            <div className="mt-3 flex items-center gap-2 text-sm text-white/85">
-              {channelThumbnail ? (
-                <img src={channelThumbnail} alt="" className="w-7 h-7 rounded-full object-cover bg-white/20" />
-              ) : (
-                <span className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">우</span>
-              )}
-              <span>게시자: <b className="font-semibold text-white">{channelTitle}</b></span>
-            </div>
-            <p className="mt-2 text-xs sm:text-[13px] text-white/70">재생목록 · 동영상 {total}개</p>
-            {playlist.description && <p className="mt-2 text-xs text-white/70 line-clamp-3 whitespace-pre-line">{playlist.description}</p>}
-            <button
-              type="button"
-              onClick={() => setPlaying(true)}
-              className="mt-4 w-full h-11 rounded-full bg-white text-zinc-900 font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/90 active:scale-[0.98] transition cursor-pointer"
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.29-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z" /></svg>
-              모두 재생
-            </button>
-          </div>
-        </div>
-
-        {/* 영상 목록 (가로 여백 최소) */}
-        <div className="flex-1 min-w-0 px-1.5 sm:px-3 py-3">
-          <div className="flex items-center justify-between gap-2 px-1.5 mb-2">
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">{total}개 영상</span>
-            <ViewStyleToggle value={viewStyle} onChange={setViewStyle} />
-          </div>
-
           {viewStyle === 'list' ? (
             <div className="flex flex-col">
               {pageItems.map((it, i) => {
@@ -243,9 +197,7 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
           )}
 
           <Pagination currentPage={page} totalPages={totalPages} onChange={setPage} className="flex justify-center items-center gap-1 sm:gap-2 mt-5" />
-        </div>
-      </div>
-    </section>
+    </CollectionPanel>
   );
 }
 
@@ -298,10 +250,8 @@ export function PlaylistsFeed({ searchTerm, logs, onNavigateToCalendar }: { sear
         {pageResults.map(({ p, matched }) => {
           const isOpen = openId === p.id;
           return (
-            <motion.div
+            <div
               key={p.id}
-              layout
-              transition={IOS_SPRING}
               className={cn(isOpen && 'col-span-full')}
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -339,7 +289,7 @@ export function PlaylistsFeed({ searchTerm, logs, onNavigateToCalendar }: { sear
                   </motion.div>
                 )}
               </AnimatePresence>
-            </motion.div>
+            </div>
           );
         })}
       </div>

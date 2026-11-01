@@ -112,7 +112,8 @@ export function FloatingBottomNav({
   const kbY = useMotionValue(0); // 키보드 높이만큼 올라간 양 (스프링)
   const vvY = useMotionValue(0); // 스크롤로 밀린 화면 보정 (즉시)
   const dockY = useTransform(() => kbY.get() + vvY.get());
-  const blurHeight = useTransform(dockY, (y) => `calc(env(safe-area-inset-bottom, 0px) + ${96 + Math.max(0, -y)}px)`);
+  // 블러: 화면이 밀린 만큼(vvY) 같이 내려 화면에 고정하고, 키보드 높이만큼(kbY) 위로 늘림
+  const blurHeight = useTransform(kbY, (y) => `calc(env(safe-area-inset-bottom, 0px) + ${96 + Math.max(0, -y)}px)`);
 
   const getDockBaseBottom = useCallback(() => {
     const el = dockRef.current;
@@ -307,7 +308,9 @@ export function FloatingBottomNav({
           ref={blurRef}
           aria-hidden="true"
           style={{
-            // 위치는 바닥에 그대로 두고, 검색창이 올라간 만큼 높이만 늘려 원래 자리부터 검색창까지 이어지게
+            // 바닥에 붙인 채, 검색창이 올라간 만큼 높이만 늘려 원래 자리부터 검색창까지 이어지게
+            // (스크롤로 화면이 밀릴 때는 검색창과 똑같이 되돌려 화면에 고정)
+            y: vvY,
             bottom: '0px',
             height: blurHeight,
             WebkitBackdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx)}px)`,

@@ -6,19 +6,25 @@ import { parseTimeTo24, formatTimeRange, formatDuration } from '../utils';
  * format: YYYYMMDDTHHMMSS
  */
 function formatDateToIcs(date: Date): string {
+  // UTC 로 적고 끝에 Z → 기기·구글 계정 시간대와 상관없이 정확한 시각
   const pad = (n: number) => n.toString().padStart(2, '0');
-  const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
-  const hours = pad(date.getHours());
-  const minutes = pad(date.getMinutes());
-  const seconds = pad(date.getSeconds());
-  return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`;
 }
 
 function formatDateOnlyToIcs(dateStr: string): string {
   return dateStr.replace(/-/g, '');
 }
+
+/** 종일 일정의 끝 날짜 (다음 날, 끝 날짜는 포함하지 않는 규칙) — 같은 날로 두면 구글 캘린더가 일정을 만들지 못함 */
+function nextDayIcs(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + 1));
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${t.getUTCFullYear()}${pad(t.getUTCMonth() + 1)}${pad(t.getUTCDate())}`;
+}
+
+/** 한국 시간(KST) 벽시계 → 실제 시각 */
+const kstToDate = (y: number, m: number, d: number, h: number, min: number) => new Date(Date.UTC(y, m - 1, d, h - 9, min, 0));
 
 export interface CalendarEventDetails {
   title: string;
@@ -118,7 +124,7 @@ export function buildCalendarEventDetails(log: BroadcastLog): CalendarEventDetai
     const [y, m, d] = dateStr.split('-').map(Number);
     if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
       const { hour, minute } = parseTimeTo24(log.time);
-      startDate = new Date(y, m - 1, d, hour, minute, 0);
+      startDate = kstToDate(y, m, d, hour, minute);
       isAllDay = false;
 
       if (log.endTime) {
@@ -128,7 +134,7 @@ export function buildCalendarEventDetails(log: BroadcastLog): CalendarEventDetai
         if (endObj.hour < hour) {
           endDay += 1;
         }
-        endDate = new Date(y, m - 1, endDay, endObj.hour, endObj.minute, 0);
+        endDate = kstToDate(y, m, endDay, endObj.hour, endObj.minute);
       } else if (log.durationHours && log.durationHours > 0) {
         const endMs = startDate.getTime() + Math.round(log.durationHours * 60 * 60 * 1000);
         endDate = new Date(endMs);
@@ -168,7 +174,7 @@ export function generateIcsContent(details: CalendarEventDetails): string {
     const dStr = formatDateOnlyToIcs(details.dateStr);
     timeFields = [
       `DTSTART;VALUE=DATE:${dStr}`,
-      `DTEND;VALUE=DATE:${dStr}`
+      `DTEND;VALUE=DATE:${nextDayIcs(details.dateStr)}`
     ].join('\r\n');
   }
 
@@ -264,7 +270,7 @@ export function generateMultipleIcsContent(logs: BroadcastLog[], calendarTitle =
         const dStr = formatDateOnlyToIcs(details.dateStr);
         timeFields = [
           `DTSTART;VALUE=DATE:${dStr}`,
-          `DTEND;VALUE=DATE:${dStr}`
+          `DTEND;VALUE=DATE:${nextDayIcs(details.dateStr)}`
         ].join('\r\n');
       }
 
@@ -344,7 +350,7 @@ export function getGoogleCalendarUrl(log: BroadcastLog): string {
     datesParam = `${formatDateToIcs(details.startDate)}/${formatDateToIcs(details.endDate)}`;
   } else {
     const dStr = formatDateOnlyToIcs(details.dateStr);
-    datesParam = `${dStr}/${dStr}`;
+    datesParam = `${dStr}/${nextDayIcs(details.dateStr)}`;
   }
 
   const params = new URLSearchParams({
@@ -352,7 +358,8 @@ export function getGoogleCalendarUrl(log: BroadcastLog): string {
     text: details.title,
     dates: datesParam,
     details: details.description,
-    location: details.location
+    location: details.location,
+    ctz: 'Asia/Seoul',
   });
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
