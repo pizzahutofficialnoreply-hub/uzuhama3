@@ -345,3 +345,61 @@ export function checkMaintenanceStatus(system?: SystemConfig, currentTimeMs?: nu
     completedNoticeMarkdown
   };
 }
+
+/**
+ * 정기 점검 자동 켜기: 관리자가 '정기 점검'을 켜 두면(autoApply), 매 주기 그 시간에 저절로 점검 화면이 뜨고
+ * 당일 0시부터 예고, 끝난 날 밤 12시까지 완료 안내가 나옴 (관리자가 매번 버튼을 누르지 않아도 됨)
+ * - 직접 넣은 점검 일정(maintenanceStart/End)이 아직 안 끝났으면 그것이 우선
+ * - 서버에 쓰지 않고 화면에서 계산 (Firestore 읽기·쓰기 없음)
+ */
+export function recurringMaintenanceWindow(
+  rec: NonNullable<SystemConfig['recurringMaintenance']> & { anchorDate?: string },
+  nowMs: number
+): { start: string; end: string } | null {
+  if (!rec?.enabled || rec.autoApply === false) return null;
+  const interval = Math.max(1, Number(rec.intervalWeeks) || 1);
+  const dow = ((Number(rec.dayOfWeek ?? 6) % 7) + 7) % 7;
+  const [sh, sm] = String(rec.startTime || '10:00').split(':').map(Number);
+  const [eh, em] = String(rec.endTime || '16:00').split(':').map(Number);
+  const pad = (n: number) => String(n || 0).padStart(2, '0');
+  const DAY = 86400000;
+  // 격주 등은 기준 주(anchorDate 가 속한 주)부터 interval 주마다
+  const anchorMs = Date.parse(`${rec.anchorDate || '2026-01-04'}T00:00:00+09:00`);
+  const anchorWeek = Math.floor((anchorMs + 9 * 3600000 - 3 * DAY) / (7 * DAY)); // 일요일 시작 주 번호
+  const windows: { s: number; e: number; date: string }[] = [];
+  const todayKst = new Date(nowMs + 9 * 3600000);
+  for (let off = -7 * interval - 1; off <= 7 * interval + 7; off++) {
+    const d = new Date(Date.UTC(todayKst.getUTCFullYear(), todayKst.getUTCMonth(), todayKst.getUTCDate() + off));
+    if (d.getUTCDay() !== dow) continue;
+    const week = Math.floor((d.getTime() - 3 * DAY) / (7 * DAY));
+    if (((week - anchorWeek) % interval + interval) % interval !== 0) continue;
+    const date = d.toISOString().slice(0, 10);
+    const s = Date.parse(`${date}T${pad(sh)}:${pad(sm)}:00+09:00`);
+    let e = Date.parse(`${date}T${pad(eh)}:${pad(em)}:00+09:00`);
+    if (e <= s) e += DAY; // 자정을 넘기는 점검
+    windows.push({ s, e, date });
+  }
+  windows.sort((a, b) => a.s - b.s);
+  const fmt = (ms: number) => {
+    const k = new Date(ms + 9 * 3600000);
+    return `${k.toISOString().slice(0, 10)}T${pad(k.getUTCHours())}:${pad(k.getUTCMinutes())}:00+09:00`;
+  };
+  // 진행 중이거나, 끝난 날 밤 12시 전이면 그 회차 / 아니면 다음 회차
+  for (const w of windows) {
+    const nextMidnight = Date.parse(`${new Date(w.e + 9 * 3600000).toISOString().slice(0, 10)}T00:00:00+09:00`) + DAY;
+    if (nowMs < nextMidnight) return { start: fmt(w.s), end: fmt(w.e) };
+  }
+  return null;
+}
+
+export function effectiveMaintenanceSystem(system: SystemConfig | undefined, nowMs: number = Date.now()): SystemConfig | undefined {
+  if (!system?.recurringMaintenance) return system;
+  const manualEnd = parseDateSafe(system.maintenanceEnd);
+  const manualStart = parseDateSafe(system.maintenanceStart);
+  // 직접 넣은 일정이 아직 살아 있으면(안 끝났거나 오늘 끝남) 그대로
+  if ((manualStart || manualEnd) && (!manualEnd || nowMs < getKSTNextDayMidnight(system.maintenanceEnd!))) return system;
+  if (system.maintenance) return system;
+  const w = recurringMaintenanceWindow(system.recurringMaintenance as any, nowMs);
+  if (!w) return system;
+  return { ...system, maintenanceStart: w.start, maintenanceEnd: w.end };
+}

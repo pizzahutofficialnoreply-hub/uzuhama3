@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { messaging, auth as firebaseAuth } from '../lib/firebase';
-import { getToken, deleteToken } from 'firebase/messaging';
+// 푸시 알림 모듈은 필요할 때만 불러옴
+const getToken: typeof import('firebase/messaging').getToken = (...args) => import('firebase/messaging').then((m) => m.getToken(...args));
+const deleteToken: typeof import('firebase/messaging').deleteToken = (...args) => import('firebase/messaging').then((m) => m.deleteToken(...args));
 import { useAuth } from './useAuth';
 
 export interface PushSettings {

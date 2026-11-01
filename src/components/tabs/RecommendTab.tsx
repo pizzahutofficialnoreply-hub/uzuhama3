@@ -26,6 +26,7 @@ import { useChannelVideos } from '../../hooks/useChannelVideos';
 import { useRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../../hooks/useRecentSearches';
 import { getPrefs, usePrefs } from '../../utils/userPrefs';
 import { buildVocab, correctQuery, isKeysmash, squash, type Correction } from '../../utils/smartSearch';
+import { isDateQuery as isDateQueryFn, titleMatches, titleHasHashtag } from '../../utils/videoSearch';
 import { buildGameCatalog, buildPlaylistGameMap } from '../../utils/playlistGames';
 import { useSearchIndex, matchTag, matchRelated, gamesMatchingKeyword, normSearch } from '../../hooks/useSearchIndex';
 
@@ -1210,12 +1211,7 @@ export function RecommendTab({
   const matchingShorts = useMemo(() => {
     const raw = effectiveSearchTerm.trim().replace(/^#+/, '');
     if (subTab !== 'home' || raw.length < 2 || isVideoUrl(raw)) return [];
-    const q = squash(raw);
-    const words = raw.split(/\s+/).map(squash).filter(Boolean);
-    return allShortsLite.filter((s) => {
-      const t = squash(s.title);
-      return t.includes(q) || (words.length > 1 && words.every((w) => t.includes(w)));
-    }).slice(0, 20);
+    return allShortsLite.filter((s) => titleMatches(raw, s.title)).slice(0, 20);
   }, [effectiveSearchTerm, allShortsLite, subTab]);
 
   // 카테고리 사전: 게임 장르(games[].category)를 기준으로 만들고, 게임명이 섞여 들어간 값은 제외
@@ -1384,7 +1380,7 @@ export function RecommendTab({
 
       // '#태그': 유튜브 태그·설명의 #해시태그·제목의 #단어
       const tagHits = isTagMode ? searchTarget.filter((v) => {
-        const titleTag = String(v.videoTitle || '').match(/#[^\s#]+/g)?.some((h: string) => normSearch(h) === normSearch(tagQuery));
+        const titleTag = titleHasHashtag(v.videoTitle, tagQuery);
         const m = matchTag(entryOf(v), tagQuery) || (titleTag ? 'exact' : null);
         if (m) tagMatches.set(v.id, m);
         return Boolean(m);
@@ -1754,7 +1750,7 @@ export function RecommendTab({
   const hasMainResults = useMemo(() => recommended.some((v) => !v.isRelated), [recommended]);
   const isTagSearch = searchTerm.trim().startsWith('#');
   // 날짜처럼 생긴 검색어 (2024, 5월, 5/12, 24년 5월, 2024.05.12 …) → 정렬 이름을 '날짜 최신순/과거순'으로
-  const isDateQuery = /^(\d{4}|\d{1,2}\s*월(\s*\d{1,2}\s*일?)?|\d{1,2}\s*[./-]\s*\d{0,2}|\d{2,4}\s*년(\s*\d{1,2}\s*월)?(\s*\d{1,2}\s*일?)?|\d{2,4}\.\d{1,2}\.\d{1,2}|\d{4}-\d{2}(-\d{2})?)$/.test(searchTerm.trim());
+  const isDateQuery = isDateQueryFn(searchTerm);
 
   // 검색 결과 구분선: ① 일치 확률이 낮은 결과 ② 썸네일·태그 등에서 찾은 연관 검색 결과 (카드·목록 공통)
   const renderSearchDivider = (video: any, idx: number, className: string) => {

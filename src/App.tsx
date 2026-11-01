@@ -7,12 +7,22 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMe
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink, AlertTriangle, CheckCircle2, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { checkMaintenanceStatus, generateMaintenanceNoticeMarkdown, formatMaintenanceRange, parseDateSafe } from './utils/maintenanceUtils';
+import { checkMaintenanceStatus, effectiveMaintenanceSystem, generateMaintenanceNoticeMarkdown, formatMaintenanceRange, parseDateSafe } from './utils/maintenanceUtils';
 import { useFirebaseData } from './hooks/useFirebaseData';
 import { SummaryTab } from './components/tabs/SummaryTab';
-import { CalendarTab } from './components/tabs/CalendarTab';
-import { DetailedStatsTab } from './components/tabs/DetailedStatsTab';
-import { RecommendTab } from './components/tabs/RecommendTab';
+// 요약 탭만 처음에 바로 불러오고, 나머지 탭은 처음 열 때(또는 화면이 한가할 때 미리) 불러옴 → 첫 로딩 가벼움
+const loadCalendarTab = () => import('./components/tabs/CalendarTab');
+const loadDetailedTab = () => import('./components/tabs/DetailedStatsTab');
+const loadRecommendTab = () => import('./components/tabs/RecommendTab');
+const CalendarTab = lazy(() => loadCalendarTab().then((m) => ({ default: m.CalendarTab })));
+const DetailedStatsTab = lazy(() => loadDetailedTab().then((m) => ({ default: m.DetailedStatsTab })));
+const RecommendTab = lazy(() => loadRecommendTab().then((m) => ({ default: m.RecommendTab })));
+const onboardingSeenVersion = () => { try { return Number(localStorage.getItem('uzuhama_onboarding_version') || 0); } catch { return 0; } };
+const TabSpinner = () => (
+  <div className="py-24 flex justify-center" role="status" aria-label="불러오는 중">
+    <div className="w-7 h-7 border-[3px] border-purple-500 border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 import { NoticeModal } from './components/NoticeModal';
 import { NoticeBanner } from './components/NoticeBanner';
 import { FeedbackModal } from './components/FeedbackModal';
@@ -37,9 +47,10 @@ export function formatNoticeText(text: string): React.ReactNode {
 import { useInstallPrompt } from './hooks/useInstallPrompt';
 import { useRealtimeNotification } from './hooks/useRealtimeNotification';
 import { Download, LogIn, ArrowLeft, Settings as SettingsIcon } from 'lucide-react';
-import { SettingsView } from './components/SettingsView';
+// 설정·처음 시작 화면은 열 때만 불러옴
+const SettingsView = lazy(() => import('./components/SettingsView').then((m) => ({ default: m.SettingsView })));
 import { Tutorial, TUTORIAL_START_EVENT } from './components/Tutorial';
-import { Onboarding } from './components/Onboarding';
+const Onboarding = lazy(() => import('./components/Onboarding').then((m) => ({ default: m.Onboarding })));
 
 // 별도 페이지(관리자·패치노트·약관·라이선스)는 들어갈 때만 불러옴 → 메인 화면 첫 로딩 가볍게
 const AdminRoute = lazy(() => import('./components/AdminRoute').then((m) => ({ default: m.AdminRoute })));
@@ -263,6 +274,17 @@ function MainApp() {
 
   // 상단 헤더 스크롤 방향 및 자동 스크롤 오프셋 감지
   const [isHeaderHidden, setIsHeaderHidden] = useState(false);
+  // 한 번이라도 연 탭 (처음엔 지금 탭만 그림)
+  const [mountedTabsState, setMountedTabs] = useState<Set<string>>(() => new Set([activeTab]));
+  const mountedTabs = mountedTabsState.has(activeTab) ? mountedTabsState : new Set([...mountedTabsState, activeTab]);
+  useEffect(() => {
+    if (!mountedTabsState.has(activeTab)) setMountedTabs((prev) => new Set([...prev, activeTab]));
+  }, [activeTab, mountedTabsState]);
+  // 첫 화면이 다 뜬 뒤 한가할 때 다른 탭 코드를 미리 받아 둠 (데이터는 이미 있으니 Firestore 읽기는 그대로)
+  useEffect(() => {
+    const idle = (cb: () => void) => ((window as any).requestIdleCallback ? (window as any).requestIdleCallback(cb, { timeout: 4000 }) : setTimeout(cb, 2500));
+    idle(() => { loadCalendarTab(); loadDetailedTab(); loadRecommendTab(); });
+  }, []);
   const scrollDirAccRef = useRef(0);
   const [isNoticeExpanded, setIsNoticeExpanded] = useState(false);
   const lastScrollYRef = useRef(0);
@@ -657,10 +679,12 @@ function MainApp() {
   const sortedDates = Object.keys(data.logs).map(k => data.logs[k].date).sort();
   const firstYear = sortedDates.length > 0 ? sortedDates[0].substring(0, 4) : '2026';
 
-  const maintenanceStatus = checkMaintenanceStatus(data.system, nowTime);
+  // 정기 점검(자동 켜기)이 설정돼 있으면 이번 회차 일정을 넣어서 판단
+  const maintSystem = effectiveMaintenanceSystem(data.system, nowTime);
+  const maintenanceStatus = checkMaintenanceStatus(maintSystem, nowTime);
 
   if (maintenanceStatus.isInProgress) {
-    const endTimeMs = data.system?.maintenanceEnd ? parseDateSafe(data.system.maintenanceEnd) : null;
+    const endTimeMs = maintSystem?.maintenanceEnd ? parseDateSafe(maintSystem.maintenanceEnd) : null;
     const remainingSeconds = endTimeMs && !isNaN(endTimeMs) ? Math.max(0, Math.floor((endTimeMs - nowTime) / 1000)) : null;
 
     const formatRemaining = (sec: number) => {
@@ -673,8 +697,8 @@ function MainApp() {
       return `${minutes}분 ${seconds}초`;
     };
 
-    const startStr = data.system?.maintenanceStart || '';
-    const endStr = data.system?.maintenanceEnd || '';
+    const startStr = maintSystem?.maintenanceStart || '';
+    const endStr = maintSystem?.maintenanceEnd || '';
     const { fullText: scheduleFullText } = formatMaintenanceRange(startStr, endStr);
 
     const changes = data.system?.maintenanceChanges && data.system.maintenanceChanges.length > 0
@@ -1111,12 +1135,14 @@ function MainApp() {
               </button>
             </div>
 
-            {/* Tab Content */}
+            {/* Tab Content (한 번 연 탭은 계속 붙여 둬서 다시 열 때 바로 보임) */}
             <div ref={tabContentRef} id="tab-content-container" className="pb-24 sm:pb-8">
               <div id="summary-tab-view" className={activeTab === 'summary' ? 'block' : 'hidden'}>
                 <SummaryTab data={data} fetchLogs={fetchLogsByDateRange} isActive={activeTab === 'summary'} />
               </div>
+ {mountedTabs.has('calendar') && (
               <div id="calendar-tab-view" className={activeTab === 'calendar' ? 'block' : 'hidden'}>
+                <Suspense fallback={<TabSpinner />}>
                 <CalendarTab 
                   data={data} 
                   fetchLogs={fetchLogsByDateRange} 
@@ -1124,8 +1150,12 @@ function MainApp() {
                   onClearSelectedDate={() => setSelectedCalendarDate(null)}
                   isActive={activeTab === 'calendar'}
                 />
+                </Suspense>
               </div>
+              )}
+              {mountedTabs.has('detailed') && (
               <div id="detailed-tab-view" className={activeTab === 'detailed' ? 'block' : 'hidden'}>
+                <Suspense fallback={<TabSpinner />}>
                 <DetailedStatsTab 
                   data={data} 
                   fetchLogs={fetchLogsByDateRange} 
@@ -1133,8 +1163,12 @@ function MainApp() {
                   onNavigateToCalendar={handleNavigateToCalendar}
                   onNavigateToRecommend={handleNavigateToRecommend}
                 />
+                </Suspense>
               </div>
+              )}
+              {mountedTabs.has('recommend') && (
               <div id="recommend-tab-view" className={activeTab === 'recommend' ? 'block' : 'hidden'}>
+                <Suspense fallback={<TabSpinner />}>
                 <RecommendTab 
                   data={data} 
                   rateVideo={rateVideo} 
@@ -1151,7 +1185,9 @@ function MainApp() {
                   onNavigateToCalendar={handleNavigateToCalendar}
                   isActive={activeTab === 'recommend'}
                 />
+                </Suspense>
               </div>
+              )}
             </div>
           </div>
 
@@ -1181,6 +1217,7 @@ function MainApp() {
                     </button>
                   </div>
 
+                  <Suspense fallback={null}>
                   <SettingsView 
                     user={user}
                     system={data.system}
@@ -1201,6 +1238,7 @@ function MainApp() {
                     }}
                     initialSection={settingsInitialSection}
                   />
+              </Suspense>
                 </div>
               </motion.div>
             )}
@@ -1244,6 +1282,7 @@ function MainApp() {
             </div>
 
             <div className="p-4 pb-28">
+              <Suspense fallback={null}>
               <SettingsView 
                 user={user}
                 system={data.system}
@@ -1264,18 +1303,24 @@ function MainApp() {
                 }}
                 initialSection={settingsInitialSection}
               />
+              </Suspense>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
       
       {/* Floating Bottom Nav Dock (Unified Island Tab Bar + Floating '+' Action Button) */}
-      <Onboarding
-        enabled={data.system?.onboardingEnabled !== false}
-        version={Number(data.system?.onboardingVersion) || 1}
-        system={data.system}
-        tutorialEnabled={data.system?.tutorialEnabled !== false}
-      />
+      {/* 처음 시작 화면: 아직 안 본(또는 관리자가 버전을 올린) 경우에만 불러옴 */}
+      {data.system?.onboardingEnabled !== false && onboardingSeenVersion() < (Number(data.system?.onboardingVersion) || 1) && (
+        <Suspense fallback={null}>
+          <Onboarding
+            enabled
+            version={Number(data.system?.onboardingVersion) || 1}
+            system={data.system}
+            tutorialEnabled={data.system?.tutorialEnabled !== false}
+          />
+        </Suspense>
+      )}
       <Tutorial
         enabled={data.system?.tutorialEnabled !== false}
         autoStart={data.system?.onboardingEnabled === false}

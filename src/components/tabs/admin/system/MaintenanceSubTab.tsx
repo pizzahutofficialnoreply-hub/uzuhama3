@@ -13,7 +13,8 @@ import {
   calculateNextRecurringMaintenance,
   formatKSTDateTime,
   getKSTDate,
-  getKSTNextDayMidnight
+  getKSTNextDayMidnight,
+  recurringMaintenanceWindow
 } from '../../../../utils/maintenanceUtils';
 
 interface MaintenanceSubTabProps {
@@ -317,7 +318,13 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
             <input 
               type="checkbox" 
               checked={recurring.enabled}
-              onChange={e => handleChange('recurringMaintenance', { ...recurring, enabled: e.target.checked })}
+              onChange={e => handleChange('recurringMaintenance', {
+                ...recurring,
+                enabled: e.target.checked,
+                autoApply: (recurring as any).autoApply ?? true,
+                // 격주 등은 이 날짜가 속한 주부터 셈
+                anchorDate: (recurring as any).anchorDate || new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10),
+              })}
               className="sr-only peer"
             />
             <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-purple-600"></div>
@@ -374,8 +381,21 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
         </div>
 
         <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-          <div className="text-xs text-zinc-500">
-            💡 위 스케줄러 버튼을 누르면 다음 해당 요일의 날짜를 자동 계산하여 아래 일시에 예약 세팅해요.
+          <div className="text-xs text-zinc-500 space-y-1.5">
+            <label className="flex items-center gap-2 font-bold text-zinc-700 dark:text-zinc-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={(recurring as any).autoApply !== false}
+                onChange={e => handleChange('recurringMaintenance', { ...recurring, autoApply: e.target.checked })}
+              />
+              매 회차 자동으로 점검 켜기 (버튼을 누르지 않아도 그 시간에 점검 화면, 당일 0시부터 예고)
+            </label>
+            {(() => {
+              const w = recurring.enabled ? recurringMaintenanceWindow(recurring as any, Date.now()) : null;
+              return w
+                ? <p>🗓 다음 자동 점검: <b className="text-purple-600 dark:text-purple-400">{formatMaintenanceRange(w.start, w.end).fullText}</b> (저장해야 적용)</p>
+                : <p>💡 정기 점검을 켜고 저장하면 매 회차 자동으로 켜져요. 오른쪽 버튼은 다음 회차를 아래 일정 칸에 직접 넣어요.</p>;
+            })()}
           </div>
           <button
             type="button"

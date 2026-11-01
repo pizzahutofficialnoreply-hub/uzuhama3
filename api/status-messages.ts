@@ -41,7 +41,7 @@ JSON 으로만 답해: {"absence":[...],"high":[...],"medium":[...],"lowDay":[..
 }
 
 // 팬이 아니라 채널 주인·운영자처럼 들리는 문구는 버림
-const OWNER_VOICE = /(놀러\s*와|놀러\s*오세요|들러\s*주|와\s*주세요|구독|좋아요\s*(를\s*)?(눌|부탁)|알림\s*(설정|켜)|저희|우리\s*채널|제\s*채널|채널에|방송\s*보러\s*와)/;
+export const OWNER_VOICE = /(놀러\s*와|놀러\s*오세요|들러\s*주|와\s*주세요|구독|좋아요\s*(를\s*)?(눌|부탁)|알림\s*(설정|켜)|저희|우리\s*채널|제\s*채널|채널에|방송\s*보러\s*와)/;
 
 function sanitizeSets(raw: any): Record<SetKey, string[]> {
   const out = {} as Record<SetKey, string[]>;

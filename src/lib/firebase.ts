@@ -11,8 +11,9 @@ import {
   signInWithPopup, 
   signOut 
 } from "firebase/auth";
-import { getAnalytics, isSupported as isAnalyticsSupported, Analytics } from "firebase/analytics";
-import { getMessaging, isSupported as isMessagingSupported, Messaging } from "firebase/messaging";
+// 분석·푸시 알림 모듈은 쓸 때만 불러옴 (첫 로딩 가볍게)
+import type { Analytics } from "firebase/analytics";
+import type { Messaging } from "firebase/messaging";
 
 // Firebase 설정값 (실제 가이드 기준)
 const firebaseConfig = {
@@ -45,8 +46,8 @@ if (typeof window !== 'undefined') {
 // Analytics 안전하게 가져오기 (브라우저 환경 체크)
 export const getAnalyticsInstance = async (): Promise<Analytics | null> => {
   if (typeof window !== 'undefined') {
-    const supported = await isAnalyticsSupported();
-    if (supported) {
+    const { getAnalytics, isSupported } = await import("firebase/analytics");
+    if (await isSupported()) {
       return getAnalytics(app);
     }
   }
@@ -56,8 +57,8 @@ export const getAnalyticsInstance = async (): Promise<Analytics | null> => {
 // Messaging 안전하게 가져오기
 export const messaging = async (): Promise<Messaging | null> => {
   if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-    const supported = await isMessagingSupported();
-    if (supported) {
+    const { getMessaging, isSupported } = await import("firebase/messaging");
+    if (await isSupported()) {
       return getMessaging(app);
     }
   }

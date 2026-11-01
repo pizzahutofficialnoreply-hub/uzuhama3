@@ -16,6 +16,7 @@ import { AdminVerificationModal } from './AdminVerificationModal';
 import { useTabGlass } from '../hooks/useTabGlass';
 import { RichTextRenderer } from './common/RichTextRenderer';
 import { DEFAULT_PREFACE_TEMPLATE } from './tabs/admin/system/NoticesSubTab';
+import { isAdminUser } from '../utils/adminAuth';
 import { usePrefs, setPref, PAGE_SIZE_OPTIONS, KEYBOARD_OPTIONS, type UserPrefs } from '../utils/userPrefs';
 
 interface SettingsViewProps {
@@ -60,10 +61,8 @@ export function SettingsView({
 
   // 하위 설정 모달/아코디언 상태
   const navigate = useNavigate();
-  const isAdmin = Boolean(
-    user?.email?.toLowerCase() === 'saramoriyo@gmail.com' || 
-    (typeof window !== 'undefined' && localStorage.getItem('admin_verified_session') === 'true')
-  );
+  // 실제 관리자 계정으로 로그인한 경우만 (기기에 저장된 표시는 믿지 않음)
+  const isAdmin = isAdminUser(user);
   const [showAdminVerifyModal, setShowAdminVerifyModal] = useState(false);
   const [activeSection, setActiveSection] = useState<'notification' | 'viewPrefs' | 'theme' | 'share' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(() => initialSection || null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);

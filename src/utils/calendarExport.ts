@@ -1,4 +1,5 @@
 import { BroadcastLog } from '../types';
+import { foldIcs } from './icsFold';
 import { parseTimeTo24, formatTimeRange, formatDuration } from '../utils';
 
 /**
@@ -35,6 +36,8 @@ export interface CalendarEventDetails {
   isAllDay: boolean;
   dateStr: string;
   url: string;
+  /** 같은 방송이면 늘 같은 고유 번호 (다시 추가해도 캘린더에 두 번 생기지 않게) */
+  uid: string;
 }
 
 /**
@@ -146,6 +149,7 @@ export function buildCalendarEventDetails(log: BroadcastLog): CalendarEventDetai
   }
 
   return {
+    uid: `uzuhama-${String(log.id || dateStr).replace(/[^A-Za-z0-9_-]/g, '')}@uzuhama-archive`,
     title,
     description,
     location,
@@ -162,7 +166,7 @@ export function buildCalendarEventDetails(log: BroadcastLog): CalendarEventDetai
  */
 export function generateIcsContent(details: CalendarEventDetails): string {
   const nowStr = formatDateToIcs(new Date());
-  const uid = `uzuhama-${details.dateStr}-${Date.now()}@uzuhama-archive`;
+  const uid = details.uid;
 
   let timeFields = '';
   if (!details.isAllDay && details.startDate && details.endDate) {
@@ -208,7 +212,7 @@ export function generateIcsContent(details: CalendarEventDetails): string {
     'END:VCALENDAR'
   ];
 
-  return lines.join('\r\n');
+  return foldIcs(lines);
 }
 
 /**
@@ -258,7 +262,7 @@ export function generateMultipleIcsContent(logs: BroadcastLog[], calendarTitle =
   logs.forEach((log, index) => {
     try {
       const details = buildCalendarEventDetails(log);
-      const uid = `uzuhama-${details.dateStr}-${index}-${Date.now()}@uzuhama-archive`;
+      const uid = details.uid;
 
       let timeFields = '';
       if (!details.isAllDay && details.startDate && details.endDate) {
@@ -304,7 +308,7 @@ export function generateMultipleIcsContent(logs: BroadcastLog[], calendarTitle =
     'END:VCALENDAR'
   ];
 
-  return lines.join('\r\n');
+  return foldIcs(lines);
 }
 
 /**

@@ -207,6 +207,8 @@ export interface SystemConfig {
     startTime: string;
     endTime: string;
     autoApply: boolean;
+    /** 격주 등 반복 기준이 되는 날짜 (이 날짜가 속한 주부터 셈) */
+    anchorDate?: string;
   };
   lastCompletedNoticeDismissAt?: string;
   noticeDismissMode?: 'session' | 'permanent';

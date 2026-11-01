@@ -6,20 +6,12 @@ import { AdminTab } from './tabs/AdminTab';
 import { useFirebaseData } from '../hooks/useFirebaseData';
 import { Tv, LogOut, ShieldCheck, Lock, AlertTriangle } from 'lucide-react';
 import { AdminVerificationModal } from './AdminVerificationModal';
+import { isAdminUser, adminSessionValid, clearAdminSession } from '../utils/adminAuth';
 
 export function AdminRoute() {
   const [user, setUser] = useState<User | null>(null);
-  const [isVerified, setIsVerified] = useState<boolean>(() => {
-    const sessionV = sessionStorage.getItem('admin_verified_session') === 'true';
-    if (sessionV) return true;
-    const localV = localStorage.getItem('admin_verified_session') === 'true';
-    const verifiedTime = parseInt(localStorage.getItem('admin_verified_time') || '0', 10);
-    // 24시간 세션 유효
-    if (localV && Date.now() - verifiedTime < 24 * 60 * 60 * 1000) {
-      return true;
-    }
-    return false;
-  });
+  // 최근 12시간 안에 구글 계정으로 다시 확인했는지 (기기 표시만으로는 관리자가 아님: 아래에서 실제 로그인 계정도 함께 확인)
+  const [isVerified, setIsVerified] = useState<boolean>(adminSessionValid);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -29,22 +21,17 @@ export function AdminRoute() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser && currentUser.email?.toLowerCase() === 'saramoriyo@gmail.com') {
+      if (isAdminUser(currentUser)) {
         setUser(currentUser);
-        setIsVerified(true);
-        try {
-          sessionStorage.setItem('admin_verified_session', 'true');
-          localStorage.setItem('admin_verified_session', 'true');
-          localStorage.setItem('admin_verified_time', Date.now().toString());
-        } catch {}
+        setIsVerified(adminSessionValid());
       } else if (currentUser) {
         setError('접근 권한이 없어요. (관리자 전용)');
         setUser(null);
         setIsVerified(false);
-        sessionStorage.removeItem('admin_verified_session');
-        localStorage.removeItem('admin_verified_session');
+        clearAdminSession();
       } else {
         setUser(null);
+        setIsVerified(false);
       }
       setLoading(false);
     });
@@ -53,10 +40,7 @@ export function AdminRoute() {
 
   const handleLogout = async () => {
     setShowLogoutConfirm(false);
-    sessionStorage.removeItem('admin_verified_session');
-    sessionStorage.removeItem('admin_verified_time');
-    localStorage.removeItem('admin_verified_session');
-    localStorage.removeItem('admin_verified_time');
+    clearAdminSession();
     setIsVerified(false);
     await signOut(auth);
     navigate('/');
@@ -71,7 +55,8 @@ export function AdminRoute() {
   }
 
   // 관리자 검증이 완료되지 않은 경우 (직접 진입 시에도 리캡챠 및 재인증 요구)
-  const hasAdminAccess = (user && user.email?.toLowerCase() === 'saramoriyo@gmail.com') || isVerified;
+  // 실제 관리자 계정으로 로그인 + 최근 12시간 안에 다시 확인한 경우만
+  const hasAdminAccess = isAdminUser(user) && isVerified;
   if (!hasAdminAccess) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-black flex flex-col items-center justify-center p-6 selection:bg-purple-500/30">

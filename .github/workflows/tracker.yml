@@ -14,4 +14,4 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Call notification tick
-        run: curl -fsS --max-time 60 "https://uzuhama.vercel.app/api/notifications/tick" || true
+        run: curl -fsS --max-time 60 "https://uzuhama.vercel.app/api/notifications/tick?src=github" || true

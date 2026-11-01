@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ShieldCheck, Lock, CheckCircle2, AlertCircle, ArrowRight, Loader2, X, RefreshCw } from 'lucide-react';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { isAdminUser } from '../utils/adminAuth';
 import { auth } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -123,7 +124,7 @@ export function AdminVerificationModal({ onClose, onSuccess }: AdminVerification
 
     try {
       // If already logged in with admin account, fast-track by verifying token
-      if (auth.currentUser && auth.currentUser.email === 'saramoriyo@gmail.com') {
+      if (isAdminUser(auth.currentUser)) {
         await auth.currentUser.getIdToken(true);
         markAdminVerified();
         return;
@@ -134,17 +135,16 @@ export function AdminVerificationModal({ onClose, onSuccess }: AdminVerification
       const result = await signInWithPopup(auth, provider);
       
       const loggedUser = result.user;
-      if (loggedUser && loggedUser.email === 'saramoriyo@gmail.com') {
+      if (isAdminUser(loggedUser)) {
         markAdminVerified();
       } else {
         setAuthError('관리자 권한이 없는 계정이에요. (관리자 전용 계정으로 로그인 필요)');
       }
     } catch (err: any) {
       console.error('Google Re-auth failed:', err);
-      // PWA or popup blocked fallback
-      if (auth.currentUser?.email === 'saramoriyo@gmail.com') {
-        markAdminVerified();
-        return;
+      // 팝업이 막혔어도 이미 관리자 계정으로 로그인돼 있으면 (토큰을 새로 받아 확인)
+      if (isAdminUser(auth.currentUser)) {
+        try { await auth.currentUser!.getIdToken(true); markAdminVerified(); return; } catch { /* 아래 오류 표시 */ }
       }
       if (err.code === 'auth/popup-closed-by-user') {
         setAuthError('인증 팝업이 닫혔어요.');

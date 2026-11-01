@@ -3,7 +3,7 @@ import { deleteField } from 'firebase/firestore';
 import { AppData, SystemConfig } from '../../../types';
 import { 
   AlertTriangle, Bell, Plane, Send, Shield, Database, 
-  Check, Save, Sparkles 
+  Check, Save, Sparkles, Activity 
 } from 'lucide-react';
 import { MaintenanceSubTab } from './system/MaintenanceSubTab';
 import { NoticesSubTab } from './system/NoticesSubTab';
@@ -12,8 +12,9 @@ import { PushNotificationSubTab } from './system/PushNotificationSubTab';
 import { TermsPolicySubTab } from './system/TermsPolicySubTab';
 import { DataOptionsSubTab } from './system/DataOptionsSubTab';
 import { OnboardingSubTab } from './system/OnboardingSubTab';
+import { AutomationSubTab } from './system/AutomationSubTab';
 
-export type SystemSubTabId = 'maintenance' | 'notices' | 'absence' | 'push' | 'terms' | 'onboarding' | 'data';
+export type SystemSubTabId = 'maintenance' | 'notices' | 'absence' | 'push' | 'terms' | 'onboarding' | 'automation' | 'data';
 
 export function AdminSystemTab({ 
   data, 
@@ -196,6 +197,11 @@ export function AdminSystemTab({
       icon: Sparkles,
     },
     {
+      id: 'automation' as SystemSubTabId,
+      label: '자동 시스템',
+      icon: Activity,
+    },
+    {
       id: 'data' as SystemSubTabId,
       label: '시스템 & 데이터',
       icon: Database,
@@ -286,6 +292,8 @@ export function AdminSystemTab({
             onUpdateSystemConfig={onUpdateSystemConfig}
           />
         )}
+
+        {activeSubTab === 'automation' && <AutomationSubTab />}
 
         {activeSubTab === 'data' && (
           <DataOptionsSubTab 

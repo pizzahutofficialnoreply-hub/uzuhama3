@@ -1,0 +1,23 @@
+name: CI (타입 검사·자동 테스트)
+
+# main 에 올리거나 PR 을 열 때마다: 타입 검사 + 자동 테스트(검색·날짜·캘린더·아카이브 등)
+# 실패하면 GitHub 에 빨간 X 가 떠서, 배포 전에 깨진 곳을 알 수 있음
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npx vitest run

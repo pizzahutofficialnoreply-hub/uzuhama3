@@ -104,6 +104,8 @@ export default defineConfig(() => {
           // 자주 바뀌지 않는 라이브러리를 따로 묶어 배포 후에도 브라우저 캐시를 재사용
           manualChunks(id: string) {
             if (!id.includes('node_modules')) return undefined;
+            // 푸시 알림·분석 모듈은 따로 (쓸 때만 받음)
+            if (/@firebase\/(messaging|analytics|installations)|firebase\/(messaging|analytics)/.test(id)) return 'vendor-firebase-extra';
             if (id.includes('firebase') || id.includes('@firebase')) return 'vendor-firebase';
             if (id.includes('recharts') || id.includes('d3-') || id.includes('victory')) return 'vendor-charts';
             if (id.includes('motion') || id.includes('framer')) return 'vendor-motion';
