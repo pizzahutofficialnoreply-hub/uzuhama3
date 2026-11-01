@@ -24,6 +24,9 @@ function buildPrompt(reason: string, day: string) {
 - 말투·소재를 최대한 다양하게 (응원, 기다림, 일상, 날씨·계절감, 가벼운 농담 등), 비슷한 문장 반복 금지
 - 이모지는 문구당 최대 1개, 전체의 3분의 1 이하만
 - 확률 숫자나 구체적 시간을 지어내지 말 것, 스트리머를 비하하거나 의학적 조언·진단처럼 말하지 말 것
+- 말하는 사람은 방송을 기다리는 '팬(시청자)' 한 명이야. 스트리머 본인·채널 주인·운영자·관리자처럼 말하지 말 것
+  (금지 예: "유튜브 놀러와요", "채널 구독해 주세요", "방송 보러 와 주세요", "저희 채널", "좋아요·알림 설정 부탁해요")
+  (좋은 예: "오늘은 켜지려나요?", "기다리는 동안 다시보기 봐요", "푹 쉬고 오세요")
 - medium·lowDay·lowNight·streamedToday·absence 문구 중 약 4분의 1은 기다리는 동안 지난 방송 영상을 보자는 내용으로, 반드시 '영상' 또는 '다시보기' 단어를 넣을 것 (예: "옛날 영상이나 보면서 기다려요", "다시보기 정주행 어때요?") — 사이트에서 이 단어를 누르면 추천 영상으로 이동함
 
 상황:
@@ -37,11 +40,14 @@ function buildPrompt(reason: string, day: string) {
 JSON 으로만 답해: {"absence":[...],"high":[...],"medium":[...],"lowDay":[...],"lowNight":[...],"streamedToday":[...]}`;
 }
 
+// 팬이 아니라 채널 주인·운영자처럼 들리는 문구는 버림
+const OWNER_VOICE = /(놀러\s*와|놀러\s*오세요|들러\s*주|와\s*주세요|구독|좋아요\s*(를\s*)?(눌|부탁)|알림\s*(설정|켜)|저희|우리\s*채널|제\s*채널|채널에|방송\s*보러\s*와)/;
+
 function sanitizeSets(raw: any): Record<SetKey, string[]> {
   const out = {} as Record<SetKey, string[]>;
   SET_KEYS.forEach((k) => {
     const arr = Array.isArray(raw?.[k]) ? raw[k] : [];
-    out[k] = [...new Set(arr.map((x: any) => String(x || '').trim()).filter((x: string) => x.length >= 4 && x.length <= 30))].slice(0, 40) as string[];
+    out[k] = [...new Set(arr.map((x: any) => String(x || '').trim()).filter((x: string) => x.length >= 4 && x.length <= 30 && !OWNER_VOICE.test(x)))].slice(0, 40) as string[];
   });
   return out;
 }

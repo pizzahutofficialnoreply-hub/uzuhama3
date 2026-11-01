@@ -61,14 +61,21 @@ export function ShortsPlayer({ items, startIndex, onClose }: { items: ShortsPlay
       if (typeof e.origin !== 'string' || !e.origin.includes('youtube')) return;
       let d: any;
       try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
-      if (d?.event === 'onReady') setReady(true);
+      if (d?.event === 'onReady') { setReady(true); hideCaptions(); }
       const state = d?.event === 'onStateChange' ? d.info : d?.event === 'infoDelivery' ? d.info?.playerState : undefined;
       if (state === 0) { command('seekTo', [0, true]); command('playVideo'); }
-      if (state === 1) { setPaused(false); setSwitching(false); }
+      if (state === 1) { setPaused(false); setSwitching(false); hideCaptions(); }
       if (state === 2) setPaused(true);
     };
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
+  }, [command]);
+
+  // 자막 끄기: 주소 옵션(cc_load_policy=0)만으로는 채널이 자막을 기본으로 켜 둔 영상은 계속 나와서, 자막 모듈을 직접 내림
+  const hideCaptions = useCallback(() => {
+    command('unloadModule', ['captions']);
+    command('unloadModule', ['cc']);
+    command('setOption', ['captions', 'track', {}]);
   }, [command]);
 
   // 바뀐 쇼츠 불러오기
@@ -161,7 +168,7 @@ export function ShortsPlayer({ items, startIndex, onClose }: { items: ShortsPlay
 
   if (!cur) return null;
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const src = `https://www.youtube.com/embed/${firstId.current}?autoplay=1&playsinline=1&mute=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=${encodeURIComponent(origin)}`;
+  const src = `https://www.youtube.com/embed/${firstId.current}?autoplay=1&playsinline=1&mute=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&cc_lang_pref=xx&enablejsapi=1&origin=${encodeURIComponent(origin)}`;
   const translate = `translateY(calc(${-index * 100}% + ${drag}px))`;
 
   return createPortal(

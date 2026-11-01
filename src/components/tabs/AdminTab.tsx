@@ -4,7 +4,8 @@ import {
   FileEdit, 
   Settings, 
   MessageSquare,
-  FileCode2
+  FileCode2,
+  Link2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { AppData, BroadcastLog, SystemConfig } from '../../types';
@@ -13,6 +14,7 @@ import { AdminLogsTab } from './admin/AdminLogsTab';
 import { AdminSystemTab } from './admin/AdminSystemTab';
 import { AdminSuggestionsTab } from './admin/AdminSuggestionsTab';
 import { AdminPatchesTab } from './admin/AdminPatchesTab';
+import { AdminUnlinkedTab } from './admin/AdminUnlinkedTab';
 import { cn } from '../../utils';
 
 interface AdminTabProps {
@@ -24,7 +26,7 @@ interface AdminTabProps {
   onUpdateSystemConfig?: (sys: Partial<SystemConfig>) => Promise<void>;
 }
 
-type AdminViewMode = 'add' | 'edit' | 'system' | 'suggestions' | 'patches';
+type AdminViewMode = 'add' | 'edit' | 'link' | 'system' | 'suggestions' | 'patches';
 
 export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAllLogs, onUpdateSystemConfig }: AdminTabProps) {
   const [viewMode, setViewMode] = useState<AdminViewMode>('add');
@@ -32,6 +34,7 @@ export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAll
   const adminNavTabs: { id: AdminViewMode; label: string; fullLabel: string; icon: React.ElementType }[] = [
     { id: 'add', label: '등록', fullLabel: '신규 기록 추가', icon: PlusCircle },
     { id: 'edit', label: '수정', fullLabel: '전체 기록 수정', icon: FileEdit },
+    { id: 'link', label: '연동', fullLabel: '연동 안 된 영상·쇼츠', icon: Link2 },
     { id: 'system', label: '시스템', fullLabel: '시스템/공지사항 관리', icon: Settings },
     { id: 'suggestions', label: '피드백', fullLabel: '피드백 (제안/버그)', icon: MessageSquare },
     { id: 'patches', label: '패치', fullLabel: '패치노트 등록/관리', icon: FileCode2 },
@@ -73,6 +76,8 @@ export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAll
             onDeleteAllLogs={onDeleteAllLogs} 
           />
         )}
+
+        {viewMode === 'link' && <AdminUnlinkedTab data={data} onUpdateLog={onUpdateLog} />}
 
         {viewMode === 'system' && (
           <AdminSystemTab 

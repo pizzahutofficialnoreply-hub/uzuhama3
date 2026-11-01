@@ -125,7 +125,7 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
 }
 
 /** 가로로 넘겨 보는 쇼츠 선반 (좁은 패널에서도 카드 폭을 일정하게 유지) */
-export function ShortsShelf({ items }: { items: { url: string; title?: string; caption?: string }[] }) {
+export function ShortsShelf({ items }: { items: { url: string; title?: string; caption?: string; liveUrl?: string; editUrl?: string }[] }) {
   const [playerAt, setPlayerAt] = useState<number | null>(null);
   return (
     <div className="-mx-1 px-1 flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 no-scrollbar">

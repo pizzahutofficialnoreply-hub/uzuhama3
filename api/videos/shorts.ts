@@ -30,8 +30,9 @@ async function resolveChannelId(db: any, key: string) {
   return id as string;
 }
 
-async function fetchShorts(channelId: string, key: string): Promise<ShortItem[]> {
-  const playlistId = `UUSH${channelId.slice(2)}`;
+/** 채널 재생목록 전체: UUSH=쇼츠, UULF=일반 영상(쇼츠·생방송 제외), UU=전체 */
+async function fetchShorts(channelId: string, key: string, prefix = 'UUSH'): Promise<ShortItem[]> {
+  const playlistId = `${prefix}${channelId.slice(2)}`;
   const out: ShortItem[] = [];
   let token = '';
   do {
@@ -54,7 +55,10 @@ export default async function handler(req: any, res: any) {
 
   try {
     const { db, verifyAdmin } = await import('../_firebase.js');
-    const indexRef = db.collection('youtube_cache').doc('shorts');
+    // ?kind=uploads → 채널의 일반 영상 전체 (사이트 기록에 없는 영상도 홈에 보이게)
+    const kind = String(req.query?.kind || '') === 'uploads' ? 'uploads' : 'shorts';
+    const itemsCol = kind === 'uploads' ? 'youtube_uploads_items' : 'youtube_shorts_items';
+    const indexRef = db.collection('youtube_cache').doc(kind);
     let index = (await indexRef.get()).data();
 
     let refresh = false;
@@ -62,20 +66,33 @@ export default async function handler(req: any, res: any) {
       try { refresh = Boolean(await verifyAdmin(req)); } catch { refresh = false; }
       if (!refresh) return res.status(403).json({ error: '쇼츠 새로고침은 관리자만 할 수 있습니다.' });
     }
+    // 새 영상이 올라오니 12시간 지나면 한 번 새로 받음 (동시에 여러 요청이 와도 한 번만: 잠금)
+    const stale = index?.fetchedAt && Date.now() - Date.parse(index.fetchedAt) > 12 * 3600 * 1000;
+    if (stale && !refresh) {
+      refresh = await db.runTransaction(async (tx: any) => {
+        const cur = (await tx.get(indexRef)).data() || {};
+        if (cur.lockUntil && cur.lockUntil > Date.now()) return false;
+        tx.set(indexRef, { lockUntil: Date.now() + 60000 }, { merge: true });
+        return true;
+      }).catch(() => false);
+    }
 
     if (!index?.fetchedAt || refresh) {
       const key = process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY;
       if (!key) return res.status(200).json({ shorts: [], error: 'YOUTUBE_API_KEY 환경 변수가 없습니다.' });
       try {
         const channelId = await resolveChannelId(db, key);
-        const items = await fetchShorts(channelId, key);
-        const old = await db.collection('youtube_shorts_items').get();
+        let items: ShortItem[];
+        if (kind === 'uploads') {
+          try { items = await fetchShorts(channelId, key, 'UULF'); } catch { items = await fetchShorts(channelId, key, 'UU'); }
+        } else items = await fetchShorts(channelId, key);
+        const old = await db.collection(itemsCol).get();
         const batch = db.batch();
         old.docs.forEach((d: any) => batch.delete(d.ref));
         for (let n = 0; n * CHUNK < items.length; n++) {
-          batch.set(db.collection('youtube_shorts_items').doc(String(n)), { items: items.slice(n * CHUNK, (n + 1) * CHUNK) });
+          batch.set(db.collection(itemsCol).doc(String(n)), { items: items.slice(n * CHUNK, (n + 1) * CHUNK) });
         }
-        index = { channelId, fetchedAt: new Date().toISOString(), count: items.length, chunks: Math.ceil(items.length / CHUNK) };
+        index = { channelId, fetchedAt: new Date().toISOString(), count: items.length, chunks: Math.ceil(items.length / CHUNK), lockUntil: 0 };
         batch.set(indexRef, index);
         await batch.commit();
       } catch (e: any) {
@@ -83,13 +100,13 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    const refs = Array.from({ length: Number(index?.chunks || 0) }, (_, n) => db.collection('youtube_shorts_items').doc(String(n)));
+    const refs = Array.from({ length: Number(index?.chunks || 0) }, (_, n) => db.collection(itemsCol).doc(String(n)));
     const snaps = refs.length ? await db.getAll(...refs) : [];
     const shorts: ShortItem[] = [];
     snaps.forEach((s: any) => shorts.push(...((s.data()?.items as ShortItem[]) || [])));
 
     res.setHeader('Cache-Control', refresh ? 'no-store' : 'public, s-maxage=3600, stale-while-revalidate=86400');
-    return res.status(200).json({ shorts, fetchedAt: index?.fetchedAt || null });
+    return res.status(200).json(kind === 'uploads' ? { videos: shorts, fetchedAt: index?.fetchedAt || null } : { shorts, fetchedAt: index?.fetchedAt || null });
   } catch (e: any) {
     console.error('[videos/shorts] failed:', e);
     return res.status(500).json({ error: e?.message || String(e) });

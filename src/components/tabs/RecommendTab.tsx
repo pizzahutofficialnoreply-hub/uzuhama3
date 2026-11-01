@@ -12,7 +12,8 @@ import { BroadcastDetailModal } from './BroadcastDetailModal';
 import { getMolabogiCache, setMolabogiCache } from '../../utils/molabogiCache';
 import { GameTitle } from '../common/GameTitle';
 import { useVideoMeta, formatDuration, toKstDate, formatRelativeTime } from '../../hooks/useVideoDuration';
-import { ShortsFeed } from './recommend/ShortsFeed';
+import { ShortsFeed, useChannelShorts } from './recommend/ShortsFeed';
+import { ShortsShelf } from '../common/ShortsCard';
 import { CompilationDetail } from './recommend/CompilationDetail';
 import { Pagination } from '../common/Pagination';
 import { VideoListRow } from '../common/VideoListRow';
@@ -21,6 +22,7 @@ import { useViewStyle } from '../../hooks/useViewStyle';
 import { YoutubeLogo, ShortsIcon, PlaySquare, GlassPlayButton } from '../common/MediaIcons';
 import { PlaylistsFeed } from './recommend/PlaylistsFeed';
 import { usePlaylists } from '../../hooks/usePlaylists';
+import { useChannelVideos } from '../../hooks/useChannelVideos';
 import { useRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../../hooks/useRecentSearches';
 import { getPrefs, usePrefs } from '../../utils/userPrefs';
 import { buildVocab, correctQuery, isKeysmash, squash, type Correction } from '../../utils/smartSearch';
@@ -858,6 +860,8 @@ export function RecommendTab({
 
   // 재생목록 이름(예: 우주하마 배틀그라운드)으로, 게임이 안 붙은 영상에 그 게임을 기본으로 붙임
   const { data: playlistData } = usePlaylists();
+  // 채널의 모든 영상 (기록에 연결 안 된 영상도 홈에 보이게)
+  const channelVideos = useChannelVideos();
   const playlistGameMap = useMemo(
     () => buildPlaylistGameMap(playlistData?.playlists, buildGameCatalog(data?.logs)),
     [playlistData, data?.logs]
@@ -1117,8 +1121,31 @@ export function RecommendTab({
       });
     }
 
+    // 방송 기록에 연결되지 않은 채널 영상도 추가 (관리자가 나중에 날짜를 연결하면 그때부터 생방송과 묶임)
+    if (channelVideos.length) {
+      const known = new Set<string>();
+      videoMap.forEach((v) => { const id = extractYoutubeId(v.videoUrl) || v.id; if (id) known.add(id); });
+      channelVideos.forEach((c) => {
+        if (!c?.videoId || known.has(c.videoId)) return;
+        known.add(c.videoId);
+        const g = playlistGameMap.get(c.videoId);
+        videoMap.set(`yt-${c.videoId}`, {
+          id: c.videoId,
+          videoTitle: c.title,
+          videoUrl: `https://www.youtube.com/watch?v=${c.videoId}`,
+          category: '',
+          parentLog: null,
+          allBroadcastDates: [],
+          games: g ? [{ ...g }] : [],
+          gameFromPlaylist: Boolean(g),
+          isUnlinked: true,
+          publishedAt: c.publishedAt,
+        });
+      });
+    }
+
     return Array.from(videoMap.values());
-  }, [data, playlistGameMap]);
+  }, [data, playlistGameMap, channelVideos]);
 
   // 태그·썸네일 글자 검색 색인 (한 번 받아 기기에 저장, 없는 영상만 서버가 한 번씩 추출)
   const knownYtIds = useMemo(() => [...new Set(allVideos.map((v: any) => extractYoutubeId(v.videoUrl) || v.id).filter((id: any) => typeof id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(id)))] as string[], [allVideos]);
@@ -1147,6 +1174,26 @@ export function RecommendTab({
     Object.entries(gameKeywordMap).forEach(([, kws]) => Array.isArray(kws) && texts.push(...kws));
     return buildVocab(texts);
   }, [allVideos, searchIndex, gameKeywordMap]);
+  // 홈에서 검색하면 제목이 맞는 쇼츠를 위쪽 'Shorts' 줄에 따로 (생방송과 연결이 없는 쇼츠도)
+  const channelShorts = useChannelShorts();
+  const allShortsLite = useMemo(() => {
+    const byId = new Map<string, { url: string; title: string; caption?: string; liveUrl?: string }>();
+    const logs = Array.isArray(data?.logs) ? data!.logs : Object.values(data?.logs || {});
+    (logs as any[]).forEach((log) => (Array.isArray(log?.shorts) ? log.shorts : []).forEach((s: any) => {
+      const url = typeof s === 'string' ? s : s?.url;
+      const id = extractYoutubeId(url || '');
+      if (!id || byId.has(id)) return;
+      byId.set(id, { url, title: (typeof s === 'string' ? '' : s?.title) || '', caption: log?.date ? `${log.date} 방송` : undefined,
+        liveUrl: (Array.isArray(log?.vods) ? log.vods : []).find((v: any) => v?.url)?.url });
+    }));
+    channelShorts.forEach((c) => {
+      const hit = byId.get(c.videoId);
+      if (hit) { if (!hit.title) hit.title = c.title; return; }
+      byId.set(c.videoId, { url: `https://www.youtube.com/shorts/${c.videoId}`, title: c.title, caption: c.publishedAt ? `${c.publishedAt.slice(0, 10)} 업로드` : undefined });
+    });
+    return [...byId.values()].filter((s) => s.title);
+  }, [data?.logs, channelShorts]);
+
   // 사용자가 '원래 검색어로' 를 누르면 그 검색어는 고치지 않음
   const [keepOriginalFor, setKeepOriginalFor] = useState<string | null>(null);
   const correction: Correction | null = useMemo(() => {
@@ -1159,6 +1206,17 @@ export function RecommendTab({
   const autoCorrected = correction && (correction.how === 'hanyeong' || correction.cost <= 0.25) ? correction : null;
   const suggestion = correction && !autoCorrected ? correction : null;
   const effectiveSearchTerm = autoCorrected ? autoCorrected.to : searchTerm;
+
+  const matchingShorts = useMemo(() => {
+    const raw = effectiveSearchTerm.trim().replace(/^#+/, '');
+    if (subTab !== 'home' || raw.length < 2 || isVideoUrl(raw)) return [];
+    const q = squash(raw);
+    const words = raw.split(/\s+/).map(squash).filter(Boolean);
+    return allShortsLite.filter((s) => {
+      const t = squash(s.title);
+      return t.includes(q) || (words.length > 1 && words.every((w) => t.includes(w)));
+    }).slice(0, 20);
+  }, [effectiveSearchTerm, allShortsLite, subTab]);
 
   // 카테고리 사전: 게임 장르(games[].category)를 기준으로 만들고, 게임명이 섞여 들어간 값은 제외
   const categoryIndex = useMemo(() => {
@@ -1225,6 +1283,7 @@ export function RecommendTab({
     return { videoTokens };
   }, [allVideos]);
 
+  const [shortsCount, setShortsCount] = useState(0);
   const genresOfLog = React.useCallback((log: any) => (log ? categoryIndex.videoTokens({ parentLog: log }) : []), [categoryIndex]);
 
   const categories = useMemo(() => {
@@ -1290,7 +1349,8 @@ export function RecommendTab({
     const genreKey = !isTagMode && rawSearch ? (categories.some((c) => c !== '전체' && normSearch(c) === normSearch(rawSearch)) ? normSearch(rawSearch) : '') : '';
 
     if (searchTerm && searchTerm.trim() !== '') {
-      const term = searchTerm.trim();
+      // '#태그' 검색은 태그로 찾은 영상을 맨 위에, '#' 없이 같은 말로 찾은 영상은 '유사 검색'으로 아래에
+      const term = isTagMode ? tagQuery : searchTerm.trim();
       const ytId = extractYoutubeId(term);
       const chzzkId = extractChzzkId(term);
       const isUrl = isVideoUrl(term) || !!ytId || !!chzzkId;
@@ -1322,14 +1382,14 @@ export function RecommendTab({
       const videoText = (v: any) => squash([v.videoTitle, v.category, v.parentLog?.game, v.parentLog?.category,
         ...(v.parentLog?.games || []).flatMap((g: any) => [g?.name, g?.category]), ...(v.games || []).flatMap((g: any) => [g?.name, g?.category])].filter(Boolean).join(' '));
 
-      if (isTagMode) {
-        // '#태그' 검색: 유튜브 태그(설명의 #해시태그 포함)로만 찾음. 완전히 같은 태그가 위, 일부만 같은 태그는 아래
-        vids = searchTarget.filter((v) => {
-          const m = matchTag(entryOf(v), tagQuery);
-          if (m) tagMatches.set(v.id, m);
-          return Boolean(m);
-        });
-      } else {
+      // '#태그': 유튜브 태그·설명의 #해시태그·제목의 #단어
+      const tagHits = isTagMode ? searchTarget.filter((v) => {
+        const titleTag = String(v.videoTitle || '').match(/#[^\s#]+/g)?.some((h: string) => normSearch(h) === normSearch(tagQuery));
+        const m = matchTag(entryOf(v), tagQuery) || (titleTag ? 'exact' : null);
+        if (m) tagMatches.set(v.id, m);
+        return Boolean(m);
+      }) : [];
+      {
       vids = searchTarget.filter(v => {
         // 1. 영상, 쇼츠, 생방 링크 대조 (11자리 Video ID 고유 식별자 파싱 및 LIKE 대조)
         if (isUrl) {
@@ -1409,6 +1469,10 @@ export function RecommendTab({
         vids = [...vids, ...extra];
       }
       }
+      if (isTagMode) {
+        const seen = new Set(tagHits.map((v) => v.id));
+        vids = [...tagHits, ...vids.filter((v) => !seen.has(v.id))];
+      }
     }
 
     const now = Date.now();
@@ -1449,10 +1513,14 @@ export function RecommendTab({
        let isHighConfidence = true;
 
        const isRelated = relatedVia.has(v.id);
-       if (isTagMode) {
-         const m = tagMatches.get(v.id);
-         matchScore = m === 'exact' ? 90 : 40;
-         isHighConfidence = m === 'exact';
+       if (isTagMode && tagMatches.has(v.id)) {
+         // 태그로 찾은 영상이 우선 (같은 태그 → 비슷한 태그)
+         matchScore = tagMatches.get(v.id) === 'exact' ? 95 : 85;
+         isHighConfidence = true;
+       } else if (isTagMode && !isRelated) {
+         // '#' 없이 같은 말로 찾은 영상 → 유사 검색
+         matchScore = 30;
+         isHighConfidence = false;
        } else if (isRelated) {
          matchScore = 0;
          isHighConfidence = false;
@@ -1545,6 +1613,11 @@ export function RecommendTab({
       }
       if (v.parentLog?.date) {
         const t = new Date(v.parentLog.date).getTime();
+        if (!isNaN(t)) return t;
+      }
+      // 기록에 연결 안 된 영상은 유튜브 업로드일로
+      if (v.publishedAt) {
+        const t = Date.parse(v.publishedAt);
         if (!isNaN(t)) return t;
       }
       return 0;
@@ -1686,7 +1759,7 @@ export function RecommendTab({
       : firstRelated
       ? (hasMainResults ? '연관 검색 결과 · 썸네일·태그·게임 정보에서 찾았어요' : '제목엔 없지만 썸네일·태그·게임 정보에서 찾았어요')
       : isTagSearch
-        ? (hasAnyHighConfidence ? '비슷한 태그' : '비슷한 태그 (같은 태그 없음)')
+        ? (hasAnyHighConfidence ? '유사 검색 · 태그는 아니지만 제목 등에 같은 말이 있어요' : '이 태그가 붙은 영상은 없어요 · 제목 등에서 찾은 유사 검색')
         : (hasAnyHighConfidence ? '일치 확률이 비교적 낮은 검색 결과' : '유사 검색 결과 (직접 일치 항목 없음)');
     return (
       <div className={className}>
@@ -1740,7 +1813,7 @@ export function RecommendTab({
         transition={{ type: 'spring', stiffness: 380, damping: 36 }}
         className="space-y-6"
       >
-      {(subTab === 'shorts' || subTab === 'playlists') && recentSearches.length > 0 && (
+      {subTab === 'playlists' && recentSearches.length > 0 && (
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mb-2" data-no-swipe>
           <Clock className="w-3.5 h-3.5 text-zinc-400 shrink-0" aria-hidden="true" />
           {recentSearches.map((s) => (
@@ -1758,11 +1831,16 @@ export function RecommendTab({
               {s}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => { if (window.confirm('최근 검색어를 모두 지울까요?')) clearAllRecentSearches(); }}
+            className="px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 text-red-500 border border-red-200/70 dark:border-red-900/50 cursor-pointer"
+          >
+            모두 지우기
+          </button>
         </div>
       )}
-      {subTab === 'shorts' ? (
-        <ShortsFeed logs={data?.logs} searchTerm={searchTerm} selectedCategories={['전체']} onNavigateToCalendar={onNavigateToCalendar} genresOfLog={genresOfLog} />
-      ) : subTab === 'playlists' ? (
+      {subTab === 'playlists' ? (
         <PlaylistsFeed searchTerm={searchTerm} logs={data?.logs} onNavigateToCalendar={onNavigateToCalendar} />
       ) : (<>
       {/* 필터 카드 (최상단 배치: 실시간 연관 검색어 대신 필터가 맨 위에 위치) */}
@@ -1775,11 +1853,11 @@ export function RecommendTab({
             <span className="text-xs sm:text-sm font-bold text-zinc-800 dark:text-zinc-200">
               {searchTerm.trim() ? (
                 <>
-                  '<span className="text-purple-600 dark:text-purple-400 font-extrabold">{effectiveSearchTerm}</span>' 검색 결과: <b className="text-zinc-900 dark:text-white font-black">{recommended.length}개</b> 영상
+                  '<span className="text-purple-600 dark:text-purple-400 font-extrabold">{effectiveSearchTerm}</span>' 검색 결과: <b className="text-zinc-900 dark:text-white font-black">{subTab === 'shorts' ? shortsCount : recommended.length}개</b> {subTab === 'shorts' ? '쇼츠' : '영상'}
                 </>
               ) : (
                 <>
-                  {subTab === 'videos' ? '편집본 영상' : subTab === 'recommend' ? '추천 영상' : '전체 영상'}: <b className="text-zinc-900 dark:text-white font-black">{recommended.length}개</b>
+                  {subTab === 'shorts' ? '쇼츠' : subTab === 'videos' ? '편집본 영상' : subTab === 'recommend' ? '추천 영상' : '전체 영상'}: <b className="text-zinc-900 dark:text-white font-black">{subTab === 'shorts' ? shortsCount : recommended.length}개</b>
                 </>
               )}
             </span>
@@ -1960,17 +2038,38 @@ export function RecommendTab({
             ))}
             <button 
               type="button" 
-              onClick={clearAllRecentSearches} 
-              className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 underline shrink-0 ml-1 cursor-pointer"
+              onClick={() => { if (window.confirm('최근 검색어를 모두 지울까요?')) clearAllRecentSearches(); }} 
+              className="px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 ml-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 border border-red-200/70 dark:border-red-900/50 cursor-pointer"
             >
-              전체 삭제
+              모두 지우기
             </button>
           </div>
         )}
       </div>
 
+      {subTab === 'shorts' ? (
+        // 쇼츠: 위 필터 카드(카테고리·정렬·최근 검색)를 동영상과 똑같이 쓰고, 목록만 쇼츠로
+        <ShortsFeed
+          logs={data?.logs}
+          searchTerm={effectiveSearchTerm}
+          selectedCategories={selectedCategories}
+          order={sortOrder === 'asc' ? 'asc' : sortOrder === 'accuracy' && searchTerm.trim() ? 'accuracy' : 'desc'}
+          onCount={setShortsCount}
+          onNavigateToCalendar={onNavigateToCalendar}
+          genresOfLog={genresOfLog}
+        />
+      ) : (<>
       {/* 검색 결과 영상 카드 영역 (카드가 아래로/사각형으로 펼쳐지는 인라인 확장 UX) */}
       <div id="recommend-cards-container" className="min-h-[400px]">
+        {/* 홈 검색: 제목이 맞는 쇼츠 줄 */}
+        {matchingShorts.length > 0 && (
+          <div className="mb-5" data-no-swipe>
+            <div className="flex items-center gap-1.5 px-1 mb-2 text-sm font-bold text-zinc-900 dark:text-white">
+              <ShortsIcon className="w-4 h-4 text-red-500" /> Shorts <span className="text-xs font-semibold text-zinc-400">{matchingShorts.length}개</span>
+            </div>
+            <ShortsShelf items={matchingShorts} />
+          </div>
+        )}
         {/* 오타 보정 안내: 바로 고친 경우 / 혹시 ~? 제안 */}
         {(autoCorrected || suggestion) && (
           <div className="mb-3 px-1 text-sm text-zinc-600 dark:text-zinc-300 break-keep">
@@ -2152,6 +2251,7 @@ export function RecommendTab({
 
             <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
       </div>
+      </>)}
       
       </>)}
       </motion.div>

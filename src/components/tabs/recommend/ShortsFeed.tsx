@@ -16,6 +16,9 @@ interface ShortsFeedProps {
   onNavigateToCalendar?: (date: string) => void;
   /** 방송 기록 → 장르 목록 (추천 영상 카테고리 필터와 같은 기준) */
   genresOfLog?: (log: any) => string[];
+  /** 위 필터 카드의 정렬을 따름 (주면 이 화면의 장르·순서 버튼은 숨김) */
+  order?: 'desc' | 'asc' | 'accuracy';
+  onCount?: (n: number) => void;
 }
 
 const PAGE = 24;
@@ -28,7 +31,7 @@ const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
 const SHORTS_KEY = 'uzuhama_channel_shorts_v1';
 
 /** 채널 쇼츠 전체 (서버가 유튜브에서 한 번만 가져와 저장한 것). 브라우저에도 하루 보관 */
-function useChannelShorts() {
+export function useChannelShorts() {
   const [items, setItems] = useState<{ videoId: string; title: string; publishedAt: string }[]>(() => {
     try { return JSON.parse(localStorage.getItem(SHORTS_KEY) || 'null')?.items || []; } catch { return []; }
   });
@@ -47,13 +50,15 @@ function useChannelShorts() {
   return items;
 }
 
-export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToCalendar, genresOfLog }: ShortsFeedProps) {
+export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToCalendar, genresOfLog, order: orderProp, onCount }: ShortsFeedProps) {
+  const controlled = orderProp !== undefined;
   const [page, setPage] = useState(1);
   // 정렬: 생방일순(방송 날짜) / 업로드순(유튜브에 올라온 날짜)
   const [sortBy, setSortBy] = useState<'live' | 'upload'>(() => { const v = sessionStorage.getItem('rec_shorts_sort'); return v === 'live' || v === 'upload' ? v : getPrefs().shortsSortBy; });
   const changeSort = (v: 'live' | 'upload') => { setSortBy(v); setPage(1); try { sessionStorage.setItem('rec_shorts_sort', v); } catch {} };
   // 순서: 최신순 / 과거순
-  const [order, setOrder] = useState<'desc' | 'asc'>(() => { const v = sessionStorage.getItem('rec_shorts_order'); return v === 'asc' || v === 'desc' ? v : getPrefs().shortsOrder; });
+  const [orderState, setOrder] = useState<'desc' | 'asc'>(() => { const v = sessionStorage.getItem('rec_shorts_order'); return v === 'asc' || v === 'desc' ? v : getPrefs().shortsOrder; });
+  const order: 'desc' | 'asc' | 'accuracy' = controlled ? orderProp! : orderState;
   const changeOrder = (v: 'desc' | 'asc') => { setOrder(v); setPage(1); try { sessionStorage.setItem('rec_shorts_order', v); } catch {} };
   // 장르 (연결된 방송에서 한 게임의 장르)
   const [genre, setGenre] = useState<string>(() => sessionStorage.getItem('rec_shorts_genre') || '전체');
@@ -112,15 +117,17 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
 
   const filtered = useMemo(() => {
     const term = searchTerm.trim();
+    const onlyComp = selectedCategories.length === 1 && selectedCategories[0] === '몰아보기';
     const cats = selectedCategories.includes('전체') ? [] : selectedCategories.filter((c) => c !== '몰아보기');
     const activeGenre = genreOptions.includes(genre) ? genre : '전체';
     const gNorm = activeGenre.replace(/\s+/g, '').toLowerCase();
     const termNorm = term.replace(/\s+/g, '').toLowerCase();
     return allShorts.filter((s) => {
+      if (onlyComp && !s.isCompilation) return false;
       if (activeGenre !== '전체' && !s.genres.some((g) => g.replace(/\s+/g, '').toLowerCase() === gNorm)) return false;
       if (cats.length > 0) {
         const tokens = s.category.split(',').map((t) => t.trim());
-        if (!cats.some((c) => tokens.includes(c))) return false;
+        if (!cats.some((c) => tokens.includes(c) || s.genres.includes(c))) return false;
       }
       if (!term) return true;
       return fuzzyKoreanMatch(term, s.title) || fuzzyKoreanMatch(term, s.category) || s.date.includes(term)
@@ -136,6 +143,12 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
     const desc = sortBy !== 'upload'
       ? [...filtered].sort((a, b) => (b.date || '').localeCompare(a.date || '') || t(b) - t(a))
       : [...filtered].sort((a, b) => t(b) - t(a) || (b.date || '').localeCompare(a.date || ''));
+    if (order === 'accuracy') {
+      // 정확도순: 제목에 검색어가 그대로 있는 쇼츠 먼저
+      const q = searchTerm.trim().toLowerCase().replace(/\s+/g, '');
+      const hit = (s: ShortEntry) => (s.title.toLowerCase().replace(/\s+/g, '').includes(q) ? 0 : 1);
+      return [...desc].sort((a, b) => hit(a) - hit(b));
+    }
     if (order === 'desc') return desc;
     // 과거순: 날짜를 모르는 것은 맨 뒤
     const known = desc.filter((s) => (sortBy === 'upload' ? t(s) > 0 : Boolean(s.date)));
@@ -147,7 +160,8 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
     ? `${toKstDate(uploadedAt(s))} 업로드`
     : s.date ? `${s.date} 방송` : uploadedAt(s) ? `${toKstDate(uploadedAt(s))} 업로드` : undefined);
 
-  useEffect(() => { setPage(1); }, [searchTerm]);
+  useEffect(() => { setPage(1); }, [searchTerm, selectedCategories, order]);
+  useEffect(() => { onCount?.(filtered.length); }, [filtered.length, onCount]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE));
 
   const emptyText = allShorts.length === 0 ? '아직 등록된 쇼츠가 없어요.' : '조건에 맞는 쇼츠가 없어요.';
@@ -159,7 +173,7 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
           총 <strong className="text-purple-600 dark:text-purple-400 font-bold">{filtered.length}</strong>개 쇼츠
         </span>
         <div className="flex flex-wrap items-center gap-1.5">
-          {genreOptions.length > 0 && (
+          {!controlled && genreOptions.length > 0 && (
             <select
               value={genreOptions.includes(genre) ? genre : '전체'}
               onChange={(e) => changeGenre(e.target.value)}
@@ -172,8 +186,8 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
           )}
           {([
             ['정렬 기준', [['upload', '업로드일'], ['live', '방송일']], sortBy, changeSort],
-            ['순서', [['desc', '최신순'], ['asc', '과거순']], order, changeOrder],
-          ] as const).map(([label, opts, value, onChange]) => (
+            ...(controlled ? [] : [['순서', [['desc', '최신순'], ['asc', '과거순']], order, changeOrder]]),
+          ] as any[]).map(([label, opts, value, onChange]) => (
             <div key={label} className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60" role="group" aria-label={`쇼츠 ${label}`}>
               {opts.map(([v, text]) => (
                 <button
