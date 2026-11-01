@@ -9,7 +9,11 @@
   "rewrites": [
     {
       "source": "/feed.ics",
-      "destination": "/api/calendar.ics"
+      "destination": "/api/calendar"
+    },
+    {
+      "source": "/api/calendar.ics",
+      "destination": "/api/calendar"
     },
     {
       "source": "/((?!api/).*)",
