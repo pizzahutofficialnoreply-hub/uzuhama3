@@ -169,8 +169,10 @@ function isOtherOverlayOpen(root: HTMLElement | null) {
   return false;
 }
 
-export function Tutorial({ enabled, activeTab, onTabChange }: {
+export function Tutorial({ enabled, activeTab, onTabChange, autoStart = true }: {
   enabled: boolean;
+  /** false 면 스스로 시작하지 않음 (처음 시작 화면이 끝날 때 시작시킴) */
+  autoStart?: boolean;
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
 }) {
@@ -190,7 +192,7 @@ export function Tutorial({ enabled, activeTab, onTabChange }: {
 
   // ── 시작 조건: 처음 방문 + 관리자 허용 + 다른 팝업이 다 닫힌 뒤 ──
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !autoStart) return;
     let done = false;
     try { done = localStorage.getItem(TUTORIAL_DONE_KEY) === '1'; } catch {}
     if (done || running) return;
@@ -205,7 +207,7 @@ export function Tutorial({ enabled, activeTab, onTabChange }: {
       }
     }, 300);
     return () => window.clearInterval(id);
-  }, [enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [enabled, autoStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 설정의 '둘러보기 다시 보기'
   useEffect(() => {

@@ -21,6 +21,8 @@ import { useViewStyle } from '../../hooks/useViewStyle';
 import { YoutubeLogo, ShortsIcon, PlaySquare, GlassPlayButton } from '../common/MediaIcons';
 import { PlaylistsFeed } from './recommend/PlaylistsFeed';
 import { usePlaylists } from '../../hooks/usePlaylists';
+import { getPrefs, usePrefs } from '../../utils/userPrefs';
+import { buildVocab, correctQuery, isKeysmash, squash, type Correction } from '../../utils/smartSearch';
 import { buildGameCatalog, buildPlaylistGameMap } from '../../utils/playlistGames';
 import { useSearchIndex, matchTag, matchRelated, gamesMatchingKeyword, normSearch } from '../../hooks/useSearchIndex';
 
@@ -668,8 +670,8 @@ export function RecommendTab({
     const saved = sessionStorage.getItem('rec_sortOrder');
     const hasSearch = Boolean(sessionStorage.getItem('rec_searchTerm')?.trim());
     if (saved === 'accuracy' && !hasSearch) return 'desc';
-    if (saved === 'recommend') return 'desc'; // 추천순은 '추천' 탭으로 옮김
-    return saved || 'desc';
+    if (saved === 'recommend') return getPrefs().recommendSort; // 추천순은 '추천' 탭으로 옮김
+    return saved || getPrefs().recommendSort; // 기본값은 설정에서
   });
 
   // 검색 전 사용자가 선택해둔 일반 정렬(최신순, 과거순, 추천순) 보관용 ref
@@ -1151,6 +1153,32 @@ export function RecommendTab({
   const searchIndex = searchData.entries;
   const gameKeywordMap = searchData.games;
 
+  // ── 구글처럼 너그러운 검색: 오타 보정용 단어 사전 (제목·게임·장르·태그·썸네일 글자·게임 키워드) ──
+  const { keyboard } = usePrefs();
+  const searchVocab = useMemo(() => {
+    const texts: string[] = [];
+    allVideos.forEach((v: any) => {
+      texts.push(v.videoTitle || '', v.category || '', v.parentLog?.game || '', v.parentLog?.category || '');
+      [...(v.parentLog?.games || []), ...(v.games || [])].forEach((g: any) => texts.push(g?.name || '', g?.category || ''));
+      const e = searchIndex[extractYoutubeId(v.videoUrl) || v.id];
+      if (e) texts.push(...String(e.t || '').split('|'), ...(e.k || []), ...(e.g || []));
+    });
+    Object.entries(gameKeywordMap).forEach(([, kws]) => Array.isArray(kws) && texts.push(...kws));
+    return buildVocab(texts);
+  }, [allVideos, searchIndex, gameKeywordMap]);
+  // 사용자가 '원래 검색어로' 를 누르면 그 검색어는 고치지 않음
+  const [keepOriginalFor, setKeepOriginalFor] = useState<string | null>(null);
+  const correction: Correction | null = useMemo(() => {
+    const raw = searchTerm.trim();
+    if (!raw || raw.startsWith('#') || raw === keepOriginalFor || isVideoUrl(raw) || extractYoutubeId(raw) || extractChzzkId(raw)) return null;
+    if (/^\d{1,4}([./-]\d{1,2}){0,2}$/.test(raw) || /\d+\s*월/.test(raw)) return null; // 날짜 검색은 그대로
+    return correctQuery(raw, searchVocab, keyboard);
+  }, [searchTerm, searchVocab, keyboard, keepOriginalFor]);
+  // 확실한 보정(한/영 전환, 아주 가까운 오타)은 바로 그 검색어로 찾고, 애매하면 '혹시 ~?' 로 제안만
+  const autoCorrected = correction && (correction.how === 'hanyeong' || correction.cost <= 0.25) ? correction : null;
+  const suggestion = correction && !autoCorrected ? correction : null;
+  const effectiveSearchTerm = autoCorrected ? autoCorrected.to : searchTerm;
+
   // 카테고리 사전: 게임 장르(games[].category)를 기준으로 만들고, 게임명이 섞여 들어간 값은 제외
   const categoryIndex = useMemo(() => {
     const normKey = (c: string) => c.replace(/\s+/g, '').toLowerCase();
@@ -1256,6 +1284,8 @@ export function RecommendTab({
 
   const recommended = useMemo(() => {
     if (allVideos.length === 0) return [];
+    // 오타를 자동으로 고친 경우 고친 검색어로 찾음
+    const searchTerm = effectiveSearchTerm;
 
     // 동영상 탭: 몰아보기를 뺀 편집본만
     let vids = subTab === 'videos' ? allVideos.filter((v) => !v.isCompilation) : allVideos;
@@ -1306,6 +1336,10 @@ export function RecommendTab({
       // 영상 URL 또는 ID 검색 시에는 카테고리 필터와 무관하게 전체 영상 풀에서 대조
       const searchTarget = isUrl ? allVideos : vids;
       const entryOf = (v: any) => searchIndex[extractYoutubeId(v.videoUrl) || v.id];
+      const sqTerm = squash(term);
+      const termWords = term.split(/\s+/).map(squash).filter(Boolean);
+      const videoText = (v: any) => squash([v.videoTitle, v.category, v.parentLog?.game, v.parentLog?.category,
+        ...(v.parentLog?.games || []).flatMap((g: any) => [g?.name, g?.category]), ...(v.games || []).flatMap((g: any) => [g?.name, g?.category])].filter(Boolean).join(' '));
 
       if (isTagMode) {
         // '#태그' 검색: 유튜브 태그(설명의 #해시태그 포함)로만 찾음. 완전히 같은 태그가 위, 일부만 같은 태그는 아래
@@ -1353,8 +1387,11 @@ export function RecommendTab({
         if (v.parentLog?.date && fuzzyDateMatch(term, v.parentLog.date)) return true;
         if (Array.isArray(v.allBroadcastDates) && v.allBroadcastDates.some((d: string) => fuzzyDateMatch(term, d))) return true;
 
-        // 3. 제목 및 초성 검색
+        // 3. 제목 및 초성 검색 (띄어쓰기·기호 무시: "3.0.만.원" == "30만원")
         if (fuzzyKoreanMatch(term, v.videoTitle)) return true;
+        if (sqTerm.length >= 2 && squash(v.videoTitle).includes(sqTerm)) return true;
+        // 여러 단어: 단어마다 제목·게임·장르 어디든 있으면
+        if (termWords.length > 1 && termWords.every((w) => videoText(v).includes(w))) return true;
         
         // 4. 카테고리 및 게임명 검색
         const qLower = term.toLowerCase();
@@ -1379,9 +1416,12 @@ export function RecommendTab({
         const kwGames = gamesMatchingKeyword(gameKeywordMap, term);
         const gameNamesOf = (v: any) => [v.parentLog?.game, ...(v.parentLog?.games || []).map((g: any) => g?.name), ...(v.games || []).map((g: any) => g?.name)]
           .filter(Boolean).map((n: string) => normSearch(n));
+        // 아무렇게나 친 글자로 검색하면, 제목에 막 친 글자가 들어간 영상을 연관으로
+        const smash = isKeysmash(term);
         const extra = searchTarget.filter((v) => {
           if (found.has(v.id)) return false;
-          const via = matchRelated(entryOf(v), term) || (kwGames.size && gameNamesOf(v).some((n) => kwGames.has(n)) ? '게임' : null);
+          const via = matchRelated(entryOf(v), term) || (kwGames.size && gameNamesOf(v).some((n) => kwGames.has(n)) ? '게임' : null)
+            || (smash && String(v.videoTitle || '').split(/\s+/).some((w: string) => isKeysmash(w)) ? '막 친 글자' : null);
           if (via) relatedVia.set(v.id, via);
           return Boolean(via);
         });
@@ -1467,6 +1507,14 @@ export function RecommendTab({
            isHighConfidence = true;
          } else if (aTitle.includes(q)) {
            matchScore = 80;
+           isHighConfidence = true;
+         } else if (squash(q).length >= 2 && squash(aTitle).includes(squash(q))) {
+           // 띄어쓰기·기호만 다른 제목
+           matchScore = 78;
+           isHighConfidence = true;
+         } else if (q.split(/\s+/).filter(Boolean).length > 1 && q.split(/\s+/).map(squash).filter(Boolean).every((w) => squash(aTitle).includes(w))) {
+           // 여러 단어가 모두 제목에 (순서 무관)
+           matchScore = 76;
            isHighConfidence = true;
          }
          // 3. 방송 날짜 직접 일치
@@ -1587,7 +1635,7 @@ export function RecommendTab({
     }
 
     return scoredVids;
-  }, [allVideos, categoryIndex, categories, selectedCategories, searchTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, categoryIndex, categories, selectedCategories, effectiveSearchTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap]); // Removed ratings and history to prevent jumping on watch
 
   const handleRefresh = () => {
     Object.keys(baseWeights.current).forEach(id => {
@@ -1652,7 +1700,9 @@ export function RecommendTab({
     const firstLow = !video.isRelated && isAccuracySort && !video.isHighConfidence &&
       (prev ? (prev.isHighConfidence || prev.isRelated) : (currentPage > 1 || !hasAnyHighConfidence));
     if (!firstRelated && !firstLow) return null;
-    const label = firstRelated
+    const label = firstRelated && video.relatedVia === '막 친 글자'
+      ? '아무렇게나 친 글자 같아요 · 제목에 막 친 글자가 있는 영상'
+      : firstRelated
       ? (hasMainResults ? '연관 검색 결과 · 썸네일·태그·게임 정보에서 찾았어요' : '제목엔 없지만 썸네일·태그·게임 정보에서 찾았어요')
       : isTagSearch
         ? (hasAnyHighConfidence ? '비슷한 태그' : '비슷한 태그 (같은 태그 없음)')
@@ -1724,7 +1774,7 @@ export function RecommendTab({
             <span className="text-xs sm:text-sm font-bold text-zinc-800 dark:text-zinc-200">
               {searchTerm.trim() ? (
                 <>
-                  '<span className="text-purple-600 dark:text-purple-400 font-extrabold">{searchTerm}</span>' 검색 결과: <b className="text-zinc-900 dark:text-white font-black">{recommended.length}개</b> 영상
+                  '<span className="text-purple-600 dark:text-purple-400 font-extrabold">{effectiveSearchTerm}</span>' 검색 결과: <b className="text-zinc-900 dark:text-white font-black">{recommended.length}개</b> 영상
                 </>
               ) : (
                 <>
@@ -1920,6 +1970,26 @@ export function RecommendTab({
 
       {/* 검색 결과 영상 카드 영역 (카드가 아래로/사각형으로 펼쳐지는 인라인 확장 UX) */}
       <div id="recommend-cards-container" className="min-h-[400px]">
+        {/* 오타 보정 안내: 바로 고친 경우 / 혹시 ~? 제안 */}
+        {(autoCorrected || suggestion) && (
+          <div className="mb-3 px-1 text-sm text-zinc-600 dark:text-zinc-300 break-keep">
+            {autoCorrected ? (
+              <p>
+                <button type="button" onClick={() => setSearchTerm(autoCorrected.to)} className="font-bold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer">'{autoCorrected.to}'</button>
+                (으)로 검색한 결과예요{autoCorrected.how === 'hanyeong' ? ' (한/영 전환)' : ''}.{' '}
+                <button type="button" onClick={() => setKeepOriginalFor(autoCorrected.from)} className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 underline cursor-pointer">
+                  '{autoCorrected.from}' 그대로 검색
+                </button>
+              </p>
+            ) : suggestion && (
+              <p>
+                혹시{' '}
+                <button type="button" onClick={() => setSearchTerm(suggestion.to)} className="font-bold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer">'{suggestion.to}'</button>
+                {' '}을(를) 검색하셨나요?
+              </p>
+            )}
+          </div>
+        )}
         {/* 보기 방식: 카드 / 목록(유튜브 동영상 탭처럼) + 모바일 카드 1개·2개씩 */}
         {recommended.length > 0 && (
           <div className="flex items-center justify-between gap-2 px-1 mb-3">

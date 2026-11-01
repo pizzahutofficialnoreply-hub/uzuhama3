@@ -20,11 +20,11 @@ import { VideoCard } from '../RecommendTab';
 
 import { usePlaylists, type Playlist } from '../../../hooks/usePlaylists';
 import { buildGameCatalog, inferPlaylistGame } from '../../../utils/playlistGames';
+import { usePrefs } from '../../../utils/userPrefs';
 export type { Playlist, PlaylistItem } from '../../../hooks/usePlaylists';
 const CARDS_PER_PAGE = 9;
 // iOS 처럼 살짝 감기며 멈추는 스프링
 const IOS_SPRING = { type: 'spring' as const, stiffness: 340, damping: 32, mass: 1 };
-const ITEMS_PER_PAGE = 30;
 
 /** 유튜브 영상 ID → 그 영상이 등록된 방송 기록 (생방송·쇼츠 버튼, 카드 미리보기용) */
 function useLogIndex(logs: any) {
@@ -94,6 +94,7 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
 }) {
   const [page, setPage] = useState(1);
   const [viewStyle, setViewStyle] = useViewStyle();
+  const ITEMS_PER_PAGE = usePrefs().collectionPageSize; // 설정에서 조절
   const total = playlist.items.length;
   // 게임 기록이 없는 영상은 재생목록 이름의 게임을 기본으로 표시
   const playlistGame = useMemo(() => inferPlaylistGame(playlist.title, buildGameCatalog(logs)), [playlist.title, logs]);

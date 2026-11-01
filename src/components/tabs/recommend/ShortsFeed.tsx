@@ -3,6 +3,7 @@ import { fuzzyKoreanMatch } from '../../../utils';
 import { extractYoutubeId } from '../../../utils/urlUtils';
 import { ShortsCard } from '../../common/ShortsCard';
 import { ShortsPlayer } from '../../common/ShortsPlayer';
+import { getPrefs } from '../../../utils/userPrefs';
 import { Pagination } from '../../common/Pagination';
 import { useVideoMetaMany, toKstDate } from '../../../hooks/useVideoDuration';
 import { cn } from '../../../utils';
@@ -49,10 +50,10 @@ function useChannelShorts() {
 export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToCalendar, genresOfLog }: ShortsFeedProps) {
   const [page, setPage] = useState(1);
   // 정렬: 생방일순(방송 날짜) / 업로드순(유튜브에 올라온 날짜)
-  const [sortBy, setSortBy] = useState<'live' | 'upload'>(() => (sessionStorage.getItem('rec_shorts_sort') === 'live' ? 'live' : 'upload'));
+  const [sortBy, setSortBy] = useState<'live' | 'upload'>(() => { const v = sessionStorage.getItem('rec_shorts_sort'); return v === 'live' || v === 'upload' ? v : getPrefs().shortsSortBy; });
   const changeSort = (v: 'live' | 'upload') => { setSortBy(v); setPage(1); try { sessionStorage.setItem('rec_shorts_sort', v); } catch {} };
   // 순서: 최신순 / 과거순
-  const [order, setOrder] = useState<'desc' | 'asc'>(() => (sessionStorage.getItem('rec_shorts_order') === 'asc' ? 'asc' : 'desc'));
+  const [order, setOrder] = useState<'desc' | 'asc'>(() => { const v = sessionStorage.getItem('rec_shorts_order'); return v === 'asc' || v === 'desc' ? v : getPrefs().shortsOrder; });
   const changeOrder = (v: 'desc' | 'asc') => { setOrder(v); setPage(1); try { sessionStorage.setItem('rec_shorts_order', v); } catch {} };
   // 장르 (연결된 방송에서 한 게임의 장르)
   const [genre, setGenre] = useState<string>(() => sessionStorage.getItem('rec_shorts_genre') || '전체');

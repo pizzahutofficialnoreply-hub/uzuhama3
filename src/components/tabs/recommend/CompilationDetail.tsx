@@ -5,13 +5,13 @@ import { VideoListRow } from '../../common/VideoListRow';
 import { Pagination } from '../../common/Pagination';
 import { useViewStyle } from '../../../hooks/useViewStyle';
 import { BroadcastDetailModal, getBroadcastDates } from '../BroadcastDetailModal';
+import { usePrefs } from '../../../utils/userPrefs';
 
 /**
  * 몰아보기(또는 여러 생방송이 연결된 영상)를 펼친 화면 — 재생목록 펼치기와 같은 모양
  * 위/왼쪽: 흐린 배경 + 큰 썸네일 + 제목 + '재생' (몰아보기 영상 자체를 그 자리에서 재생)
  * 아래/오른쪽: 연결된 생방송 목록 (목록: 줄 누르면 그날 영상, 오른쪽 생방송·쇼츠 버튼 / 카드: 사이트 안 미리보기)
  */
-const PER_PAGE = 20;
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const dayLabel = (d: string) => {
@@ -28,6 +28,7 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
 }) {
   const [viewStyle, setViewStyle] = useViewStyle();
   const [page, setPage] = useState(1);
+  const PER_PAGE = usePrefs().collectionPageSize; // 설정에서 조절
   const logsList = useMemo(() => (allLogs ? (Array.isArray(allLogs) ? allLogs : Object.values(allLogs)) : []), [allLogs]);
   const dates = useMemo(() => getBroadcastDates(video, logsList), [video, logsList]);
   const isCompilation = !!(video?.isCompilation || video?.compilationId);

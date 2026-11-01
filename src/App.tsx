@@ -39,6 +39,7 @@ import { useRealtimeNotification } from './hooks/useRealtimeNotification';
 import { Download, LogIn, ArrowLeft, Settings as SettingsIcon } from 'lucide-react';
 import { SettingsView } from './components/SettingsView';
 import { Tutorial, TUTORIAL_START_EVENT } from './components/Tutorial';
+import { Onboarding } from './components/Onboarding';
 
 // 별도 페이지(관리자·패치노트·약관·라이선스)는 들어갈 때만 불러옴 → 메인 화면 첫 로딩 가볍게
 const AdminRoute = lazy(() => import('./components/AdminRoute').then((m) => ({ default: m.AdminRoute })));
@@ -1261,8 +1262,15 @@ function MainApp() {
       </AnimatePresence>
       
       {/* Floating Bottom Nav Dock (Unified Island Tab Bar + Floating '+' Action Button) */}
+      <Onboarding
+        enabled={data.system?.onboardingEnabled !== false}
+        version={Number(data.system?.onboardingVersion) || 1}
+        system={data.system}
+        tutorialEnabled={data.system?.tutorialEnabled !== false}
+      />
       <Tutorial
         enabled={data.system?.tutorialEnabled !== false}
+        autoStart={data.system?.onboardingEnabled === false}
         activeTab={activeTab}
         onTabChange={(t) => handleTabChangeRef.current(t)}
       />

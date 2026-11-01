@@ -26,6 +26,23 @@ export function ShortsPlayer({ items, startIndex, onClose }: { items: ShortsPlay
   const pausedRef = useRef(false);
   pausedRef.current = paused;
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  // 화면 비율이 9:16 보다 길쭉한 휴대폰(아이폰 등)에서도 위아래 검은 여백 없이 꽉 차게 (양옆을 조금 잘라 채움)
+  const [cover, setCover] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const fit = () => {
+      const W = el.clientWidth, H = el.clientHeight;
+      if (!W || !H) return;
+      const w = Math.max(W, H * 9 / 16);
+      setCover({ w, h: w * 16 / 9 });
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const touchRef = useRef<{ y: number; x: number; t: number; moved: boolean } | null>(null);
   const wheelLock = useRef(0);
   const firstId = useRef(extractYoutubeId(items[index]?.url || '') || '');
@@ -150,7 +167,7 @@ export function ShortsPlayer({ items, startIndex, onClose }: { items: ShortsPlay
   return createPortal(
     <div className="fixed inset-0 z-[300] bg-black text-white select-none" role="dialog" aria-modal="true" aria-label="쇼츠 보기">
       <div className="absolute inset-0 flex justify-center">
-        <div className="relative h-full w-full max-w-[min(100vw,calc(100dvh*9/16))] overflow-hidden">
+        <div ref={stageRef} className="relative h-full w-full max-w-[min(100vw,calc(100dvh*9/16))] overflow-hidden">
           {/* 쇼츠 썸네일 줄 (끌 때 다음·이전이 보이게) */}
           <div
             className="absolute inset-0"
@@ -177,7 +194,8 @@ export function ShortsPlayer({ items, startIndex, onClose }: { items: ShortsPlay
               ref={iframeRef}
               src={src}
               title={cur.title || '쇼츠'}
-              className="absolute inset-0 w-full h-full border-0"
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border-0"
+              style={cover ? { width: cover.w, height: cover.h } : { width: '100%', height: '100%' }}
               allow="autoplay; encrypted-media; picture-in-picture"
               onLoad={() => {
                 iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 'uzuhama-shorts' }), '*');

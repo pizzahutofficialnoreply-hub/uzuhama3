@@ -223,6 +223,8 @@ export interface SystemConfig {
   termsVersion?: number;
   termsRevision?: TermsRevision;
   termsHistory?: TermsRevision[];
+  onboardingEnabled?: boolean; // 처음 시작 화면(환영·약관·안내) 표시 여부 (기본 true)
+  onboardingVersion?: number; // 올리면 모든 사람에게 처음 시작 화면이 다시 보임
   tutorialEnabled?: boolean; // 처음 방문자 사이트 둘러보기 표시 여부 (기본 true, 관리자가 전체 차단 가능)
   showLegacyCategoryAnalysis?: boolean; // ~2025 과거 데이터 카테고리 분석 표시 여부 (기본 true/토글 가능)
   absenceReasonOptions?: string[];

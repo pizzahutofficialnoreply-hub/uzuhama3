@@ -4,7 +4,7 @@ import {
   BookOpen, FileText, ExternalLink, Mail, AlertCircle, Gavel, 
   ShieldCheck, Trash2, LogOut, ChevronRight, Check, RefreshCw,
   Copy, Smartphone, Sun, Moon, Laptop, Sparkles, Youtube, X, Share2, Type,
-  FileCode2, Lock, Compass
+  FileCode2, Lock, Compass, SlidersHorizontal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePushNotification, PushSettings } from '../hooks/usePushNotification';
@@ -16,6 +16,7 @@ import { AdminVerificationModal } from './AdminVerificationModal';
 import { useTabGlass } from '../hooks/useTabGlass';
 import { RichTextRenderer } from './common/RichTextRenderer';
 import { DEFAULT_PREFACE_TEMPLATE } from './tabs/admin/system/NoticesSubTab';
+import { usePrefs, setPref, PAGE_SIZE_OPTIONS, KEYBOARD_OPTIONS, type UserPrefs } from '../utils/userPrefs';
 
 interface SettingsViewProps {
   user: any;
@@ -64,7 +65,7 @@ export function SettingsView({
     (typeof window !== 'undefined' && localStorage.getItem('admin_verified_session') === 'true')
   );
   const [showAdminVerifyModal, setShowAdminVerifyModal] = useState(false);
-  const [activeSection, setActiveSection] = useState<'notification' | 'theme' | 'share' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(() => initialSection || null);
+  const [activeSection, setActiveSection] = useState<'notification' | 'viewPrefs' | 'theme' | 'share' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(() => initialSection || null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getThemeMode());
@@ -323,6 +324,35 @@ export function SettingsView({
         </h3>
         <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           
+          {/* 보기·정렬 기본값 */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setActiveSection(activeSection === 'viewPrefs' ? null : 'viewPrefs')}
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <SlidersHorizontal className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <span className="text-sm font-semibold text-zinc-900 dark:text-white">보기·정렬·검색</span>
+              </div>
+              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'viewPrefs' && "rotate-90")} />
+            </button>
+            <AnimatePresence initial={false}>
+              {activeSection === 'viewPrefs' && (
+                <motion.div
+                  key="settings-accordion-viewPrefs"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                  className="overflow-hidden"
+                >
+                  <ViewPrefsPanel />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           {/* 알림 설정 */}
           <div>
             <button 
@@ -1156,6 +1186,57 @@ export function SettingsView({
         />
       )}
 
+    </div>
+  );
+}
+
+/** 설정 > 보기·정렬·검색: 펼친 목록 한 페이지 개수, 정렬 기본값, 자판 */
+function ViewPrefsPanel() {
+  const prefs = usePrefs();
+  const Seg = <K extends keyof UserPrefs>({ k, options }: { k: K; options: [UserPrefs[K], string][] }) => (
+    <div className="flex flex-wrap gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60 w-fit">
+      {options.map(([v, label]) => (
+        <button
+          key={String(v)}
+          type="button"
+          onClick={() => setPref(k, v)}
+          aria-pressed={prefs[k] === v}
+          className={cn(
+            'px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer',
+            prefs[k] === v ? 'bg-white dark:bg-zinc-700 text-purple-600 dark:text-purple-300 shadow-2xs font-bold' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+          )}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+  const Row = ({ title, desc, children }: { title: string; desc: string; children: React.ReactNode }) => (
+    <div className="py-1.5 space-y-2">
+      <div>
+        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">{title}</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">{desc}</p>
+      </div>
+      {children}
+    </div>
+  );
+  return (
+    <div className="px-4 pb-4 pt-1.5 space-y-3 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
+      <Row title="펼친 목록 한 페이지 개수" desc="재생목록·몰아보기를 펼쳤을 때 한 번에 보이는 영상 수">
+        <Seg k="collectionPageSize" options={PAGE_SIZE_OPTIONS.map((n) => [n, `${n}개`] as [number, string])} />
+      </Row>
+      <Row title="추천 영상 기본 정렬" desc="홈·동영상 탭을 처음 열 때의 순서 (검색 중에는 정확도순)">
+        <Seg k="recommendSort" options={[['desc', '최신순'], ['asc', '과거순']]} />
+      </Row>
+      <Row title="쇼츠 기본 정렬" desc="정렬 기준과 순서">
+        <div className="flex flex-wrap gap-2">
+          <Seg k="shortsSortBy" options={[['upload', '업로드일'], ['live', '방송일']]} />
+          <Seg k="shortsOrder" options={[['desc', '최신순'], ['asc', '과거순']]} />
+        </div>
+      </Row>
+      <Row title="쓰는 자판" desc="검색어 오타를 자판 배열에 맞춰 고쳐 드려요">
+        <Seg k="keyboard" options={KEYBOARD_OPTIONS.map((o) => [o.value, o.label] as [UserPrefs['keyboard'], string])} />
+      </Row>
     </div>
   );
 }

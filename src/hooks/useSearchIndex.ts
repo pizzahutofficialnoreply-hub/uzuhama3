@@ -126,7 +126,7 @@ export function useSearchIndex(knownIds?: string[], gameNames?: string[]): Searc
 }
 
 /** 검색어 비교용: 소문자 + 공백 제거 */
-export const normSearch = (s: string) => String(s || '').toLowerCase().replace(/\s+/g, '');
+export const normSearch = (s: string) => String(s || '').toLowerCase().normalize('NFC').replace(/[^0-9a-z가-힣ㄱ-ㅎㅏ-ㅣ]/g, '');
 
 /** # 태그 검색: 태그 중 하나가 검색어와 같으면 'exact', 포함하면 'partial' */
 export function matchTag(entry: SearchEntry | undefined, tagQuery: string): 'exact' | 'partial' | null {
@@ -146,6 +146,14 @@ export function matchRelated(entry: SearchEntry | undefined, query: string): str
   if (!entry || entry.x) return null;
   const q = normSearch(query.replace(/^#+/, ''));
   if (q.length < 2) return null;
+  // 여러 단어면 단어마다 어디든 있으면 (예: 썸네일 글자 덩어리가 둘이어도 각각으로 찾기)
+  const words = query.replace(/^#+/, '').split(/\s+/).map(normSearch).filter((w) => w.length >= 1);
+  if (words.length > 1) {
+    const all = normSearch([entry.t, ...(entry.k || []), ...(entry.g || []), entry.d].filter(Boolean).join(' '));
+    if (!all.includes(q) && words.every((w) => all.includes(w))) {
+      return entry.t && words.some((w) => normSearch(entry.t!).includes(w)) ? '썸네일' : '태그·설명';
+    }
+  }
   if (entry.t && normSearch(entry.t).includes(q)) return '썸네일';
   if (entry.k?.some((k) => normSearch(k).includes(q))) return '키워드';
   if (entry.g?.some((g) => normSearch(g).includes(q))) return '태그';

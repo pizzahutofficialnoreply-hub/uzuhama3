@@ -26,7 +26,7 @@ const VISION_PER_REQUEST = 24; // 썸네일 (8장씩 3번, 차례로)
 const VISION_BATCH = 8;
 const DAILY_NEW_LIMIT = 4000;
 const DAILY_VISION_LIMIT = 1500;
-const GAMES_PER_REQUEST = 150;
+const GAMES_PER_REQUEST = 40; // 한 번에 너무 많으면 응답이 잘리거나 시간 초과
 const CHUNK_SIZE = 400;
 const MODELS = [process.env.GEMINI_MODEL, 'gemini-flash-lite-latest', 'gemini-flash-latest']
   .filter(Boolean) as string[];
@@ -91,7 +91,7 @@ async function gemini(ai: any, contents: any, temperature = 0.2) {
       const r = await ai.models.generateContent({
         model,
         contents,
-        config: { responseMimeType: 'application/json', temperature, httpOptions: { timeout: 30000 } },
+        config: { responseMimeType: 'application/json', temperature, maxOutputTokens: 8192, httpOptions: { timeout: 40000 } },
       });
       return JSON.parse(r.text || 'null');
     } catch (e: any) {
@@ -105,9 +105,9 @@ async function gemini(ai: any, contents: any, temperature = 0.2) {
 async function readThumbnails(ai: any, batch: { id: string; desc: string; img: { data: string; mimeType: string } }[]) {
   const parts: any[] = [{
     text: `아래는 스트리머 "우주하마" 유튜브 영상 썸네일 ${batch.length}장이야. 각 이미지마다:
-- text: 썸네일 그림 안에 실제로 적힌 글자를 보이는 그대로 (여러 줄이면 공백으로 이어서, 없으면 빈 문자열). 추측해서 지어내지 말 것.
+- texts: 썸네일 그림 안에 실제로 적힌 글자를 보이는 그대로, 떨어져 있는 글자 덩어리마다 따로 (예: ["히말라야 등반", "범죄현장 청소"], 없으면 []). 추측해서 지어내지 말 것.
 - keywords: 썸네일 장면을 보고 검색에 쓸 만한 한국어 키워드 최대 8개 (장소, 상황, 등장 사물·인물 특징, 금액·숫자 등).
-JSON 배열로만 답해: [{"i":0,"text":"...","keywords":["..."]}, ...] (i 는 이미지 순서 번호)`,
+JSON 배열로만 답해: [{"i":0,"texts":["..."],"keywords":["..."]}, ...] (i 는 이미지 순서 번호)`,
   }];
   batch.forEach((b, i) => {
     parts.push({ text: `#${i}${b.desc ? ` 설명: ${b.desc.slice(0, 100)}` : ''}` });
@@ -120,7 +120,8 @@ JSON 배열로만 답해: [{"i":0,"text":"...","keywords":["..."]}, ...] (i 는 
     const i = Number(x?.i);
     if (!Number.isInteger(i) || !batch[i]) return;
     out.set(batch[i].id, {
-      text: String(x?.text || '').replace(/\s+/g, ' ').trim().slice(0, 160),
+      // 글자 덩어리는 ' | ' 로 구분해 저장 (앱에서 덩어리마다 따로 검색)
+      text: (Array.isArray(x?.texts) ? x.texts : [x?.text]).map((t: any) => String(t || '').replace(/\s+/g, ' ').trim()).filter(Boolean).join(' | ').slice(0, 200),
       keywords: cleanList(x?.keywords, 8, 30),
     });
   });
@@ -129,20 +130,22 @@ JSON 배열로만 답해: [{"i":0,"text":"...","keywords":["..."]}, ...] (i 는 
 
 /** 게임 이름 → 한국어 검색 키워드 */
 async function gameKeywords(ai: any, names: string[]) {
-  const json = await gemini(ai, `아래는 게임 방송 스트리머가 했던 게임 이름 목록이야. 각 게임마다 한국 시청자가 이 게임을 찾을 때 칠 만한 한국어 검색어를 최대 6개 골라줘.
+  // 이름을 그대로 키로 쓰면 따옴표·특수문자 때문에 JSON 이 깨지기 쉬워서 번호로 주고받음
+  const arr = await gemini(ai, `아래는 게임 방송 스트리머가 했던 게임 이름 목록이야(번호. 이름). 각 게임마다 한국 시청자가 이 게임을 찾을 때 칠 만한 한국어 검색어를 최대 6개 골라줘.
 - 영어 이름이면 한국어 이름·번역 (예: "Librarian: Tidy Up the Arcane Library!" → 도서관, 사서, 책 정리)
 - 흔히 쓰는 줄임말·별명, 게임의 핵심 소재·장소, 장르 한 단어
-- 모르는 게임이면 이름 뜻 번역만. 지어내지 말 것
-JSON 객체로만 답해: {"게임 이름 그대로": ["키워드", ...], ...}
+- 모르는 게임이면 이름 뜻 번역만. 지어내지 말 것. 키워드 안에 따옴표 쓰지 말 것
+JSON 배열로만 답해: [{"i":0,"k":["키워드", ...]}, ...]
 
-${names.map((n) => `- ${n}`).join('\n')}`);
+${names.map((n, i) => `${i}. ${n.replace(/["\\]/g, ' ')}`).join('\n')}`);
   const out: Record<string, string[]> = {};
-  if (json && typeof json === 'object') {
-    names.forEach((n) => {
-      const kw = cleanList(json[n], 6, 20);
-      out[n] = kw; // 빈 배열도 저장 (다시 묻지 않음)
-    });
-  }
+  if (!Array.isArray(arr)) throw new Error('응답 형식 오류');
+  arr.forEach((x: any) => {
+    const i = Number(x?.i);
+    if (Number.isInteger(i) && names[i] !== undefined) out[names[i]] = cleanList(x?.k, 6, 20);
+  });
+  // 답이 없는 게임도 빈 배열로 저장 (다시 묻지 않음)
+  names.forEach((n) => { if (!(n in out)) out[n] = []; });
   return out;
 }
 

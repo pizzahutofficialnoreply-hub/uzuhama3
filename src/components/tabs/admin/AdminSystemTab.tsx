@@ -11,8 +11,9 @@ import { AbsenceHealthSubTab } from './system/AbsenceHealthSubTab';
 import { PushNotificationSubTab } from './system/PushNotificationSubTab';
 import { TermsPolicySubTab } from './system/TermsPolicySubTab';
 import { DataOptionsSubTab } from './system/DataOptionsSubTab';
+import { OnboardingSubTab } from './system/OnboardingSubTab';
 
-export type SystemSubTabId = 'maintenance' | 'notices' | 'absence' | 'push' | 'terms' | 'data';
+export type SystemSubTabId = 'maintenance' | 'notices' | 'absence' | 'push' | 'terms' | 'onboarding' | 'data';
 
 export function AdminSystemTab({ 
   data, 
@@ -190,6 +191,11 @@ export function AdminSystemTab({
       icon: Shield,
     },
     {
+      id: 'onboarding' as SystemSubTabId,
+      label: '처음 시작 화면',
+      icon: Sparkles,
+    },
+    {
       id: 'data' as SystemSubTabId,
       label: '시스템 & 데이터',
       icon: Database,
@@ -268,6 +274,16 @@ export function AdminSystemTab({
             onUpdateSystemConfig={onUpdateSystemConfig}
             onSave={handleSave}
             saving={saving}
+          />
+        )}
+
+        {activeSubTab === 'onboarding' && (
+          <OnboardingSubTab
+            systemEdit={systemEdit}
+            handleChange={handleChange}
+            onSave={handleSave}
+            saving={saving}
+            onUpdateSystemConfig={onUpdateSystemConfig}
           />
         )}
 
