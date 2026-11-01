@@ -143,6 +143,9 @@ export function FloatingBottomNav({
     if (Math.abs(kb - lockedKbRef.current) < 4) return;
     lockedKbRef.current = kb;
     setDockOffset(kb, KB_TRANSITION);
+    // 검색창이 옆으로 늘어나는 것(왼쪽 버튼 접힘)도 올라가는 순간 같은 곡선으로 동시에
+    if (keyboardUpTimerRef.current) clearTimeout(keyboardUpTimerRef.current);
+    setIsKeyboardUp(true);
   }, [measureKeyboard, setDockOffset]);
 
   useEffect(() => {
@@ -182,9 +185,9 @@ export function FloatingBottomNav({
     syncKeyboard();
     // 키보드 resize 신호가 늦게 오는 기기 대비: 짧게 몇 번 더 확인
     [120, 280, 520].forEach((ms) => setTimeout(syncKeyboard, ms));
-    // 폭 변화(왼쪽 버튼 접힘)는 키보드가 다 올라온 뒤 실행해 이동과 겹치지 않게
+    // 키보드 높이를 알 수 없는 기기(Android 등): 포커스 직후 바로 늘림
     if (keyboardUpTimerRef.current) clearTimeout(keyboardUpTimerRef.current);
-    keyboardUpTimerRef.current = setTimeout(() => setIsKeyboardUp(true), 380);
+    keyboardUpTimerRef.current = setTimeout(() => setIsKeyboardUp(true), 600);
   };
 
   const handleSearchBlur = () => {
@@ -437,7 +440,7 @@ export function FloatingBottomNav({
                       marginRight: 0,
                       pointerEvents: 'auto'
                     }}
-                    transition={{ type: "tween", duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+                    transition={{ type: "tween", duration: 0.38, ease: [0.19, 0.91, 0.3, 1] }}
                     style={glassStyle}
                     className={cn(
                       "relative flex items-center justify-center h-[48px] rounded-full active:scale-95 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 overflow-hidden border",

@@ -12,6 +12,17 @@ import { BroadcastDetailModal } from './BroadcastDetailModal';
 import { getMolabogiCache, setMolabogiCache } from '../../utils/molabogiCache';
 import { GameTitle } from '../common/GameTitle';
 import { useVideoMeta, formatDuration, toKstDate, formatRelativeTime } from '../../hooks/useVideoDuration';
+import { ShortsFeed } from './recommend/ShortsFeed';
+import { PlaylistsFeed } from './recommend/PlaylistsFeed';
+
+type RecommendSubTab = 'home' | 'recommend' | 'videos' | 'shorts' | 'playlists';
+const RECOMMEND_SUB_TABS: { id: RecommendSubTab; label: string }[] = [
+  { id: 'home', label: '홈' },
+  { id: 'recommend', label: '추천' },
+  { id: 'videos', label: '동영상' },
+  { id: 'shorts', label: 'Shorts' },
+  { id: 'playlists', label: '재생목록' },
+];
 
 const YoutubeLogo = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -609,10 +620,22 @@ export function RecommendTab({
     } catch {}
   }, [hasSearched]);
 
+  // 하위 탭: 홈(전체·정렬 자유) / 추천(추천순) / 동영상(편집본만) / Shorts / 재생목록
+  const [subTab, setSubTab] = useState<RecommendSubTab>(() => {
+    const saved = sessionStorage.getItem('rec_subTab') as RecommendSubTab | null;
+    return saved && RECOMMEND_SUB_TABS.some((t) => t.id === saved) ? saved : 'home';
+  });
+  const changeSubTab = (next: RecommendSubTab) => {
+    setSubTab(next);
+    sessionStorage.setItem('rec_subTab', next);
+    setCurrentPage(1);
+    setSelectedBroadcastModalVideo(null);
+  };
   useEffect(() => {
     if (targetCategory) {
       isNavigatedFromExternalRef.current = true;
       setSelectedCategories([targetCategory]);
+      setSubTab('home'); sessionStorage.setItem('rec_subTab', 'home'); // 다른 화면에서 넘어오면 홈 탭으로
       setSearchTerm('');
       setHasSearched(true);
       onClearTarget?.();
@@ -623,6 +646,7 @@ export function RecommendTab({
     if (targetSearchTerm) {
       isNavigatedFromExternalRef.current = true;
       setSearchTerm(targetSearchTerm);
+      setSubTab('home'); sessionStorage.setItem('rec_subTab', 'home'); // 다른 화면에서 넘어오면 홈 탭으로
       setSelectedCategories(['전체']);
       setHasSearched(true);
       onClearTarget?.();
@@ -633,6 +657,7 @@ export function RecommendTab({
     if (pinnedVideoId) {
       isNavigatedFromExternalRef.current = true;
       setSortOrder('recommend');
+      setSubTab('home'); sessionStorage.setItem('rec_subTab', 'home'); // 다른 화면에서 넘어오면 홈 탭으로
       setSearchTerm('');
       setSelectedCategories(['전체']);
       setCurrentPage(1);
@@ -1177,10 +1202,14 @@ export function RecommendTab({
     return ['전체', '몰아보기', ...otherCats];
   }, [allVideos, categoryIndex]);
 
+  // 추천 탭은 항상 추천순 (검색 중에는 정확도순 유지)
+  const effectiveSortOrder = subTab === 'recommend' && sortOrder !== 'accuracy' ? 'recommend' : sortOrder;
+
   const recommended = useMemo(() => {
     if (allVideos.length === 0) return [];
 
-    let vids = allVideos;
+    // 동영상 탭: 몰아보기를 뺀 편집본만
+    let vids = subTab === 'videos' ? allVideos.filter((v) => !v.isCompilation) : allVideos;
 
     if (!selectedCategories.includes('전체')) {
       vids = vids.filter(v => {
@@ -1392,7 +1421,7 @@ export function RecommendTab({
       return 0;
     };
 
-    if (sortOrder === 'accuracy') {
+    if (effectiveSortOrder === 'accuracy') {
       scoredVids.sort((a, b) => {
         if (searchTerm.trim()) {
           // 유력한 검색 결과(isHighConfidence)를 항상 우선 배치
@@ -1406,14 +1435,14 @@ export function RecommendTab({
         }
         return (b.weight || 0) - (a.weight || 0);
       });
-    } else if (sortOrder === 'desc') {
+    } else if (effectiveSortOrder === 'desc') {
       scoredVids.sort((a, b) => {
         const timeA = getVideoSortTime(a);
         const timeB = getVideoSortTime(b);
         if (timeA !== timeB) return timeB - timeA;
         return (b.parentLog?.date || '').localeCompare(a.parentLog?.date || '');
       });
-    } else if (sortOrder === 'asc') {
+    } else if (effectiveSortOrder === 'asc') {
       scoredVids.sort((a, b) => {
         const timeA = getVideoSortTime(a);
         const timeB = getVideoSortTime(b);
@@ -1436,7 +1465,7 @@ export function RecommendTab({
       });
     }
 
-    if (pinnedVideoId && (sortOrder === 'recommend' || !searchTerm.trim())) {
+    if (pinnedVideoId && (effectiveSortOrder === 'recommend' || !searchTerm.trim())) {
       const pinIndex = scoredVids.findIndex(v => 
         v.id === pinnedVideoId || 
         v.videoUrl === pinnedVideoId ||
@@ -1449,7 +1478,7 @@ export function RecommendTab({
     }
 
     return scoredVids;
-  }, [allVideos, categoryIndex, selectedCategories, searchTerm, shuffleSeed, sortOrder, pinnedVideoId]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, categoryIndex, selectedCategories, searchTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab]); // Removed ratings and history to prevent jumping on watch
 
   const handleRefresh = () => {
     Object.keys(baseWeights.current).forEach(id => {
@@ -1500,13 +1529,39 @@ export function RecommendTab({
     }
   }, [totalPages, currentPage]);
 
-  const isAccuracySort = sortOrder === 'accuracy' && Boolean(searchTerm.trim());
+  const isAccuracySort = effectiveSortOrder === 'accuracy' && Boolean(searchTerm.trim());
   const hasAnyHighConfidence = useMemo(() => {
     return isAccuracySort && recommended.some(v => v.isHighConfidence);
   }, [isAccuracySort, recommended]);
 
   return (
     <div className="space-y-6 pb-28 sm:pb-12">
+      {/* 하위 탭 (유튜브 채널 화면처럼 홈 / 추천 / 동영상 / Shorts / 재생목록) */}
+      <div role="tablist" aria-label="추천 영상 보기 방식" className="-mx-3 px-3 sm:mx-0 sm:px-0 flex items-center gap-2 overflow-x-auto no-scrollbar">
+        {RECOMMEND_SUB_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={subTab === t.id}
+            onClick={() => changeSubTab(t.id)}
+            className={cn(
+              "shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-colors cursor-pointer whitespace-nowrap",
+              subTab === t.id
+                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+                : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {subTab === 'shorts' ? (
+        <ShortsFeed logs={data?.logs} searchTerm={searchTerm} selectedCategories={['전체']} onNavigateToCalendar={onNavigateToCalendar} />
+      ) : subTab === 'playlists' ? (
+        <PlaylistsFeed searchTerm={searchTerm} />
+      ) : (<>
       {/* 필터 카드 (최상단 배치: 실시간 연관 검색어 대신 필터가 맨 위에 위치) */}
       <div
         id="recommend-filter-card"
@@ -1521,7 +1576,7 @@ export function RecommendTab({
                 </>
               ) : (
                 <>
-                  전체 추천 영상: <b className="text-zinc-900 dark:text-white font-black">{recommended.length}개</b>
+                  {subTab === 'videos' ? '편집본 영상' : subTab === 'recommend' ? '추천 영상' : '전체 영상'}: <b className="text-zinc-900 dark:text-white font-black">{recommended.length}개</b>
                 </>
               )}
             </span>
@@ -1632,8 +1687,8 @@ export function RecommendTab({
               </AnimatePresence>
             </div>
 
-            {/* 정렬 옵션 */}
-            <div className="relative min-w-[105px]">
+            {/* 정렬 옵션 (추천 탭은 추천순 고정이라 숨김) */}
+            <div className={cn("relative min-w-[105px]", subTab === 'recommend' && "hidden")}>
               <select
                 value={sortOrder}
                 onChange={(e) => {
@@ -1660,7 +1715,7 @@ export function RecommendTab({
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
             </div>
 
-            {sortOrder === 'recommend' && (
+            {effectiveSortOrder === 'recommend' && (
               <button
                 type="button"
                 onClick={handleRefresh}
@@ -1910,6 +1965,8 @@ export function RecommendTab({
             )}
       </div>
       
+      </>)}
+
       {/* 푸터 바로 윗부분: 과거 데이터 안내 및 외부 링크 보안 주의 경고 */}
       <div className="mt-8 space-y-3">
         <div className="p-4 sm:p-5 rounded-[24px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2.5 leading-relaxed">

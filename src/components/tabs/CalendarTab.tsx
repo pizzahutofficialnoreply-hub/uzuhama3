@@ -28,6 +28,7 @@ import { CalendarSubscribeModal } from '../CalendarSubscribeModal';
 import { SelectiveCalendarModal } from '../modals/SelectiveCalendarModal';
 import { GameTitle } from '../common/GameTitle';
 import { VideoCard } from './RecommendTab';
+import { ShortsShelf } from '../common/ShortsCard';
 import { motion, AnimatePresence } from 'motion/react';
 
 const ShortsIcon = ({ className }: { className?: string }) => (
@@ -1558,7 +1559,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                             </div>
                           )}
 
-                          {/* 3. 쇼츠 영상 섹션 (2개 이상이면 세로로 2개 || 모양으로 배치) */}
+                          {/* 3. 쇼츠 영상 섹션 (세로 카드 가로 넘김) */}
                           {validShorts.length > 0 && (
                             <div className="space-y-3">
                               <h4 className="text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
@@ -1566,23 +1567,8 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                 <span>쇼츠 영상</span>
                                 <span className="text-[11px] font-normal text-zinc-400">({validShorts.length})</span>
                               </h4>
-                              {validShorts.length >= 2 ? (
-                                <div className="grid grid-cols-2 gap-2.5">
-                                  {validShorts.map((v, i) => (
-                                    <React.Fragment key={`shorts-${i}`}>
-                                      {renderVideoCard(v, 'shorts', true)}
-                                    </React.Fragment>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="flex flex-col gap-3">
-                                  {validShorts.map((v, i) => (
-                                    <React.Fragment key={`shorts-${i}`}>
-                                      {renderVideoCard(v, 'shorts', false)}
-                                    </React.Fragment>
-                                  ))}
-                                </div>
-                              )}
+                              {/* 좁은 패널에서도 글자가 세로로 쪼개지지 않도록 폭이 고정된 세로 카드를 가로로 넘겨 보기 */}
+                              <ShortsShelf items={validShorts.filter(v => Boolean(v.url)).map(v => ({ url: v.url, title: v.title }))} />
                             </div>
                           )}
                         </div>

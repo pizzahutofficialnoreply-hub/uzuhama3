@@ -1,0 +1,113 @@
+import React, { useState } from 'react';
+import { Play, X } from 'lucide-react';
+import { cn } from '../../utils';
+import { extractYoutubeId } from '../../utils/urlUtils';
+
+/**
+ * 유튜브 쇼츠 카드 (세로 9:16, 유튜브 앱의 쇼츠 선반과 같은 모양)
+ * - 제목은 썸네일 아래에 가로로 2줄까지 (좁은 칸에서 글자가 세로로 쪼개지지 않게 카드 폭을 고정)
+ * - 썸네일을 누르면 그 자리에서 바로 재생
+ */
+export interface ShortsCardProps {
+  url: string;
+  title?: string;
+  /** 제목 아래 작은 글씨 (방송일 등) */
+  caption?: string;
+  onCaptionClick?: () => void;
+  className?: string;
+}
+
+export function ShortsCard({ url, title, caption, onCaptionClick, className }: ShortsCardProps) {
+  const ytId = extractYoutubeId(url);
+  const [playing, setPlaying] = useState(false);
+  const label = title?.trim() || '유튜브 쇼츠';
+
+  return (
+    <div className={cn('flex flex-col min-w-0', className)}>
+      <div className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-zinc-900 shadow-sm">
+        {playing && ytId ? (
+          <>
+            <iframe
+              src={`https://www.youtube.com/embed/${ytId}?autoplay=1&playsinline=1&rel=0`}
+              title={label}
+              className="absolute inset-0 w-full h-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+            <button
+              type="button"
+              onClick={() => setPlaying(false)}
+              className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center cursor-pointer"
+              aria-label="플레이어 닫기"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </>
+        ) : ytId ? (
+          <button
+            type="button"
+            onClick={() => setPlaying(true)}
+            className="group/short absolute inset-0 w-full h-full cursor-pointer"
+            aria-label={`${label} 재생`}
+          >
+            {/* 쇼츠의 hqdefault(4:3) 가운데 9:16 부분이 실제 세로 화면과 같음 → object-cover 로 꽉 채움 */}
+            <img
+              src={`https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`}
+              alt=""
+              loading="lazy"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover/short:scale-105"
+            />
+            <span className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/55 to-transparent pointer-events-none" />
+            <span className="absolute inset-0 flex items-center justify-center">
+              <span className="w-10 h-10 rounded-full bg-black/45 backdrop-blur-sm text-white flex items-center justify-center opacity-90 group-hover/short:opacity-100 group-hover/short:scale-110 transition-all">
+                <Play className="w-4.5 h-4.5 fill-current ml-0.5" />
+              </span>
+            </span>
+          </button>
+        ) : (
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="absolute inset-0 flex items-center justify-center text-zinc-400 text-xs"
+          >
+            쇼츠 열기
+          </a>
+        )}
+      </div>
+      <a
+        href={ytId ? `https://www.youtube.com/shorts/${ytId}` : url}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-2 px-0.5 text-[13px] font-bold leading-snug text-zinc-900 dark:text-white line-clamp-2 break-keep hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+        title={label}
+      >
+        {label}
+      </a>
+      {caption && (
+        onCaptionClick ? (
+          <button
+            type="button"
+            onClick={onCaptionClick}
+            className="mt-0.5 px-0.5 text-left text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-purple-600 dark:hover:text-purple-400 tabular-nums cursor-pointer"
+          >
+            {caption}
+          </button>
+        ) : (
+          <span className="mt-0.5 px-0.5 text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">{caption}</span>
+        )
+      )}
+    </div>
+  );
+}
+
+/** 가로로 넘겨 보는 쇼츠 선반 (좁은 패널에서도 카드 폭을 일정하게 유지) */
+export function ShortsShelf({ items }: { items: { url: string; title?: string; caption?: string }[] }) {
+  return (
+    <div className="-mx-1 px-1 flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 no-scrollbar">
+      {items.map((s, i) => (
+        <ShortsCard key={`${s.url}-${i}`} url={s.url} title={s.title} caption={s.caption} className="w-[136px] sm:w-[150px] shrink-0 snap-start" />
+      ))}
+    </div>
+  );
+}
