@@ -7,6 +7,9 @@ import { getPrefs } from '../../../utils/userPrefs';
 import { Pagination } from '../../common/Pagination';
 import { useVideoMetaMany, toKstDate } from '../../../hooks/useVideoDuration';
 import { cn } from '../../../utils';
+import { useChannelVideos } from '../../../hooks/useChannelVideos';
+import { formatShortsShareText } from '../../../utils/shareUtils';
+import { cleanShortsTitle } from '../../../utils/videoSearch';
 
 /** 추천 영상 > Shorts 탭: 채널 쇼츠 전체 + 기록에 등록된 쇼츠 + #shorts 몰아보기 (업로드순 기본 / 생방일순) */
 interface ShortsFeedProps {
@@ -23,7 +26,7 @@ interface ShortsFeedProps {
 
 const PAGE = 24;
 
-type ShortEntry = { id: string; url: string; title: string; date: string; category: string; genres: string[]; liveUrl?: string; editUrl?: string; publishedAt?: string; isCompilation?: boolean; autoLinked?: boolean; compilation?: CompilationRow[]; compilationVideo?: any };
+type ShortEntry = { id: string; url: string; title: string; relatedTitle?: string; date: string; category: string; genres: string[]; liveUrl?: string; editUrl?: string; publishedAt?: string; isCompilation?: boolean; autoLinked?: boolean; compilation?: CompilationRow[]; compilationVideo?: any };
 export type CompilationRow = { date: string; games: string[]; liveUrl?: string; editUrl?: string };
 
 const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
@@ -89,6 +92,7 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
 
   const channelShorts = useChannelShorts();
   const relatedMap = useShortsRelated();
+  const channelVideos = useChannelVideos();
 
   const allShorts = useMemo(() => {
     const list = Array.isArray(logs) ? logs : Object.values(logs || {});
@@ -167,8 +171,19 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
       const rel = relatedMap[e.id];
       if (rel) e.editUrl = `https://www.youtube.com/watch?v=${rel}`;
     });
+    // 본영상 제목 (쇼츠를 본영상 제목으로도 찾을 수 있게): 방송 기록의 편집본 → 채널 영상 목록
+    const titleOf = new Map<string, string>();
+    list.forEach((log: any) => (Array.isArray(log?.edited) ? log.edited : []).forEach((e: any) => {
+      const eid = extractYoutubeId(e?.url || '');
+      if (eid && e?.title && !titleOf.has(eid)) titleOf.set(eid, e.title);
+    }));
+    channelVideos.forEach((v) => { if (!titleOf.has(v.videoId) && v.title) titleOf.set(v.videoId, v.title); });
+    byId.forEach((e) => {
+      const rel = relatedMap[e.id] || extractYoutubeId(e.editUrl || '');
+      if (rel) e.relatedTitle = titleOf.get(rel);
+    });
     return [...byId.values()].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  }, [logs, channelShorts, genresOfLog, relatedMap]);
+  }, [logs, channelShorts, genresOfLog, relatedMap, channelVideos]);
 
   const genreOptions = useMemo(() => {
     const counts = new Map<string, number>();
@@ -191,7 +206,14 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
         if (!cats.some((c) => tokens.includes(c) || s.genres.includes(c))) return false;
       }
       if (!term) return true;
+      // 링크로 찾기: 쇼츠 자신, 연결된 본영상, 생방송 링크
+      const linkId = extractYoutubeId(term);
+      if (linkId || /^https?:\/\//i.test(term)) {
+        return Boolean(linkId && [s.url, s.editUrl, s.liveUrl].some((u) => u && extractYoutubeId(u) === linkId))
+          || [s.url, s.editUrl, s.liveUrl].some((u) => u && term.length > 8 && u.includes(term.replace(/^https?:\/\/(www\.)?/i, '')));
+      }
       return fuzzyKoreanMatch(term, s.title) || fuzzyKoreanMatch(term, s.category) || s.date.includes(term)
+        || (s.relatedTitle ? fuzzyKoreanMatch(term, s.relatedTitle) : false)
         || s.genres.some((g) => g.replace(/\s+/g, '').toLowerCase() === termNorm);
     });
   }, [allShorts, searchTerm, selectedCategories, genre, genreOptions]);
@@ -284,6 +306,7 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
             caption={captionOf(s)}
             onCaptionClick={s.date && onNavigateToCalendar ? () => onNavigateToCalendar(s.date) : undefined}
             onPlay={() => setPlayerAt((page - 1) * PAGE + i)}
+            shareText={() => formatShortsShareText({ title: cleanShortsTitle(s.title), url: s.url, date: s.date, liveUrl: s.liveUrl, editUrl: s.editUrl, relatedTitle: s.relatedTitle }, logs)}
           />
         ))}
       </div>

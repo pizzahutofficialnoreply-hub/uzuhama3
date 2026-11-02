@@ -3,6 +3,7 @@ import { Layers } from 'lucide-react';
 import { cn } from '../../utils';
 import { useVideoMeta, formatDuration, toKstDate, formatRelativeTime } from '../../hooks/useVideoDuration';
 import { ShortsIcon, PlaySquare } from './MediaIcons';
+import { ShareButton } from './ShareButton';
 
 /**
  * 유튜브 '동영상' 탭 같은 한 줄 목록 (왼쪽 썸네일 + 오른쪽 제목·업로드 정보)
@@ -30,10 +31,12 @@ export interface VideoListRowProps {
   placeholder?: string;
   /** 업로드 정보 대신 보여 줄 문구 */
   subline?: string;
+  /** 공유 글 (있으면 오른쪽에 공유 버튼) */
+  shareText?: () => string;
 }
 
 export function VideoListRow({
-  videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense, placeholder, subline,
+  videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense, placeholder, subline, shareText,
 }: VideoListRowProps) {
   const meta = useVideoMeta(videoId || null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -83,8 +86,8 @@ export function VideoListRow({
         {(subline || upload) && <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{subline || upload}</p>}
       </div>
 
-      {(liveUrl || onLiveClick || validShorts.length > 0) && (
-        <div className="relative z-10 flex flex-col sm:flex-row gap-1.5 shrink-0">
+      {(liveUrl || onLiveClick || validShorts.length > 0 || shareText) && (
+        <div className="relative z-10 flex flex-col sm:flex-row gap-1.5 shrink-0 items-center">
           {onLiveClick ? (
             <button
               type="button"
@@ -146,6 +149,9 @@ export function VideoListRow({
                 </div>
               )}
             </div>
+          )}
+          {shareText && (
+            <ShareButton getText={shareText} title={`${title} 정보`} className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl" />
           )}
         </div>
       )}

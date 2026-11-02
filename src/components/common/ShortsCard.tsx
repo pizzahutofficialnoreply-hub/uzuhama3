@@ -5,6 +5,8 @@ import { extractYoutubeId } from '../../utils/urlUtils';
 import { cleanShortsTitle } from '../../utils/videoSearch';
 import { GlassPlayButton, PlaySquare, YoutubeLogo } from './MediaIcons';
 import { ShortsPlayer } from './ShortsPlayer';
+import { ShareButton } from './ShareButton';
+import { formatShortsShareText } from '../../utils/shareUtils';
 
 /**
  * 유튜브 쇼츠 카드 (세로 9:16, 유튜브 앱의 쇼츠 선반과 같은 모양)
@@ -23,9 +25,11 @@ export interface ShortsCardProps {
   className?: string;
   /** 있으면 썸네일을 눌렀을 때 그 자리 재생 대신 전체 화면 쇼츠로 */
   onPlay?: () => void;
+  /** 공유 글 (없으면 쇼츠 제목·링크와 생방송·편집본 링크로) */
+  shareText?: () => string;
 }
 
-export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editUrl, className, onPlay }: ShortsCardProps) {
+export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editUrl, className, onPlay, shareText }: ShortsCardProps) {
   const ytId = extractYoutubeId(url);
   const [playing, setPlaying] = useState(false);
   const label = cleanShortsTitle(title) || '유튜브 쇼츠';
@@ -81,15 +85,23 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
           </a>
         )}
       </div>
-      <a
-        href={ytId ? `https://www.youtube.com/shorts/${ytId}` : url}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-2 px-0.5 text-[13px] font-bold leading-snug text-zinc-900 dark:text-white line-clamp-2 break-keep hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-        title={label}
-      >
-        {label}
-      </a>
+      <div className="mt-2 flex items-start gap-0.5">
+        <a
+          href={ytId ? `https://www.youtube.com/shorts/${ytId}` : url}
+          target="_blank"
+          rel="noreferrer"
+          className="flex-1 min-w-0 px-0.5 text-[13px] font-bold leading-snug text-zinc-900 dark:text-white line-clamp-2 break-keep hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+          title={label}
+        >
+          {label}
+        </a>
+        <ShareButton
+          compact
+          className="-mr-1 -mt-0.5"
+          title={`${label} 정보`}
+          getText={shareText || (() => formatShortsShareText({ title: label, url: ytId ? `https://www.youtube.com/shorts/${ytId}` : url, liveUrl, editUrl }))}
+        />
+      </div>
       {(caption || liveUrl || editUrl) && (
         <div className="mt-1 px-0.5 flex items-center justify-between gap-1.5">
           {caption ? (
@@ -131,7 +143,7 @@ export function ShortsShelf({ items }: { items: { url: string; title?: string; c
   return (
     <div className="-mx-1 px-1 flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 no-scrollbar">
       {items.map((s, i) => (
-        <ShortsCard key={`${s.url}-${i}`} url={s.url} title={s.title} caption={s.caption} onPlay={() => setPlayerAt(i)} className="w-[136px] sm:w-[150px] shrink-0 snap-start" />
+        <ShortsCard key={`${s.url}-${i}`} url={s.url} title={s.title} caption={s.caption} liveUrl={s.liveUrl} editUrl={s.editUrl} onPlay={() => setPlayerAt(i)} className="w-[136px] sm:w-[150px] shrink-0 snap-start" />
       ))}
       {playerAt !== null && <ShortsPlayer items={items} startIndex={playerAt} onClose={() => setPlayerAt(null)} />}
     </div>

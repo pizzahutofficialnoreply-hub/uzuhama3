@@ -8,6 +8,8 @@ import { Pagination } from '../../common/Pagination';
 import { VideoListRow } from '../../common/VideoListRow';
 import { CollectionPanel } from '../../common/CollectionPanel';
 import { useViewStyle } from '../../../hooks/useViewStyle';
+import { ShareButton } from '../../common/ShareButton';
+import { formatPlaylistShareText, formatRecommendShareText } from '../../../utils/shareUtils';
 import { VideoCard } from '../RecommendTab';
 
 /**
@@ -56,9 +58,12 @@ function PlaylistCard({ playlist, onOpen }: { playlist: Playlist; onOpen: () => 
         </span>
       </button>
       <div className="p-4 flex-1 flex flex-col">
-        <button type="button" onClick={onOpen} className="text-left font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors text-sm sm:text-base cursor-pointer">
-          {playlist.title}
-        </button>
+        <div className="flex items-start justify-between gap-2">
+          <button type="button" onClick={onOpen} className="flex-1 text-left font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors text-sm sm:text-base cursor-pointer">
+            {playlist.title}
+          </button>
+          <ShareButton className="-mr-1 -mt-0.5" title={`${playlist.title} 재생목록`} getText={() => formatPlaylistShareText({ id: playlist.id, title: playlist.title, count })} />
+        </div>
         {playlist.description && <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">{playlist.description}</p>}
         <div className="mt-auto pt-3">
           <button
@@ -134,6 +139,7 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
                     shorts={hit?.log?.shorts || []}
                     badge={!hit && playlistGame ? playlistGame.name : undefined}
                     highlighted={matchedIds?.has(it.videoId)}
+                    shareText={() => formatRecommendShareText({ id: it.videoId, videoTitle: it.title, videoUrl: `https://www.youtube.com/watch?v=${it.videoId}`, parentLog: hit?.log, allBroadcastDates: hit?.log?.date ? [hit.log.date] : [] }, logs)}
                   />
                 );
               })}

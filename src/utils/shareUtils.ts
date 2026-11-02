@@ -508,3 +508,29 @@ export async function shareTextOrClipboard(
     document.body.removeChild(textarea);
   }
 }
+
+/**
+ * 쇼츠 공유 글 (영상 공유와 같은 모양)
+ * • 쇼츠: 제목, 링크
+ * • 방송일 / • 영상: 연결된 본영상 / • 게임 / • 생방
+ */
+export function formatShortsShareText(s: { title?: string; url: string; date?: string; liveUrl?: string; editUrl?: string; relatedTitle?: string }, allLogs?: Record<string, any> | any[]): string {
+  const lines: string[] = [];
+  const title = (s.title || '').trim();
+  lines.push(`• 쇼츠: ${title ? `${title}, ${s.url}` : s.url}`);
+  const logsList = allLogs ? (Array.isArray(allLogs) ? allLogs : Object.values(allLogs || {})) : [];
+  const log: any = s.date ? logsList.find((l: any) => l?.date === s.date) : null;
+  if (s.date) lines.push(`• ${s.date.replace(/-/g, '.')}`);
+  if (s.editUrl) lines.push(`• 영상: ${s.relatedTitle ? `${s.relatedTitle}, ${s.editUrl}` : s.editUrl}`);
+  const games: any[] = Array.isArray(log?.games) && log.games.length ? log.games : log?.game ? [{ name: log.game }] : [];
+  games.forEach((g: any) => { const n = (g?.name || '').trim(); if (n) lines.push(`• 게임: ${g.link ? `${n}, ${g.link}` : n}`); });
+  if (s.liveUrl) lines.push(`• 생방: ${s.liveUrl}`);
+  return lines.join('\n');
+}
+
+/** 재생목록 공유 글 */
+export function formatPlaylistShareText(p: { id: string; title: string; count?: number }): string {
+  const lines = [`• 재생목록: ${p.title}, https://www.youtube.com/playlist?list=${p.id}`];
+  if (p.count) lines.push(`• 영상 ${p.count}개`);
+  return lines.join('\n');
+}

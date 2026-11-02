@@ -1196,8 +1196,9 @@ export function RecommendTab({
   }, [allVideos, searchIndex, gameKeywordMap]);
   // 홈에서 검색하면 제목이 맞는 쇼츠를 위쪽 'Shorts' 줄에 따로 (생방송과 연결이 없는 쇼츠도)
   const channelShorts = useChannelShorts();
+  const shortsRelatedMap = useShortsRelated();
   const allShortsLite = useMemo(() => {
-    const byId = new Map<string, { url: string; title: string; caption?: string; liveUrl?: string }>();
+    const byId = new Map<string, { url: string; title: string; caption?: string; liveUrl?: string; editUrl?: string; relatedTitle?: string }>();
     const logs = Array.isArray(data?.logs) ? data!.logs : Object.values(data?.logs || {});
     (logs as any[]).forEach((log) => (Array.isArray(log?.shorts) ? log.shorts : []).forEach((s: any) => {
       const url = typeof s === 'string' ? s : s?.url;
@@ -1211,11 +1212,20 @@ export function RecommendTab({
       if (hit) { if (!hit.title) hit.title = c.title; return; }
       byId.set(c.videoId, { url: `https://www.youtube.com/shorts/${c.videoId}`, title: c.title, caption: c.publishedAt ? `${c.publishedAt.slice(0, 10)} 업로드` : undefined });
     });
+    // 쇼츠 아래 연결된 본영상 (제목으로도 찾을 수 있게)
+    const videoTitleOf = new Map<string, string>();
+    allVideos.forEach((v: any) => { const id = extractYoutubeId(v.videoUrl) || v.id; if (id && v.videoTitle) videoTitleOf.set(id, v.videoTitle); });
+    byId.forEach((s, id) => {
+      const rel = shortsRelatedMap[id];
+      if (!rel) return;
+      if (!s.editUrl) s.editUrl = `https://www.youtube.com/watch?v=${rel}`;
+      s.relatedTitle = videoTitleOf.get(rel);
+    });
     return [...byId.values()].filter((s) => s.title).map((s) => ({ ...s, title: cleanShortsTitle(s.title) }));
-  }, [data?.logs, channelShorts]);
+  }, [data?.logs, channelShorts, shortsRelatedMap, allVideos]);
 
   // 일반 영상 ID → 그 영상이 걸린 쇼츠들 (쇼츠 아래 '관련 동영상' 기준, 영상 카드에 함께 보여 줌)
-  const shortsRelated = useShortsRelated();
+  const shortsRelated = shortsRelatedMap;
   const shortsByVideo = useMemo(() => {
     const titleOf = new Map(channelShorts.map((c) => [c.videoId, c.title] as const));
     const m = new Map<string, { url: string; title?: string }[]>();
@@ -1243,8 +1253,15 @@ export function RecommendTab({
 
   const matchingShorts = useMemo(() => {
     const raw = effectiveSearchTerm.trim().replace(/^#+/, '');
-    if (subTab !== 'home' || raw.length < 2 || isVideoUrl(raw)) return [];
-    return allShortsLite.filter((s) => titleMatches(raw, s.title)).slice(0, 20);
+    if (subTab !== 'home' || raw.length < 2) return [];
+    // 링크로 찾기: 쇼츠 자신의 링크, 또는 쇼츠가 연결된 본영상·생방송 링크
+    const linkId = extractYoutubeId(raw);
+    if (linkId || isVideoUrl(raw)) {
+      return allShortsLite.filter((s) => (linkId && (extractYoutubeId(s.url) === linkId || extractYoutubeId(s.editUrl || '') === linkId || extractYoutubeId(s.liveUrl || '') === linkId))
+        || matchMediaUrl(s.liveUrl, raw)).slice(0, 20);
+    }
+    // 제목, 또는 쇼츠가 연결된 본영상 제목으로
+    return allShortsLite.filter((s) => titleMatches(raw, s.title) || (s.relatedTitle && titleMatches(raw, s.relatedTitle))).slice(0, 20);
   }, [effectiveSearchTerm, allShortsLite, subTab]);
 
   // 카테고리 사전: 게임 장르(games[].category)를 기준으로 만들고, 게임명이 섞여 들어간 값은 제외
@@ -1425,6 +1442,8 @@ export function RecommendTab({
           // (1-1) 영상 자체 ID 및 URL 대조 (풀링크/단축/라이브/쇼츠/임베드 무관 100% 식별)
           if (ytId && (v.id === ytId || extractYoutubeId(v.videoUrl) === ytId || v.videoUrl?.includes(ytId))) return true;
           if (matchMediaUrl(v.videoUrl, term)) return true;
+          // (1-1b) 이 영상에 연결된 쇼츠의 링크로 검색해도
+          if (ytId && (shortsByVideo.get(extractYoutubeId(v.videoUrl) || v.id) || []).some((s) => extractYoutubeId(s.url) === ytId)) return true;
 
           // (1-2) 영상 내 games의 link / vodUrl 대조
           if (v.games?.some((g: any) => matchMediaUrl(g?.link, term) || matchMediaUrl(g?.vodUrl, term))) return true;
@@ -1463,6 +1482,10 @@ export function RecommendTab({
         // 여러 단어: 단어마다 제목·게임·장르 어디든 있으면
         if (termWords.length > 1 && termWords.every((w) => videoText(v).includes(w))) return true;
         
+        // 3-1. 이 영상에 연결된 쇼츠 제목으로도
+        const linked = shortsByVideo.get(extractYoutubeId(v.videoUrl) || v.id);
+        if (linked?.some((s) => s.title && (fuzzyKoreanMatch(term, s.title) || (sqTerm.length >= 2 && squash(s.title).includes(sqTerm))))) return true;
+
         // 4. 카테고리 및 게임명 검색
         const qLower = term.toLowerCase();
         if (v.category && (fuzzyKoreanMatch(term, v.category) || v.category.toLowerCase().includes(qLower))) return true;
@@ -1725,7 +1748,7 @@ export function RecommendTab({
     }
 
     return scoredVids;
-  }, [allVideos, categoryIndex, categories, selectedCategories, effectiveSearchTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, categoryIndex, categories, selectedCategories, effectiveSearchTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo]); // Removed ratings and history to prevent jumping on watch
 
   const handleRefresh = () => {
     Object.keys(baseWeights.current).forEach(id => {
@@ -2194,6 +2217,7 @@ export function RecommendTab({
                           onLiveClick={isMulti ? toggle : undefined}
                           liveActive={isExpanded}
                           shorts={mergeShorts(shortsByVideo.get(ytId), !isMulti ? video.parentLog?.shorts : [])}
+                          shareText={() => formatRecommendShareText(video, data?.logs)}
                         />
                       </motion.div>
                     )}
