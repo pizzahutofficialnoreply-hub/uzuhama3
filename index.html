@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
@@ -43,7 +43,8 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div id="boot-splash" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard',sans-serif"><img src="/icon-192.png" width="84" height="84" alt="" style="width:84px;height:84px;border-radius:22px;box-shadow:0 10px 30px -12px rgba(0,0,0,.35)" /><div class="boot-title" style="margin-top:20px;font-size:17px;font-weight:700;letter-spacing:-0.01em">우주하마 방송 예측</div></div></div>
+    <style>#boot-splash{background:#fff}html.dark #boot-splash{background:#000}#boot-splash .boot-title{color:#18181b}html.dark #boot-splash .boot-title{color:#fff}</style>
     <script type="module" src="/src/main.tsx"></script>
     <!-- PWA Service Worker Registration -->
     <script>

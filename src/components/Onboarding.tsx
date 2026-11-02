@@ -9,6 +9,8 @@ import { cn } from '../utils';
 import { KEYBOARD_OPTIONS, getPrefs, setPref, type KeyboardLayout } from '../utils/userPrefs';
 import { TUTORIAL_DONE_KEY, TUTORIAL_START_EVENT } from './Tutorial';
 import { OnboardingArt } from './OnboardingArt';
+import { SetupItemList, useSetupItems } from './SetupGuides';
+import { isStandaloneMode, openSetupGuide } from '../utils/setupStatus';
 
 /**
  * 처음 시작 화면 (휴대폰을 처음 켰을 때 하는 초기 설정처럼)
@@ -17,7 +19,7 @@ import { OnboardingArt } from './OnboardingArt';
  * - 관리자가 버전을 올리면(약관 변경 등) 모든 사람에게 다시 보임 (system.onboardingVersion)
  */
 
-export type OnboardingStepType = 'welcome' | 'terms' | 'notice' | 'keyboard' | 'intro';
+export type OnboardingStepType = 'welcome' | 'terms' | 'notice' | 'keyboard' | 'intro' | 'setup';
 export type OnboardingSection = { id: string; title: string; body: string; required: boolean };
 export type OnboardingStep = { id: string; type: OnboardingStepType; title: string; body?: string; button?: string; sections?: OnboardingSection[]; /** 그림 대신 쓸 이미지 주소 (비우면 기본 그림) */ image?: string };
 export type OnboardingConfig = { version: number; steps: OnboardingStep[] };
@@ -30,7 +32,14 @@ export const STEP_TYPE_LABEL: Record<OnboardingStepType, string> = {
   terms: '약관 동의 (펼쳐 보기 + 체크)',
   notice: '안내 확인 (확인 버튼)',
   keyboard: '자판 선택',
-  intro: '사이트 소개 (마지막, 둘러보기 시작)',
+  intro: '사이트 소개',
+  setup: '준비하기 (앱 설치·알림·캘린더 안내, 마지막에 두기)',
+};
+
+const SETUP_STEP: OnboardingStep = {
+  id: 'setup', type: 'setup', title: '거의 다 됐어요',
+  body: '필요한 것만 골라서 해 보세요. 누르면 내 기기 화면에 맞춰 한 단계씩 알려 드려요. 나중에 설정에서도 할 수 있어요.',
+  button: '시작하기',
 };
 
 export const DEFAULT_ONBOARDING: OnboardingConfig = {
@@ -53,10 +62,17 @@ export const DEFAULT_ONBOARDING: OnboardingConfig = {
     {
       id: 'intro', type: 'intro', title: '이렇게 쓰면 돼요',
       body: '- **요약**: 오늘 방송 확률과 켜질 만한 시간\n- **기록**: 날짜별 방송·게임·다시보기 달력\n- **분석**: 요일·시간대·방송 길이 통계\n- **검색**: 편집본·쇼츠·재생목록 찾아보기',
-      button: '시작해볼까요?',
+      button: '다음',
     },
+    SETUP_STEP,
   ],
 };
+
+/** 관리자가 만든 단계에 '준비하기'가 없으면 맨 끝에 붙임 */
+function withSetup(c: OnboardingConfig): OnboardingConfig {
+  if (c.steps.some((s) => s.type === 'setup')) return c;
+  return { ...c, steps: [...c.steps, SETUP_STEP] };
+}
 
 const fillPlaceholders = (text: string, system: any) =>
   String(text || '')
@@ -114,7 +130,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
     getDoc(doc(db, 'config', 'onboarding'))
       .then((snap) => {
         const d = snap.exists() ? (snap.data() as OnboardingConfig) : null;
-        if (!cancelled) setConfig(d?.steps?.length ? d : DEFAULT_ONBOARDING);
+        if (!cancelled) setConfig(withSetup(d?.steps?.length ? d : DEFAULT_ONBOARDING));
       })
       .catch(() => !cancelled && setConfig(DEFAULT_ONBOARDING))
       .finally(() => !cancelled && setOpen(true));
@@ -125,7 +141,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
   useEffect(() => {
     const start = (e: Event) => {
       const preview = (e as CustomEvent).detail as OnboardingConfig | undefined;
-      setConfig(preview?.steps?.length ? preview : DEFAULT_ONBOARDING);
+      setConfig(withSetup(preview?.steps?.length ? preview : DEFAULT_ONBOARDING));
       setIndex(0);
       setAgreed({});
       setOpen(true);
@@ -141,7 +157,17 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
-  const steps = config?.steps || [];
+  // 아이폰은 홈 화면 앱이 사파리와 저장 공간을 따로 써서 처음 시작 화면이 다시 뜸
+  // → 앱으로 열었을 땐 약관 동의와 '준비하기'(알림 켜기)만 짧게
+  const standalone = useMemo(() => isStandaloneMode(), []);
+  const steps = useMemo(() => {
+    const all = config?.steps || [];
+    if (!standalone || preview) return all;
+    const short = all.filter((s) => s.type === 'terms' || s.type === 'setup')
+      .map((s) => (s.type === 'setup' ? { ...s, title: '앱으로 열었어요', body: '이제 방송 알림을 켤 수 있어요. 아래에서 눌러 켜 주세요.' } : s));
+    return short.length ? short : all;
+  }, [config, standalone, preview]);
+  const setupItems = useSetupItems();
   const step = steps[index];
   const isLast = index === steps.length - 1;
 
@@ -167,7 +193,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
   const next = () => {
     if (!step || !requiredOk) return;
     if (step.type === 'keyboard' && !preview) setPref('keyboard', keyboard);
-    if (isLast) { finish(true); return; }
+    if (isLast) { finish(!standalone); return; }
     setDir(1);
     setExpanded(null);
     setIndex((i) => i + 1);
@@ -226,7 +252,8 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
               <div className={cn(
                 'shrink-0 md:flex-1 md:h-[420px] flex items-center justify-center',
                 step.type === 'terms' || step.type === 'keyboard' ? 'h-[22vh] min-h-[150px] pt-2' : 'h-[34vh] min-h-[210px] pt-4',
-                step.type === 'keyboard' && 'max-md:hidden'
+                step.type === 'keyboard' && 'max-md:hidden',
+                step.type === 'setup' && 'hidden md:flex'
               )}>
                 <OnboardingArt type={step.type} image={step.image} keyboard={keyboard} />
               </div>
@@ -285,6 +312,13 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
                 </div>
               )}
 
+              {/* 준비하기: 앱 설치 · 알림 · 캘린더 (누르면 안내 화면) */}
+              {step.type === 'setup' && (
+                <div className="mt-6">
+                  <SetupItemList items={standalone ? [...setupItems.filter((i) => i.kind === 'notify'), ...setupItems.filter((i) => i.kind !== 'notify')] : setupItems} onOpen={(k) => openSetupGuide(k)} />
+                </div>
+              )}
+
               {/* 자판 선택 */}
               {step.type === 'keyboard' && (
                 <div className="mt-6 space-y-2" role="radiogroup" aria-label="자판">
@@ -326,7 +360,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
           >
             {step.button || (isLast ? '시작해볼까요?' : '다음')}
           </button>
-          {isLast && tutorialEnabled && (
+          {isLast && tutorialEnabled && !standalone && (
             <button type="button" onClick={() => finish(false)} className="w-full h-10 text-sm font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white cursor-pointer">
               둘러보기 없이 바로 쓸게요
             </button>

@@ -28,6 +28,7 @@ interface SettingsViewProps {
   onOpenFeedback: () => void;
   onOpenNotice: () => void;
   onOpenTutorial?: () => void;
+  onOpenSetup?: () => void;
   onOpenTerms: () => void;
   onOpenPrivacy: () => void;
   onOpenPatchNotes?: () => void;
@@ -43,6 +44,7 @@ export function SettingsView({
   onOpenFeedback,
   onOpenNotice,
   onOpenTutorial,
+  onOpenSetup,
   onOpenTerms,
   onOpenPrivacy,
   onOpenPatchNotes,
@@ -803,6 +805,23 @@ export function SettingsView({
             </div>
             <ChevronRight className="w-4 h-4 text-zinc-400" />
           </button>
+
+          {onOpenSetup && (
+            <button
+              type="button"
+              onClick={onOpenSetup}
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <Smartphone className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <div>
+                  <span className="text-sm font-semibold text-zinc-900 dark:text-white">앱 설치 · 알림 · 캘린더 안내</span>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">내 기기 화면에 맞춰 한 단계씩 알려 드려요</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-zinc-400" />
+            </button>
+          )}
 
           {onOpenTutorial && (
             <button

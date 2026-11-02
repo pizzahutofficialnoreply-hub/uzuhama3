@@ -5,7 +5,7 @@ import { overlayMonthDocs } from '../src/utils/archiveOverlay';
 import { buildGameCatalog, inferPlaylistGame } from '../src/utils/playlistGames';
 import { generateMultipleIcsContent } from '../src/utils/calendarExport';
 import { statusMessageKey, computeBroadcastProbability } from '../src/utils/probability';
-import { OWNER_VOICE } from '../api/status-messages';
+import { OWNER_VOICE, STATE_REPORT } from '../api/status-messages';
 
 const log = (over: any = {}) => ({ id: 'l1', date: '2026-10-31', time: '21:30', durationHours: 3, game: '배틀그라운드', games: [{ name: '배틀그라운드', link: '', category: '액션' }], category: '', vods: [], edited: [], shorts: [], ...over });
 
@@ -61,12 +61,15 @@ describe('방송 확률·상태 문구', () => {
     const p = computeBroadcastProbability(logs as any, new Date('2026-10-15T11:00:00Z'), {} as any);
     for (const v of [p.dayProb, p.finalProb]) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(100); }
   });
-  it('상태 문구 묶음 키는 v4', () => {
-    expect(statusMessageKey({} as any, new Date('2026-11-01T03:00:00Z')).startsWith('v4|')).toBe(true);
+  it('상태 문구 묶음 키는 v5', () => {
+    expect(statusMessageKey({} as any, new Date('2026-11-01T03:00:00Z')).startsWith('v5|')).toBe(true);
   });
   it('채널 주인처럼 들리는 AI 문구는 거름', () => {
     for (const t of ['유튜브 놀러와요', '방송 보러 와 주세요', '구독 부탁해요', '저희 채널이에요']) expect(OWNER_VOICE.test(t), t).toBe(true);
     for (const t of ['푹 쉬고 오세요', '오늘은 켜지려나요?', '다시보기 봐요']) expect(OWNER_VOICE.test(t), t).toBe(false);
+    // 스트리머의 지금 상태를 아는 척하는 문구도 거름
+    for (const t of ['지금도 약 잘 챙겨먹고 누워 있어요', '푹 쉬는 중이에요', '엉덩이 찾는 중이에요', '회복 중이에요']) expect(STATE_REPORT.test(t), t).toBe(true);
+    for (const t of ['약 잘 챙겨 드세요', '푹 쉬고 오세요', '엉덩이 꼭 찾길 바라요', '기다리고 있어요', '다시보기 보고 있어요']) expect(STATE_REPORT.test(t), t).toBe(false);
   });
 });
 

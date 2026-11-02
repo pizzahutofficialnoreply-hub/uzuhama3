@@ -166,12 +166,14 @@ export async function buildArchivePatch(log: BroadcastLog): Promise<any | null> 
   return patch;
 }
 
+const CONFIG_CACHE_KEY = 'uzuhama_config_cache_v1';
+
 export function useFirebaseData() {
   const [data, setData] = useState<AppData | null>(null);
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(15);
-  const [loadingStatusText, setLoadingStatusText] = useState('초기 환경 구성 및 세션 확인 중...');
+  const [loadingStatusText, setLoadingStatusText] = useState('불러오는 중');
   const [isFirstRun, setIsFirstRun] = useState(false);
   
   const isFirstLiveCheckRef = useRef(true);
@@ -437,6 +439,17 @@ export function useFirebaseData() {
     return () => unsubscribeLive();
   }, [fetchLatestLogs]);
 
+  // 사이트 설정·통계를 기기에 저장해 두고 다음 방문 때 바로 표시 (Firestore 읽기 횟수는 그대로)
+  useEffect(() => {
+    if (!data?.system || Object.keys(data.system).length <= 3) return;
+    try {
+      localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify({
+        system: data.system, dailyStats: data.dailyStats, timeStats: data.timeStats,
+        patternGuides: data.patternGuides, videoStats: data.videoStats, savedAt: Date.now(),
+      }));
+    } catch { /* 저장 공간 부족 등은 무시 */ }
+  }, [data?.system, data?.dailyStats, data?.timeStats, data?.patternGuides, data?.videoStats]);
+
   // 3. [트리거 3] 첫 실행 시 데이터 호출 및 초기화 (SWR 캐싱 적용)
   useEffect(() => {
     const initializeData = async () => {
@@ -448,15 +461,18 @@ export function useFirebaseData() {
         if (hasExistingCache) {
           try {
             const cachedLogs = JSON.parse(cachedLogsStr!);
+            // 지난번에 받아 둔 사이트 설정(휴방 사유·공지 등)·통계를 바로 써서, 새로 받기 전에도 화면이 완성된 상태로 뜸
+            let cfg: any = null;
+            try { cfg = JSON.parse(localStorage.getItem(CONFIG_CACHE_KEY) || 'null'); } catch {}
             const fastInitialData: AppData = {
               logs: cachedLogs,
-              dailyStats: defaultDaily.reduce((acc, stat) => ({ ...acc, [stat.day]: stat }), {} as any),
-              timeStats: defaultTime.reduce((acc, stat) => ({ ...acc, [stat.time]: stat }), {} as any),
+              dailyStats: cfg?.dailyStats || defaultDaily.reduce((acc, stat) => ({ ...acc, [stat.day]: stat }), {} as any),
+              timeStats: cfg?.timeStats || defaultTime.reduce((acc, stat) => ({ ...acc, [stat.time]: stat }), {} as any),
               durationStats: defaultDuration.reduce((acc, stat) => ({ ...acc, [stat.label]: stat }), {} as any),
               monthlyStats: defaultMonthly.reduce((acc, stat) => ({ ...acc, [stat.month]: stat }), {} as any),
-              patternGuides: defaultGuides.reduce((acc, guide) => ({ ...acc, [guide.id]: guide }), {} as any),
-              videoStats: {},
-              system: { maintenance: false, noticeType: 'none', noticeContent: '' }
+              patternGuides: cfg?.patternGuides || defaultGuides.reduce((acc, guide) => ({ ...acc, [guide.id]: guide }), {} as any),
+              videoStats: cfg?.videoStats || {},
+              system: cfg?.system || { maintenance: false, noticeType: 'none', noticeContent: '' }
             };
             setData(fastInitialData);
             setLoading(false);
@@ -467,7 +483,7 @@ export function useFirebaseData() {
         }
 
         setLoadingProgress(20);
-        setLoadingStatusText('시스템 설정 및 통계 지표 불러오는 중...');
+        setLoadingStatusText('설정 불러오는 중');
 
         const sysRef = doc(db, 'config', 'system');
         const videoStatsRef = doc(db, 'config', 'videoStats');
@@ -494,7 +510,7 @@ export function useFirebaseData() {
         }
         
         setLoadingProgress(55);
-        setLoadingStatusText('과거 방송 아카이브 및 일지 분석 중...');
+        setLoadingStatusText('방송 기록 불러오는 중');
 
         const initialData: AppData = {
           logs: {}, 
@@ -523,13 +539,13 @@ export function useFirebaseData() {
         setData(initialData);
 
         setLoadingProgress(85);
-        setLoadingStatusText('최신 방송 일지 동기화 중...');
+        setLoadingStatusText('최신 기록 맞추는 중');
 
         // 3. 첫 실행 시 Firestore 최신 데이터 호출 및 병합
         await fetchLatestLogs(true);
 
         setLoadingProgress(100);
-        setLoadingStatusText('준비 완료!');
+        setLoadingStatusText('준비됐어요');
       } catch (e) {
         console.error(e);
       } finally {

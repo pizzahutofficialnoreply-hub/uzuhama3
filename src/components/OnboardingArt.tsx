@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { CalendarDays, Check, Heart, Play, Sparkles, TrendingUp } from 'lucide-react';
+import { BellRing, CalendarPlus, Check, Download, Heart, Play } from 'lucide-react';
 import { cn } from '../utils';
 import type { KeyboardLayout } from '../utils/userPrefs';
 
@@ -166,6 +166,24 @@ function Intro() {
   );
 }
 
+function Setup() {
+  const rows = [
+    { icon: Download, t: '앱으로 설치' },
+    { icon: BellRing, t: '방송 알림' },
+    { icon: CalendarPlus, t: '캘린더 등록' },
+  ];
+  return (
+    <div className="h-full w-full max-w-[240px] mx-auto flex flex-col justify-center gap-2.5">
+      {rows.map((r, i) => (
+        <motion.div key={r.t} {...pop(0.15 + i * 0.18)} className={cn(card, 'flex items-center gap-3 px-4 py-3')}>
+          <span className="w-9 h-9 rounded-xl bg-purple-600/10 dark:bg-purple-400/15 text-purple-600 dark:text-purple-300 flex items-center justify-center"><r.icon className="w-5 h-5" /></span>
+          <span className="text-sm font-bold text-zinc-700 dark:text-zinc-200">{r.t}</span>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
 export function OnboardingArt({ type, image, keyboard }: { type: string; image?: string; keyboard: KeyboardLayout }) {
   if (image) {
     return (
@@ -177,6 +195,7 @@ export function OnboardingArt({ type, image, keyboard }: { type: string; image?:
     case 'terms': return <Terms />;
     case 'keyboard': return <KeyboardArt layout={keyboard} />;
     case 'intro': return <Intro />;
+    case 'setup': return <Setup />;
     default: return <Notice />;
   }
 }

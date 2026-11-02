@@ -1,5 +1,4 @@
 import { motion } from 'motion/react';
-import { Tv, Sparkles } from 'lucide-react';
 
 interface LoadingScreenProps {
   progress?: number; // 0 to 100
@@ -7,73 +6,37 @@ interface LoadingScreenProps {
   isFirstRun?: boolean;
 }
 
-export function LoadingScreen({
-  progress = 25,
-  statusText = '데이터를 불러오는 중이에요...',
-  isFirstRun = false
-}: LoadingScreenProps) {
-  const clampedProgress = Math.max(0, Math.min(100, Math.round(progress)));
-
+/**
+ * 들어올 때 잠깐 보이는 화면: 앱 아이콘 + 이름 + 얇은 진행 막대만
+ * (index.html 의 첫 화면과 같은 모양이라 바뀌는 티가 나지 않음)
+ */
+export function LoadingScreen({ progress = 25, statusText = '불러오는 중', isFirstRun = false }: LoadingScreenProps) {
+  const p = Math.max(4, Math.min(100, Math.round(progress)));
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 p-6 select-none">
-      <div className="w-full max-w-xs sm:max-w-sm flex flex-col items-center text-center">
-        {/* Animated App Icon: sleek, minimalist, no emoticons */}
+    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white dark:bg-black select-none" role="status" aria-live="polite">
+      <motion.img
+        src="/icon-192.png"
+        alt=""
+        width={84}
+        height={84}
+        initial={{ opacity: 0, scale: 0.94 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+        className="w-[84px] h-[84px] rounded-[22px] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.35)] ring-1 ring-black/5 dark:ring-white/10"
+      />
+      <h1 className="mt-5 text-[17px] font-bold tracking-tight text-zinc-900 dark:text-white">우주하마 방송 예측</h1>
+
+      <div className="mt-6 w-36 h-[3px] rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
         <motion.div
-          animate={{ scale: [1, 1.04, 1] }}
-          transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
-          className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-purple-600/10 dark:bg-purple-500/15 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-6 shadow-xl relative"
-        >
-          <Tv className="w-8 h-8 sm:w-10 sm:h-10 stroke-[2.2]" />
-          <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-purple-600 animate-ping opacity-60" />
-        </motion.div>
-
-        {/* Title */}
-        <h2 className="text-xl sm:text-2xl font-black tracking-tight mb-2 font-display text-zinc-900 dark:text-white">
-          우주하마 방송 예측
-        </h2>
-
-        {/* Dynamic Status Text */}
-        <p className="text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400 min-h-[20px] mb-6 transition-all duration-200">
-          {statusText}
-        </p>
-
-        {/* Progress Bar Container */}
-        <div className="w-full bg-zinc-100 dark:bg-zinc-800/80 rounded-full h-3 p-0.5 overflow-hidden border border-zinc-200/80 dark:border-zinc-700/80 shadow-inner mb-2.5">
-          <motion.div
-            className="h-full bg-gradient-to-r from-purple-600 via-indigo-500 to-purple-500 rounded-full relative"
-            style={{ width: `${clampedProgress}%` }}
-            initial={{ width: '5%' }}
-            animate={{ width: `${clampedProgress}%` }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
-          >
-            <div className="absolute inset-0 bg-white/20 animate-pulse rounded-full" />
-          </motion.div>
-        </div>
-
-        {/* Progress Percentage Badge */}
-        <div className="flex items-center justify-between w-full text-xs text-zinc-400 dark:text-zinc-500 font-semibold mb-6 px-1">
-          <span>진행 상황</span>
-          <span className="text-purple-600 dark:text-purple-400 text-sm font-extrabold font-mono">
-            {clampedProgress}%
-          </span>
-        </div>
-
-        {/* First Run Notice Guide */}
-        {isFirstRun && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full text-left p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1"
-          >
-            <div className="flex items-center gap-1.5 font-bold text-zinc-700 dark:text-zinc-300">
-              <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-              <span>첫 실행 안내</span>
-            </div>
-            <p>• 첫 실행 시 필요한 데이터를 다운로드하므로 잠시 시간이 소요될 수 있어요.</p>
-            <p>• 네트워크 연결 상태에 따라 로딩 속도가 달라질 수 있어요.</p>
-          </motion.div>
-        )}
+          className="h-full rounded-full bg-purple-600 dark:bg-purple-400"
+          initial={{ width: '4%' }}
+          animate={{ width: `${p}%` }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+        />
       </div>
+      <p className="mt-3 h-4 text-[11px] text-zinc-400 dark:text-zinc-500">
+        {isFirstRun ? '처음 한 번만 기록을 받아 와요' : statusText}
+      </p>
     </div>
   );
 }

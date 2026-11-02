@@ -319,6 +319,12 @@ export function CurrentProbability({
     messageContent = pickAi(aiMessages.medium, true);
   } else if (probabilityLevel === "low" && (isLateNight ? aiMessages?.lowNight?.length : aiMessages?.lowDay?.length)) {
     messageContent = pickAi(isLateNight ? aiMessages?.lowNight : aiMessages?.lowDay, true);
+  } else if (isAbsencePeriod) {
+    // AI 문구가 아직 없을 때도 휴방 상황에 맞는 기본 문구 (팬 입장의 안부)
+    const ABSENCE_OPTIONS: React.ReactNode[] = isIllness
+      ? ["얼른 나으세요", "아프지 말고 푹 쉬고 오세요", "건강이 먼저예요, 천천히 와요", renderRecommendSpan()]
+      : ["푹 쉬고 오세요", "천천히 쉬다 와요", "다시 만날 날 기다릴게요", renderRecommendSpan()];
+    messageContent = ABSENCE_OPTIONS[timeSlotSeed % ABSENCE_OPTIONS.length];
   } else if (probabilityLevel === "high") {
     const HIGH_OPTIONS = [
       "슬슬 기대해볼 만한 시간이에요! ✨",

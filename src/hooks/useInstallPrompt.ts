@@ -14,12 +14,14 @@ export function useInstallPrompt() {
 
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
+      (window as any).__uzuDeferredInstall = e; // 설치 안내 화면에서도 같은 이벤트를 씀
       setDeferredPrompt(e);
     };
 
     const handleAppInstalled = () => {
       setIsStandalone(true);
       setDeferredPrompt(null);
+      (window as any).__uzuDeferredInstall = null;
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);

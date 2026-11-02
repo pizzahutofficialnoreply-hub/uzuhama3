@@ -503,5 +503,5 @@ export function absenceReasonForMessages(system: SystemConfig | undefined, now: 
 
 /** AI 상태 문구 묶음 키: 방송일이 바뀌거나 휴방 상황·사유가 바뀌면 새 묶음 */
 export function statusMessageKey(system: SystemConfig | undefined, now: Date = new Date()): string {
-  return `v4|${broadcastDayStr(now)}|${absenceReasonForMessages(system, now)}`;
+  return `v5|${broadcastDayStr(now)}|${absenceReasonForMessages(system, now)}`;
 }

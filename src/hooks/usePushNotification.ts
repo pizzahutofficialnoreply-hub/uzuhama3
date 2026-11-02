@@ -4,6 +4,7 @@ import { messaging, auth as firebaseAuth } from '../lib/firebase';
 const getToken: typeof import('firebase/messaging').getToken = (...args) => import('firebase/messaging').then((m) => m.getToken(...args));
 const deleteToken: typeof import('firebase/messaging').deleteToken = (...args) => import('firebase/messaging').then((m) => m.deleteToken(...args));
 import { useAuth } from './useAuth';
+import { openSetupGuide } from '../utils/setupStatus';
 
 export interface PushSettings {
   notifyLive: boolean;
@@ -172,18 +173,21 @@ export function usePushNotification() {
     checkSubscription();
   }, [checkSubscription]);
 
-  const subscribe = async (initialSettings?: Partial<PushSettings>): Promise<boolean> => {
+  const subscribe = async (initialSettings?: Partial<PushSettings>, opts?: { silent?: boolean }): Promise<boolean> => {
+    // silent: 안내 화면처럼 자체적으로 결과를 보여 주는 곳에서는 alert 를 띄우지 않음
+    const say = (m: string) => { if (!opts?.silent) alert(m); };
     const isIOS = checkIsIOS();
     const isStandalone = checkIsStandalone();
 
     if (isIOS && !isStandalone) {
-      alert('📱 iPhone(iOS) 알림 설정 안내\n\nApple의 보안 정책상 Safari 브라우저 탭에서는 알림이 제한돼요.\n\n1. Safari 하단 중앙의 [공유 (네모에 위 화살표)] 아이콘 클릭\n2. [홈 화면에 추가] 선택 후 완료\n3. 홈 화면에 생성된 앱을 열고 알림을 켜주세요!\n\n홈 화면 앱에서 실행하시면 정상적으로 알림을 받으실 수 있어요.');
+      // 아이폰 사파리 탭에서는 알림이 안 됨 → 홈 화면에 추가하는 안내 화면을 바로 열어 줌
+      if (!opts?.silent) openSetupGuide('notify');
       return false;
     }
 
     const hasNotification = typeof window !== 'undefined' && 'Notification' in window && typeof window.Notification !== 'undefined';
     if (!hasNotification) {
-      alert('이 브라우저는 웹 푸시 알림을 지원하지 않아요.');
+      say('이 브라우저는 웹 푸시 알림을 지원하지 않아요.');
       return false;
     }
 
@@ -193,7 +197,7 @@ export function usePushNotification() {
       setPermission(perm);
 
       if (perm !== 'granted') {
-        alert('알림 권한이 허용되지 않았어요. 브라우저 설정에서 알림을 허용해주세요.');
+        say('알림 권한이 허용되지 않았어요. 브라우저 설정에서 알림을 허용해주세요.');
         setLoading(false);
         return false;
       }
@@ -285,7 +289,7 @@ export function usePushNotification() {
       currentTokenRef.current = null;
       setIsSubscribed(false);
       const errMsg = String(err?.message || err);
-      alert(`알림 설정 실패: ${errMsg}`);
+      say(`알림 설정 실패: ${errMsg}`);
       return false;
     } finally {
       setLoading(false);

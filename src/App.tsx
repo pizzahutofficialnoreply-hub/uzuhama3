@@ -31,6 +31,7 @@ import { TermsRevisionModal } from './components/TermsRevisionModal';
 import { FloatingBottomNav } from './components/FloatingBottomNav';
 import { CurrentProbability } from './components/CurrentProbability';
 import { LoadingScreen } from './components/LoadingScreen';
+import { AFTER_INSTALL_KEY, OPEN_SETUP_EVENT, isStandaloneMode, type GuideKind } from './utils/setupStatus';
 import { cn, useBodyScrollLock, resetBodyScrollLock } from './utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -51,6 +52,8 @@ import { Download, LogIn, ArrowLeft, Settings as SettingsIcon } from 'lucide-rea
 const SettingsView = lazy(() => import('./components/SettingsView').then((m) => ({ default: m.SettingsView })));
 import { Tutorial, TUTORIAL_START_EVENT } from './components/Tutorial';
 const NoticesView = lazy(() => import('./components/NoticesView').then((m) => ({ default: m.NoticesView })));
+const SetupGuides = lazy(() => import('./components/SetupGuides'));
+const AfterInstallPrompt = lazy(() => import('./components/SetupGuides').then((m) => ({ default: m.AfterInstallPrompt })));
 const Onboarding = lazy(() => import('./components/Onboarding').then((m) => ({ default: m.Onboarding })));
 
 // 별도 페이지(관리자·패치노트·약관·라이선스)는 들어갈 때만 불러옴 → 메인 화면 첫 로딩 가볍게
@@ -147,11 +150,22 @@ function MainApp() {
 
   // 설정 > 공지사항: 지난 공지까지 카드 목록으로
   const [showNoticesPage, setShowNoticesPage] = useState(false);
+  // 앱 설치 · 알림 · 캘린더 안내 (어디서든 openSetupGuide() 로 열림)
+  const [setupGuide, setSetupGuide] = useState<{ kind?: GuideKind } | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => setSetupGuide({ kind: (e as CustomEvent).detail?.kind });
+    window.addEventListener(OPEN_SETUP_EVENT, on);
+    return () => window.removeEventListener(OPEN_SETUP_EVENT, on);
+  }, []);
+  const [afterInstall] = useState(() => {
+    try { return isStandaloneMode() && localStorage.getItem(AFTER_INSTALL_KEY) === '1'; } catch { return false; }
+  });
 
   useEffect(() => {
     const handlePopState = () => {
       // 기기 뒤로가기 버튼 또는 브라우저 뒤로가기
       // 0. 공지사항 화면이 열려 있으면: 공지사항만 닫고 설정창은 유지
+      if (setupGuide) return; // 안내 화면이 스스로 닫힘
       if (showNoticesPage) {
         setShowNoticesPage(false);
         return;
@@ -169,7 +183,7 @@ function MainApp() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isSettingsOpen, showFeedbackModal, showNoticesPage]);
+  }, [isSettingsOpen, showFeedbackModal, showNoticesPage, setupGuide]);
 
   useEffect(() => {
     localStorage.setItem('uzuhama_active_tab', activeTab);
@@ -677,7 +691,7 @@ function MainApp() {
     return (
       <LoadingScreen 
         progress={isLoggingOut ? 95 : loadingProgress} 
-        statusText={isLoggingOut ? '로그아웃 세션을 안전하게 정리하는 중이에요...' : loadingStatusText} 
+        statusText={isLoggingOut ? '로그아웃하는 중' : loadingStatusText} 
         isFirstRun={isFirstRun} 
       />
     );
@@ -1234,6 +1248,7 @@ function MainApp() {
                     onLogout={handleLogout}
                     onClose={() => closeSettings()}
                     onOpenFeedback={openFeedback}
+                onOpenSetup={() => setSetupGuide({})}
                 onOpenTutorial={data.system?.tutorialEnabled !== false ? () => { closeSettings(); window.setTimeout(() => window.dispatchEvent(new Event(TUTORIAL_START_EVENT)), 450); } : undefined}
                     onOpenNotice={() => setShowNoticesPage(true)}
                     onOpenTerms={() => setPolicyType('terms')}
@@ -1296,6 +1311,7 @@ function MainApp() {
                 onLogout={handleLogout}
                 onClose={() => closeSettings()}
                 onOpenFeedback={openFeedback}
+                onOpenSetup={() => setSetupGuide({})}
                 onOpenTutorial={data.system?.tutorialEnabled !== false ? () => { closeSettings(); window.setTimeout(() => window.dispatchEvent(new Event(TUTORIAL_START_EVENT)), 450); } : undefined}
                 onOpenNotice={() => setShowNoticesPage(true)}
                 onOpenTerms={() => setPolicyType('terms')}
@@ -1320,6 +1336,18 @@ function MainApp() {
           </Suspense>
         )}
       </AnimatePresence>
+      <AnimatePresence>
+        {setupGuide && (
+          <Suspense fallback={null}>
+            <SetupGuides key="setup-guides" initial={setupGuide.kind} onClose={() => setSetupGuide(null)} />
+          </Suspense>
+        )}
+      </AnimatePresence>
+      {afterInstall && (
+        <Suspense fallback={null}>
+          <AfterInstallPrompt onOpen={(k) => setSetupGuide({ kind: k })} />
+        </Suspense>
+      )}
       {/* 처음 시작 화면: 아직 안 본(또는 관리자가 버전을 올린) 경우에만 불러옴 */}
       {data.system?.onboardingEnabled !== false && onboardingSeenVersion() < (Number(data.system?.onboardingVersion) || 1) && (
         <Suspense fallback={null}>
@@ -1368,7 +1396,7 @@ function MainApp() {
 
 export default function App() {
   return (
-    <Suspense fallback={<LoadingScreen progress={60} statusText="페이지를 불러오는 중이에요..." />}>
+    <Suspense fallback={<LoadingScreen progress={60} statusText="불러오는 중" />}>
       <Routes>
         <Route path="/" element={<MainApp />} />
         <Route path="/admin" element={<AdminRoute />} />
