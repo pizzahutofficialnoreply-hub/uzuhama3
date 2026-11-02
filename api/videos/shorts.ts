@@ -48,12 +48,46 @@ async function fetchShorts(channelId: string, key: string, prefix = 'UUSH'): Pro
   return out;
 }
 
+
+/** (임시 확인용) 쇼츠 아래 '관련 동영상' 링크가 유튜브 페이지·내부 API 어디에 있는지 살펴봄 */
+async function probeRelated(ids: string[]) {
+  const out: any = {};
+  const headers = { 'Accept-Language': 'ko-KR,ko;q=0.9', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36', Cookie: 'SOCS=CAI; CONSENT=YES+1' };
+  for (const id of ids) {
+    const r: any = { };
+    try {
+      const html = await (await fetch(`https://www.youtube.com/shorts/${id}`, { headers, signal: AbortSignal.timeout(8000) })).text();
+      r.htmlLen = html.length;
+      const ids = new Map<string, string>();
+      for (const m of html.matchAll(/"videoId":"([\w-]{11})"/g)) if (m[1] !== id && !ids.has(m[1])) ids.set(m[1], html.slice(Math.max(0, m.index! - 160), m.index! + 40));
+      r.htmlVideoIds = [...ids.entries()].slice(0, 6);
+      r.htmlKeys = ['relatedVideo', 'RelatedVideo', 'multiFormatLink', 'MultiFormatLink', 'shortsVideoLink', 'reelMetapanel', 'suggestedVideo'].filter((k) => html.includes(k));
+    } catch (e: any) { r.htmlErr = String(e?.message || e); }
+    try {
+      const body = { context: { client: { clientName: 'WEB', clientVersion: '2.20251030.01.00', hl: 'ko', gl: 'KR' } }, playerRequest: { videoId: id }, params: 'CAUwAg%3D%3D' };
+      const j = await (await fetch('https://www.youtube.com/youtubei/v1/reel/reel_item_watch?prettyPrint=false', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) })).text();
+      r.reelLen = j.length;
+      const ids2 = new Map<string, string>();
+      for (const m of j.matchAll(/"videoId":"([\w-]{11})"/g)) if (m[1] !== id && !ids2.has(m[1])) ids2.set(m[1], j.slice(Math.max(0, m.index! - 200), m.index! + 40));
+      r.reelVideoIds = [...ids2.entries()].slice(0, 6);
+      r.reelKeys = ['relatedVideo', 'RelatedVideo', 'multiFormatLink', 'MultiFormatLink', 'shortsVideoLink', 'reelMetapanel', 'suggestedVideo'].filter((k) => j.includes(k));
+    } catch (e: any) { r.reelErr = String(e?.message || e); }
+    out[id] = r;
+  }
+  return out;
+}
+
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
+    if (String(req.query?.kind || '') === 'probe') {
+      const ids = String(req.query?.ids || '').split(',').filter((x) => /^[\w-]{11}$/.test(x)).slice(0, 8);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).json(await probeRelated(ids));
+    }
     const { db, verifyAdmin } = await import('../_firebase.js');
     // ?kind=uploads → 채널의 일반 영상 전체 (사이트 기록에 없는 영상도 홈에 보이게)
     const kind = String(req.query?.kind || '') === 'uploads' ? 'uploads' : 'shorts';
