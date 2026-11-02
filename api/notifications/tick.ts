@@ -14,6 +14,7 @@ import {
  * - 비밀값 없이 호출해도 안전하도록: 50초 이내 재호출은 무시하고, 같은 이벤트는 한 번만 발송(중복 방지 기록)
  * - 방송 시작: 치지직 상태가 OPEN 이고 이번 방송(openDate)에 대해 아직 안 보냈으면 notifyLive 구독자에게 발송
  * - 유력 시간: 메인 카드와 같은 확률 엔진으로 오늘 유력 시간을 계산, 구독자별 사전 알림(leadTime) 시점에 발송
+ * - 방송 종료: 방송 기록 자동 생성 (관리자 기록이 이미 있으면 건너뜀)
  */
 
 const CHANNEL_ID = 'c6e1c8cf1b128bd321cc2684c92b5a00';
@@ -24,6 +25,57 @@ const PEAK_MIN_DAY_PROB = 25; // 오늘 방송 확률이 이보다 낮으면(휴
 const PEAK_WINDOW_MIN = 15; // 호출 간격이 들쭉날쭉해도 놓치지 않도록 사전 알림 시점부터 15분 안에 한 번 발송
 
 const kstDateTimeToMs = (s: string) => Date.parse(`${s.replace(' ', 'T')}+09:00`);
+const YT_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID || 'UC2NFRq9s2neD_Ml0tPhNC2Q';
+
+/** 방송이 켜질 때 유튜브 동시 송출 주소 (검색 1회 = 할당량 100, 방송마다 한 번) */
+async function findYoutubeLiveUrl(): Promise<string> {
+  const key = process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY;
+  if (!key) return '';
+  try {
+    const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=id&channelId=${YT_CHANNEL_ID}&eventType=live&type=video&key=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(6000) });
+    const id = (await r.json().catch(() => null))?.items?.[0]?.id?.videoId;
+    return id ? `https://www.youtube.com/watch?v=${id}` : '';
+  } catch { return ''; }
+}
+
+/**
+ * 방송이 끝나면 방송 기록을 자동으로 만듦 (예전 Cloudflare 'chzzk-checker' 가 하던 일을 서버로 옮김)
+ * - 관리자가 같은 날 비슷한 시각(±90분)으로 이미 기록했으면 만들지 않음
+ * - 같은 방송은 한 번만 (ID 를 방송 시작 시각으로 고정)
+ * - 관리자 > 시스템 > 자동 시스템에서 끌 수 있음 (system.autoLogEnabled === false)
+ */
+async function createAutoLog(db: any, prev: any, endMs: number) {
+  const open = String(prev.openDate || '');
+  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(open)) return { ok: false, reason: 'openDate 없음' };
+  const startMs = kstDateTimeToMs(open);
+  const hours = Math.round(((endMs - startMs) / 3600000) * 100) / 100;
+  if (!(hours > 0.15) || hours > 24) return { ok: false, reason: `방송 길이 이상 (${hours}시간)` };
+  const date = open.slice(0, 10);
+  const time = open.slice(11, 16);
+  const end = new Date(endMs + 9 * 3600000);
+  const endTime = `${String(end.getUTCHours()).padStart(2, '0')}:${String(end.getUTCMinutes()).padStart(2, '0')}`;
+  const id = `auto_${open.replace(/\D/g, '').slice(0, 12)}`;
+  const category = String(prev.liveCategoryValue || '').trim();
+  const log = {
+    id, date, time, endTime, durationHours: hours,
+    game: category, games: category ? [{ name: category, link: '' }] : [],
+    category: '', vods: prev.youtubeLiveUrl ? [{ title: prev.liveTitle || '생방송 다시보기', url: prev.youtubeLiveUrl }] : [],
+    edited: [], shorts: [],
+    liveTitle: prev.liveTitle || '', autoCreated: true, createdAt: new Date().toISOString(),
+  };
+  const monthRef = db.collection('logs_by_month').doc(date.slice(0, 7));
+  const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  const made = await db.runTransaction(async (tx: any) => {
+    const items = ((await tx.get(monthRef)).data()?.items || {}) as Record<string, any>;
+    if (items[id]) return 'exists';
+    const dup = Object.values(items).find((l: any) => l?.date === date && l?.time && Math.abs(toMin(l.time) - toMin(time)) <= 90);
+    if (dup) return `admin:${(dup as any).id}`;
+    tx.set(monthRef, { month: date.slice(0, 7), updatedAt: new Date().toISOString(), items: { [id]: log } }, { merge: true });
+    tx.set(db.collection('logs').doc(id), log);
+    return 'created';
+  });
+  return made === 'created' ? { ok: true, id, date, time, endTime, hours, game: category } : { ok: false, reason: made === 'exists' ? '이미 만듦' : `관리자 기록 있음 (${made.slice(6)})` };
+}
 
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
@@ -90,8 +142,24 @@ export default async function handler(req: any, res: any) {
       const next = liveStatus === 'OPEN'
         ? { status: 'OPEN', isLive: true, liveTitle: content?.liveTitle || '', liveCategoryValue: content?.liveCategoryValue || '', openDate: content?.openDate || '' }
         : { status: 'CLOSE', isLive: false, liveTitle: '', liveCategoryValue: '', openDate: '' };
-      if (prev.status !== next.status || prev.openDate !== next.openDate || prev.liveTitle !== next.liveTitle) {
-        await liveRef.set({ ...next, updatedAt: now.toISOString() }, { merge: true });
+      const extra: Record<string, any> = {};
+      // 방송 시작: 유튜브 동시 송출 주소를 찾아 둠 (끝날 때 기록에 '생방송' 링크로 넣음)
+      if (next.status === 'OPEN' && (prev.status !== 'OPEN' || prev.openDate !== next.openDate) && !prev.youtubeLiveUrl) {
+        extra.youtubeLiveUrl = await findYoutubeLiveUrl();
+      }
+      // 방송 끝: 방송 기록 자동 생성
+      if (next.status === 'CLOSE' && prev.status === 'OPEN' && prev.openDate) {
+        let enabled = true;
+        try { enabled = (await db.collection('config').doc('system').get()).data()?.autoLogEnabled !== false; } catch { /* 기본 켜짐 */ }
+        const closeMs = content?.closeDate ? kstDateTimeToMs(String(content.closeDate)) : NaN;
+        const endMs = Number.isFinite(closeMs) && closeMs > kstDateTimeToMs(prev.openDate) ? closeMs : now.getTime();
+        const r = enabled ? await createAutoLog(db, prev, endMs).catch((e: any) => ({ ok: false, reason: String(e?.message || e) })) : { ok: false, reason: '꺼져 있음' };
+        result.autoLog = r;
+        await stateRef.set({ lastAutoLog: { ...r, at: now.toISOString(), openDate: prev.openDate } }, { merge: true });
+        extra.youtubeLiveUrl = '';
+      }
+      if (prev.status !== next.status || prev.openDate !== next.openDate || prev.liveTitle !== next.liveTitle || Object.keys(extra).length) {
+        await liveRef.set({ ...next, ...extra, updatedAt: now.toISOString() }, { merge: true });
         result.liveStatusUpdated = true;
       }
     }

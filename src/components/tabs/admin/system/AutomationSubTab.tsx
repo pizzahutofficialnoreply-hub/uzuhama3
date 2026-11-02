@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Activity, AlertTriangle, CheckCircle2, Loader2, Play, RefreshCw } from 'lucide-react';
 import { auth, db } from '../../../../lib/firebase';
 
@@ -42,6 +42,7 @@ export function AutomationSubTab() {
   const [caches, setCaches] = useState<Record<string, any>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [out, setOut] = useState<Record<string, string>>({});
+  const [autoLogOn, setAutoLogOn] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     const [t, up, sh, pl] = await Promise.all([
@@ -51,6 +52,7 @@ export function AutomationSubTab() {
       getDoc(doc(db, 'youtube_cache', 'playlists')).then((s) => s.data()).catch(() => null),
     ]);
     setTick(t);
+    getDoc(doc(db, 'config', 'system')).then((s) => setAutoLogOn(s.data()?.autoLogEnabled !== false)).catch(() => setAutoLogOn(null));
     setCaches({ uploads: up, shorts: sh, playlists: pl });
     fetch(`${API_BASE}/api/videos/search-index?status=1`).then((r) => r.json()).then(setIndex).catch(() => setIndex(null));
   }, []);
@@ -94,7 +96,7 @@ export function AutomationSubTab() {
         )}
         {!tickOk && (
           <p className="text-[11px] text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded-xl p-2.5">
-            15분 넘게 실행이 없어요. 아무도 사이트를 안 보고 있고 GitHub 예약이 밀린 상태일 수 있어요. 저장소의 <code>ops/cron-worker/README.md</code> 대로 Cloudflare Worker 나 cron-job.org 를 한 번 연결해 두면 1분마다 정확히 돌아요.
+            15분 넘게 실행이 없어요. 아무도 사이트를 안 보고 있고 GitHub 예약이 밀린 상태일 수 있어요. 저장소의 <code>ops/cron-worker/README.md</code> 대로 기존 Cloudflare 워커(chzzk-checker)를 새 코드로 한 번 다시 배포하면 1분마다 정확히 돌아요.
           </p>
         )}
         <div className="flex items-center gap-2">
@@ -103,6 +105,30 @@ export function AutomationSubTab() {
           </button>
           {out.tick && <span className="text-[11px] text-zinc-500 truncate">{out.tick}</span>}
         </div>
+      </Card>
+
+      <Card title="방송 기록 자동 만들기 (방송이 끝나면)" ok={autoLogOn === null ? null : autoLogOn}>
+        <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+          방송이 끝나는 순간 시작·종료 시각, 방송 길이, 치지직 카테고리(게임), 유튜브 동시 송출 링크로 기록을 만들어요. 같은 날 비슷한 시각(±90분)에 관리자가 이미 기록했으면 만들지 않아요. 예전 Cloudflare 워커(chzzk-checker)가 하던 일이에요.
+        </p>
+        {tick?.lastAutoLog && (
+          <p className="text-[11px] text-zinc-500">
+            마지막: {ago(tick.lastAutoLog.at)} · {tick.lastAutoLog.ok ? `${tick.lastAutoLog.date} ${tick.lastAutoLog.time}~${tick.lastAutoLog.endTime} (${tick.lastAutoLog.game || '카테고리 없음'}) 만듦` : `안 만듦: ${tick.lastAutoLog.reason}`}
+          </p>
+        )}
+        <button
+          type="button"
+          disabled={autoLogOn === null || busy === 'autolog'}
+          onClick={async () => {
+            setBusy('autolog');
+            try { await setDoc(doc(db, 'config', 'system'), { autoLogEnabled: !autoLogOn }, { merge: true }); setAutoLogOn(!autoLogOn); } catch (e: any) { setOut((o) => ({ ...o, autolog: `실패: ${e?.message || e}` })); }
+            setBusy(null);
+          }}
+          className={`${btn} ${autoLogOn ? 'bg-zinc-100 dark:bg-zinc-800' : 'bg-purple-600 text-white'}`}
+        >
+          {autoLogOn ? '끄기' : '켜기'}
+        </button>
+        {out.autolog && <p className="text-[11px] text-red-500">{out.autolog}</p>}
       </Card>
 
       <Card title="검색 색인 (태그·썸네일 글자·게임 키워드)" ok={index ? !index.lastError || Boolean(index.count) : null}>

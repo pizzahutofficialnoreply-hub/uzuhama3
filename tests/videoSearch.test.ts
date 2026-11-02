@@ -53,3 +53,14 @@ describe('태그·썸네일·게임 키워드 색인', () => {
     expect(gamesMatchingKeyword(games, '없음').size).toBe(0);
   });
 });
+
+import { cleanShortsTitle } from '../src/utils/videoSearch';
+describe('쇼츠 제목 태그 정리', () => {
+  it('쇼츠 표시 태그만 뗌', () => {
+    expect(cleanShortsTitle('돈이 없지 할 게 없냐#shorts')).toBe('돈이 없지 할 게 없냐');
+    expect(cleanShortsTitle('테토남 챗지피티 #shorts #chatgpt')).toBe('테토남 챗지피티 #chatgpt');
+    expect(cleanShortsTitle('우주하마 이상형 #Shorts #쇼츠 #youtubeshorts')).toBe('우주하마 이상형');
+    expect(cleanShortsTitle('#shortsfunny 그대로')).toBe('#shortsfunny 그대로');
+    expect(cleanShortsTitle('#shorts')).toBe('#shorts');
+  });
+});

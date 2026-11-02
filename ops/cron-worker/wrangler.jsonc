@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // 기존 워커 이름 그대로 (다시 배포하면 예전 코드를 덮어씀)
+  "name": "chzzk-checker",
+  "main": "src/index.js",
+  "compatibility_date": "2024-01-01",
+  "triggers": {
+    "crons": [
+      "* * * * *",
+      "35 2,14 * * *"
+    ]
+  }
+}

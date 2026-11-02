@@ -94,7 +94,8 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
 }) {
   const [page, setPage] = useState(1);
   const [viewStyle, setViewStyle] = useViewStyle('playlist');
-  const ITEMS_PER_PAGE = usePrefs().collectionPageSize; // 설정에서 조절
+  const basePerPage = usePrefs().collectionPageSize; // 설정에서 조절
+  const ITEMS_PER_PAGE = viewStyle === 'list' ? basePerPage * 2 : basePerPage; // 목록 보기는 카드의 2배
   const total = playlist.items.length;
   // 게임 기록이 없는 영상은 재생목록 이름의 게임을 기본으로 표시
   const playlistGame = useMemo(() => inferPlaylistGame(playlist.title, buildGameCatalog(logs)), [playlist.title, logs]);

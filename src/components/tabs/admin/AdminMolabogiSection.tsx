@@ -49,10 +49,15 @@ interface ExistingCompilation {
   gameSortOrder?: 'latest' | 'oldest' | 'custom';
   gameGroups?: GameGroup[];
   associatedLogIds: string[];
+  /** 'multi': 웃음참기처럼 한 영상에 여러 생방을 연결 (몰아보기 표시 없이 '생방 여러 개'로만 보임) */
+  kind?: 'compilation' | 'multi';
 }
 
 export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSectionProps) {
   const [activeSubTab, setActiveSubTab] = useState<'form' | 'list'>('form');
+  // 등록 종류: 몰아보기 / 웃음참기(여러 생방 연결, 몰아보기 표시 없음)
+  const [kind, setKind] = useState<'compilation' | 'multi'>('compilation');
+  const [pickQuery, setPickQuery] = useState('');
 
   // 편집 폼 상태
   const [editingCompId, setEditingCompId] = useState<string | null>(null);
@@ -79,6 +84,40 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
     return Object.values(data.logs || {}).sort((a, b) => b.date.localeCompare(a.date));
   }, [data.logs]);
 
+  // 웃음참기: 이미 기록에 있는 영상 고르기 (몰아보기 제외)
+  const existingVideos = useMemo(() => {
+    const m = new Map<string, { title: string; url: string; dates: string[]; logIds: string[] }>();
+    Object.values(data.logs || {}).forEach((log) => (Array.isArray(log.edited) ? log.edited : []).forEach((e: any) => {
+      if (!e?.url || e.isCompilation || e.compilationId) return;
+      const key = extractYoutubeId(e.url) || e.url;
+      const cur = m.get(key) || { title: e.title || '', url: e.url, dates: [], logIds: [] };
+      if (!cur.logIds.includes(log.id)) { cur.logIds.push(log.id); cur.dates.push(log.date); }
+      if (!cur.title && e.title) cur.title = e.title;
+      m.set(key, cur);
+    }));
+    return [...m.values()].sort((a, b) => (b.dates[0] || '').localeCompare(a.dates[0] || ''));
+  }, [data.logs]);
+  const pickResults = useMemo(() => {
+    const q = pickQuery.trim();
+    if (!q) return [];
+    const id = extractYoutubeId(q);
+    return existingVideos.filter((v) => (id ? extractYoutubeId(v.url) === id : fuzzyKoreanMatch(q, v.title) || v.dates.some((d) => d.includes(q)))).slice(0, 8);
+  }, [pickQuery, existingVideos]);
+  const pickVideo = (v: { title: string; url: string; logIds: string[] }) => {
+    setVideoTitle(v.title);
+    setVideoUrl(v.url);
+    setPickQuery('');
+    // 원래 연결돼 있던 방송은 미리 선택
+    const next = { ...selectedBroadcasts };
+    const order = [...selectedBroadcastOrder];
+    v.logIds.forEach((id) => {
+      const log = data.logs[id];
+      if (log && !next[id]) { next[id] = { logId: id, date: log.date, selectedGameNames: getGamesFromLog(log) }; order.push(id); }
+    });
+    setSelectedBroadcasts(next);
+    setSelectedBroadcastOrder(order);
+  };
+
   // 기존 등록된 모든 몰아보기 영상 목록 취합 (등록 시 체크한 게임만 엄격 반영 및 쿠키 캐시 활용)
   const existingCompilations = useMemo(() => {
     // 탭이 목록 관리('list')이거나 폼에서 수정 중인 경우에만 정밀 계산, 아닐 때는 쿠키 캐시 우선 활용
@@ -87,8 +126,8 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
     Object.values(data.logs || {}).forEach(log => {
       if (Array.isArray(log.edited)) {
         log.edited.forEach(item => {
-          if (item.isCompilation || item.compilationId) {
-            const compId = item.compilationId || `comp_${item.url}`;
+          if (item.isCompilation || item.compilationId || (item as any).multiId) {
+            const compId = item.compilationId || (item as any).multiId || `comp_${item.url}`;
             const cleanTitle = item.title.replace(/^\[몰아보기\]\s*/, '');
 
             if (!map.has(compId)) {
@@ -100,7 +139,8 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                 games: item.games ? [...item.games] : [],
                 gameSortOrder: item.gameSortOrder || 'latest',
                 gameGroups: item.gameGroups ? [...item.gameGroups] : undefined,
-                associatedLogIds: [log.id]
+                associatedLogIds: [log.id],
+                kind: (item as any).multiId && !item.isCompilation ? 'multi' : 'compilation',
               });
             } else {
               const existing = map.get(compId)!;
@@ -351,6 +391,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
   // 기존 몰아보기 수정 모드로 진입
   const handleEditCompilation = (comp: ExistingCompilation) => {
     setEditingCompId(comp.compilationId);
+    setKind(comp.kind || 'compilation');
     setVideoTitle(comp.title.replace(/^\[몰아보기\]\s*/, ''));
     setVideoUrl(comp.url);
     setGameSortOrder(comp.gameSortOrder || 'custom');
@@ -389,6 +430,8 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
   // 편집 취소 및 폼 초기화
   const handleCancelEdit = () => {
     setEditingCompId(null);
+    setKind('compilation');
+    setPickQuery('');
     setVideoTitle('');
     setVideoUrl('');
     setSelectedBroadcasts({});
@@ -578,7 +621,9 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
 
   // 몰아보기 삭제 실행
   const handleDeleteCompilation = async (comp: ExistingCompilation) => {
-    if (!confirm(`몰아보기 영상 [${comp.title}]을(를) 삭제하시겠어요?\n연동된 ${comp.associatedLogIds.length}개 생방 기록에서 모두 제거돼요.`)) {
+    if (!confirm(comp.kind === 'multi'
+      ? `[${comp.title}]의 여러 생방 연결을 해제할까요?\n영상은 가장 이른 방송 기록에만 일반 영상으로 남아요.`
+      : `몰아보기 영상 [${comp.title}]을(를) 삭제하시겠어요?\n연동된 ${comp.associatedLogIds.length}개 생방 기록에서 모두 제거돼요.`)) {
       return;
     }
 
@@ -601,11 +646,15 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
         const log = data.logs[logId];
         if (!log || !Array.isArray(log.edited)) continue;
 
-        const updatedEdited = log.edited.filter(
-          item => item.compilationId !== comp.compilationId && item.url !== comp.url
+        let updatedEdited = log.edited.filter(
+          item => item.compilationId !== comp.compilationId && (item as any).multiId !== comp.compilationId && item.url !== comp.url
         );
+        // 웃음참기(여러 생방 연결)는 원래 영상이었을 수 있으니 첫 방송 기록에는 일반 영상으로 남김
+        if (comp.kind === 'multi' && log.date === [...comp.allBroadcastDates].sort()[0]) {
+          updatedEdited = [{ title: comp.title, url: comp.url }, ...updatedEdited];
+        }
 
-        if (updatedEdited.length !== log.edited.length) {
+        if (JSON.stringify(updatedEdited) !== JSON.stringify(log.edited)) {
           await onUpdateLog({
             ...log,
             edited: updatedEdited
@@ -628,11 +677,11 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
   // 몰아보기 등록 / 수정 저장
   const handleSubmit = async () => {
     if (!videoTitle.trim()) {
-      alert('몰아보기 영상 제목을 입력해주세요.');
+      alert(kind === 'multi' ? '영상 제목을 입력해주세요.' : '몰아보기 영상 제목을 입력해주세요.');
       return;
     }
     if (!videoUrl.trim()) {
-      alert('몰아보기 영상 링크를 입력해주세요.');
+      alert(kind === 'multi' ? '영상 링크를 입력해주세요.' : '몰아보기 영상 링크를 입력해주세요.');
       return;
     }
 
@@ -650,7 +699,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
     setIsSubmitting(true);
 
     try {
-      const compId = editingCompId || ('compilation_' + Date.now());
+      const compId = editingCompId || ((kind === 'multi' ? 'multi_' : 'compilation_') + Date.now());
       const orderedKeys = selectedBroadcastOrder.length > 0 
         ? selectedBroadcastOrder.filter(id => selectedKeys.includes(id)) 
         : selectedKeys;
@@ -691,6 +740,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
       // 1. Firestore compilations 컬렉션 저장
       const compilationData = {
         id: compId,
+        kind,
         title: cleanedTitle,
         url: videoUrl.trim(),
         createdAt: new Date().toISOString(),
@@ -718,7 +768,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
             const originalLog = data.logs[logId];
             if (originalLog && Array.isArray(originalLog.edited)) {
               const cleaned = originalLog.edited.filter(
-                item => item.compilationId !== editingCompId && item.url !== videoUrl.trim()
+                item => item.compilationId !== editingCompId && (item as any).multiId !== editingCompId && item.url !== videoUrl.trim()
               );
               await onUpdateLog({ ...originalLog, edited: cleaned });
             }
@@ -733,21 +783,33 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
 
         const existingEdited = Array.isArray(originalLog.edited) ? [...originalLog.edited] : [];
 
-        const newCompilationLink: LinkItem = {
-          title: cleanedTitle,
-          url: videoUrl.trim(),
-          isCompilation: true,
-          compilationId: compId,
-          allBroadcastDates: allSelectedDates,
-          games: finalGames,
-          gameSortOrder,
-          gameGroups: finalGroups,
-          createdAt: compilationData.createdAt
-        };
+        // 웃음참기(multi): 몰아보기 표시 없이 일반 영상처럼, 연결된 생방만 여러 개
+        const prevSame: any = existingEdited.find((item) => item.url === videoUrl.trim());
+        const newCompilationLink: LinkItem = kind === 'multi'
+          ? ({
+              ...(prevSame && !prevSame.isCompilation ? prevSame : {}),
+              title: cleanedTitle,
+              url: videoUrl.trim(),
+              multiId: compId,
+              allBroadcastDates: allSelectedDates,
+              games: finalGames,
+              createdAt: prevSame?.createdAt || compilationData.createdAt,
+            } as any)
+          : {
+              title: cleanedTitle,
+              url: videoUrl.trim(),
+              isCompilation: true,
+              compilationId: compId,
+              allBroadcastDates: allSelectedDates,
+              games: finalGames,
+              gameSortOrder,
+              gameGroups: finalGroups,
+              createdAt: compilationData.createdAt
+            };
 
         // 기존 동일 URL/동일 compilationId 항목 교체
         const filteredEdited = existingEdited.filter(
-          item => item.url !== videoUrl.trim() && item.compilationId !== compId
+          item => item.url !== videoUrl.trim() && item.compilationId !== compId && (item as any).multiId !== compId
         );
         filteredEdited.unshift(newCompilationLink);
 
@@ -759,8 +821,9 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
         await onUpdateLog(updatedLog);
       }
 
-      alert(
-        editingCompId
+      alert(kind === 'multi'
+        ? `[${cleanedTitle}]에 생방 ${selectedKeys.length}개를 연결했어요. 추천 영상에서 '생방 ${selectedKeys.length}개'로 보여요.`
+        : editingCompId
           ? `몰아보기 영상이 성공적으로 수정되었어요!\n연동된 ${selectedKeys.length}개 생방 기록 및 추천 영상에 갱신되었어요.`
           : `몰아보기 영상이 성공적으로 등록되었어요!\n선택하신 ${selectedKeys.length}개 생방 기록에 자동으로 연결되었어요.`
       );
@@ -794,12 +857,12 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
             {editingCompId ? (
               <>
                 <Edit3 className="w-3.5 h-3.5" />
-                <span>몰아보기 수정 중</span>
+                <span>{kind === 'multi' ? '웃음참기 수정 중' : '몰아보기 수정 중'}</span>
               </>
             ) : (
               <>
                 <Plus className="w-3.5 h-3.5" />
-                <span>새 몰아보기 등록</span>
+                <span>새로 등록</span>
               </>
             )}
           </button>
@@ -814,7 +877,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
             }`}
           >
             <Film className="w-3.5 h-3.5" />
-            <span>등록된 몰아보기 관리 ({existingCompilations.length}개)</span>
+            <span>등록된 몰아보기·웃음참기 관리 ({existingCompilations.length}개)</span>
           </button>
         </div>
 
@@ -844,6 +907,50 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
             </div>
           </div>
 
+          {/* 0. 종류: 몰아보기 / 웃음참기(여러 생방 연결) */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span className="text-xs font-bold text-zinc-600 dark:text-zinc-300">종류</span>
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 w-fit">
+              {([['compilation', '몰아보기'], ['multi', '웃음참기 · 여러 생방 연결']] as const).map(([k, label]) => (
+                <button key={k} type="button" disabled={!!editingCompId} onClick={() => setKind(k)}
+                  className={cn('px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer disabled:cursor-not-allowed', kind === k ? 'bg-white dark:bg-zinc-900 text-purple-600 dark:text-purple-400 shadow-xs' : 'text-zinc-600 dark:text-zinc-400')}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {kind === 'multi' && <span className="text-[11px] text-zinc-500">몰아보기 표시 없이, 영상 카드에 '생방 N개'로만 보여요. 이미 있는 영상에도 쓸 수 있어요.</span>}
+          </div>
+
+          {kind === 'multi' && (
+            <div className="bg-zinc-50 dark:bg-zinc-950/60 p-4 sm:p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-3">
+              <h4 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                <Search className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                기존 영상에서 고르기 (선택)
+              </h4>
+              <input
+                type="text"
+                value={pickQuery}
+                onChange={(e) => setPickQuery(e.target.value)}
+                placeholder="영상 제목, 날짜(2026-05) 또는 유튜브 링크"
+                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+              />
+              {pickResults.length > 0 && (
+                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800 overflow-hidden">
+                  {pickResults.map((v) => (
+                    <button key={v.url} type="button" onClick={() => pickVideo(v)} className="w-full flex items-center gap-3 p-2.5 text-left bg-white dark:bg-zinc-900 hover:bg-purple-50 dark:hover:bg-purple-950/30 cursor-pointer">
+                      {extractYoutubeId(v.url) && <img src={`https://i.ytimg.com/vi/${extractYoutubeId(v.url)}/mqdefault.jpg`} alt="" className="w-20 aspect-video rounded-md object-cover shrink-0" />}
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold truncate">{v.title || v.url}</span>
+                        <span className="block text-[11px] text-zinc-500">{v.dates.join(', ')} 방송에 연결됨</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="text-[11px] text-zinc-500">고르면 제목·링크가 채워지고 원래 연결된 방송이 미리 선택돼요. 아래에서 생방을 더 검색해 추가하세요.</p>
+            </div>
+          )}
+
           {/* 1. 영상 기본 정보 */}
           <div className="bg-zinc-50 dark:bg-zinc-950/60 p-4 sm:p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-4">
             <h4 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2">
@@ -854,7 +961,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  몰아보기 영상 제목 (필수)
+                  {kind === 'multi' ? '영상 제목 (필수)' : '몰아보기 영상 제목 (필수)'}
                 </label>
                 <input
                   type="text"
@@ -1313,7 +1420,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                       <div className="flex-1 min-w-0 space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h5 className="font-bold text-sm text-zinc-900 dark:text-white truncate">
-                            {comp.title}
+                            {comp.kind === 'multi' && <span className="mr-1.5 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 text-[10px] font-bold align-middle">웃음참기</span>}{comp.title}
                           </h5>
                           <a
                             href={comp.url}

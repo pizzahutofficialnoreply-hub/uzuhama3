@@ -25,3 +25,14 @@ export function titleHasHashtag(title: string, tag: string): boolean {
   const want = squash(tag.replace(/^#+/, ''));
   return Boolean(want) && (String(title || '').match(/#[^\s#]+/g) || []).some((h) => squash(h) === want);
 }
+
+/**
+ * 쇼츠 제목에서 '쇼츠'를 뜻하는 태그만 뗌 (#shorts, #short, #쇼츠, #숏츠, #youtubeshorts …)
+ * - 다른 해시태그(#게임이름 등)는 그대로 둠
+ */
+const SHORTS_TAG = /\s*#(?:shorts?|쇼츠|숏츠|숏폼|youtubeshorts|ytshorts|shortsvideo|shortvideo|shortsfeed)(?![0-9A-Za-z_가-힣])/gi;
+export function cleanShortsTitle(title: string | undefined | null): string {
+  const t = String(title || '');
+  const cleaned = t.replace(SHORTS_TAG, ' ').replace(/\s{2,}/g, ' ').trim();
+  return cleaned || t.trim();
+}

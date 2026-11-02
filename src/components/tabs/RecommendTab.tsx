@@ -12,7 +12,8 @@ import { BroadcastDetailModal } from './BroadcastDetailModal';
 import { getMolabogiCache, setMolabogiCache } from '../../utils/molabogiCache';
 import { GameTitle } from '../common/GameTitle';
 import { useVideoMeta, formatDuration, toKstDate, formatRelativeTime } from '../../hooks/useVideoDuration';
-import { ShortsFeed, useChannelShorts } from './recommend/ShortsFeed';
+import { ShortsFeed, useChannelShorts, useShortsRelated } from './recommend/ShortsFeed';
+import { cleanShortsTitle } from '../../utils/videoSearch';
 import { ShortsShelf } from '../common/ShortsCard';
 import { CompilationDetail } from './recommend/CompilationDetail';
 import { Pagination } from '../common/Pagination';
@@ -41,6 +42,20 @@ const RECOMMEND_SUB_TABS: { id: RecommendSubTab; label: string }[] = [
 ];
 
 
+/** 연결된 쇼츠 + 방송 기록의 쇼츠를 하나로 (같은 쇼츠는 한 번만) */
+function mergeShorts(...lists: (any[] | undefined)[]): { url: string; title?: string }[] {
+  const seen = new Set<string>();
+  const out: { url: string; title?: string }[] = [];
+  lists.forEach((list) => (Array.isArray(list) ? list : []).forEach((s: any) => {
+    const url = typeof s === 'string' ? s : s?.url;
+    const id = extractYoutubeId(url || '') || url;
+    if (!url || seen.has(id)) return;
+    seen.add(id);
+    out.push({ url, title: cleanShortsTitle(typeof s === 'string' ? '' : s?.title) || undefined });
+  }));
+  return out;
+}
+
 export const VideoCard = ({ 
   video,
   allLogs,
@@ -48,7 +63,10 @@ export const VideoCard = ({
   onOpenBroadcastModal,
   isCompact = false,
   isExpanded = false,
+  linkedShorts,
 }: { 
+  /** 이 영상과 연결된 쇼츠 (쇼츠 아래에 이 영상이 걸린 것) */
+  linkedShorts?: { url: string; title?: string }[];
   video: any;
   allLogs?: Record<string, any>;
   onNavigateToCalendar?: (dateStr: string) => void;
@@ -67,7 +85,8 @@ export const VideoCard = ({
   const [isSharing, setIsSharing] = useState(false);
   const [isPlayingInline, setIsPlayingInline] = useState(false);
 
-  const shorts = video.parentLog?.shorts || [];
+  // 쇼츠: 이 영상에 직접 연결된 쇼츠 먼저, 그다음 같은 방송 기록의 쇼츠 (중복 제거, 쇼츠 표시 태그는 뗌)
+  const shorts = useMemo(() => mergeShorts(linkedShorts, video.parentLog?.shorts), [linkedShorts, video.parentLog?.shorts]);
   const videoMeta = useVideoMeta(video.id);
   const durationSec = videoMeta?.durationSec ?? null;
   const uploadDate = videoMeta?.publishedAt ? toKstDate(videoMeta.publishedAt) : '';
@@ -1192,8 +1211,22 @@ export function RecommendTab({
       if (hit) { if (!hit.title) hit.title = c.title; return; }
       byId.set(c.videoId, { url: `https://www.youtube.com/shorts/${c.videoId}`, title: c.title, caption: c.publishedAt ? `${c.publishedAt.slice(0, 10)} 업로드` : undefined });
     });
-    return [...byId.values()].filter((s) => s.title);
+    return [...byId.values()].filter((s) => s.title).map((s) => ({ ...s, title: cleanShortsTitle(s.title) }));
   }, [data?.logs, channelShorts]);
+
+  // 일반 영상 ID → 그 영상이 걸린 쇼츠들 (쇼츠 아래 '관련 동영상' 기준, 영상 카드에 함께 보여 줌)
+  const shortsRelated = useShortsRelated();
+  const shortsByVideo = useMemo(() => {
+    const titleOf = new Map(channelShorts.map((c) => [c.videoId, c.title] as const));
+    const m = new Map<string, { url: string; title?: string }[]>();
+    Object.entries(shortsRelated).forEach(([sid, vid]) => {
+      if (!vid) return;
+      const arr = m.get(vid) || [];
+      arr.push({ url: `https://www.youtube.com/shorts/${sid}`, title: cleanShortsTitle(titleOf.get(sid)) || undefined });
+      m.set(vid, arr);
+    });
+    return m;
+  }, [shortsRelated, channelShorts]);
 
   // 사용자가 '원래 검색어로' 를 누르면 그 검색어는 고치지 않음
   const [keepOriginalFor, setKeepOriginalFor] = useState<string | null>(null);
@@ -1733,8 +1766,10 @@ export function RecommendTab({
     return () => window.removeEventListener('resize', handleItemsResize);
   }, []);
 
-  const totalPages = Math.max(1, Math.ceil(recommended.length / itemsPerPage));
-  const paginatedVids = recommended.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // 목록 보기는 한 줄이 작아서 카드의 2배를 한 페이지에
+  const perPage = viewStyle === 'list' ? itemsPerPage * 2 : itemsPerPage;
+  const totalPages = Math.max(1, Math.ceil(recommended.length / perPage));
+  const paginatedVids = recommended.slice((currentPage - 1) * perPage, currentPage * perPage);
 
   // 페이지 바운드 보호
   useEffect(() => {
@@ -2158,7 +2193,7 @@ export function RecommendTab({
                           liveUrl={!isMulti ? video.parentLog?.vods?.find((v: any) => v?.url)?.url : undefined}
                           onLiveClick={isMulti ? toggle : undefined}
                           liveActive={isExpanded}
-                          shorts={!isMulti ? (video.parentLog?.shorts || []) : []}
+                          shorts={mergeShorts(shortsByVideo.get(ytId), !isMulti ? video.parentLog?.shorts : [])}
                         />
                       </motion.div>
                     )}
@@ -2229,8 +2264,9 @@ export function RecommendTab({
                         exit={{ opacity: 0, scale: 0.97 }}
                         transition={{ type: 'spring', stiffness: 340, damping: 32 }}
                       >
-                        <VideoCard 
+ <VideoCard 
                           video={video} 
+                          linkedShorts={shortsByVideo.get(extractYoutubeId(video.videoUrl || '') || video.id)}
                           allLogs={data?.logs} 
                           onNavigateToCalendar={onNavigateToCalendar} 
                           onOpenBroadcastModal={(v) => setSelectedBroadcastModalVideo(v)}

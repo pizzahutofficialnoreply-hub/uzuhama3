@@ -31,7 +31,9 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
 }) {
   const [viewStyle, setViewStyle] = useViewStyle('compilation');
   const [page, setPage] = useState(1);
-  const PER_PAGE = usePrefs().collectionPageSize; // 설정에서 조절
+  // 설정에서 조절, 목록 보기는 한 줄이 작아서 카드의 2배
+  const basePerPage = usePrefs().collectionPageSize;
+  const PER_PAGE = viewStyle === 'list' ? basePerPage * 2 : basePerPage;
   const logsList = useMemo(() => (allLogs ? (Array.isArray(allLogs) ? allLogs : Object.values(allLogs)) : []), [allLogs]);
   const dates = useMemo(() => getBroadcastDates(video, logsList), [video, logsList]);
   const isCompilation = !!(video?.isCompilation || video?.compilationId);

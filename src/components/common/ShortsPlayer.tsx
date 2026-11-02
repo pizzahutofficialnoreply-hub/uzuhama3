@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Layers, Volume2, VolumeX, X } from 'lucide-reac
 import { motion, AnimatePresence } from 'motion/react';
 import { CompilationDetail } from '../tabs/recommend/CompilationDetail';
 import { extractYoutubeId } from '../../utils/urlUtils';
+import { cleanShortsTitle } from '../../utils/videoSearch';
 import { PlaySquare, YoutubeLogo } from './MediaIcons';
 
 /**
@@ -261,7 +262,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: S
 
           {/* 아래: 제목·날짜·링크 */}
           <div className="absolute bottom-0 inset-x-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-black/75 via-black/35 to-transparent pointer-events-none">
-            <p className="text-[15px] font-bold leading-snug line-clamp-2 break-keep">{cur.title || '유튜브 쇼츠'}</p>
+            <p className="text-[15px] font-bold leading-snug line-clamp-2 break-keep">{cleanShortsTitle(cur.title) || '유튜브 쇼츠'}</p>
             {cur.caption && <p className="mt-1 text-xs text-white/70">{cur.caption}</p>}
             <div className="mt-3 flex items-center gap-2 pointer-events-auto">
               {cur.liveUrl && (

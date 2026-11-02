@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../utils';
 import { extractYoutubeId } from '../../utils/urlUtils';
+import { cleanShortsTitle } from '../../utils/videoSearch';
 import { GlassPlayButton, PlaySquare, YoutubeLogo } from './MediaIcons';
 import { ShortsPlayer } from './ShortsPlayer';
 
@@ -27,7 +28,7 @@ export interface ShortsCardProps {
 export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editUrl, className, onPlay }: ShortsCardProps) {
   const ytId = extractYoutubeId(url);
   const [playing, setPlaying] = useState(false);
-  const label = title?.trim() || '유튜브 쇼츠';
+  const label = cleanShortsTitle(title) || '유튜브 쇼츠';
 
   return (
     <div className={cn('flex flex-col min-w-0', className)}>
