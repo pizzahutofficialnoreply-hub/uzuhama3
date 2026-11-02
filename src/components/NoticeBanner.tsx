@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import { NoticeItem, NoticeLink } from '../types';
 import { formatNoticeText } from '../App';
 import { cn } from '../utils';
+import { plainText } from './common/RichTextRenderer';
 
 export type BannerColorTheme = 'default' | 'yellow' | 'green';
 
@@ -138,7 +139,7 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
     displayItems.push({
       id: n.id,
       type: 'notice',
-      title: (n.title || '').trim() || '공지사항',
+      title: plainText(n.title) || '공지사항',
       content: n.content,
       links: (n.links && n.links.length > 0)
         ? n.links

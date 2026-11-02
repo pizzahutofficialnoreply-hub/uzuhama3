@@ -126,7 +126,15 @@ export function RichTextRenderer({ content, className = '' }: RichTextRendererPr
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
-      .replace(/&lt;(\/?)(b|strong|i|em|u|s|del|small)&gt;/gi, '<$1$2>');
+      .replace(/&lt;(\/?)(b|strong|i|em|u|s|del|small|mark)&gt;/gi, '<$1$2>')
+      .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
+      // 편집기의 글자 색 등: <span style="color: #ef4444"> (허용한 속성·값만 살림)
+      .replace(/&lt;span\s+style=(?:&quot;|&#39;)(.*?)(?:&quot;|&#39;)&gt;/gi, (_m, style: string) => {
+        const safe = sanitizeStyle(style.replace(/&#39;/g, "'"));
+        return safe ? `<span style="${safe}">` : '<span>';
+      })
+      .replace(/&lt;span&gt;/gi, '<span>')
+      .replace(/&lt;\/span&gt;/gi, '</span>');
 
     // 링크 [텍스트](url)
     parsed = parsed.replace(
@@ -166,11 +174,48 @@ export function RichTextRenderer({ content, className = '' }: RichTextRendererPr
     return <span dangerouslySetInnerHTML={{ __html: parsed }} />;
   };
 
+  // 여러 줄 정렬 블록: 편집기가 만드는 <div align="center"> (줄바꿈) 내용 (줄바꿈) </div>
   const lines = content.split('\n');
+  const OPEN = /^\s*<(div|p|center)(?:\s+align=['"](left|center|right)['"]|\s+style=['"][^'"]*text-align:\s*(left|center|right)[^'"]*['"])?\s*>\s*$/i;
+  const CLOSE = /^\s*<\/(div|p|center)>\s*$/i;
+  let align: string | null = null;
+  const out: React.ReactNode[] = [];
+  lines.forEach((line, i) => {
+    const o = OPEN.exec(line);
+    if (o) { align = (o[2] || o[3] || (o[1].toLowerCase() === 'center' ? 'center' : 'left')).toLowerCase(); return; }
+    if (CLOSE.test(line)) { align = null; return; }
+    const node = renderFormattedLine(line, i);
+    out.push(align ? <div key={`a${i}`} className={align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left'}>{node}</div> : node);
+  });
 
   return (
     <div className={`rich-text-content space-y-0.5 select-text ${className}`}>
-      {lines.map((line, i) => renderFormattedLine(line, i))}
+      {out}
     </div>
   );
+}
+
+/** 글자 색·배경·크기·굵기만 허용 (그 밖의 속성과 url() 등은 버림) */
+function sanitizeStyle(style: string): string {
+  return style.split(';').map((d) => d.trim()).filter(Boolean).map((d) => {
+    const i = d.indexOf(':');
+    if (i < 0) return '';
+    const prop = d.slice(0, i).trim().toLowerCase();
+    const val = d.slice(i + 1).trim();
+    if (!['color', 'background-color', 'font-size', 'font-weight'].includes(prop)) return '';
+    if (!/^[#\w\s.,%()-]{1,40}$/.test(val) || /url|expression|javascript/i.test(val)) return '';
+    return `${prop}: ${val}`;
+  }).filter(Boolean).join('; ');
+}
+
+/** 한 줄 미리보기용: 서식 태그·마크다운 기호를 빼고 글자만 */
+export function plainText(text: string | undefined | null): string {
+  return String(text || '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\[([^\]]*)\]\((https?:[^)]+)\)/g, '$1')
+    .replace(/\*\*|__|~~|`/g, '')
+    .replace(/^\s{0,3}(#{1,6}\s|>\s|[-*]\s)/gm, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
 }

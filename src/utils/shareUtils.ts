@@ -306,13 +306,15 @@ export function formatRecommendShareText(video: any, allLogs?: Record<string, an
 
     const addDayVideo = (title: string, url: string) => {
       const cleanUrl = url?.trim();
-      if (!cleanUrl || seenVideoUrls.has(cleanUrl)) return;
+      // 같은 영상이 꼬리표만 다른 링크로 두 번 들어오지 않게 영상 ID 로 비교
+      const key = (/(?:v=|youtu\.be\/|shorts\/|live\/|embed\/)([\w-]{11})/.exec(cleanUrl || '') || [])[1] || cleanUrl;
+      if (!cleanUrl || seenVideoUrls.has(key)) return;
       const lowerTitle = (title || '').toLowerCase();
       // 몰아보기 영상 제외
       if (lowerTitle.includes('몰아보기')) return;
       if (isCompilation && cleanUrl === video.videoUrl) return;
 
-      seenVideoUrls.add(cleanUrl);
+      seenVideoUrls.add(key);
       dayVideos.push({ title: title?.trim() || '', url: cleanUrl });
     };
 
@@ -475,7 +477,6 @@ export function cleanShareUrl(raw: string): string {
  * 공유 글 다듬기 (내용은 그대로)
  * - 모든 링크 정리
  * - 같은 방송 안에서 같은 게임이 링크 없이/있게 두 번 나오면 링크 있는 것만
- * - 숫자만 있는 게임 이름(잘못 들어간 시간 값 등)은 뺌
  */
 function tidyShareText(text: string): string {
   return text.split('\n\n').map((block) => {
@@ -486,7 +487,6 @@ function tidyShareText(text: string): string {
     return lines.filter((l) => {
       const g = gameName(l);
       if (g === null) return true;
-      if (/^[\d.\s:]+$/.test(g)) return false;
       if (!l.includes(', http') && withLink.has(g.toLowerCase())) return false;
       if (seen.has(l)) return false;
       seen.add(l);
@@ -559,27 +559,51 @@ export async function shareTextOrClipboard(
 }
 
 /**
- * 쇼츠 공유 글 (영상 공유와 같은 모양)
- * • 쇼츠: 제목, 링크
- * • 방송일 / • 영상: 연결된 본영상 / • 게임 / • 생방
+ * 쇼츠 공유 글 (몰아보기·영상 공유와 같은 모양)
+ * • 방송일 / • 영상: 연결된 본영상 / • 게임 / • 생방 / • 쇼츠: 이 쇼츠
  */
 export function formatShortsShareText(s: { title?: string; url: string; date?: string; liveUrl?: string; editUrl?: string; relatedTitle?: string }, allLogs?: Record<string, any> | any[]): string {
-  const lines: string[] = [];
   const title = (s.title || '').trim();
-  lines.push(`• 쇼츠: ${title ? `${title}, ${s.url}` : s.url}`);
+  const shortLine = `• 쇼츠: ${title ? `${title}, ` : ''}${cleanShareUrl(s.url)}`;
   const logsList = allLogs ? (Array.isArray(allLogs) ? allLogs : Object.values(allLogs || {})) : [];
   const log: any = s.date ? logsList.find((l: any) => l?.date === s.date) : null;
-  if (s.date) lines.push(`• ${s.date.replace(/-/g, '.')}`);
-  if (s.editUrl) lines.push(`• 영상: ${s.relatedTitle ? `${s.relatedTitle}, ${s.editUrl}` : s.editUrl}`);
-  const games: any[] = Array.isArray(log?.games) && log.games.length ? log.games : log?.game ? [{ name: log.game }] : [];
-  games.forEach((g: any) => { const n = (g?.name || '').trim(); if (n) lines.push(`• 게임: ${g.link ? `${n}, ${g.link}` : n}`); });
-  if (s.liveUrl) lines.push(`• 생방: ${s.liveUrl}`);
+  if (s.date && log) {
+    const block = formatRecommendShareText({ videoTitle: s.relatedTitle || '', videoUrl: s.editUrl || '', parentLog: log, allBroadcastDates: [s.date] }, logsList)
+      .split('\n').filter((l) => !l.startsWith('• 쇼츠:'));
+    // 연결된 생방 링크가 기록에 없으면 쇼츠 쪽 값으로
+    if (s.liveUrl && !block.some((l) => l.startsWith('• 생방:'))) block.push(`• 생방: ${cleanShareUrl(s.liveUrl)}`);
+    return tidyShareText([...block, shortLine].join('\n'));
+  }
+  const lines: string[] = [];
+  if (s.editUrl) lines.push(`• 영상: ${s.relatedTitle ? `${s.relatedTitle}, ` : ''}${cleanShareUrl(s.editUrl)}`);
+  if (s.liveUrl) lines.push(`• 생방: ${cleanShareUrl(s.liveUrl)}`);
+  lines.push(shortLine);
   return lines.join('\n');
 }
 
-/** 재생목록 공유 글 */
-export function formatPlaylistShareText(p: { id: string; title: string; count?: number }): string {
-  const lines = [`• 재생목록: ${p.title}, https://www.youtube.com/playlist?list=${p.id}`];
-  if (p.count) lines.push(`• 영상 ${p.count}개`);
-  return lines.join('\n');
+/**
+ * 재생목록 공유 글 (몰아보기 공유와 같은 모양)
+ * • 재생목록: 제목, 링크 / • 영상 N개 · 생방 N개
+ * 그리고 영상마다 방송 블록 (방송 기록이 없으면 영상 줄만)
+ */
+export function formatPlaylistShareText(
+  p: { id: string; title: string; items?: { videoId: string; title: string }[] },
+  logOf?: (videoId: string) => any,
+  allLogs?: Record<string, any> | any[],
+): string {
+  const items = p.items || [];
+  const blocks: string[] = [];
+  let lives = 0;
+  items.forEach((it) => {
+    const url = `https://www.youtube.com/watch?v=${it.videoId}`;
+    const log = logOf?.(it.videoId);
+    if (log?.date) {
+      lives++;
+      blocks.push(formatRecommendShareText({ id: it.videoId, videoTitle: it.title, videoUrl: url, parentLog: log, allBroadcastDates: [log.date] }, allLogs));
+    } else {
+      blocks.push(`• 영상: ${it.title ? `${it.title}, ` : ''}${url}`);
+    }
+  });
+  const head = [`• 재생목록: ${p.title}, https://www.youtube.com/playlist?list=${p.id}`, `• 영상 ${items.length}개${lives ? ` · 생방 ${lives}개` : ''}`];
+  return [head.join('\n'), ...blocks].join('\n\n');
 }

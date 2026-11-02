@@ -43,7 +43,7 @@ function useLogIndex(logs: any) {
   }, [logs]);
 }
 
-function PlaylistCard({ playlist, onOpen }: { playlist: Playlist; onOpen: () => void }) {
+function PlaylistCard({ playlist, onOpen, shareText }: { playlist: Playlist; onOpen: () => void; shareText: () => string }) {
   const count = playlist.items.length;
   return (
     <div className="group relative isolate flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
@@ -62,7 +62,7 @@ function PlaylistCard({ playlist, onOpen }: { playlist: Playlist; onOpen: () => 
           <button type="button" onClick={onOpen} className="flex-1 text-left font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors text-sm sm:text-base cursor-pointer">
             {playlist.title}
           </button>
-          <ShareButton className="-mr-1 -mt-0.5" title={`${playlist.title} 재생목록`} getText={() => formatPlaylistShareText({ id: playlist.id, title: playlist.title, count })} />
+          <ShareButton className="-mr-1 -mt-0.5" title={`${playlist.title} 재생목록`} getText={shareText} />
         </div>
         {playlist.description && <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">{playlist.description}</p>}
         <div className="mt-auto pt-3">
@@ -267,7 +267,7 @@ export function PlaylistsFeed({ searchTerm, logs, onNavigateToCalendar }: { sear
                     exit={{ opacity: 0, scale: 0.97 }}
                     transition={IOS_SPRING}
                   >
-                    <PlaylistCard playlist={p} onOpen={() => setOpenId(p.id)} />
+                    <PlaylistCard playlist={p} onOpen={() => setOpenId(p.id)} shareText={() => formatPlaylistShareText(p, (id) => logIndex.get(id)?.log, logs)} />
                     {matched && matched.size > 0 && (
                       <p className="mt-1.5 px-2 text-xs text-purple-600 dark:text-purple-400 font-semibold">검색어와 맞는 영상 {matched.size}개</p>
                     )}

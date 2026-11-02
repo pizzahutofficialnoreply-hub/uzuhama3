@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, ChevronDown, ExternalLink, Megaphone } from 'lucide-react';
 import type { NoticeItem, SystemConfig } from '../types';
-import { RichTextRenderer } from './common/RichTextRenderer';
+import { RichTextRenderer, plainText } from './common/RichTextRenderer';
 import { cn } from '../utils';
 
 /**
@@ -113,8 +113,8 @@ export function NoticesView({ system, onClose }: { system?: SystemConfig; onClos
                   {n.date && <span className="text-zinc-500">{n.date}</span>}
                   <ChevronDown className={cn('ml-auto w-4 h-4 text-zinc-400 transition-transform duration-200', isOpen && 'rotate-180')} />
                 </div>
-                <h3 className="mt-2.5 text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-snug break-keep">{n.title}</h3>
-                {!isOpen && <p className="mt-1.5 text-xs text-zinc-500 line-clamp-2">{n.content.replace(/[#*_>`~-]/g, '').slice(0, 140)}</p>}
+                <h3 className="mt-2.5 text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-snug break-keep">{plainText(n.title)}</h3>
+                {!isOpen && <p className="mt-1.5 text-xs text-zinc-500 line-clamp-2">{plainText(n.content).slice(0, 140)}</p>}
               </button>
               <AnimatePresence initial={false}>
                 {isOpen && (

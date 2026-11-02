@@ -137,13 +137,38 @@ describe('공유 글 다듬기', () => {
     expect(cleanShareUrl('https://www.youtube.com/watch?v=YTK7mgB7TlA&amp;list=PLtZ&amp;index=106')).toBe('https://www.youtube.com/watch?v=YTK7mgB7TlA');
     expect(cleanShareUrl('https://store.steampowered.com/app/2367230/X/?snr=1_7_7_151_150_1')).toBe('https://store.steampowered.com/app/2367230/X/');
   });
-  it('몰아보기: 맨 위 요약, 중복·숫자 게임 정리', () => {
+  it('몰아보기: 맨 위 요약, 중복 게임 정리', () => {
     const log = { id: 'a', date: '2020-12-14', vods: [{ url: 'https://youtu.be/x?feature=share' }], edited: [{ title: '마녀', url: 'https://youtu.be/w?si=1' }], shorts: [],
       games: [{ name: "The Witch's House", link: '' }, { name: "The Witch's House", link: 'https://store.steampowered.com/app/885810/' }, { name: '0.4576388888888889', link: '' }] };
     const text = formatRecommendShareText({ isCompilation: true, compilationId: 'c', videoTitle: '공포 몰아보기', videoUrl: 'https://youtu.be/comp?si=2', games: [], allBroadcastDates: ['2020-12-14'], parentLog: log }, [log]);
     expect(text.startsWith('• 몰아보기: 공포 몰아보기, https://youtu.be/comp\n• 생방 1개')).toBe(true);
-    expect(text).not.toContain('0.4576');
+    expect(text).toContain('0.4576'); // 숫자뿐인 게임 이름도 그대로 둠 (실제로 있을 수 있음)
     expect(text.match(/Witch's House/g)?.length).toBe(1);
     expect(text).not.toContain('si=');
+  });
+});
+
+import { formatShortsShareText, formatPlaylistShareText } from '../src/utils/shareUtils';
+describe('쇼츠·재생목록 공유 글 (몰아보기와 같은 모양)', () => {
+  const log = { id: 'a', date: '2026-05-09', games: [{ name: '恶意', link: 'https://store.steampowered.com/app/4111260/_/' }],
+    vods: [{ url: 'https://www.youtube.com/live/EqG77rNXsvU?si=gk' }], edited: [{ title: '편집자 탈주할 뻔한 공포게임', url: 'https://youtu.be/UxwuSGve30Q?si=lf' }],
+    shorts: [{ title: '다른 쇼츠', url: 'https://youtube.com/shorts/OTHERxxxxxx' }] };
+  it('쇼츠: 방송 블록 + 이 쇼츠만', () => {
+    const t = formatShortsShareText({ title: '퇴근길 빌런', url: 'https://youtube.com/shorts/JNy9yKfXFns?si=vQ', date: '2026-05-09', editUrl: 'https://youtu.be/UxwuSGve30Q', relatedTitle: '편집자 탈주할 뻔한 공포게임' }, [log]);
+    expect(t).toBe([
+      '• 2026.05.09',
+      '• 영상: 편집자 탈주할 뻔한 공포게임, https://youtu.be/UxwuSGve30Q',
+      '• 게임: 恶意, https://store.steampowered.com/app/4111260/_/',
+      '• 생방: https://www.youtube.com/live/EqG77rNXsvU',
+      '• 쇼츠: 퇴근길 빌런, https://youtube.com/shorts/JNy9yKfXFns',
+    ].join('\n'));
+  });
+  it('재생목록: 맨 위 요약 + 영상마다 블록', () => {
+    const t = formatPlaylistShareText({ id: 'PL1', title: '공포게임 모음', items: [{ videoId: 'UxwuSGve30Q', title: '편집자 탈주할 뻔한 공포게임' }, { videoId: 'zzzzzzzzzzz', title: '기록 없는 영상' }] },
+      (id) => (id === 'UxwuSGve30Q' ? log : null), [log]);
+    const blocks = t.split('\n\n');
+    expect(blocks[0]).toBe('• 재생목록: 공포게임 모음, https://www.youtube.com/playlist?list=PL1\n• 영상 2개 · 생방 1개');
+    expect(blocks[1].startsWith('• 2026.05.09\n• 영상: 편집자 탈주할 뻔한 공포게임, https://www.youtube.com/watch?v=UxwuSGve30Q')).toBe(true);
+    expect(blocks[2]).toBe('• 영상: 기록 없는 영상, https://www.youtube.com/watch?v=zzzzzzzzzzz');
   });
 });

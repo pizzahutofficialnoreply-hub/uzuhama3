@@ -279,15 +279,20 @@ export function computeBroadcastProbability(
   const weightOf = (p: { w: number; sameDow: boolean }) =>
     p.w * ((1 - blendSame) + (p.sameDow ? blendSame * (pts.length / Math.max(1, sameDowCount)) : 0));
   const fallback = [{ m: toBroadcastMinute(20 * 60), w: 1, sameDow: true }];
-  // 예정 시각을 정해 뒀으면 그날은 그 시각 기준 (앞뒤 30분 정도)
-  const usePts = scheduledTime !== null ? [{ m: toBroadcastMinute(scheduledTime), w: 1, sameDow: true }] : hasTime ? pts : fallback;
-  const bw = scheduledTime !== null ? 25 : hasTime ? TIME_BANDWIDTH : 120;
-  const totalW = usePts.reduce((a, p) => a + weightOf(p), 0) || 1;
+  // 시간대 분포: 평소 시작 시각들 (점마다 가중치·폭)
+  const baseBw = hasTime ? TIME_BANDWIDTH : 120;
+  const basePts = (hasTime ? pts : fallback).map((p) => ({ m: p.m, w: weightOf(p), bw: baseBw }));
+  const baseTotal = basePts.reduce((a, p) => a + p.w, 0) || 1;
+  // 예정일에 시각을 정해 뒀으면: 공지 시각(앞뒤 30분 정도)을 65%, 평소 시간대 패턴을 35% 섞음
+  // (공지보다 일찍·늦게 켜는 경우도 평소 패턴만큼은 반영)
+  const kernels = scheduledTime !== null
+    ? [...basePts.map((p) => ({ ...p, w: (p.w / baseTotal) * 0.35 })), { m: toBroadcastMinute(scheduledTime), w: 0.65, bw: 30 }]
+    : basePts.map((p) => ({ ...p, w: p.w / baseTotal }));
   const cdf = (bm: number) =>
-    usePts.reduce((a, p) => a + weightOf(p) * (normCdf((bm - p.m) / bw) - normCdf((0 - p.m) / bw)), 0) /
-    usePts.reduce((a, p) => a + weightOf(p) * (normCdf((1440 - p.m) / bw) - normCdf((0 - p.m) / bw)), 0);
+    kernels.reduce((a, p) => a + p.w * (normCdf((bm - p.m) / p.bw) - normCdf((0 - p.m) / p.bw)), 0) /
+    kernels.reduce((a, p) => a + p.w * (normCdf((1440 - p.m) / p.bw) - normCdf((0 - p.m) / p.bw)), 0);
   const density = (bm: number) =>
-    usePts.reduce((a, p) => a + weightOf(p) * Math.exp(-((bm - p.m) ** 2) / (2 * bw * bw)), 0) / totalW;
+    kernels.reduce((a, p) => a + (p.w / p.bw) * Math.exp(-((bm - p.m) ** 2) / (2 * p.bw * p.bw)), 0);
 
   const F = Math.min(1, Math.max(0, cdf(bMinute)));
   const F2 = Math.min(1, Math.max(0, cdf(Math.min(1440, bMinute + 120))));
