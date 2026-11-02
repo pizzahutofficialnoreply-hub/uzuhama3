@@ -67,3 +67,39 @@ describe('팬카페 생방링크 정리 글 읽기', () => {
     expect(days.find((d) => d.date === '2017-03-09')!.videos[0].title).toBe('우리팀은 다들 포기했었다.. 150점을 지킨 킹스턴.. 또 만난 치킨쿤님');
   });
 });
+
+describe('영상 ↔ 생방 짝', () => {
+  it('같은 묶음의 생방을 영상에 짝지음', () => {
+    const d22 = parseCafePost(SAMPLE).find((d) => d.date === '2017-03-22')!;
+    expect(d22.pairs.map((p) => [p.video.id, p.lives.map((l) => l.id)])).toEqual([['6hyMs6AGUKI', ['pBWcIuod3TU']], ['prpUFwFm_N0', ['pBWcIuod3TU']]]);
+  });
+});
+
+import { planCafeImport } from '../src/utils/cafeImport';
+describe('영상 기준으로 생방 링크 채우기', () => {
+  const days = parseCafePost(SAMPLE);
+  const logs = [
+    // 영상이 이미 있는 기록 (날짜가 글과 하루 다름)
+    { id: 'L21', date: '2017-03-21', vods: [], edited: [{ title: '다 이긴줄 알았던 게임', url: 'https://www.youtube.com/watch?v=6hyMs6AGUKI' }, { title: '요들송', url: 'https://youtu.be/prpUFwFm_N0?si=x' }], shorts: [] },
+    // 생방까지 이미 있는 기록
+    { id: 'L31', date: '2017-03-31', vods: [{ url: 'https://youtu.be/OaIqLiHaBlY' }], edited: [{ url: 'https://youtu.be/tTY1RVOr5IY' }], shorts: [] },
+    // 영상만 있는 기록
+    { id: 'L09', date: '2017-03-09', vods: [], edited: [{ url: 'https://youtu.be/xo8o6tIrT-s' }], shorts: [] },
+  ];
+  const { plans, already } = planCafeImport(days, logs);
+  it('영상이 있는 기록에 생방만 추가 (한 번만)', () => {
+    const p21 = plans.find((p) => p.key === 'L21')!;
+    expect(p21.lives.map((l) => l.id)).toEqual(['pBWcIuod3TU']);
+    expect(p21.videos).toEqual([]);
+    expect(p21.notes[0]).toContain('2017-03-22');
+    expect(plans.find((p) => p.key === 'L09')!.lives.map((l) => l.id)).toEqual(['KrtsaG72ODI']);
+  });
+  it('이미 다 있으면 건너뜀, 사이트에 없는 영상은 날짜로 새 기록', () => {
+    expect(plans.some((p) => p.key === 'L31')).toBe(false);
+    const fresh = plans.find((p) => p.key === 'new:2017-03-30')!;
+    expect(fresh.status).toBe('new-log');
+    expect(fresh.videos.map((v) => v.id)).toEqual(['PgRL5ETMuY4']);
+    expect(fresh.lives.map((l) => l.id)).toEqual(['gtLzQhrgnE8']);
+    expect(already).toBeGreaterThan(0);
+  });
+});

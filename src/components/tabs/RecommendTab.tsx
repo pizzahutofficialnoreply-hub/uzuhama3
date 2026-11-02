@@ -31,12 +31,13 @@ import { isDateQuery as isDateQueryFn, titleMatches, titleHasHashtag } from '../
 import { buildGameCatalog, buildPlaylistGameMap } from '../../utils/playlistGames';
 import { useSearchIndex, matchTag, matchRelated, gamesMatchingKeyword, normSearch } from '../../hooks/useSearchIndex';
 
-type RecommendSubTab = 'home' | 'recommend' | 'videos' | 'shorts' | 'playlists';
+type RecommendSubTab = 'home' | 'recommend' | 'videos' | 'shorts' | 'live' | 'playlists';
 // 순서: 검색 결과를 옆으로 넘기며 볼 수 있는 탭(홈·동영상·Shorts·재생목록) 먼저, 검색과 상관없는 추천은 맨 끝
 const RECOMMEND_SUB_TABS: { id: RecommendSubTab; label: string }[] = [
   { id: 'home', label: '홈' },
   { id: 'videos', label: '동영상' },
   { id: 'shorts', label: 'Shorts' },
+  { id: 'live', label: '라이브' },
   { id: 'playlists', label: '재생목록' },
   { id: 'recommend', label: '추천' },
 ];
@@ -483,7 +484,21 @@ export const VideoCard = ({
           
           {!isMultiBroadcastOrCompilation && (
             <div className="flex gap-2">
-              {vods.length > 0 && vods[0].url ? (
+ {video.isLive ? (() => {
+                // 라이브 카드: 영상 자체가 생방송이라, 대신 그날의 편집본을 보여 줌
+                const edits = (video.parentLog?.edited || []).filter((e: any) => e?.url && !e.isCompilation && !e.compilationId);
+                return edits.length > 0 ? (
+                  <a
+                    href={edits[0].url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={edits[0].title || '편집본'}
+                    className="flex-1 min-w-0 flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 font-hanna font-pro"
+                  >
+                    <YoutubeLogo className="w-4 h-4 shrink-0" /> <span className="truncate font-hanna font-pro">편집본{edits.length > 1 ? ` (${edits.length})` : ''}</span>
+                  </a>
+                ) : null;
+              })() : vods.length > 0 && vods[0].url ? (
                 <a 
                   href={vods[0].url} 
                   target="_blank"
@@ -1406,13 +1421,37 @@ export function RecommendTab({
   // 추천 탭은 항상 추천순 (검색 중에는 정확도순 유지)
   const effectiveSortOrder = subTab === 'recommend' && sortOrder !== 'accuracy' ? 'recommend' : sortOrder;
 
+  // 라이브 탭: 방송 기록의 생방송 다시보기 (유튜브 링크가 있는 것, 영상 길이·편집본·쇼츠까지 다른 카드와 같은 모양)
+  const liveVideos = useMemo(() => {
+    const out: any[] = [];
+    const seen = new Set<string>();
+    Object.values(data?.logs || {}).forEach((log: any) => {
+      if (!log || log.isAbsence || !log.date) return;
+      (Array.isArray(log.vods) ? log.vods : []).forEach((v: any) => {
+        const url = typeof v === 'string' ? v : v?.url;
+        const id = extractYoutubeId(url || '');
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        const t = String((typeof v === 'string' ? '' : v?.title) || '').trim();
+        const generic = !t || /^우주하마\s*생방송!?$/.test(t) || t === '생방송';
+        out.push({
+          id, videoUrl: url, isLive: true, parentLog: log, allBroadcastDates: [log.date],
+          videoTitle: generic ? `${log.date.replace(/-/g, '.')} 생방송` : t,
+          games: Array.isArray(log.games) ? log.games : [], category: log.category, createdAt: log.date,
+        });
+      });
+    });
+    return out.sort((a, b) => b.parentLog.date.localeCompare(a.parentLog.date));
+  }, [data?.logs]);
+
   const recommended = useMemo(() => {
-    if (allVideos.length === 0) return [];
+    const pool = subTab === 'live' ? liveVideos : allVideos;
+    if (pool.length === 0) return [];
     // 오타를 자동으로 고친 경우 고친 검색어로 찾음 (추천 탭은 검색과 상관없이 추천만)
     const searchTerm = subTab === 'recommend' ? '' : effectiveSearchTerm;
 
     // 동영상 탭: 몰아보기를 뺀 편집본만
-    let vids = subTab === 'videos' ? allVideos.filter((v) => !v.isCompilation) : allVideos;
+    let vids = subTab === 'videos' ? allVideos.filter((v) => !v.isCompilation) : pool;
 
     if (!selectedCategories.includes('전체')) {
       vids = vids.filter(v => {
@@ -1459,7 +1498,7 @@ export function RecommendTab({
       }
 
       // 영상 URL 또는 ID 검색 시에는 카테고리 필터와 무관하게 전체 영상 풀에서 대조
-      const searchTarget = isUrl ? allVideos : vids;
+      const searchTarget = isUrl ? pool : vids;
       const entryOf = (v: any) => searchIndex[extractYoutubeId(v.videoUrl) || v.id];
       const sqTerm = squash(term);
       const termWords = term.split(/\s+/).map(squash).filter(Boolean);
@@ -1786,7 +1825,7 @@ export function RecommendTab({
     }
 
     return scoredVids;
-  }, [allVideos, categoryIndex, categories, selectedCategories, effectiveSearchTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, categoryIndex, categories, selectedCategories, effectiveSearchTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos]); // Removed ratings and history to prevent jumping on watch
 
   const handleRefresh = () => {
     Object.keys(baseWeights.current).forEach(id => {
@@ -1937,7 +1976,7 @@ export function RecommendTab({
                 </>
               ) : (
                 <>
-                  {subTab === 'shorts' ? '쇼츠' : subTab === 'videos' ? '편집본 영상' : subTab === 'recommend' ? '추천 영상' : '전체 영상'}: <b className="text-zinc-900 dark:text-white font-black">{subTab === 'shorts' ? shortsCount : recommended.length}개</b>
+                  {subTab === 'shorts' ? '쇼츠' : subTab === 'live' ? '라이브' : subTab === 'videos' ? '편집본 영상' : subTab === 'recommend' ? '추천 영상' : '전체 영상'}: <b className="text-zinc-900 dark:text-white font-black">{subTab === 'shorts' ? shortsCount : recommended.length}개</b>
                 </>
               )}
             </span>

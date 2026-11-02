@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { CheckSquare, ClipboardPaste, Loader2, Square, Wand2 } from 'lucide-react';
 import type { AppData, BroadcastLog, LinkItem } from '../../../types';
 import { cn } from '../../../utils';
-import { parseCafePost, youtubeIdOf, type CafeDay, type CafeLink } from '../../../utils/cafeImport';
+import { parseCafePost, planCafeImport, type CafeDay, type CafeLink, type CafePlan } from '../../../utils/cafeImport';
 import { useChannelVideos } from '../../../hooks/useChannelVideos';
 
 /**
@@ -12,15 +12,7 @@ import { useChannelVideos } from '../../../hooks/useChannelVideos';
  * - 이미 있는 링크는 건너뜀 (영상 ID 로 비교, 다른 날 기록에 있는 영상도 건너뛰고 알려 줌)
  * - 그날 기록이 없으면 새 기록으로 (시작 시각 등은 비워 둠)
  */
-type Plan = {
-  day: CafeDay;
-  log: BroadcastLog | null;
-  lives: CafeLink[];
-  videos: CafeLink[];
-  shorts: CafeLink[];
-  elsewhere: { link: CafeLink; date: string }[];
-  status: 'new-log' | 'add' | 'same';
-};
+type Plan = CafePlan;
 
 export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
   data: AppData;
@@ -34,36 +26,14 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
   const [busy, setBusy] = useState<{ done: number; total: number } | null>(null);
   const [message, setMessage] = useState('');
   const channelVideos = useChannelVideos();
-
   const titleOf = useMemo(() => new Map(channelVideos.map((v) => [v.videoId, v.title] as const)), [channelVideos]);
 
-  // 모든 기록의 링크 → 어느 날 기록에 있는지
-  const where = useMemo(() => {
-    const m = new Map<string, string>();
-    Object.values(data.logs || {}).forEach((l: any) => {
-      [...(l.vods || []), ...(l.edited || []), ...(l.shorts || [])].forEach((x: any) => {
-        const id = youtubeIdOf(typeof x === 'string' ? x : x?.url || '');
-        if (id && !m.has(id)) m.set(id, l.date);
-      });
-    });
-    return m;
-  }, [data.logs]);
-
-  const plans: Plan[] = useMemo(() => (days || []).map((day) => {
-    const log = (Object.values(data.logs || {}) as BroadcastLog[]).find((l) => l.date === day.date && !l.isAbsence) || null;
-    const elsewhere: Plan['elsewhere'] = [];
-    const fresh = (list: CafeLink[]) => list.filter((link) => {
-      const at = where.get(link.id);
-      if (!at) return true;
-      if (at !== day.date) elsewhere.push({ link, date: at });
-      return false;
-    }).map((l) => ({ ...l, title: titleOf.get(l.id) || l.title || '' }));
-    const lives = fresh(day.lives);
-    const videos = fresh(day.videos);
-    const shorts = fresh(day.shorts);
-    const any = lives.length + videos.length + shorts.length > 0;
-    return { day, log, lives, videos, shorts, elsewhere, status: !any ? 'same' : log ? 'add' : 'new-log' };
-  }), [days, data.logs, where, titleOf]);
+  /**
+   * 영상 링크 기준으로 맞춤:
+   * 1) 사이트에 이미 있는 영상이면 → 그 영상이 들어 있는 방송 기록에, 없는 생방 링크만 추가
+   * 2) 사이트에 없는 영상이면 → 글의 날짜 기록에 영상·생방 추가 (그날 기록이 없으면 새 기록)
+   */
+  const { plans, skipped, already } = useMemo(() => planCafeImport(days || [], Object.values(data.logs || {}) as BroadcastLog[], titleOf), [days, data.logs, titleOf]);
 
   const analyze = () => {
     const parsed = parseCafePost(text);
@@ -71,16 +41,16 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
     setMessage(parsed.length ? '' : '날짜(예: [생방날짜: 2017. 3. 31])와 유튜브 링크를 찾지 못했어요.');
     setPicked(new Set());
   };
-  // 분석이 끝나면 새로 넣을 게 있는 날을 모두 선택해 둠
-  const actionable = plans.filter((p) => p.status !== 'same');
+  // 분석이 끝나면 모두 선택해 둠
+  const actionable = plans;
   if (days && picked.size === 0 && actionable.length && !busy && !message.startsWith('반영')) {
-    setPicked(new Set(actionable.map((p) => p.day.date)));
+    setPicked(new Set(actionable.map((p) => p.key)));
   }
 
   const toItem = (l: CafeLink, fallback: string): LinkItem => ({ title: l.title || fallback, url: l.url, ...(source.trim() ? { source: source.trim() } : {}) } as any);
 
   const apply = async () => {
-    const todo = plans.filter((p) => p.status !== 'same' && picked.has(p.day.date));
+    const todo = plans.filter((p) => picked.has(p.key));
     if (!todo.length) return;
     if (!confirm(`${todo.length}일치 기록에 반영할까요?\n(새 기록 ${todo.filter((p) => p.status === 'new-log').length}개 포함)`)) return;
     setBusy({ done: 0, total: todo.length });
@@ -96,8 +66,8 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
           });
         } else if (!p.log) {
           await onAddLog({
-            id: `cafe_${p.day.date.replace(/-/g, '')}_${Math.random().toString(36).slice(2, 7)}`,
-            date: p.day.date, time: '', game: '', games: [], category: '', durationHours: 0,
+            id: `cafe_${p.date.replace(/-/g, '')}_${Math.random().toString(36).slice(2, 7)}`,
+            date: p.date, time: '', game: '', games: [], category: '', durationHours: 0,
             vods: p.lives.map((l) => toItem(l, '생방송')),
             edited: p.videos.map((l) => toItem(l, '편집본')),
             shorts: p.shorts.map((l) => toItem(l, '쇼츠')),
@@ -105,7 +75,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
           } as any);
         }
         ok++;
-      } catch (e) { console.error('cafe import', p.day.date, e); }
+      } catch (e) { console.error('cafe import', p.date, e); }
       setBusy({ done: ok, total: todo.length });
     }
     setBusy(null);
@@ -114,13 +84,14 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
   };
 
   const count = (k: Plan['status']) => plans.filter((p) => p.status === k).length;
+  const liveCount = plans.reduce((a, p) => a + p.lives.length, 0);
   const toggle = (d: string) => setPicked((s) => { const n = new Set(s); n.has(d) ? n.delete(d) : n.add(d); return n; });
 
   return (
     <div className="space-y-5">
       <div className="p-4 rounded-2xl border border-purple-200 dark:border-purple-900/60 bg-purple-50/50 dark:bg-purple-950/20 text-xs sm:text-sm text-purple-900 dark:text-purple-200 leading-relaxed">
-        팬카페의 '영상 생방링크 정리' 글을 통째로 복사해서 붙여 넣으세요. 날짜별로 나눠서 <b>기록에 아직 없는 생방·영상·쇼츠 링크만</b> 보여 줘요.
-        확인하고 고른 날만 반영돼요. 정리해 준 팬의 글 링크를 출처로 남겨 두면 좋아요.
+        팬카페의 '영상 생방링크 정리' 글을 통째로 복사해서 붙여 넣으세요. 날짜별로 나눠서 <b>기록에 아직 없는 링크만</b> 보여 줘요.
+        사이트에 이미 있는 영상이면 <b>그 영상이 들어 있는 방송 기록에 생방 링크</b>를 넣어요. 확인하고 고른 것만 반영돼요. 정리해 준 팬의 글 링크를 출처로 남겨 두면 좋아요.
       </div>
 
       <div className="space-y-3">
@@ -139,48 +110,60 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
         {message && <p className="text-xs font-bold text-purple-700 dark:text-purple-300">{message}</p>}
       </div>
 
-      {days && plans.length > 0 && (
+      {days && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="font-bold">{plans.length}일 찾음</span>
-            <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 font-bold">링크 추가 {count('add')}</span>
-            <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 font-bold">새 기록 {count('new-log')}</span>
-            <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-zinc-800 font-bold">이미 다 있음 {count('same')}</span>
-            <button type="button" onClick={() => setPicked(picked.size === actionable.length ? new Set() : new Set(actionable.map((p) => p.day.date)))} className="ml-auto text-purple-600 font-bold cursor-pointer">
-              {picked.size === actionable.length ? '모두 해제' : '모두 선택'}
-            </button>
+            <span className="font-bold">글에서 {days.length}일 · 영상 {days.reduce((a, d) => a + d.pairs.length, 0)}개 찾음</span>
+            <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 font-bold">넣을 생방 링크 {liveCount}</span>
+            {count('new-log') > 0 && <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 font-bold">새 기록 {count('new-log')}</span>}
+            <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-zinc-800 font-bold">이미 있음 {already}</span>
+            {plans.length > 0 && (
+              <button type="button" onClick={() => setPicked(picked.size === actionable.length ? new Set() : new Set(actionable.map((p) => p.key)))} className="ml-auto text-purple-600 font-bold cursor-pointer">
+                {picked.size === actionable.length ? '모두 해제' : '모두 선택'}
+              </button>
+            )}
           </div>
 
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800 overflow-hidden">
-            {plans.map((p) => (
-              <div key={p.day.date} className={cn('p-3 text-xs', p.status === 'same' && 'opacity-50')}>
-                <div className="flex items-center gap-2">
-                  {p.status !== 'same' ? (
-                    <button type="button" onClick={() => toggle(p.day.date)} className="cursor-pointer" aria-label={`${p.day.date} 선택`}>
-                      {picked.has(p.day.date) ? <CheckSquare className="w-4 h-4 text-purple-600" /> : <Square className="w-4 h-4 text-zinc-400" />}
+          {plans.length === 0 ? (
+            <p className="text-xs text-zinc-500 py-4 text-center">넣을 게 없어요. 글의 링크가 모두 기록에 이미 있어요.</p>
+          ) : (
+            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800 overflow-hidden">
+              {plans.map((p) => (
+                <div key={p.key} className="p-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => toggle(p.key)} className="cursor-pointer" aria-label={`${p.date} 선택`}>
+                      {picked.has(p.key) ? <CheckSquare className="w-4 h-4 text-purple-600" /> : <Square className="w-4 h-4 text-zinc-400" />}
                     </button>
-                  ) : <span className="w-4" />}
-                  <span className="font-bold tabular-nums">{p.day.date}</span>
-                  <span className={cn('px-1.5 py-0.5 rounded font-bold',
-                    p.status === 'add' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
-                      : p.status === 'new-log' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800')}>
-                    {p.status === 'add' ? '기록에 추가' : p.status === 'new-log' ? '새 기록' : '이미 다 있음'}
-                  </span>
-                  {p.log && <span className="text-zinc-500 truncate">{p.log.game || (p.log.games || []).map((g) => g.name).join(', ')}</span>}
+                    <span className="font-bold tabular-nums">{p.date}</span>
+                    <span className={cn('px-1.5 py-0.5 rounded font-bold', p.status === 'add' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300')}>
+                      {p.status === 'add' ? '기록에 추가' : '새 기록'}
+                    </span>
+                    {p.log && <span className="text-zinc-500 truncate">{p.log.game || (p.log.games || []).map((g) => g.name).join(', ')}</span>}
+                  </div>
+                  <ul className="mt-1.5 ml-6 space-y-0.5">
+                    {p.via.map((v) => <li key={v.title} className="text-zinc-500">영상 「{v.title}」 기준</li>)}
+                    {p.lives.map((l) => <li key={l.id}><b className="text-purple-600">+ 생방</b> <a href={l.url} target="_blank" rel="noreferrer" className="underline text-zinc-600 dark:text-zinc-300">{l.url}</a></li>)}
+                    {p.videos.map((l) => <li key={l.id}><b className="text-red-600">+ 영상</b> {l.title || <i className="text-zinc-400">제목 없음</i>} <a href={l.url} target="_blank" rel="noreferrer" className="underline text-zinc-400">{l.id}</a></li>)}
+                    {p.shorts.map((l) => <li key={l.id}><b className="text-pink-600">+ 쇼츠</b> {l.title || ''} <a href={l.url} target="_blank" rel="noreferrer" className="underline text-zinc-400">{l.id}</a></li>)}
+                    {p.notes.map((n) => <li key={n} className="text-amber-600">{n}</li>)}
+                  </ul>
                 </div>
-                <ul className="mt-1.5 ml-6 space-y-0.5">
-                  {p.lives.map((l) => <li key={l.id}><b className="text-purple-600">생방</b> <a href={l.url} target="_blank" rel="noreferrer" className="underline text-zinc-600 dark:text-zinc-300">{l.url}</a></li>)}
-                  {p.videos.map((l) => <li key={l.id}><b className="text-red-600">영상</b> {l.title || <i className="text-zinc-400">제목 없음</i>} <a href={l.url} target="_blank" rel="noreferrer" className="underline text-zinc-400">{l.id}</a></li>)}
-                  {p.shorts.map((l) => <li key={l.id}><b className="text-pink-600">쇼츠</b> {l.title || ''} <a href={l.url} target="_blank" rel="noreferrer" className="underline text-zinc-400">{l.id}</a></li>)}
-                  {p.elsewhere.map(({ link, date }) => <li key={`e-${link.id}`} className="text-zinc-400">건너뜀: {link.id} 은(는) {date} 기록에 이미 있어요</li>)}
-                </ul>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
-          <button type="button" onClick={apply} disabled={!picked.size || !!busy} className="w-full h-12 rounded-2xl bg-purple-600 text-white text-sm font-bold cursor-pointer disabled:opacity-50 inline-flex items-center justify-center gap-2">
-            {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> 반영 중 {busy.done}/{busy.total}</> : `선택한 ${picked.size}일 반영하기`}
-          </button>
+          {skipped.length > 0 && (
+            <details className="text-xs text-zinc-500">
+              <summary className="cursor-pointer font-bold">건너뛴 링크 {skipped.length}개 (다른 기록에 이미 있음)</summary>
+              <ul className="mt-1.5 ml-4 list-disc space-y-0.5">{skipped.map((t) => <li key={t}>{t}</li>)}</ul>
+            </details>
+          )}
+
+          {plans.length > 0 && (
+            <button type="button" onClick={apply} disabled={!picked.size || !!busy} className="w-full h-12 rounded-2xl bg-purple-600 text-white text-sm font-bold cursor-pointer disabled:opacity-50 inline-flex items-center justify-center gap-2">
+              {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> 반영 중 {busy.done}/{busy.total}</> : `선택한 ${picked.size}개 기록 반영하기`}
+            </button>
+          )}
         </div>
       )}
     </div>
