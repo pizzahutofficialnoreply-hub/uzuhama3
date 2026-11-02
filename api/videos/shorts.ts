@@ -49,32 +49,48 @@ async function fetchShorts(channelId: string, key: string, prefix = 'UUSH'): Pro
 }
 
 
-/** (임시 확인용) 쇼츠 아래 '관련 동영상' 링크가 유튜브 페이지·내부 API 어디에 있는지 살펴봄 */
-async function probeRelated(ids: string[]) {
-  const out: any = {};
-  const headers = { 'Accept-Language': 'ko-KR,ko;q=0.9', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36', Cookie: 'SOCS=CAI; CONSENT=YES+1' };
-  for (const id of ids) {
-    const r: any = { };
-    try {
-      const html = await (await fetch(`https://www.youtube.com/shorts/${id}`, { headers, signal: AbortSignal.timeout(8000) })).text();
-      r.htmlLen = html.length;
-      const ids = new Map<string, string>();
-      for (const m of html.matchAll(/"videoId":"([\w-]{11})"/g)) if (m[1] !== id && !ids.has(m[1])) ids.set(m[1], html.slice(Math.max(0, m.index! - 160), m.index! + 40));
-      r.htmlVideoIds = [...ids.entries()].slice(0, 6);
-      r.htmlKeys = ['relatedVideo', 'RelatedVideo', 'multiFormatLink', 'MultiFormatLink', 'shortsVideoLink', 'reelMetapanel', 'suggestedVideo'].filter((k) => html.includes(k));
-    } catch (e: any) { r.htmlErr = String(e?.message || e); }
-    try {
-      const body = { context: { client: { clientName: 'WEB', clientVersion: '2.20251030.01.00', hl: 'ko', gl: 'KR' } }, playerRequest: { videoId: id }, params: 'CAUwAg%3D%3D' };
-      const j = await (await fetch('https://www.youtube.com/youtubei/v1/reel/reel_item_watch?prettyPrint=false', { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) })).text();
-      r.reelLen = j.length;
-      const ids2 = new Map<string, string>();
-      for (const m of j.matchAll(/"videoId":"([\w-]{11})"/g)) if (m[1] !== id && !ids2.has(m[1])) ids2.set(m[1], j.slice(Math.max(0, m.index! - 200), m.index! + 40));
-      r.reelVideoIds = [...ids2.entries()].slice(0, 6);
-      r.reelKeys = ['relatedVideo', 'RelatedVideo', 'multiFormatLink', 'MultiFormatLink', 'shortsVideoLink', 'reelMetapanel', 'suggestedVideo'].filter((k) => j.includes(k));
-    } catch (e: any) { r.reelErr = String(e?.message || e); }
-    out[id] = r;
+/** (임시 확인용) 쇼츠의 '관련 동영상'을 유튜브 내부 응답에서 구조로 찾아 기록과 비교 */
+const YT_HEADERS = { 'Accept-Language': 'ko-KR,ko;q=0.9', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36', Cookie: 'SOCS=CAI; CONSENT=YES+1', 'Content-Type': 'application/json' };
+function walkRelated(node: any, path: string[], hits: { key: string; path: string; ids: string[]; pages: string[] }[]) {
+  if (!node || typeof node !== 'object') return;
+  for (const [k, v] of Object.entries(node)) {
+    if (/relatedvideo/i.test(k) && v && typeof v === 'object') {
+      const txt = JSON.stringify(v);
+      hits.push({ key: k, path: path.slice(-4).join('>'), ids: [...txt.matchAll(/"videoId":"([\w-]{11})"/g)].map((m) => m[1]), pages: [...txt.matchAll(/"webPageType":"(\w+)"/g)].map((m) => m[1]) });
+    }
+    walkRelated(v, [...path, k], hits);
   }
-  return out;
+}
+async function reelRelated(id: string) {
+  const body = { context: { client: { clientName: 'WEB', clientVersion: '2.20251030.01.00', hl: 'ko', gl: 'KR' } }, playerRequest: { videoId: id }, params: 'CAUwAg%3D%3D' };
+  const j = await (await fetch('https://www.youtube.com/youtubei/v1/reel/reel_item_watch?prettyPrint=false', { method: 'POST', headers: YT_HEADERS, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) })).json();
+  const hits: any[] = [];
+  walkRelated(j, [], hits);
+  return hits;
+}
+async function probeRelated(db: any, n: number) {
+  const yid = (u: string) => (/(?:v=|youtu\.be\/|shorts\/|live\/|embed\/)([\w-]{11})/.exec(u || '') || [])[1];
+  const pairs: { s: string; date: string; edited: string[] }[] = [];
+  (await db.collection('logs_by_month').get()).forEach((d: any) => {
+    Object.values(d.data()?.items || {}).forEach((l: any) => {
+      const ed = (l.edited || []).map((x: any) => yid(x.url)).filter(Boolean);
+      (l.shorts || []).forEach((x: any) => { const s = yid(x.url); if (s && ed.length) pairs.push({ s, date: l.date, edited: ed }); });
+    });
+  });
+  pairs.sort(() => Math.random() - 0.5);
+  const out: any[] = [];
+  let first: any = null;
+  for (const p of pairs.slice(0, n)) {
+    try {
+      const hits = await reelRelated(p.s);
+      if (!first && hits.length) first = hits;
+      const watchIds = hits.flatMap((h) => h.ids.filter((x: string, i: number) => x !== p.s && h.pages[i] !== 'WEB_PAGE_TYPE_SHORTS'));
+      const rel = watchIds[0] || null;
+      out.push({ short: p.s, date: p.date, related: rel, match: rel ? p.edited.includes(rel) : null, keys: [...new Set(hits.map((h) => h.key))] });
+    } catch (e: any) { out.push({ short: p.s, err: String(e?.message || e) }); }
+  }
+  const withRel = out.filter((o) => o.related);
+  return { totalPairs: pairs.length, tested: out.length, withRelated: withRel.length, matched: withRel.filter((o) => o.match).length, firstHits: first, rows: out };
 }
 
 export default async function handler(req: any, res: any) {
@@ -84,9 +100,9 @@ export default async function handler(req: any, res: any) {
 
   try {
     if (String(req.query?.kind || '') === 'probe') {
-      const ids = String(req.query?.ids || '').split(',').filter((x) => /^[\w-]{11}$/.test(x)).slice(0, 8);
+      const { db: pdb } = await import('../_firebase.js');
       res.setHeader('Cache-Control', 'no-store');
-      return res.status(200).json(await probeRelated(ids));
+      return res.status(200).json(await probeRelated(pdb, Math.min(30, Number(req.query?.n) || 20)));
     }
     const { db, verifyAdmin } = await import('../_firebase.js');
     // ?kind=uploads → 채널의 일반 영상 전체 (사이트 기록에 없는 영상도 홈에 보이게)
