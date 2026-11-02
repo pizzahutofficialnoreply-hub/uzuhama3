@@ -236,6 +236,8 @@ export interface SystemConfig {
   termsHistory?: TermsRevision[];
   onboardingEnabled?: boolean; // 처음 시작 화면(환영·약관·안내) 표시 여부 (기본 true)
   onboardingVersion?: number; // 올리면 모든 사람에게 처음 시작 화면이 다시 보임
+  /** 약관 변경 안내: 이 버전으로 올렸을 때 이미 본 사람에게는 처음 화면 전체 대신 '약관이 바뀌었어요' 한 장만 보여 줌 */
+  termsUpdate?: { version: number; summary: string; noticeDate: string; effectiveDate: string };
   tutorialEnabled?: boolean; // 처음 방문자 사이트 둘러보기 표시 여부 (기본 true, 관리자가 전체 차단 가능)
   showLegacyCategoryAnalysis?: boolean; // ~2025 과거 데이터 카테고리 분석 표시 여부 (기본 true/토글 가능)
   absenceReasonOptions?: string[];

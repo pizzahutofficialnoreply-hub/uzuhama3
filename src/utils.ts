@@ -140,36 +140,43 @@ export function getChosung(text: string) {
   return result;
 }
 
+// 검색할 때 같은 제목·같은 검색어를 수천 번 다시 다듬지 않도록 기억해 둠
+type FuzzyForm = { n: string; c: string; nn: string; cn: string; cons: string[]; cnsNum: string[] };
+const fuzzyForms = new Map<string, FuzzyForm>();
+const replaceNumber = (s: string) => s.replace(/1/g, '한').replace(/2/g, '두').replace(/3/g, '세').replace(/4/g, '네');
+function fuzzyForm(text: string): FuzzyForm {
+  let f = fuzzyForms.get(text);
+  if (f) return f;
+  const n = text.replace(/\s+/g, '').toLowerCase();
+  const nn = replaceNumber(n);
+  const c = getChosung(n);
+  const cn = nn === n ? c : getChosung(nn);
+  f = { n, c, nn, cn, cons: Array.from(c).filter((x) => !isVowel(x)), cnsNum: Array.from(cn).filter((x) => !isVowel(x)) };
+  if (fuzzyForms.size > 20000) fuzzyForms.clear();
+  fuzzyForms.set(text, f);
+  return f;
+}
+
 export function fuzzyKoreanMatch(query: string, target: string) {
   if (!query) return true;
   if (!target) return false;
-  
-  const normQ = query.replace(/\s+/g, '').toLowerCase();
-  const normT = target.replace(/\s+/g, '').toLowerCase();
-  
-  const replaceNumber = (s: string) => s.replace(/1/g, '한').replace(/2/g, '두').replace(/3/g, '세').replace(/4/g, '네');
-  const normQNum = replaceNumber(normQ);
-  const normTNum = replaceNumber(normT);
-  
-  const check = (q: string, t: string) => {
+  const Q = fuzzyForm(query);
+  const T = fuzzyForm(target);
+
+  const check = (q: string, t: string, cQ: string, cT: string, consonants: string[]) => {
     if (t.includes(q)) return true;
-    const cT = getChosung(t);
-    const cQ = getChosung(q);
     if (cT.includes(cQ)) return true;
-    const queryConsonants = Array.from(cQ).filter(c => !isVowel(c));
-    if (queryConsonants.length > 0) {
+    if (consonants.length > 0) {
       let qIdx = 0;
       for (let tIdx = 0; tIdx < cT.length; tIdx++) {
-        if (cT[tIdx] === queryConsonants[qIdx]) {
-          qIdx++;
-        }
-        if (qIdx === queryConsonants.length) return true;
+        if (cT[tIdx] === consonants[qIdx]) qIdx++;
+        if (qIdx === consonants.length) return true;
       }
     }
     return false;
   };
-  
-  return check(normQ, normT) || check(normQNum, normTNum);
+
+  return check(Q.n, T.n, Q.c, T.c, Q.cons) || check(Q.nn, T.nn, Q.cn, T.cn, Q.cnsNum);
 }
 
 export function fuzzyDateMatch(query: string, dateStr: string): boolean {

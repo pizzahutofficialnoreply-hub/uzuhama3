@@ -77,6 +77,21 @@ const fillPlaceholders = (text: string, system: any) =>
     .replace(/\{\{\s*termsOfService\s*\}\}/g, system?.termsOfService || '이용약관 내용이 아직 등록되지 않았어요.')
     .replace(/\{\{\s*privacyPolicy\s*\}\}/g, system?.privacyPolicy || '개인정보처리방침 내용이 아직 등록되지 않았어요.');
 
+const krDate = (d?: string) => {
+  const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${+m[1]}년 ${+m[2]}월 ${+m[3]}일` : (d || '');
+};
+/** '약관이 바뀌었어요' 화면 글: 바뀐 내용 + 적용일 + 동의 간주 안내 */
+export function termsUpdateBody(u?: { summary?: string; effectiveDate?: string; noticeDate?: string }) {
+  const when = u?.effectiveDate ? `**${krDate(u.effectiveDate)}**부터` : '곧';
+  const lines = [
+    `이용약관·개인정보처리방침이 바뀌어서 ${when} 바뀐 내용이 적용돼요.`,
+    u?.summary?.trim() ? `**바뀐 내용**\n\n${u.summary.trim()}` : '',
+    `적용일 전까지 따로 거부 의사를 밝히지 않으면 바뀐 약관에 동의한 것으로 봐요. 동의하지 않으면 적용일 전에 문의하기로 알려 주시거나 이용을 그만두실 수 있어요.`,
+  ];
+  return lines.filter(Boolean).join('\n\n');
+}
+
 function guessKeyboard(): KeyboardLayout {
   if (typeof navigator === 'undefined') return 'unknown';
   if (/iPhone|iPad|Macintosh|Windows/.test(navigator.userAgent)) return 'qwerty';
@@ -134,6 +149,14 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
   const [agreed, setAgreed] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [keyboard, setKeyboard] = useState<KeyboardLayout>(() => (getPrefs().keyboard !== 'unknown' ? getPrefs().keyboard : guessKeyboard()));
+  // 이미 처음 화면을 본 사람 + 관리자가 '약관 변경 안내'로 올린 버전 → 약관이 바뀌었다는 한 장만
+  const [seenVersion] = useState(() => { try { return Number(localStorage.getItem(ONBOARDING_DONE_KEY) || 0); } catch { return 0; } });
+  type TU = { version: number; summary: string; noticeDate: string; effectiveDate: string };
+  const [previewTU, setPreviewTU] = useState<TU | null>(null);
+  const forceUpdatePreview = !!previewTU;
+  const setForceUpdatePreview = (v: false | TU) => setPreviewTU(v || null);
+  const termsUpdate = (previewTU || system?.termsUpdate) as TU | undefined;
+  const updateMode = forceUpdatePreview || (!preview && seenVersion > 0 && seenVersion < version && termsUpdate?.version === version);
 
   // 처음이거나 관리자가 버전을 올렸으면 열기 (그때만 단계 문서를 읽음)
   useEffect(() => {
@@ -155,7 +178,9 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
   // 관리자 미리보기
   useEffect(() => {
     const start = (e: Event) => {
-      const preview = (e as CustomEvent).detail as OnboardingConfig | undefined;
+      const detail = (e as CustomEvent).detail as (OnboardingConfig & { termsUpdatePreview?: TU }) | undefined;
+      setForceUpdatePreview(detail?.termsUpdatePreview || false);
+      const preview = detail;
       setConfig(withSetup(preview?.steps?.length ? preview : DEFAULT_ONBOARDING));
       setIndex(0);
       setAgreed({});
@@ -178,24 +203,39 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
   const standalone = useMemo(() => isStandaloneMode(), []);
   const steps = useMemo(() => {
     const all = config?.steps || [];
+    if (updateMode) {
+      const terms = all.find((s) => s.type === 'terms') || DEFAULT_ONBOARDING.steps.find((s) => s.type === 'terms')!;
+      return [{ ...terms, id: 'terms-update', title: '약관이 바뀌었어요', body: termsUpdateBody(termsUpdate), button: '동의해요' }];
+    }
     if (!standalone || preview) return all;
     const base = all.some((s) => s.type === 'setup') ? all : [...all, SETUP_STEP];
     const short = base.filter((s) => s.type === 'terms' || s.type === 'setup')
       .map((s) => (s.type === 'setup' ? { ...s, title: '앱으로 열었어요', body: '이제 방송 알림을 켤 수 있어요. 아래에서 눌러 켜 주세요.' } : s));
     return short.length ? short : all;
-  }, [config, standalone, preview]);
+  }, [config, standalone, preview, updateMode, termsUpdate]);
   const setupItems = useSetupItems();
   const step = steps[index];
   const isLast = index === steps.length - 1;
 
   const requiredOk = useMemo(() => {
-    if (step?.type !== 'terms') return true;
+    if (step?.type !== 'terms' || updateMode) return true; // 바뀐 약관은 체크 없이도 진행 (기간이 지나면 동의한 것으로 봄)
     return (step.sections || []).every((s) => !s.required || agreed[s.id]);
   }, [step, agreed]);
 
   const finishedRef = React.useRef(false);
-  const finish = (startTour: boolean) => {
-    if (preview) { setOpen(false); return; }
+  const finish = (startTour: boolean, how: 'agree' | 'skip' = 'agree') => {
+    if (preview || forceUpdatePreview) { setOpen(false); setForceUpdatePreview(false); return; }
+    if (updateMode) {
+      if (finishedRef.current) return;
+      finishedRef.current = true;
+      try {
+        localStorage.setItem(ONBOARDING_DONE_KEY, String(version));
+        if (how === 'agree') localStorage.setItem('uzuhama_terms_agreed_at', new Date().toISOString());
+        else localStorage.setItem('uzuhama_terms_skipped_v' + version, new Date().toISOString());
+      } catch { /* 무시 */ }
+      setOpen(false);
+      return;
+    }
     if (finishedRef.current) return; // 두 번 눌러도 한 번만
     finishedRef.current = true;
     try {
@@ -215,7 +255,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
   const next = () => {
     if (!step || !requiredOk) return;
     if (step.type === 'keyboard' && !preview) setPref('keyboard', keyboard);
-    if (isLast) { finish(!standalone); return; }
+    if (isLast) { finish(!standalone && !updateMode); return; }
     setDir(1);
     setExpanded(null);
     setIndex((i) => i + 1);
@@ -291,24 +331,25 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
               {/* 약관: 모두 동의 + 항목마다 펼쳐 보기 */}
               {step.type === 'terms' && (
                 <div className="mt-6 space-y-2">
-                  <button
+                  {updateMode && <p className="text-xs font-bold text-zinc-500 dark:text-zinc-400 px-1">바뀐 약관 전문 (누르면 펼쳐져요)</p>}
+                  {!updateMode && <button
                     type="button"
                     onClick={() => setAgreed(Object.fromEntries(allSections.map((s) => [s.id, !allChecked])))}
                     className="w-full flex items-center gap-3 p-4 rounded-2xl bg-white/80 dark:bg-white/10 backdrop-blur-md border border-zinc-200/70 dark:border-white/10 text-left font-bold cursor-pointer"
                   >
                     <CheckCircle on={allChecked} />
                     모두 동의해요
-                  </button>
+                  </button>}
                   <div className="rounded-2xl bg-white/70 dark:bg-white/[0.06] backdrop-blur-md border border-zinc-200/70 dark:border-white/10 divide-y divide-zinc-200/70 dark:divide-white/10 overflow-hidden">
                     {allSections.map((s) => (
                       <div key={s.id}>
                         <div className="flex items-center gap-3 px-4 py-3.5">
-                          <button type="button" onClick={() => setAgreed((a) => ({ ...a, [s.id]: !a[s.id] }))} className="cursor-pointer" aria-label={`${s.title} 동의`} aria-pressed={!!agreed[s.id]}>
+                          {!updateMode && <button type="button" onClick={() => setAgreed((a) => ({ ...a, [s.id]: !a[s.id] }))} className="cursor-pointer" aria-label={`${s.title} 동의`} aria-pressed={!!agreed[s.id]}>
                             <CheckCircle on={!!agreed[s.id]} small />
-                          </button>
+                          </button>}
                           <button type="button" onClick={() => setExpanded(expanded === s.id ? null : s.id)} className="flex-1 flex items-center justify-between gap-2 text-left text-sm font-semibold cursor-pointer" aria-expanded={expanded === s.id}>
                             <span>
-                              <span className={cn('mr-1.5 text-xs font-bold', s.required ? 'text-purple-600 dark:text-purple-300' : 'text-zinc-400')}>{s.required ? '[필수]' : '[선택]'}</span>
+                              {!updateMode && <span className={cn('mr-1.5 text-xs font-bold', s.required ? 'text-purple-600 dark:text-purple-300' : 'text-zinc-400')}>{s.required ? '[필수]' : '[선택]'}</span>}
                               {s.title}
                             </span>
                             <ChevronDown className={cn('w-4 h-4 text-zinc-400 transition-transform duration-200', expanded === s.id && 'rotate-180')} />
@@ -385,7 +426,12 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
           >
             {step.button || (isLast ? '시작해볼까요?' : '다음')}
           </button>
-          {isLast && tutorialEnabled && !standalone && (
+          {updateMode && (
+            <button type="button" onClick={() => finish(false, 'skip')} className="w-full h-10 text-sm font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white cursor-pointer">
+              건너뛰기
+            </button>
+          )}
+          {isLast && tutorialEnabled && !standalone && !updateMode && (
             <button type="button" onClick={() => finish(false)} className="w-full h-10 text-sm font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-white cursor-pointer">
               둘러보기 없이 바로 쓸게요
             </button>

@@ -11,6 +11,7 @@ import { useChannelVideos } from '../../../hooks/useChannelVideos';
 import { formatShortsShareText } from '../../../utils/shareUtils';
 import { tokensOf } from '../../../utils/interest';
 import { cleanShortsTitle } from '../../../utils/videoSearch';
+import { applyShortsOverrides, useLinkOverrides } from '../../../utils/linkOverrides';
 
 /** 추천 영상 > Shorts 탭: 채널 쇼츠 전체 + 기록에 등록된 쇼츠 + #shorts 몰아보기 (업로드순 기본 / 생방일순) */
 interface ShortsFeedProps {
@@ -57,7 +58,15 @@ export function useChannelShorts() {
 
 const RELATED_KEY = 'uzuhama_shorts_related_v1';
 /** 쇼츠 → 그 쇼츠 아래 연결된 일반 영상 (서버가 유튜브에서 확인해 저장). 브라우저에도 반나절 보관 */
+/** 쇼츠 → 본영상 (자동 연결 + 관리자가 직접 고친 것) */
 export function useShortsRelated(): Record<string, string> {
+  const auto = useShortsRelatedAuto();
+  const overrides = useLinkOverrides();
+  return useMemo(() => applyShortsOverrides(auto, overrides), [auto, overrides]);
+}
+
+/** 쇼츠 아래 '관련 동영상'으로 자동 연결된 것만 */
+export function useShortsRelatedAuto(): Record<string, string> {
   const [map, setMap] = useState<Record<string, string>>(() => {
     try { return JSON.parse(localStorage.getItem(RELATED_KEY) || 'null')?.map || {}; } catch { return {}; }
   });

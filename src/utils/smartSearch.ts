@@ -87,8 +87,18 @@ function naratgeulCost(a: string, b: string) {
   return 1;
 }
 
+// 같은 두 키의 비용은 늘 같아서 한 번 계산하면 기억해 둠 (검색할 때 수십만 번 불림)
+const SUB_CACHE = new Map<string, Map<string, number>>();
 export function substitutionCost(a: string, b: string, layout: KeyboardLayout) {
   if (a === b) return 0;
+  const lk = `${layout}|${a}`;
+  let row = SUB_CACHE.get(lk);
+  if (!row) { row = new Map(); SUB_CACHE.set(lk, row); }
+  let v = row.get(b);
+  if (v === undefined) { v = rawSubstitutionCost(a, b, layout); row.set(b, v); }
+  return v;
+}
+function rawSubstitutionCost(a: string, b: string, layout: KeyboardLayout) {
   // 소리가 같아 자주 헷갈리는 것
   if ((a === 'ㅐ' && b === 'ㅔ') || (a === 'ㅔ' && b === 'ㅐ')) return 0.3;
   switch (layout) {
@@ -251,6 +261,35 @@ export function buildVocab(texts: string[]): Vocab {
   };
 }
 
+/** 단어 하나의 가장 가까운 사전 단어 (같은 사전·자판이면 기억해 둠: 글자를 이어 칠 때 앞 단어는 다시 계산 안 함) */
+type Nearest = { text: string; d: number; freq: number } | null;
+const NEAREST_CACHE = new WeakMap<Vocab, Map<string, Nearest>>();
+const BY_LEN = new WeakMap<Vocab, Map<number, Vocab['words']>>();
+function nearestWord(t: string, k: string[], vocab: Vocab, layout: KeyboardLayout): Nearest {
+  let cache = NEAREST_CACHE.get(vocab);
+  if (!cache) { cache = new Map(); NEAREST_CACHE.set(vocab, cache); }
+  const ck = `${layout}|${t}`;
+  if (cache.has(ck)) return cache.get(ck)!;
+  let byLen = BY_LEN.get(vocab);
+  if (!byLen) {
+    byLen = new Map();
+    vocab.words.forEach((w) => { const arr = byLen!.get(w.keys.length) || []; arr.push(w); byLen!.set(w.keys.length, arr); });
+    BY_LEN.set(vocab, byLen);
+  }
+  const limit = Math.max(1, k.length * 0.34);
+  let bestW: Nearest = null;
+  for (let len = Math.ceil(k.length - limit); len <= Math.floor(k.length + limit); len++) {
+    for (const w of byLen.get(len) || []) {
+      const d = keyDistance(k, w.keys, layout, bestW ? Math.min(limit, bestW.d + 1e-6) : limit);
+      if (d > limit) continue;
+      if (!bestW || d < bestW.d - 1e-6 || (Math.abs(d - bestW.d) < 1e-6 && w.freq > bestW.freq)) bestW = { text: w.text, d, freq: w.freq };
+    }
+  }
+  if (cache.size > 500) cache.clear();
+  cache.set(ck, bestW);
+  return bestW;
+}
+
 export type Correction = { from: string; to: string; how: 'typo' | 'hanyeong'; cost: number };
 
 /**
@@ -275,7 +314,8 @@ export function correctQuery(query: string, vocab: Vocab, layout: KeyboardLayout
   const tokens = raw.split(/\s+/).filter(Boolean);
   // 단어마다 다 있는 말이면 고치지 않음 (예: "배틀 치킨" → 단어별로 찾기)
   if (tokens.every((t) => known(t) || squash(t).length < 2)) return null;
-  const candidates = tokens.length > 1 ? [tokens, [tokens.join('')]] : [tokens];
+  // 띄어쓰기 없이 붙여 보는 건 짧은 검색어만 (사전 단어는 20글자까지라 긴 문장은 어차피 안 맞음)
+  const candidates = tokens.length > 1 && tokens.length <= 3 && squash(tokens.join('')).length <= 20 ? [tokens, [tokens.join('')]] : [tokens];
   let best: { text: string; cost: number } | null = null;
   for (const toks of candidates) {
     let total = 0;
@@ -284,14 +324,7 @@ export function correctQuery(query: string, vocab: Vocab, layout: KeyboardLayout
     for (const t of toks) {
       if (known(t) || squash(t).length < 2) { fixed.push(t); continue; }
       const k = toKeys(t);
-      const limit = Math.max(1, k.length * 0.34);
-      let bestW: { text: string; d: number; freq: number } | null = null;
-      for (const w of vocab.words) {
-        if (Math.abs(w.keys.length - k.length) > limit) continue;
-        const d = keyDistance(k, w.keys, layout, limit);
-        if (d > limit) continue;
-        if (!bestW || d < bestW.d - 1e-6 || (Math.abs(d - bestW.d) < 1e-6 && w.freq > bestW.freq)) bestW = { text: w.text, d, freq: w.freq };
-      }
+      const bestW = nearestWord(t, k, vocab, layout);
       if (!bestW) { total = Infinity; break; }
       fixed.push(bestW.text);
       total += bestW.d / k.length;

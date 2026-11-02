@@ -2287,7 +2287,7 @@ export function RecommendTab({
         )}
 
         {viewStyle === 'list' ? (
-          <div className="flex flex-col gap-1 -mx-2 sm:mx-0">
+          <div className="flex flex-col gap-1.5 -mx-2 sm:mx-0">
             {paginatedVids.map((video, idx) => {
               const ytId = extractYoutubeId(video.videoUrl) || video.id;
               const isMulti = Boolean(video.isCompilation || (Array.isArray(video.allBroadcastDates) && video.allBroadcastDates.length > 1));

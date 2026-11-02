@@ -78,7 +78,7 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
       onViewStyleChange={setViewStyle}
     >
       {viewStyle === 'list' ? (
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-1.5">
           {pageRows.map((r, i) => (
             <VideoListRow
               key={r.date}

@@ -25,7 +25,13 @@ export function OnboardingSubTab({ systemEdit, handleChange, onSave, saving, onU
 }) {
   const [cfg, setCfg] = useState<OnboardingConfig | null>(null);
   const [busy, setBusy] = useState(false);
-  const [reshow, setReshow] = useState(false);
+  // 이미 본 사람에게: 안 보임 / 약관이 바뀌었다는 한 장만 / 처음 화면 전체 다시
+  const [reshowMode, setReshowMode] = useState<'none' | 'terms' | 'all'>('none');
+  const reshow = reshowMode !== 'none';
+  const today = new Date();
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const [tu, setTu] = useState(() => ({ summary: '', noticeDate: ymd(today), effectiveDate: ymd(new Date(today.getTime() + 7 * 86400000)) }));
+  const noticeGap = Math.round((new Date(tu.effectiveDate).getTime() - new Date(tu.noticeDate).getTime()) / 86400000);
 
   useEffect(() => {
     getDoc(doc(db, 'config', 'onboarding'))
@@ -51,17 +57,23 @@ export function OnboardingSubTab({ systemEdit, handleChange, onSave, saving, onU
     update(i, { sections: (cfg.steps[i].sections || []).map((s, j) => (j === k ? { ...s, ...patch } : s)) });
 
   const save = async () => {
+    if (reshowMode === 'terms') {
+      if (!tu.summary.trim()) { alert('바뀐 내용을 적어 주세요.'); return; }
+      if (!(noticeGap >= 7) && !window.confirm(`적용일이 알린 날부터 ${noticeGap}일 뒤예요. 보통 7일(이용자에게 불리하면 30일) 전에 알려야 해요. 그래도 저장할까요?`)) return;
+    }
     setBusy(true);
     try {
       const version = (Number(systemEdit.onboardingVersion) || 1) + (reshow ? 1 : 0);
       // undefined 값은 Firestore 가 거부하므로 JSON 으로 한 번 걸러서 저장
       await setDoc(doc(db, 'config', 'onboarding'), { version, steps: JSON.parse(JSON.stringify(cfg.steps)), updatedAt: new Date().toISOString() });
       if (reshow) {
-        await onUpdateSystemConfig?.({ onboardingVersion: version });
+        const termsUpdate = reshowMode === 'terms' ? { version, summary: tu.summary.trim(), noticeDate: tu.noticeDate, effectiveDate: tu.effectiveDate } : null;
+        await onUpdateSystemConfig?.({ onboardingVersion: version, termsUpdate } as any);
         handleChange('onboardingVersion', version);
-        setReshow(false);
+        handleChange('termsUpdate' as any, termsUpdate);
+        setReshowMode('none');
       }
-      alert(reshow ? '저장했어요. 이미 본 사람에게도 다음 방문 때 다시 보여요.' : '저장했어요. 처음 오는 사람부터 바뀐 내용이 보여요.');
+      alert(reshowMode === 'terms' ? '저장했어요. 이미 본 사람에게는 다음 방문 때 \'약관이 바뀌었어요\' 안내가 보여요.' : reshow ? '저장했어요. 이미 본 사람에게도 다음 방문 때 처음 화면이 다시 보여요.' : '저장했어요. 처음 오는 사람부터 바뀐 내용이 보여요.');
     } catch (e: any) {
       alert('저장 중 오류: ' + (e?.message || e));
     } finally {
@@ -148,12 +160,29 @@ export function OnboardingSubTab({ systemEdit, handleChange, onSave, saving, onU
         <Plus className="w-4 h-4" /> 단계 추가
       </button>
 
-      <div className="sticky bottom-3 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 shadow-lg flex flex-wrap items-center gap-2 justify-between">
-        <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
-          <input type="checkbox" checked={reshow} onChange={(e) => setReshow(e.target.checked)} />
-          이미 본 사람에게도 다시 보이기 (약관이 바뀌었을 때)
-        </label>
-        <div className="flex items-center gap-2">
+      <div className="sticky bottom-3 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 shadow-lg space-y-3">
+        <div className="space-y-1.5">
+          <p className="text-xs font-bold">이미 처음 화면을 본 사람에게</p>
+          <div className="flex flex-wrap gap-1.5">
+            {([['none', '다시 안 보이기'], ['terms', '약관 변경 안내만'], ['all', '처음 화면 전체 다시']] as const).map(([k, label]) => (
+              <button key={k} type="button" onClick={() => setReshowMode(k)} className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer ${reshowMode === k ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>{label}</button>
+            ))}
+          </div>
+          {reshowMode === 'terms' && (
+            <div className="space-y-2 pt-1">
+              <p className="text-[11px] text-zinc-500">이미 본 사람에게는 '약관이 바뀌었어요' 한 장만 보여요. 바뀐 내용·적용일과 '적용일까지 거부 의사가 없으면 동의한 것으로 봐요' 안내가 함께 나오고, 동의하거나 건너뛸 수 있어요. 처음 오는 사람은 원래 처음 화면을 봐요.</p>
+              <textarea value={tu.summary} onChange={(e) => setTu({ ...tu, summary: e.target.value })} rows={3} placeholder={'바뀐 내용 (마크다운)\n- 제3조: 알림 보내는 시간 추가'} className={input} />
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300">알린 날<input type="date" value={tu.noticeDate} onChange={(e) => setTu({ ...tu, noticeDate: e.target.value })} className={input + ' mt-1'} /></label>
+                <label className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300">적용일<input type="date" value={tu.effectiveDate} onChange={(e) => setTu({ ...tu, effectiveDate: e.target.value })} className={input + ' mt-1'} /></label>
+              </div>
+              <p className={`text-[11px] ${noticeGap >= 7 ? 'text-zinc-500' : 'text-amber-600 font-bold'}`}>알린 날부터 {noticeGap}일 뒤 적용 · 보통 7일 전, 이용자에게 불리하게 바뀌면 30일 전에 알려야 해요.</p>
+              <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(ONBOARDING_START_EVENT, { detail: { ...cfg, termsUpdatePreview: { version: 0, ...tu } } }))} className="text-xs font-bold text-purple-600 dark:text-purple-400 underline cursor-pointer">이 안내 미리보기</button>
+            </div>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 justify-end">
+
           <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(ONBOARDING_START_EVENT, { detail: cfg }))} className="px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold flex items-center gap-1.5 cursor-pointer">
             <Eye className="w-4 h-4" /> 미리보기
           </button>

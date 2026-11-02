@@ -62,7 +62,7 @@ export function VideoListRow({
   const iconBtn = 'w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 cursor-pointer';
 
   return (
-    <div ref={trackRef} className={cn('group relative flex items-center gap-3 rounded-2xl transition-colors', dense ? 'p-1.5' : 'p-2', highlighted ? 'bg-purple-50 dark:bg-purple-950/40' : 'hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60')}>
+    <div ref={trackRef} className={cn('group relative flex items-center gap-3.5 rounded-2xl transition-colors', dense ? 'p-2' : 'px-2.5 py-2.5', highlighted ? 'bg-purple-50 dark:bg-purple-950/40' : 'hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60')}>
       {/* 줄 전체를 덮는 링크 (버튼들은 그 위에 따로) */}
       <a href={link} target="_blank" rel="noreferrer" onClick={() => noteInterest(interest, 'play')} className="absolute inset-0 rounded-2xl" aria-label={`${title} 유튜브에서 보기`} />
 
