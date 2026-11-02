@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import { Check, ChevronDown, ChevronLeft, Keyboard } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -89,13 +91,13 @@ function guessKeyboard(): KeyboardLayout {
 function FluidBackdrop() {
   // 사이트 바탕색(흰색 / 짙은 회색) 위에 아주 연한 보라빛이 천천히 흘러다님
   const blobs = [
-    { c: 'bg-purple-300/25 dark:bg-purple-500/[0.12]', s: 'w-[60vmax] h-[60vmax]', x: ['-25%', '5%', '-15%'], y: ['-30%', '-10%', '-25%'], d: 24 },
-    { c: 'bg-violet-200/30 dark:bg-violet-500/[0.10]', s: 'w-[50vmax] h-[50vmax]', x: ['45%', '20%', '40%'], y: ['35%', '55%', '25%'], d: 30 },
-    { c: 'bg-sky-200/25 dark:bg-indigo-500/[0.08]', s: 'w-[45vmax] h-[45vmax]', x: ['-10%', '25%', '5%'], y: ['60%', '40%', '65%'], d: 36 },
+    { c: 'bg-purple-200/[0.14] dark:bg-purple-500/[0.06]', s: 'w-[60vmax] h-[60vmax]', x: ['-25%', '5%', '-15%'], y: ['-30%', '-10%', '-25%'], d: 24 },
+    { c: 'bg-violet-100/[0.18] dark:bg-violet-500/[0.05]', s: 'w-[50vmax] h-[50vmax]', x: ['45%', '20%', '40%'], y: ['35%', '55%', '25%'], d: 30 },
+    { c: 'bg-sky-100/[0.14] dark:bg-indigo-500/[0.04]', s: 'w-[45vmax] h-[45vmax]', x: ['-10%', '25%', '5%'], y: ['60%', '40%', '65%'], d: 36 },
   ];
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-      <div className="absolute inset-0 bg-zinc-50/95 dark:bg-zinc-950/95 backdrop-blur-xl" />
+      <div className="absolute inset-0 bg-zinc-50 dark:bg-zinc-950" />
       {blobs.map((b, i) => (
         <motion.div
           key={i}
@@ -108,6 +110,23 @@ function FluidBackdrop() {
     </div>
   );
 }
+
+/** 약관 본문: 마크다운 전체(제목·목록·표·인용·코드·구분선·링크)를 문서처럼 */
+const TERMS_PROSE = [
+  'text-[13px] leading-[1.75] text-zinc-700 dark:text-zinc-300 break-keep select-text',
+  '[&>*:first-child]:mt-0',
+  '[&_h1]:text-lg [&_h1]:font-black [&_h1]:text-zinc-900 dark:[&_h1]:text-white [&_h1]:mt-6 [&_h1]:mb-2',
+  '[&_h2]:text-[15px] [&_h2]:font-bold [&_h2]:text-zinc-900 dark:[&_h2]:text-white [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:pb-1.5 [&_h2]:border-b [&_h2]:border-zinc-200 dark:[&_h2]:border-white/10',
+  '[&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-zinc-900 dark:[&_h3]:text-white [&_h3]:mt-4 [&_h3]:mb-1',
+  '[&_h4]:font-bold [&_h4]:mt-3',
+  '[&_p]:my-2 [&_strong]:font-bold [&_strong]:text-zinc-900 dark:[&_strong]:text-white [&_em]:italic',
+  '[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_li>ul]:my-1 [&_li>ol]:my-1 [&_li]:marker:text-zinc-400',
+  '[&_a]:text-purple-600 dark:[&_a]:text-purple-300 [&_a]:underline [&_a]:underline-offset-2',
+  '[&_blockquote]:my-3 [&_blockquote]:border-l-[3px] [&_blockquote]:border-purple-300 dark:[&_blockquote]:border-purple-500/50 [&_blockquote]:pl-3 [&_blockquote]:text-zinc-500 dark:[&_blockquote]:text-zinc-400',
+  '[&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-zinc-100 dark:[&_code]:bg-white/10 [&_code]:text-[12px] [&_pre]:my-3 [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:bg-zinc-100 dark:[&_pre]:bg-white/10 [&_pre]:overflow-x-auto',
+  '[&_hr]:my-5 [&_hr]:border-zinc-200 dark:[&_hr]:border-white/10',
+  '[&_table]:my-3 [&_table]:w-full [&_table]:text-[12px] [&_table]:border-collapse [&_th]:border [&_td]:border [&_th]:border-zinc-200 [&_td]:border-zinc-200 dark:[&_th]:border-white/10 dark:[&_td]:border-white/10 [&_th]:bg-zinc-50 dark:[&_th]:bg-white/5 [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5 [&_th]:text-left [&_th]:font-bold',
+].join(' ');
 
 const IOS_SPRING = { type: 'spring' as const, stiffness: 320, damping: 34 };
 
@@ -253,7 +272,8 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
                 'shrink-0 md:flex-1 md:h-[420px] flex items-center justify-center',
                 step.type === 'terms' || step.type === 'keyboard' ? 'h-[22vh] min-h-[150px] pt-2' : 'h-[34vh] min-h-[210px] pt-4',
                 step.type === 'keyboard' && 'max-md:hidden',
-                step.type === 'setup' && 'hidden md:flex'
+                step.type === 'setup' && 'hidden md:flex',
+                step.type === 'terms' && expanded && 'max-md:hidden'
               )}>
                 <OnboardingArt type={step.type} image={step.image} keyboard={keyboard} />
               </div>
@@ -261,7 +281,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
               <h2 className={cn('font-black tracking-tight break-keep', step.type === 'welcome' ? 'text-4xl sm:text-5xl' : 'text-2xl sm:text-3xl')}>{step.title}</h2>
               {step.body && (
                 <div className={cn('mt-3 text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-300 break-keep prose-sm [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mt-2 [&_p]:mt-2 [&_strong]:text-zinc-900 dark:[&_strong]:text-white', step.type === 'welcome' && 'whitespace-pre-line')}>
-                  {step.type === 'welcome' ? step.body : <Markdown>{fillPlaceholders(step.body, system)}</Markdown>}
+                  {step.type === 'welcome' ? step.body : <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{fillPlaceholders(step.body, system)}</Markdown>}
                 </div>
               )}
 
@@ -300,8 +320,10 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
                               transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
                               className="overflow-hidden"
                             >
-                              <div className="mx-4 mb-4 max-h-64 overflow-y-auto rounded-xl bg-zinc-50/90 dark:bg-black/30 p-3 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300 [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold [&_p]:mt-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
-                                <Markdown>{fillPlaceholders(s.body, system)}</Markdown>
+                              <div className="mx-3 mb-3 h-[min(58dvh,560px)] overflow-y-auto overscroll-contain rounded-xl bg-white dark:bg-zinc-950/70 border border-zinc-200/80 dark:border-white/10 px-4 py-4 sm:px-5">
+                                <div className={TERMS_PROSE}>
+                                  <Markdown remarkPlugins={[remarkGfm, remarkBreaks]} components={{ a: ({ node, ...p }) => <a {...p} target="_blank" rel="noreferrer" /> }}>{fillPlaceholders(s.body, system)}</Markdown>
+                                </div>
                               </div>
                             </motion.div>
                           )}
