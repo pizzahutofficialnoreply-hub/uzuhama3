@@ -58,7 +58,7 @@ export interface ProbabilityBreakdown {
   /** 단계별 확률(%) — 자세히 보기 표시용: 요일 → 간격 반영 → 휴방·패턴 반영(=오늘) → 시간대 반영(=최종) */
   steps: { weekday: number; afterGap: number; day: number; final: number };
   pattern: {
-    state: 'live' | 'streamedToday' | 'absence' | 'normal' | 'noData';
+    state: 'live' | 'streamedToday' | 'absence' | 'scheduled' | 'normal' | 'noData';
     factor: number; // 오즈 배수 (1 = 변화 없음)
     label: string;
   };
@@ -122,6 +122,12 @@ export function isAbsencePeriodActive(system: SystemConfig | undefined, todayStr
   const start = system.travelStart.slice(0, 10);
   const end = system.travelEnd ? system.travelEnd.slice(0, 10) : '';
   return todayStr >= start && (!end || todayStr <= end);
+}
+
+/** 관리자가 그날에 지정한 예정일/휴방일 (없으면 null) */
+export function dateOverrideFor(system: SystemConfig | undefined, dayStr: string) {
+  const list = Array.isArray((system as any)?.dateOverrides) ? (system as any).dateOverrides : [];
+  return (list.find((o: any) => o && o.date === dayStr && (o.type === 'on' || o.type === 'off')) || null) as { date: string; type: 'on' | 'off'; time?: string; note?: string } | null;
 }
 
 export function computeBroadcastProbability(
@@ -235,6 +241,13 @@ export function computeBroadcastProbability(
   } else if (streamedToday) {
     patternState = 'streamedToday';
     patternLabel = '오늘 이미 방송함';
+  } else if (dateOverrideFor(options.system, todayStr)?.type === 'off') {
+    patternState = 'absence';
+    patternLogOdds = Math.log(ABSENCE_ODDS);
+    patternLabel = '관리자 지정 휴방일';
+  } else if (dateOverrideFor(options.system, todayStr)?.type === 'on') {
+    patternState = 'scheduled';
+    patternLabel = '관리자 지정 방송 예정일';
   } else if (isAbsencePeriodActive(options.system, todayStr)) {
     patternState = 'absence';
     patternLogOdds = Math.log(ABSENCE_ODDS);
@@ -244,10 +257,14 @@ export function computeBroadcastProbability(
     patternLabel = '방송 기록 없음';
   }
 
-  const dayP =
+  const baseDayP =
     patternState === 'live'
       ? 1
       : sigmoid(logit(smoothed) + gapLogOdds + patternLogOdds);
+  // 방송 예정일: 그날만 최소 92% (원래 계산이 더 높으면 그대로)
+  const dayP = patternState === 'scheduled' ? Math.max(baseDayP, 0.92) : baseDayP;
+  if (patternState === 'scheduled') patternLogOdds = logit(dayP) - logit(Math.min(0.999, Math.max(0.001, baseDayP)));
+  const scheduledTime = patternState === 'scheduled' ? parseMinute(dateOverrideFor(options.system, todayStr)?.time || '') : null;
 
   // ── 4. 시간대 분포 ──
   const pts: { m: number; w: number; sameDow: boolean }[] = [];
@@ -262,8 +279,9 @@ export function computeBroadcastProbability(
   const weightOf = (p: { w: number; sameDow: boolean }) =>
     p.w * ((1 - blendSame) + (p.sameDow ? blendSame * (pts.length / Math.max(1, sameDowCount)) : 0));
   const fallback = [{ m: toBroadcastMinute(20 * 60), w: 1, sameDow: true }];
-  const usePts = hasTime ? pts : fallback;
-  const bw = hasTime ? TIME_BANDWIDTH : 120;
+  // 예정 시각을 정해 뒀으면 그날은 그 시각 기준 (앞뒤 30분 정도)
+  const usePts = scheduledTime !== null ? [{ m: toBroadcastMinute(scheduledTime), w: 1, sameDow: true }] : hasTime ? pts : fallback;
+  const bw = scheduledTime !== null ? 25 : hasTime ? TIME_BANDWIDTH : 120;
   const totalW = usePts.reduce((a, p) => a + weightOf(p), 0) || 1;
   const cdf = (bm: number) =>
     usePts.reduce((a, p) => a + weightOf(p) * (normCdf((bm - p.m) / bw) - normCdf((0 - p.m) / bw)), 0) /

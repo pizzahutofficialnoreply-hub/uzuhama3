@@ -1251,6 +1251,44 @@ export function RecommendTab({
   const suggestion = correction && !autoCorrected ? correction : null;
   const effectiveSearchTerm = autoCorrected ? autoCorrected.to : searchTerm;
 
+  // 최근 검색어 칩 (모든 탭 같은 모양)
+  const recentChips = (divider: boolean) => (
+          <div className={cn("flex items-center gap-1.5 overflow-x-auto no-scrollbar", divider && "pt-1.5 border-t border-zinc-100 dark:border-zinc-800/60")}>
+            <span className="text-[11px] text-zinc-400 shrink-0 font-medium mr-1 flex items-center gap-1">
+              <Clock className="w-3 h-3 text-zinc-400" /> 최근 검색:
+            </span>
+            {recentSearches.map((s) => (
+              <div 
+                key={s} 
+                className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-700 dark:text-zinc-300 shrink-0 border border-zinc-200/60 dark:border-zinc-700/60 transition-colors"
+              >
+                <button 
+                  type="button" 
+                  onClick={() => setSearchTerm(s)} 
+                  className="hover:text-purple-600 dark:hover:text-purple-400 font-medium cursor-pointer"
+                >
+                  {s}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => removeRecentSearch(s)} 
+                  className="text-zinc-400 hover:text-red-500 ml-0.5 cursor-pointer"
+                  title="검색어 삭제"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            <button 
+              type="button" 
+              onClick={() => { if (window.confirm('최근 검색어를 모두 지울까요?')) clearAllRecentSearches(); }} 
+              className="px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 ml-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 border border-red-200/70 dark:border-red-900/50 cursor-pointer"
+            >
+              모두 지우기
+            </button>
+          </div>
+  );
+
   const matchingShorts = useMemo(() => {
     const raw = effectiveSearchTerm.trim().replace(/^#+/, '');
     if (subTab !== 'home' || raw.length < 2) return [];
@@ -1876,31 +1914,10 @@ export function RecommendTab({
         transition={{ type: 'spring', stiffness: 380, damping: 36 }}
         className="space-y-6"
       >
+      {/* 재생목록: 다른 탭과 같은 최근 검색 줄을 같은 모양의 카드 안에 (아래 콘텐츠와 겹치지 않게) */}
       {subTab === 'playlists' && recentSearches.length > 0 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mb-2" data-no-swipe>
-          <Clock className="w-3.5 h-3.5 text-zinc-400 shrink-0" aria-hidden="true" />
-          {recentSearches.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setSearchTerm(s)}
-              className={cn(
-                "px-2.5 py-1 rounded-full text-xs font-medium shrink-0 border transition-colors cursor-pointer",
-                searchTerm.trim() === s
-                  ? "bg-purple-600 border-purple-600 text-white"
-                  : "bg-zinc-100 dark:bg-zinc-800 border-zinc-200/60 dark:border-zinc-700/60 text-zinc-700 dark:text-zinc-300 hover:text-purple-600"
-              )}
-            >
-              {s}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => { if (window.confirm('최근 검색어를 모두 지울까요?')) clearAllRecentSearches(); }}
-            className="px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 text-red-500 border border-red-200/70 dark:border-red-900/50 cursor-pointer"
-          >
-            모두 지우기
-          </button>
+        <div className="bg-white dark:bg-zinc-900 px-4 py-3 sm:px-5 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm" data-no-swipe>
+          {recentChips(false)}
         </div>
       )}
       {subTab === 'playlists' ? (
@@ -2072,42 +2089,7 @@ export function RecommendTab({
         </div>
 
         {/* 최근 검색어 칩 목록 */}
-        {recentSearches.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1.5 border-t border-zinc-100 dark:border-zinc-800/60">
-            <span className="text-[11px] text-zinc-400 shrink-0 font-medium mr-1 flex items-center gap-1">
-              <Clock className="w-3 h-3 text-zinc-400" /> 최근 검색:
-            </span>
-            {recentSearches.map((s) => (
-              <div 
-                key={s} 
-                className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-700 dark:text-zinc-300 shrink-0 border border-zinc-200/60 dark:border-zinc-700/60 transition-colors"
-              >
-                <button 
-                  type="button" 
-                  onClick={() => setSearchTerm(s)} 
-                  className="hover:text-purple-600 dark:hover:text-purple-400 font-medium cursor-pointer"
-                >
-                  {s}
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => removeRecentSearch(s)} 
-                  className="text-zinc-400 hover:text-red-500 ml-0.5 cursor-pointer"
-                  title="검색어 삭제"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-            <button 
-              type="button" 
-              onClick={() => { if (window.confirm('최근 검색어를 모두 지울까요?')) clearAllRecentSearches(); }} 
-              className="px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 ml-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 border border-red-200/70 dark:border-red-900/50 cursor-pointer"
-            >
-              모두 지우기
-            </button>
-          </div>
-        )}
+        {recentSearches.length > 0 && recentChips(true)}
       </div>
 
       {subTab === 'shorts' ? (

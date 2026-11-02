@@ -443,7 +443,56 @@ export function formatRecommendShareText(video: any, allLogs?: Record<string, an
     broadcastBlocks.push(blockLines.join('\n'));
   });
 
-  return broadcastBlocks.join('\n\n');
+  const body = tidyShareText(broadcastBlocks.join('\n\n'));
+  // 몰아보기: 맨 위에 영상 자체(제목·링크)와 개수 요약
+  if (isCompilation && video.videoUrl) {
+    const gameCount = Array.isArray(video.games) && video.games.length ? video.games.length : 0;
+    const head = [`• 몰아보기: ${video.videoTitle ? `${String(video.videoTitle).replace(/^\[몰아보기\]\s*/, '')}, ` : ''}${cleanShareUrl(video.videoUrl)}`];
+    head.push(`• ${gameCount ? `게임 ${gameCount}개 · ` : ''}생방 ${dates.length}개`);
+    return `${head.join('\n')}\n\n${body}`;
+  }
+  return body;
+}
+
+/** 공유 링크 정리: &amp; 되돌리기, 추적용 꼬리표(si, feature, pp)와 재생목록 위치(list, index) 제거. 재생 시각(t)은 그대로 */
+export function cleanShareUrl(raw: string): string {
+  const u = String(raw || '').trim().replace(/&amp;/g, '&');
+  try {
+    const url = new URL(u);
+    if (/youtube\.com|youtu\.be/.test(url.hostname)) {
+      ['si', 'feature', 'pp', 'list', 'index', 'ab_channel'].forEach((k) => url.searchParams.delete(k));
+    }
+    if (/store\.steampowered\.com/.test(url.hostname)) ['snr'].forEach((k) => url.searchParams.delete(k));
+    let out = url.toString();
+    if (url.search === '' ) out = out.replace(/\?$/, '');
+    return out;
+  } catch {
+    return u;
+  }
+}
+
+/**
+ * 공유 글 다듬기 (내용은 그대로)
+ * - 모든 링크 정리
+ * - 같은 방송 안에서 같은 게임이 링크 없이/있게 두 번 나오면 링크 있는 것만
+ * - 숫자만 있는 게임 이름(잘못 들어간 시간 값 등)은 뺌
+ */
+function tidyShareText(text: string): string {
+  return text.split('\n\n').map((block) => {
+    const lines = block.split('\n').map((l) => l.replace(/https?:\/\/[^\s,]+/g, (m) => cleanShareUrl(m)));
+    const gameName = (l: string) => (l.startsWith('• 게임: ') ? l.slice(6).split(', http')[0].trim() : null);
+    const withLink = new Set(lines.filter((l) => gameName(l) && l.includes(', http')).map((l) => gameName(l)!.toLowerCase()));
+    const seen = new Set<string>();
+    return lines.filter((l) => {
+      const g = gameName(l);
+      if (g === null) return true;
+      if (/^[\d.\s:]+$/.test(g)) return false;
+      if (!l.includes(', http') && withLink.has(g.toLowerCase())) return false;
+      if (seen.has(l)) return false;
+      seen.add(l);
+      return true;
+    }).join('\n');
+  }).join('\n\n');
 }
 
 /**

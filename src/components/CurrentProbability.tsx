@@ -40,7 +40,7 @@ import {
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { cn, attachKoreanParticle } from "../utils";
-import { computeBroadcastProbability, formatClockMinute, kstParts } from "../utils/probability";
+import { computeBroadcastProbability, formatClockMinute, kstParts, dateOverrideFor, broadcastDayStr } from "../utils/probability";
 import { useStatusMessages } from "../hooks/useStatusMessages";
 import { extractYoutubeId } from "../utils/urlUtils";
 import { motion, AnimatePresence } from "motion/react";
@@ -215,8 +215,15 @@ export function CurrentProbability({
         ? activeIllnessName || "건강 문제"
         : system?.absenceReason || "";
 
+  // 관리자가 오늘을 예정일/휴방일로 지정한 경우 (공지 내용이 있으면 그대로)
+  const dayOverride = dateOverrideFor(system, broadcastDayStr(currentTime));
   if (hasStreamedToday) {
     patternMessage = "오늘 이미 방송을 진행했어요.";
+  } else if (dayOverride?.type === 'off') {
+    patternMessage = dayOverride.note?.trim() || "오늘은 휴방일로 공지됐어요.";
+  } else if (dayOverride?.type === 'on') {
+    const t = dayOverride.time ? formatClockMinute(Number(dayOverride.time.slice(0, 2)) * 60 + Number(dayOverride.time.slice(3, 5))) : '';
+    patternMessage = dayOverride.note?.trim() || (t ? `오늘 ${t} 방송 예정이라고 공지됐어요.` : "오늘 방송 예정이라고 공지됐어요.");
   } else if (isAbsencePeriod) {
     const lead = daysSinceLastStream >= 2 ? `${daysSinceLastStream}일째 ` : "";
     patternMessage = absenceDisplayReason

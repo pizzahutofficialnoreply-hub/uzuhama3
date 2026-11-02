@@ -97,6 +97,13 @@ export interface GameItem {
   date?: string;
 }
 
+export interface DateOverride {
+  date: string; // YYYY-MM-DD (방송일 기준, 오전 6시 전은 전날)
+  type: 'on' | 'off'; // on: 방송 예정일, off: 휴방일
+  time?: string; // HH:MM (예정 시각, 선택)
+  note?: string; // 공지 문구 (선택)
+}
+
 export interface BroadcastLog {
   id: string;
   date: string; // YYYY-MM-DD
@@ -219,6 +226,8 @@ export interface SystemConfig {
   prefaceTitle?: string;
   travelStart?: string;
   travelEnd?: string;
+  /** 관리자가 지정한 날짜별 예외 (공지로 '0월 0일 방송/휴방' 을 알렸을 때). 그날 확률만 바뀜 */
+  dateOverrides?: DateOverride[];
   recentVideoUploadDate?: string; // 장기 휴방 중 영상 업로드일 (확률 가산점 반영)
   videoUploadSourceDesc?: string; // 업로드된 영상 설명
   appVersion?: string;

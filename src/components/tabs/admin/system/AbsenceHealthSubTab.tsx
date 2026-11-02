@@ -1,6 +1,6 @@
 import React from 'react';
-import { SystemConfig } from '../../../../types';
-import { Plane, Stethoscope, Info } from 'lucide-react';
+import { SystemConfig, DateOverride } from '../../../../types';
+import { Plane, Stethoscope, Info, CalendarClock, Trash2, Plus } from 'lucide-react';
 
 interface AbsenceHealthSubTabProps {
   systemEdit: Partial<SystemConfig>;
@@ -37,6 +37,8 @@ export const AbsenceHealthSubTab: React.FC<AbsenceHealthSubTabProps> = ({
 
   return (
     <div className="space-y-6">
+      <DateOverridesCard list={(systemEdit.dateOverrides || []) as DateOverride[]} onChange={(next) => handleChange('dateOverrides', next)} onSave={onSave} saving={saving} />
+
       {/* 1. 장기 휴방 및 병명 관리 */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4 shadow-xs">
         <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
@@ -229,3 +231,71 @@ export const AbsenceHealthSubTab: React.FC<AbsenceHealthSubTabProps> = ({
     </div>
   );
 };
+
+
+/**
+ * 날짜 지정: 공지로 "0월 0일 방송합니다 / 휴방합니다" 를 알렸을 때 그날 확률만 맞춤
+ * - 지정한 날에만 적용, 지나면 효과 없음 (원래 계산에는 영향 없음)
+ * - 방송일 기준: 새벽 6시 전은 전날 방송으로 봄
+ */
+function DateOverridesCard({ list, onChange, onSave, saving }: { list: DateOverride[]; onChange: (next: DateOverride[]) => void; onSave?: () => void; saving?: boolean }) {
+  const kstToday = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+  const [date, setDate] = React.useState(kstToday);
+  const [type, setType] = React.useState<'on' | 'off'>('off');
+  const [time, setTime] = React.useState('');
+  const [note, setNote] = React.useState('');
+  const sorted = [...list].sort((a, b) => a.date.localeCompare(b.date));
+  const add = () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    const item: DateOverride = { date, type, ...(type === 'on' && time ? { time } : {}), ...(note.trim() ? { note: note.trim() } : {}) };
+    onChange([...list.filter((o) => o.date !== date), item]);
+    setNote('');
+    setTime('');
+  };
+  const field = 'w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white';
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4 shadow-xs">
+      <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+        <CalendarClock className="w-4 h-4 text-purple-600" />
+        <h3 className="font-bold text-sm text-zinc-900 dark:text-white">날짜 지정 (방송 예정일 · 휴방일)</h3>
+      </div>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+        공지로 "0월 0일 다시 옵니다", "0월 0일 휴방합니다"처럼 알렸을 때 그 날짜만 확률을 맞춰요. 지정한 날이 아니면 원래 계산 그대로예요.
+        예정일은 최소 92%, 시각을 적으면 그 시각이 유력 시간이 돼요. 휴방일은 장기 휴방과 같은 정도로 낮춰요. 새벽 6시 전은 전날 방송으로 쳐요.
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field} aria-label="날짜" />
+        <select value={type} onChange={(e) => setType(e.target.value as 'on' | 'off')} className={field} aria-label="종류">
+          <option value="off">휴방일</option>
+          <option value="on">방송 예정일</option>
+        </select>
+        <input type="time" value={time} onChange={(e) => setTime(e.target.value)} disabled={type !== 'on'} className={`${field} disabled:opacity-40`} aria-label="예정 시각 (선택)" />
+        <button type="button" onClick={add} className="inline-flex items-center justify-center gap-1 rounded-xl bg-purple-600 text-white text-xs font-bold px-3 py-2 cursor-pointer">
+          <Plus className="w-3.5 h-3.5" /> 추가
+        </button>
+      </div>
+      <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="메인 카드에 보일 문구 (선택, 예: 11월 5일 저녁에 돌아와요!)" className={field} />
+      {sorted.length > 0 ? (
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800">
+          {sorted.map((o) => (
+            <div key={o.date} className={`flex items-center gap-3 px-3 py-2.5 text-xs ${o.date < kstToday ? 'opacity-50' : ''}`}>
+              <span className="font-bold tabular-nums w-24 shrink-0">{o.date}</span>
+              <span className={`px-2 py-0.5 rounded-md font-bold shrink-0 ${o.type === 'on' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}>{o.type === 'on' ? `방송 예정${o.time ? ` ${o.time}` : ''}` : '휴방'}</span>
+              <span className="flex-1 min-w-0 truncate text-zinc-500">{o.note || (o.date < kstToday ? '지난 날짜' : '')}</span>
+              <button type="button" onClick={() => onChange(list.filter((x) => x.date !== o.date))} className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer" aria-label={`${o.date} 삭제`}>
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-zinc-400">지정한 날짜가 없어요.</p>
+      )}
+      {onSave && (
+        <div className="flex justify-end">
+          <button type="button" onClick={onSave} disabled={saving} className="rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-bold px-4 py-2 disabled:opacity-50 cursor-pointer">{saving ? '저장 중…' : '저장'}</button>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -102,3 +102,48 @@ describe('정기 점검 자동 켜기', () => {
     expect(effectiveMaintenanceSystem(manual, at('2026-11-05T01:30:00+09:00'))!.maintenanceStart).toBe(manual.maintenanceStart);
   });
 });
+
+describe('관리자 지정 예정일·휴방일', () => {
+  // 최근 두 달 이틀에 한 번 저녁 8시 방송
+  const logs = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(Date.parse('2026-10-14T00:00:00Z') - i * 2 * 86400000).toISOString().slice(0, 10);
+    return { id: `l${i}`, date: d, time: '20:00', game: 'x', vods: [], edited: [], shorts: [], durationHours: 3, category: '' };
+  });
+  const at = new Date('2026-10-15T05:00:00Z'); // 2026-10-15 14:00 KST
+  const base = computeBroadcastProbability(logs as any, at, {} as any);
+  it('지정이 없으면 원래 계산 그대로', () => {
+    const p = computeBroadcastProbability(logs as any, at, { system: { dateOverrides: [{ date: '2026-10-20', type: 'off' }] } as any });
+    expect(p.finalProb).toBe(base.finalProb);
+    expect(p.pattern.state).toBe(base.pattern.state);
+  });
+  it('휴방일이면 그날만 낮게', () => {
+    const p = computeBroadcastProbability(logs as any, at, { system: { dateOverrides: [{ date: '2026-10-15', type: 'off' }] } as any });
+    expect(p.pattern.state).toBe('absence');
+    expect(p.finalProb).toBeLessThan(base.finalProb);
+  });
+  it('예정일이면 높게, 예정 시각이 유력 시간', () => {
+    const p = computeBroadcastProbability(logs as any, at, { system: { dateOverrides: [{ date: '2026-10-15', type: 'on', time: '17:30' }] } as any });
+    expect(p.pattern.state).toBe('scheduled');
+    expect(p.dayProb).toBeGreaterThanOrEqual(92);
+    expect(p.time.peakMinute).toBe(17 * 60 + 30);
+  });
+});
+
+import { cleanShareUrl, formatRecommendShareText } from '../src/utils/shareUtils';
+describe('공유 글 다듬기', () => {
+  it('링크 꼬리표 정리', () => {
+    expect(cleanShareUrl('https://youtu.be/0pYgdAREvwY?si=cxrTtCUSUIc8NN0t')).toBe('https://youtu.be/0pYgdAREvwY');
+    expect(cleanShareUrl('https://www.youtube.com/watch?v=WKjD9xDIUlA&amp;t=3918s')).toBe('https://www.youtube.com/watch?v=WKjD9xDIUlA&t=3918s');
+    expect(cleanShareUrl('https://www.youtube.com/watch?v=YTK7mgB7TlA&amp;list=PLtZ&amp;index=106')).toBe('https://www.youtube.com/watch?v=YTK7mgB7TlA');
+    expect(cleanShareUrl('https://store.steampowered.com/app/2367230/X/?snr=1_7_7_151_150_1')).toBe('https://store.steampowered.com/app/2367230/X/');
+  });
+  it('몰아보기: 맨 위 요약, 중복·숫자 게임 정리', () => {
+    const log = { id: 'a', date: '2020-12-14', vods: [{ url: 'https://youtu.be/x?feature=share' }], edited: [{ title: '마녀', url: 'https://youtu.be/w?si=1' }], shorts: [],
+      games: [{ name: "The Witch's House", link: '' }, { name: "The Witch's House", link: 'https://store.steampowered.com/app/885810/' }, { name: '0.4576388888888889', link: '' }] };
+    const text = formatRecommendShareText({ isCompilation: true, compilationId: 'c', videoTitle: '공포 몰아보기', videoUrl: 'https://youtu.be/comp?si=2', games: [], allBroadcastDates: ['2020-12-14'], parentLog: log }, [log]);
+    expect(text.startsWith('• 몰아보기: 공포 몰아보기, https://youtu.be/comp\n• 생방 1개')).toBe(true);
+    expect(text).not.toContain('0.4576');
+    expect(text.match(/Witch's House/g)?.length).toBe(1);
+    expect(text).not.toContain('si=');
+  });
+});
