@@ -54,9 +54,9 @@ const YT_HEADERS = { 'Accept-Language': 'ko-KR,ko;q=0.9', 'User-Agent': 'Mozilla
 function walkRelated(node: any, path: string[], hits: { key: string; path: string; ids: string[]; pages: string[] }[]) {
   if (!node || typeof node !== 'object') return;
   for (const [k, v] of Object.entries(node)) {
-    if (/relatedvideo/i.test(k) && v && typeof v === 'object') {
+    if (/metapanel/i.test(k) && v && typeof v === 'object' && !path.some((x) => /metapanel/i.test(x))) {
       const txt = JSON.stringify(v);
-      hits.push({ key: k, path: path.slice(-4).join('>'), ids: [...txt.matchAll(/"videoId":"([\w-]{11})"/g)].map((m) => m[1]), pages: [...txt.matchAll(/"webPageType":"(\w+)"/g)].map((m) => m[1]) });
+      hits.push({ key: k, path: path.slice(-4).join('>'), ids: [...txt.matchAll(/"videoId":"([\w-]{11})"/g)].map((m) => m[1]), pages: [...txt.matchAll(/"webPageType":"(\w+)"/g)].map((m) => m[1]), vm: [...new Set([...txt.matchAll(/"(\w+(?:ViewModel|Renderer))"/g)].map((m) => m[1]))].slice(0, 30), text: [...txt.matchAll(/"content":"([^"]{1,80})"/g)].map((m) => m[1]).slice(0, 6) } as any);
     }
     walkRelated(v, [...path, k], hits);
   }
@@ -84,9 +84,9 @@ async function probeRelated(db: any, n: number) {
     try {
       const hits = await reelRelated(p.s);
       if (!first && hits.length) first = hits;
-      const watchIds = hits.flatMap((h) => h.ids.filter((x: string, i: number) => x !== p.s && h.pages[i] !== 'WEB_PAGE_TYPE_SHORTS'));
+      const watchIds = hits.flatMap((h) => h.ids.filter((x: string) => x !== p.s));
       const rel = watchIds[0] || null;
-      out.push({ short: p.s, date: p.date, related: rel, match: rel ? p.edited.includes(rel) : null, keys: [...new Set(hits.map((h) => h.key))] });
+      out.push({ short: p.s, date: p.date, related: rel, match: rel ? p.edited.includes(rel) : null, edited: p.edited, pages: hits.flatMap((h) => h.pages), text: hits.flatMap((h: any) => h.text).slice(0, 3) });
     } catch (e: any) { out.push({ short: p.s, err: String(e?.message || e) }); }
   }
   const withRel = out.filter((o) => o.related);
