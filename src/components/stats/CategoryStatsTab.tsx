@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { LazyInput } from '../common/LazyInput';
 import { BroadcastLog } from '../../types';
 import { 
   PieChart, 
@@ -689,11 +690,11 @@ export function CategoryStatsTab({
             {/* 초성 지원 검색창 */}
             <div className="relative flex-1 lg:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
-              <input
+              <LazyInput
                 type="text"
                 placeholder="카테고리/게임 검색 (초성 지원)..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+              onCommit={setSearchTerm}
                 className="w-full pl-8 pr-7 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-400 text-xs sm:text-sm dark:text-zinc-200"
               />
               {searchTerm && (

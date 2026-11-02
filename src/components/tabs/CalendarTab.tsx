@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { LazyInput } from '../common/LazyInput';
 import { 
   format, 
   addMonths, 
@@ -1754,11 +1755,11 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
           {/* [상세 분석 조회 버튼 자리를 검색창으로 바꾼 대형 실시간 검색창] */}
           <div className="relative w-full">
             <Search className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-400 absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
+            <LazyInput
               type="text"
               placeholder="방송 제목, 게임명, 카테고리, 날짜, URL 검색…"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onCommit={setSearchTerm}
               className="w-full bg-zinc-50 dark:bg-zinc-800/90 border border-zinc-200 dark:border-zinc-700 rounded-2xl pl-10 sm:pl-12 pr-10 py-3 sm:py-3.5 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm sm:text-base shadow-2xs placeholder:text-zinc-400 dark:placeholder:text-zinc-500 transition-all"
             />
             {searchTerm && (

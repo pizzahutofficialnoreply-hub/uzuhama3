@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { LazyInput } from './common/LazyInput';
 import { addRecentSearch } from '../hooks/useRecentSearches';
 import { 
   FileText, 
@@ -545,7 +546,7 @@ export function FloatingBottomNav({
                     )}
                   >
                     <Search className="w-4 h-4 shrink-0 ml-0.5 text-zinc-500 dark:text-zinc-400" />
-                    <input
+                    <LazyInput
                       ref={inputRef}
                       type="text"
                       name="search_query"
@@ -557,12 +558,12 @@ export function FloatingBottomNav({
                       spellCheck={false}
                       data-form-type="other"
                       value={searchTerm || ''}
+                      onCommit={(v) => onSearchTermChange?.(v)}
                       onFocus={handleSearchFocus}
                       onBlur={handleSearchBlur}
-                      onChange={(e) => onSearchTermChange?.(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                          const term = (searchTerm || '').trim();
+                          const term = e.currentTarget.value.trim();
                           addRecentSearch(term);
                           inputRef.current?.blur();
                         }
