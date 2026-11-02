@@ -6,6 +6,7 @@ import { setCorsHeaders } from '../_cors.js';
  * - YouTube API 는 처음 한 번만 부르고 Firestore 에 저장, 이후엔 저장된 것만 돌려줌 (자동 재조회 없음)
  * - 관리자만 새로고침: ?refresh=1 + Authorization: Bearer <관리자 ID 토큰>
  * - 저장: youtube_cache/shorts { channelId, fetchedAt, count, chunks }, youtube_shorts_items/{n} { items }
+ * - ?kind=related: 쇼츠 ↔ 관련 일반 영상 (youtube_cache/shorts_related)
  */
 
 const API = 'https://www.googleapis.com/youtube/v3';
@@ -49,48 +50,84 @@ async function fetchShorts(channelId: string, key: string, prefix = 'UUSH'): Pro
 }
 
 
-/** (임시 확인용) 쇼츠의 '관련 동영상'을 유튜브 내부 응답에서 구조로 찾아 기록과 비교 */
+/**
+ * 쇼츠 아래에 붙은 '관련 동영상' 링크 (유튜브 Data API 에는 없어서, 유튜브 쇼츠 화면이 쓰는 응답의 쇼츠 정보 칸에서 찾음)
+ * - 이 칸에는 [쇼츠 자신, 관련 동영상] 이 들어 있음. 다른 쇼츠를 가리키는 건 버리고 일반 영상만 남김
+ * - 실제 기록(관리자가 연결한 쇼츠 ↔ 편집본)과 맞춰 본 결과 일반 영상이 걸린 쇼츠는 모두 일치
+ */
 const YT_HEADERS = { 'Accept-Language': 'ko-KR,ko;q=0.9', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36', Cookie: 'SOCS=CAI; CONSENT=YES+1', 'Content-Type': 'application/json' };
-function walkRelated(node: any, path: string[], hits: { key: string; path: string; ids: string[]; pages: string[] }[]) {
-  if (!node || typeof node !== 'object') return;
+const REL_RECHECK_MS = 3 * 24 * 3600 * 1000; // 관련 영상이 없던 쇼츠는 3일 뒤 다시 확인 (나중에 붙이는 경우)
+
+function metapanelIds(node: any, inPanel = false, out: string[] = []): string[] {
+  if (!node || typeof node !== 'object') return out;
   for (const [k, v] of Object.entries(node)) {
-    if (/metapanel/i.test(k) && v && typeof v === 'object' && !path.some((x) => /metapanel/i.test(x))) {
-      const txt = JSON.stringify(v);
-      hits.push({ key: k, path: path.slice(-4).join('>'), ids: [...txt.matchAll(/"videoId":"([\w-]{11})"/g)].map((m) => m[1]), pages: [...txt.matchAll(/"webPageType":"(\w+)"/g)].map((m) => m[1]), vm: [...new Set([...txt.matchAll(/"(\w+(?:ViewModel|Renderer))"/g)].map((m) => m[1]))].slice(0, 30), text: [...txt.matchAll(/"content":"([^"]{1,80})"/g)].map((m) => m[1]).slice(0, 6) } as any);
-    }
-    walkRelated(v, [...path, k], hits);
+    const here = inPanel || /metapanel/i.test(k);
+    if (here && k === 'videoId' && typeof v === 'string' && /^[\w-]{11}$/.test(v)) out.push(v);
+    else if (v && typeof v === 'object') metapanelIds(v, here, out);
   }
+  return out;
 }
-async function reelRelated(id: string) {
+
+async function relatedIdsOf(id: string): Promise<string[]> {
   const body = { context: { client: { clientName: 'WEB', clientVersion: '2.20251030.01.00', hl: 'ko', gl: 'KR' } }, playerRequest: { videoId: id }, params: 'CAUwAg%3D%3D' };
-  const j = await (await fetch('https://www.youtube.com/youtubei/v1/reel/reel_item_watch?prettyPrint=false', { method: 'POST', headers: YT_HEADERS, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) })).json();
-  const hits: any[] = [];
-  walkRelated(j, [], hits);
-  return hits;
+  const r = await fetch('https://www.youtube.com/youtubei/v1/reel/reel_item_watch?prettyPrint=false', { method: 'POST', headers: YT_HEADERS, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return [...new Set(metapanelIds(await r.json()))].filter((x) => x !== id);
 }
-async function probeRelated(db: any, n: number) {
-  const yid = (u: string) => (/(?:v=|youtu\.be\/|shorts\/|live\/|embed\/)([\w-]{11})/.exec(u || '') || [])[1];
-  const pairs: { s: string; date: string; edited: string[] }[] = [];
-  (await db.collection('logs_by_month').get()).forEach((d: any) => {
-    Object.values(d.data()?.items || {}).forEach((l: any) => {
-      const ed = (l.edited || []).map((x: any) => yid(x.url)).filter(Boolean);
-      (l.shorts || []).forEach((x: any) => { const s = yid(x.url); if (s && ed.length) pairs.push({ s, date: l.date, edited: ed }); });
-    });
-  });
-  pairs.sort(() => Math.random() - 0.5);
-  const out: any[] = [];
-  let first: any = null;
-  for (const p of pairs.slice(0, n)) {
-    try {
-      const hits = await reelRelated(p.s);
-      if (!first && hits.length) first = hits;
-      const watchIds = hits.flatMap((h) => h.ids.filter((x: string) => x !== p.s));
-      const rel = watchIds[0] || null;
-      out.push({ short: p.s, date: p.date, related: rel, match: rel ? p.edited.includes(rel) : null, edited: p.edited, pages: hits.flatMap((h) => h.pages), text: hits.flatMap((h: any) => h.text).slice(0, 3) });
-    } catch (e: any) { out.push({ short: p.s, err: String(e?.message || e) }); }
+
+async function readItems(db: any, col: string, chunks: number): Promise<ShortItem[]> {
+  const refs = Array.from({ length: Number(chunks || 0) }, (_, n) => db.collection(col).doc(String(n)));
+  const snaps = refs.length ? await db.getAll(...refs) : [];
+  const out: ShortItem[] = [];
+  snaps.forEach((s: any) => out.push(...((s.data()?.items as ShortItem[]) || [])));
+  return out;
+}
+
+/** GET ?kind=related → { map: { 쇼츠ID: 관련 일반 영상ID }, total, checked, remaining } (부족한 만큼 조금씩 채움) */
+async function handleRelated(db: any, req: any, res: any) {
+  const ref = db.collection('youtube_cache').doc('shorts_related');
+  const cur = (await ref.get()).data() || {};
+  const map: Record<string, string> = cur.map || {};
+  const emptyAt: Record<string, number> = cur.emptyAt || {};
+  const shortsIndex = (await db.collection('youtube_cache').doc('shorts').get()).data();
+  const now = Date.now();
+  const due = (cur.basis !== shortsIndex?.fetchedAt) || (cur.remaining > 0) || (now - (cur.updatedAt || 0) > 12 * 3600 * 1000);
+  let remaining = Number(cur.remaining || 0);
+  let total = Number(cur.total || 0);
+
+  if (shortsIndex?.fetchedAt && due) {
+    const locked = await db.runTransaction(async (tx: any) => {
+      const d = (await tx.get(ref)).data() || {};
+      if (d.lockUntil && d.lockUntil > now) return false;
+      tx.set(ref, { lockUntil: now + 55000 }, { merge: true });
+      return true;
+    }).catch(() => false);
+    if (locked) {
+      const shorts = await readItems(db, 'youtube_shorts_items', shortsIndex.chunks);
+      const shortSet = new Set(shorts.map((x) => x.videoId));
+      const pending = shorts.map((x) => x.videoId).filter((id) => !(id in map) || (map[id] === '' && now - (emptyAt[id] || 0) > REL_RECHECK_MS));
+      const limit = Math.min(pending.length, Math.max(1, Math.min(200, Number(req.query?.batch) || 120)));
+      const started = Date.now();
+      let i = 0;
+      const worker = async () => {
+        while (i < limit && Date.now() - started < 40000) {
+          const id = pending[i++];
+          try {
+            const rel = (await relatedIdsOf(id)).find((x) => !shortSet.has(x)) || '';
+            map[id] = rel;
+            if (rel) delete emptyAt[id]; else emptyAt[id] = Date.now();
+          } catch { /* 이번엔 건너뛰고 다음에 다시 */ }
+        }
+      };
+      await Promise.all(Array.from({ length: 8 }, worker));
+      total = shorts.length;
+      remaining = shorts.filter((x) => !(x.videoId in map)).length;
+      await ref.set({ map, emptyAt, basis: shortsIndex.fetchedAt, total, remaining, updatedAt: Date.now(), lockUntil: 0 });
+    }
   }
-  const withRel = out.filter((o) => o.related);
-  return { totalPairs: pairs.length, tested: out.length, withRelated: withRel.length, matched: withRel.filter((o) => o.match).length, firstHits: first, rows: out };
+  const linked = Object.fromEntries(Object.entries(map).filter(([, v]) => v));
+  res.setHeader('Cache-Control', remaining > 0 ? 'no-store' : 'public, s-maxage=1800, stale-while-revalidate=86400');
+  return res.status(200).json({ map: linked, total, checked: Object.keys(map).length, remaining });
 }
 
 export default async function handler(req: any, res: any) {
@@ -99,12 +136,9 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    if (String(req.query?.kind || '') === 'probe') {
-      const { db: pdb } = await import('../_firebase.js');
-      res.setHeader('Cache-Control', 'no-store');
-      return res.status(200).json(await probeRelated(pdb, Math.min(30, Number(req.query?.n) || 20)));
-    }
     const { db, verifyAdmin } = await import('../_firebase.js');
+    // ?kind=related → 쇼츠마다 아래에 연결된 일반 영상 (유튜브 쇼츠 화면 기준)
+    if (String(req.query?.kind || '') === 'related') return await handleRelated(db, req, res);
     // ?kind=uploads → 채널의 일반 영상 전체 (사이트 기록에 없는 영상도 홈에 보이게)
     const kind = String(req.query?.kind || '') === 'uploads' ? 'uploads' : 'shorts';
     const itemsCol = kind === 'uploads' ? 'youtube_uploads_items' : 'youtube_shorts_items';

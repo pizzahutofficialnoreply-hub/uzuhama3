@@ -23,7 +23,7 @@ interface ShortsFeedProps {
 
 const PAGE = 24;
 
-type ShortEntry = { id: string; url: string; title: string; date: string; category: string; genres: string[]; liveUrl?: string; editUrl?: string; publishedAt?: string; isCompilation?: boolean; compilation?: CompilationRow[]; compilationVideo?: any };
+type ShortEntry = { id: string; url: string; title: string; date: string; category: string; genres: string[]; liveUrl?: string; editUrl?: string; publishedAt?: string; isCompilation?: boolean; autoLinked?: boolean; compilation?: CompilationRow[]; compilationVideo?: any };
 export type CompilationRow = { date: string; games: string[]; liveUrl?: string; editUrl?: string };
 
 const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
@@ -51,6 +51,27 @@ export function useChannelShorts() {
   return items;
 }
 
+const RELATED_KEY = 'uzuhama_shorts_related_v1';
+/** 쇼츠 → 그 쇼츠 아래 연결된 일반 영상 (서버가 유튜브에서 확인해 저장). 브라우저에도 반나절 보관 */
+export function useShortsRelated(): Record<string, string> {
+  const [map, setMap] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem(RELATED_KEY) || 'null')?.map || {}; } catch { return {}; }
+  });
+  useEffect(() => {
+    let saved: any = null;
+    try { saved = JSON.parse(localStorage.getItem(RELATED_KEY) || 'null'); } catch {}
+    if (saved?.at && Date.now() - saved.at < 12 * 3600 * 1000 && !saved.remaining) return;
+    let cancelled = false;
+    fetch(`${API_BASE}/api/videos/shorts?kind=related`).then((r) => r.json()).then((json) => {
+      if (cancelled || !json?.map) return;
+      setMap(json.map);
+      try { localStorage.setItem(RELATED_KEY, JSON.stringify({ map: json.map, remaining: json.remaining || 0, at: Date.now() })); } catch {}
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  return map;
+}
+
 export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToCalendar, genresOfLog, order: orderProp, onCount }: ShortsFeedProps) {
   const controlled = orderProp !== undefined;
   const [page, setPage] = useState(1);
@@ -67,6 +88,7 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
   const [playerAt, setPlayerAt] = useState<number | null>(null);
 
   const channelShorts = useChannelShorts();
+  const relatedMap = useShortsRelated();
 
   const allShorts = useMemo(() => {
     const list = Array.isArray(logs) ? logs : Object.values(logs || {});
@@ -115,14 +137,38 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
           compilationVideo: { id, videoUrl: e.url, videoTitle: e.title || '', isCompilation: true, compilationId: e.compilationId, games: e.games || [], allBroadcastDates: dates, parentLog: log } });
       });
     });
+    // 편집본 영상 ID → 그 방송 기록 (쇼츠 아래 연결된 영상으로 생방송을 찾을 때 씀)
+    const logByEdited = new Map<string, any>();
+    list.forEach((log: any) => (Array.isArray(log?.edited) ? log.edited : []).forEach((e: any) => {
+      if (e?.isCompilation || e?.compilationId) return;
+      const eid = extractYoutubeId(e?.url || '');
+      if (eid && !logByEdited.has(eid)) logByEdited.set(eid, log);
+    }));
     // 3) 유튜브 채널의 쇼츠 전체 (기록에 없는 것도 포함, 업로드일은 유튜브 값)
     channelShorts.forEach((c) => {
       const hit = byId.get(c.videoId);
       if (hit) { hit.publishedAt = c.publishedAt; if (!hit.title) hit.title = c.title; return; }
-      byId.set(c.videoId, { id: c.videoId, url: `https://www.youtube.com/shorts/${c.videoId}`, title: c.title, date: '', category: '', genres: [], publishedAt: c.publishedAt });
+      // 기록에 없는 쇼츠: 쇼츠 아래 연결된 일반 영상이 방송 기록의 편집본이면 그 생방송과 자동으로 연결
+      const rel = relatedMap[c.videoId];
+      const relLog = rel ? logByEdited.get(rel) : null;
+      byId.set(c.videoId, {
+        id: c.videoId, url: `https://www.youtube.com/shorts/${c.videoId}`, title: c.title, publishedAt: c.publishedAt,
+        date: relLog?.date || '',
+        category: relLog?.category || '',
+        genres: relLog && genresOfLog ? genresOfLog(relLog) : [],
+        ...(relLog ? linksOf(relLog) : {}),
+        ...(rel ? { editUrl: `https://www.youtube.com/watch?v=${rel}` } : {}),
+        autoLinked: Boolean(rel),
+      });
+    });
+    // 기록에 있는 쇼츠도 편집본이 비어 있으면 연결된 영상으로 채움
+    byId.forEach((e) => {
+      if (e.editUrl || e.isCompilation) return;
+      const rel = relatedMap[e.id];
+      if (rel) e.editUrl = `https://www.youtube.com/watch?v=${rel}`;
     });
     return [...byId.values()].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  }, [logs, channelShorts, genresOfLog]);
+  }, [logs, channelShorts, genresOfLog, relatedMap]);
 
   const genreOptions = useMemo(() => {
     const counts = new Map<string, number>();
