@@ -20,6 +20,7 @@ type Store = {
   kinds: Record<InterestKind, number>; // 영상/쇼츠/라이브 중 무엇을 더 보는지
   items: Record<string, { imp: number; score: number; last: number }>; // 영상별: 노출 수, 반응 점수
   watched: Record<string, number>; // 본 영상 → 시각
+  labels?: Record<string, string>; // 토큰 → 원래 표기 (설정 화면 표시용)
   decayedAt: number;
 };
 
@@ -67,7 +68,7 @@ function save() {
 
 /** 관심 행동 하나 기록 */
 export function recordInterest(item: InterestItem, signal: InterestSignal) {
-  if (!item?.id) return;
+  if (!item?.id || isInterestPaused()) return;
   const s = loadInterest();
   const w = WEIGHT[signal];
   const it = s.items[item.id] || { imp: 0, score: 0, last: 0 };
@@ -77,7 +78,11 @@ export function recordInterest(item: InterestItem, signal: InterestSignal) {
   it.last = Date.now();
   s.items[item.id] = it;
   const toks = [...new Set(item.tokens.filter(Boolean))];
-  toks.forEach((t) => { s.tokens[t] = (s.tokens[t] || 0) + w / Math.sqrt(toks.length || 1); });
+  toks.forEach((t) => {
+    s.tokens[t] = (s.tokens[t] || 0) + w / Math.sqrt(toks.length || 1);
+    const label = LABELS.get(t);
+    if (label) (s.labels ||= {})[t] = label;
+  });
   s.kinds[item.kind] = (s.kinds[item.kind] || 0) + w;
   if (signal === 'play') s.watched[item.id] = Date.now();
   save();
@@ -85,7 +90,7 @@ export function recordInterest(item: InterestItem, signal: InterestSignal) {
 
 /** 화면에 한 번 나옴 (반응이 없으면 그 영상만 조금씩 뒤로) */
 export function recordImpression(id: string) {
-  if (!id) return;
+  if (!id || isInterestPaused()) return;
   const s = loadInterest();
   const it = s.items[id] || { imp: 0, score: 0, last: 0 };
   it.imp += 1;
@@ -126,11 +131,12 @@ export function isUnexplored(item: InterestItem, s: Store = loadInterest()) {
 }
 
 /** 영상 정보 → 관심 토큰 (게임 이름, 장르) */
+const LABELS = new Map<string, string>();
 export function tokensOf(games: any[] = [], extra: (string | undefined)[] = []): string[] {
   const out: string[] = [];
   games.forEach((g: any) => {
     const name = String((typeof g === 'string' ? g : g?.name) || '').trim();
-    if (name) out.push(`g:${name.toLowerCase()}`);
+    if (name) { const t = `g:${name.toLowerCase()}`; out.push(t); if (!LABELS.has(t)) LABELS.set(t, name); }
     String((typeof g === 'string' ? '' : g?.category) || '').split(',').map((c) => c.trim()).filter(Boolean).forEach((c) => out.push(`c:${c}`));
   });
   extra.forEach((e) => String(e || '').split(',').map((c) => c.trim()).filter(Boolean).forEach((c) => out.push(`c:${c}`)));
@@ -151,4 +157,45 @@ export function personalize<T>(list: T[], itemOf: (x: T) => InterestItem, s: Sto
     if (takeFresh) out.push(fresh[fi++].x); else out.push(main[mi++].x);
   }
   return out;
+}
+
+// ── 설정: 일시 중지 · 지우기 ──
+const PAUSE_KEY = 'uzuhama_interest_paused';
+
+/** 기록 일시 중지 중인지 (중지해도 지금까지의 기록으로 추천은 계속) */
+export function isInterestPaused(): boolean {
+  try { return localStorage.getItem(PAUSE_KEY) === '1'; } catch { return false; }
+}
+export function setInterestPaused(paused: boolean) {
+  try { if (paused) localStorage.setItem(PAUSE_KEY, '1'); else localStorage.removeItem(PAUSE_KEY); } catch { /* 무시 */ }
+}
+
+function persistNow() {
+  try { localStorage.setItem(KEY, JSON.stringify(loadInterest())); } catch { /* 무시 */ }
+}
+
+/** 시청 기록만 지움 (본 영상 표시가 사라져 다시 추천될 수 있음) */
+export function clearWatchHistory() {
+  const s = loadInterest();
+  s.watched = {};
+  persistNow();
+  try { localStorage.removeItem('userVideoHistory'); } catch { /* 무시 */ }
+}
+
+/** 관심 기록 전부 초기화 (게임·장르 점수, 노출 기록, 시청 기록) */
+export function clearInterest() {
+  cache = empty();
+  persistNow();
+  try { localStorage.removeItem('userVideoHistory'); } catch { /* 무시 */ }
+}
+
+/** 설정 화면용 요약: 본 영상 수, 관심 큰 게임·장르 */
+export function interestSummary(top = 5): { watched: number; games: string[]; genres: string[] } {
+  const s = loadInterest();
+  const sorted = Object.entries(s.tokens).sort((a, b) => b[1] - a[1]);
+  return {
+    watched: Object.keys(s.watched).length,
+    games: sorted.filter(([k]) => k.startsWith('g:')).slice(0, top).map(([k]) => s.labels?.[k] || LABELS.get(k) || k.slice(2)),
+    genres: sorted.filter(([k]) => k.startsWith('c:')).slice(0, top).map(([k]) => k.slice(2)),
+  };
 }

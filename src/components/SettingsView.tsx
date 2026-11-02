@@ -7,6 +7,7 @@ import {
   FileCode2, Lock, Compass, SlidersHorizontal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { RecommendPrefsPanel } from './settings/RecommendPrefsPanel';
 import { usePushNotification, PushSettings } from '../hooks/usePushNotification';
 import { SystemConfig } from '../types';
 import { cn } from '../utils';
@@ -66,7 +67,7 @@ export function SettingsView({
   // 실제 관리자 계정으로 로그인한 경우만 (기기에 저장된 표시는 믿지 않음)
   const isAdmin = isAdminUser(user);
   const [showAdminVerifyModal, setShowAdminVerifyModal] = useState(false);
-  const [activeSection, setActiveSection] = useState<'notification' | 'viewPrefs' | 'theme' | 'share' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(() => initialSection || null);
+  const [activeSection, setActiveSection] = useState<'notification' | 'viewPrefs' | 'recommend' | 'theme' | 'share' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(() => initialSection || null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getThemeMode());
@@ -349,6 +350,35 @@ export function SettingsView({
                   className="overflow-hidden"
                 >
                   <ViewPrefsPanel />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* 맞춤 추천·시청 기록 */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setActiveSection(activeSection === 'recommend' ? null : 'recommend')}
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <span className="text-sm font-semibold text-zinc-900 dark:text-white">맞춤 추천·시청 기록</span>
+              </div>
+              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'recommend' && "rotate-90")} />
+            </button>
+            <AnimatePresence initial={false}>
+              {activeSection === 'recommend' && (
+                <motion.div
+                  key="settings-accordion-recommend"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                  className="overflow-hidden"
+                >
+                  <RecommendPrefsPanel />
                 </motion.div>
               )}
             </AnimatePresence>

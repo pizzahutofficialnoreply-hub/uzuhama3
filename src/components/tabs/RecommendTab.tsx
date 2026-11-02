@@ -858,6 +858,13 @@ export function RecommendTab({
     localStorage.setItem('userVideoRatings', JSON.stringify(newRatings));
   };
 
+  // 설정에서 시청 기록을 지우면 화면의 기록도 바로 비움
+  useEffect(() => {
+    const on = () => setHistory({});
+    window.addEventListener('uzuhama-interest-cleared', on);
+    return () => window.removeEventListener('uzuhama-interest-cleared', on);
+  }, []);
+
   const handleWatch = (id: string) => {
     const newHistory = { ...history, [id]: Date.now() };
     setHistory(newHistory);

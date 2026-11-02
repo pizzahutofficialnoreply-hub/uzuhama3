@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { recordInterest, recordImpression, personalize, interestScore, hasInterestProfile, loadInterest, tokensOf, type InterestItem } from '../src/utils/interest';
 
 const v = (id: string, game: string, genre: string, kind: InterestItem['kind'] = 'video'): InterestItem => ({ id, kind, tokens: tokensOf([{ name: game, category: genre }]) });
@@ -38,5 +38,27 @@ describe('맞춤 추천', () => {
     for (let i = 0; i < 8; i++) recordImpression('h3');
     expect(interestScore(horrorC)).toBeLessThan(before);
     expect(loadInterest().items.h3.imp).toBe(8);
+  });
+});
+
+import { setInterestPaused, clearWatchHistory, clearInterest, interestSummary } from '../src/utils/interest';
+describe('맞춤 추천 설정', () => {
+  it('일시 중지 중에는 기록 안 함', () => {
+    const before = JSON.stringify(loadInterest().tokens);
+    vi.stubGlobal('localStorage', { store: {} as Record<string, string>, getItem(k: string) { return (this as any).store[k] ?? null; }, setItem(k: string, v: string) { (this as any).store[k] = v; }, removeItem(k: string) { delete (this as any).store[k]; } });
+    setInterestPaused(true);
+    recordInterest(v('x1', 'New Game', '퍼즐'), 'play');
+    expect(JSON.stringify(loadInterest().tokens)).toBe(before);
+    setInterestPaused(false);
+    vi.unstubAllGlobals();
+  });
+  it('시청 기록 삭제·초기화', () => {
+    recordInterest(v('y1', 'Some', '공포'), 'play');
+    expect(interestSummary().watched).toBeGreaterThan(0);
+    clearWatchHistory();
+    expect(interestSummary().watched).toBe(0);
+    expect(interestSummary().genres.length).toBeGreaterThan(0);
+    clearInterest();
+    expect(interestSummary().genres.length).toBe(0);
   });
 });
