@@ -2,7 +2,7 @@
  * 앱 설치·알림·캘린더 안내에서 쓰는 기기 판별과 현재 상태 (가벼운 함수만, 화면 코드는 SetupGuides.tsx)
  */
 export type DeviceKey =
-  | 'ios-safari' | 'ios-chrome' | 'ios-inapp'
+  | 'ios-safari' | 'ios-safari-18' | 'ios-chrome' | 'ios-inapp'
   | 'android-chrome' | 'android-samsung' | 'android-inapp'
   | 'desktop-chrome' | 'desktop-safari' | 'desktop-other';
 
@@ -27,6 +27,27 @@ export function isStandaloneMode(): boolean {
   return window.matchMedia?.('(display-mode: standalone)').matches || (window.navigator as any).standalone === true || document.referrer.includes('android-app://');
 }
 
+/**
+ * iOS 버전 (사파리는 iOS 26부터 주소창 글자의 OS 버전을 18로 고정해서, 사파리 버전 'Version/26' 을 우선 봄)
+ */
+export function iosVersion(): number | null {
+  if (typeof navigator === 'undefined' || !isIOSDevice()) return null;
+  const ua = navigator.userAgent;
+  const safari = /Version\/(\d+)/.exec(ua);
+  if (safari) return Number(safari[1]);
+  const os = /OS (\d+)_/.exec(ua);
+  return os ? Number(os[1]) : null;
+}
+
+/** 지금 기기를 사람이 읽기 좋게 (예: "아이폰 · 사파리 · iOS 26") */
+export function detectedSummary(): string {
+  const d = detectDevice();
+  const v = iosVersion();
+  const base = DEVICE_LABEL[d].replace(/ \(iOS.*\)$/, '');
+  if (isStandaloneMode()) return `${base.split(' · ')[0]} · 홈 화면 앱`;
+  return v ? `${base} · iOS ${v}` : base;
+}
+
 const INAPP = /KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\/|everytimeApp|DaumApps|wv\)|; wv/i;
 
 export function detectDevice(): DeviceKey {
@@ -36,7 +57,8 @@ export function detectDevice(): DeviceKey {
     if (INAPP.test(ua)) return 'ios-inapp';
     if (/CriOS/.test(ua)) return 'ios-chrome';
     if (/FxiOS|EdgiOS|Whale/.test(ua)) return 'ios-chrome'; // 같은 방식(공유 → 홈 화면에 추가)
-    return 'ios-safari';
+    const v = iosVersion();
+    return v !== null && v < 26 ? 'ios-safari-18' : 'ios-safari';
   }
   if (/Android/i.test(ua)) {
     if (INAPP.test(ua)) return 'android-inapp';
@@ -49,7 +71,8 @@ export function detectDevice(): DeviceKey {
 }
 
 export const DEVICE_LABEL: Record<DeviceKey, string> = {
-  'ios-safari': '아이폰 · 사파리',
+  'ios-safari': '아이폰 · 사파리 (iOS 26 이상)',
+  'ios-safari-18': '아이폰 · 사파리 (iOS 18 이하)',
   'ios-chrome': '아이폰 · 크롬',
   'ios-inapp': '아이폰 · 카톡/네이버 앱 안',
   'android-chrome': '안드로이드 · 크롬',

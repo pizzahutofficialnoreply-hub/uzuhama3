@@ -8,7 +8,7 @@ import { cn } from '../utils';
 import { usePushNotification } from '../hooks/usePushNotification';
 import {
   AFTER_INSTALL_KEY, CALENDAR_SUBSCRIBED_KEY, DEVICE_LABEL, calendarSubscribed, deferredInstallPrompt, detectDevice, isIOSDevice,
-  isStandaloneMode, notificationPermission, type DeviceKey, type GuideKind,
+  isStandaloneMode, notificationPermission, detectedSummary, type DeviceKey, type GuideKind,
 } from '../utils/setupStatus';
 
 /**
@@ -20,6 +20,9 @@ import {
  */
 
 // ───────────────────────── 기기 그림 ─────────────────────────
+
+/** 지금 보고 있는 주소 (그림 속 주소창에 그대로 표시) */
+const HOST = typeof window !== 'undefined' && !/localhost|127\.0\.0\.1/.test(window.location.host) ? window.location.host : 'uzuhama.web.app';
 
 function useScreenRatio() {
   const [r, setR] = useState(() => calcRatio());
@@ -113,18 +116,40 @@ function Desktop({ children }: { children: React.ReactNode }) {
   );
 }
 
-type BarHot = 'more' | 'share' | 'menu' | 'install' | null;
+type BarHot = 'more' | 'share' | 'menu' | 'install' | 'page' | null;
 
 /** 브라우저 주소창·도구 막대 */
 function BrowserBar({ device, hot }: { device: DeviceKey; hot: BarHot }) {
-  const url = <span className="truncate text-[3.6cqw] text-zinc-600 dark:text-zinc-300">uzuhama.web.app</span>;
+  const url = <span className="truncate text-[3.6cqw] text-zinc-600 dark:text-zinc-300">{HOST}</span>;
   const btn = 'w-[8.5cqw] h-[8.5cqw] rounded-full bg-white/90 dark:bg-zinc-800/90 shadow flex items-center justify-center text-[4.4cqw] font-black text-zinc-700 dark:text-zinc-200';
   if (device === 'ios-safari') {
+    // iOS 26: 아래쪽 떠 있는 주소창, 주소 왼쪽 아이콘이 페이지 메뉴
     return (
-      <div className="absolute bottom-[6cqw] inset-x-[6cqw] z-20 flex items-center gap-[2cqw]">
+      <div className="absolute bottom-[6cqw] inset-x-[5cqw] z-20 flex items-center gap-[2cqw]">
         <span className={btn}>‹</span>
-        <span className="flex-1 h-[8.5cqw] rounded-full bg-white/90 dark:bg-zinc-800/90 shadow flex items-center justify-center px-[3cqw]">{url}</span>
-        <Hot on={hot === 'more'} round><span className={btn}>⋯</span></Hot>
+        <span className="flex-1 min-w-0 h-[8.5cqw] rounded-full bg-white/90 dark:bg-zinc-800/90 shadow flex items-center gap-[1.5cqw] pl-[1.5cqw] pr-[2.5cqw]">
+          <Hot on={hot === 'page' || hot === 'more'} round>
+            <span className="w-[6cqw] h-[6cqw] flex flex-col items-center justify-center gap-[0.7cqw]">
+              {[3.4, 2.6, 3.4].map((w, i) => <span key={i} className="h-[0.5cqw] rounded-full bg-zinc-600 dark:bg-zinc-200" style={{ width: `${w}cqw` }} />)}
+            </span>
+          </Hot>
+          <span className="flex-1 min-w-0 text-center">{url}</span>
+          <span className="text-[3.6cqw] text-zinc-500">↻</span>
+        </span>
+        <span className={btn}><span className="w-[3.6cqw] h-[3.6cqw] rounded-[0.8cqw] border-[0.5cqw] border-current" /></span>
+      </div>
+    );
+  }
+  if (device === 'ios-safari-18') {
+    // iOS 18 이하: 주소창 아래 도구 막대, 가운데가 공유
+    return (
+      <div className="absolute bottom-0 inset-x-0 z-20 bg-white/95 dark:bg-zinc-900/95 pt-[2cqw] pb-[5cqw]">
+        <div className="mx-[4cqw] h-[8cqw] rounded-[2.5cqw] bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">{url}</div>
+        <div className="mt-[2cqw] flex items-center justify-around text-[4.4cqw] text-blue-500">
+          <span>‹</span><span>›</span>
+          <Hot on={hot === 'share'} round><span className="w-[6cqw] h-[6cqw] flex items-center justify-center">⇪</span></Hot>
+          <span>▢</span><span>⧉</span>
+        </div>
       </div>
     );
   }
@@ -218,7 +243,7 @@ function Sheet({ title, rows, hot }: { title?: string; rows: string[]; hot: numb
             <img src="/icon-192.png" alt="" className="w-[9cqw] h-[9cqw] rounded-[2.2cqw]" />
             <div className="min-w-0">
               <div className="text-[3.8cqw] font-bold text-zinc-800 dark:text-zinc-100 truncate">{title}</div>
-              <div className="text-[3cqw] text-zinc-400 truncate">uzuhama.web.app</div>
+              <div className="text-[3cqw] text-zinc-400 truncate">{HOST}</div>
             </div>
           </div>
         )}
@@ -271,26 +296,96 @@ function Dialog({ os, title, body, buttons, hot }: { os: 'ios' | 'android' | 'de
   );
 }
 
-/** 아이폰 '홈 화면에 추가' 화면 */
-function IOSAddScreen() {
+/** iOS 26 사파리 공유 시트 (녹화 화면 기준): 위 앱 줄 → 복사·읽기 목록·북마크·더 보기 → 펼치면 목록 */
+function IOSShareSheet26({ expanded }: { expanded: boolean }) {
+  const apps = ['AirDrop', '메시지', 'Mail', '메모'];
+  const acts = ['복사', '읽기 목록에 추가', '북마크에 추가', expanded ? '간략히 보기' : '더 보기'];
+  const list = ['북마크를 추가할 폴더…', '즐겨찾기에 추가', '빠른 메모에 추가', '페이지에서 찾기', '홈 화면에 추가', '마크업', '프린트'];
+  return (
+    <>
+      <motion.div className="absolute inset-0 z-20 bg-black/25" initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
+      <motion.div
+        initial={{ y: expanded ? 0 : '100%' }}
+        animate={{ y: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 30, delay: 0.1 }}
+        className={cn('absolute inset-x-[2cqw] bottom-[2cqw] z-30 rounded-[6cqw] bg-zinc-100/95 dark:bg-zinc-800/95 backdrop-blur px-[3.5cqw] pt-[3.5cqw] pb-[4cqw]', expanded && 'top-0')}
+      >
+        <div className="flex items-start gap-[2.5cqw]">
+          <img src="/icon-192.png" alt="" className="w-[10cqw] h-[10cqw] rounded-[2.4cqw]" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[3.6cqw] font-bold text-zinc-800 dark:text-zinc-100 truncate">우주하마 방송 예측</div>
+            <div className="text-[2.8cqw] text-zinc-400 truncate">{HOST}</div>
+            <span className="inline-block mt-[1cqw] px-[2cqw] py-[0.4cqw] rounded-full bg-zinc-200 dark:bg-zinc-700 text-[2.6cqw] text-zinc-600 dark:text-zinc-300">옵션 ›</span>
+          </div>
+          {expanded && <span className="w-[6cqw] h-[6cqw] rounded-full bg-zinc-200 dark:bg-zinc-700 text-[3cqw] flex items-center justify-center text-zinc-500">✕</span>}
+        </div>
+        <div className="mt-[3cqw] grid grid-cols-4 gap-[2cqw]">
+          {apps.map((a) => (
+            <div key={a} className="flex flex-col items-center gap-[0.8cqw]">
+              <span className="w-[11cqw] h-[11cqw] rounded-full bg-white dark:bg-zinc-700" />
+              <span className="text-[2.4cqw] text-zinc-500 dark:text-zinc-300 truncate">{a}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-[3cqw] grid grid-cols-4 gap-[2cqw]">
+          {acts.map((a, i) => (
+            <div key={a} className="flex flex-col items-center gap-[0.8cqw]">
+              <Hot on={!expanded && i === 3} round>
+                <span className="w-[11cqw] h-[11cqw] rounded-full bg-white dark:bg-zinc-700 flex items-center justify-center text-[4cqw] text-zinc-600 dark:text-zinc-200">{i === 3 ? (expanded ? '︿' : '﹀') : ''}</span>
+              </Hot>
+              <span className={cn('text-[2.3cqw] text-center leading-tight text-zinc-500 dark:text-zinc-300', !expanded && i === 3 && 'font-bold text-zinc-800 dark:text-white')}>{a}</span>
+            </div>
+          ))}
+        </div>
+        {expanded && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mt-[3cqw] rounded-[3.5cqw] bg-white dark:bg-zinc-700/70 py-[1cqw]">
+            {list.map((r, i) => (
+              <div key={r} className="px-[2cqw] py-[0.6cqw]">
+                <Hot on={i === 4} className="w-full">
+                  <span className={cn('block px-[1.5cqw] py-[1cqw] text-[3.3cqw] text-zinc-700 dark:text-zinc-100', i === 4 && 'font-bold')}>{r}</span>
+                </Hot>
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </motion.div>
+    </>
+  );
+}
+
+/** 아이폰 '홈 화면에 추가' 화면 (modern: iOS 26 모양 X · 추가 버튼 · 웹 앱으로 열기) */
+function IOSAddScreen({ modern = true }: { modern?: boolean }) {
   return (
     <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 30 }} className="absolute inset-0 top-[2cqw] z-30 bg-zinc-100 dark:bg-zinc-900 rounded-t-[5cqw]">
-      <div className="flex items-center justify-between px-[4cqw] py-[3.5cqw] text-[3.8cqw]">
-        <span className="text-blue-500">취소</span>
-        <span className="font-bold text-zinc-800 dark:text-zinc-100">홈 화면에 추가</span>
-        <Hot><span className="text-blue-500 font-bold px-[1cqw]">추가</span></Hot>
-      </div>
+      {modern ? (
+        <div className="flex items-center justify-between px-[4cqw] py-[3cqw] text-[3.8cqw]">
+          <span className="w-[8cqw] h-[8cqw] rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-300 text-[3.4cqw]">✕</span>
+          <span className="font-bold text-zinc-800 dark:text-zinc-100">홈 화면에 추가</span>
+          <Hot round><span className="block px-[3cqw] py-[1.4cqw] rounded-full bg-blue-500 text-white font-bold">추가</span></Hot>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between px-[4cqw] py-[3.5cqw] text-[3.8cqw]">
+          <span className="text-blue-500">취소</span>
+          <span className="font-bold text-zinc-800 dark:text-zinc-100">홈 화면에 추가</span>
+          <Hot><span className="text-blue-500 font-bold px-[1cqw]">추가</span></Hot>
+        </div>
+      )}
       <div className="mx-[4cqw] rounded-[3cqw] bg-white dark:bg-zinc-800 p-[3cqw] flex items-center gap-[3cqw]">
         <img src="/icon-192.png" alt="" className="w-[12cqw] h-[12cqw] rounded-[3cqw]" />
         <div className="min-w-0 flex-1">
           <div className="text-[3.8cqw] text-zinc-800 dark:text-zinc-100 border-b border-zinc-200 dark:border-zinc-700 pb-[1cqw] truncate">우주하마 방송 예측</div>
-          <div className="text-[3cqw] text-zinc-400 pt-[1cqw] truncate">uzuhama.web.app</div>
+          <div className="text-[3cqw] text-zinc-400 pt-[1cqw] truncate">{HOST}</div>
         </div>
       </div>
-      <div className="mx-[4cqw] mt-[3cqw] rounded-[3cqw] bg-white dark:bg-zinc-800 px-[3cqw] py-[2.5cqw] flex items-center justify-between">
-        <span className="text-[3.6cqw] text-zinc-700 dark:text-zinc-100">웹 앱으로 열기</span>
-        <span className="w-[9cqw] h-[5.4cqw] rounded-full bg-green-500 relative"><span className="absolute right-[0.5cqw] top-[0.5cqw] w-[4.4cqw] h-[4.4cqw] rounded-full bg-white" /></span>
-      </div>
+      {modern && (
+        <>
+          <div className="mx-[4cqw] mt-[3cqw] rounded-[3cqw] bg-white dark:bg-zinc-800 px-[3cqw] py-[2.5cqw] flex items-center justify-between">
+            <span className="text-[3.6cqw] text-zinc-700 dark:text-zinc-100">웹 앱으로 열기</span>
+            <span className="w-[9cqw] h-[5.4cqw] rounded-full bg-green-500 relative"><span className="absolute right-[0.5cqw] top-[0.5cqw] w-[4.4cqw] h-[4.4cqw] rounded-full bg-white" /></span>
+          </div>
+          <p className="mx-[5cqw] mt-[1.5cqw] text-[2.6cqw] text-zinc-400 leading-snug">이 웹사이트에 빨리 접근할 수 있도록 홈 화면에 아이콘이 추가됩니다.</p>
+        </>
+      )}
     </motion.div>
   );
 }
@@ -345,7 +440,7 @@ function DesktopBrowser({ hot, safari }: { hot: 'install' | 'file' | null; safar
       <div className="h-[7cqw] bg-zinc-200 dark:bg-zinc-800 flex items-center gap-[1.5cqw] px-[2cqw]">
         <span className="flex gap-[0.8cqw]">{['bg-red-400', 'bg-amber-400', 'bg-green-400'].map((c) => <span key={c} className={cn('w-[1.5cqw] h-[1.5cqw] rounded-full', c)} />)}</span>
         <div className="flex-1 h-[4.5cqw] rounded-full bg-white dark:bg-zinc-700 flex items-center justify-between px-[2cqw]">
-          <span className="text-[2.4cqw] text-zinc-500">uzuhama.web.app</span>
+          <span className="text-[2.4cqw] text-zinc-500">{HOST}</span>
           {!safari && (
             <Hot on={hot === 'install'} round>
               <span className="w-[3.6cqw] h-[3.6cqw] flex items-center justify-center text-zinc-600 dark:text-zinc-200"><Download className="w-full h-full" /></span>
@@ -368,17 +463,25 @@ function installSlides(d: DeviceKey): Slide[] {
   const os = phoneOs(d);
   const P = (children: React.ReactNode) => <Phone os={os}>{children}</Phone>;
   const homeBody = os === 'ios'
-    ? '이제 이 사파리 화면은 닫아도 돼요. 홈 화면에 생긴 아이콘으로 열면 주소창 없이 앱처럼 열려요.\n아이폰은 이렇게 연 앱에서만 방송 알림이 와요. 처음 열면 알림 켜는 화면이 바로 나와요.'
+    ? '이제 이 브라우저 화면은 닫아도 돼요. 홈 화면에 생긴 아이콘으로 열면 주소창 없이 앱처럼 열려요.\n아이폰은 이렇게 연 앱에서만 방송 알림이 와요. 처음 열면 알림 켜는 화면이 바로 나와요.'
     : '홈 화면이나 앱 목록에 생긴 아이콘으로 열어요. 앱으로 처음 열면 방송 알림 켜기를 이어서 안내해 드려요.';
   const done: Slide = { title: '아이콘으로 열어요', body: homeBody, mock: P(<HomeScreen />) };
 
   switch (d) {
     case 'ios-safari':
       return [
-        { title: '아래 ⋯ 버튼을 눌러요', body: '사파리 주소창 오른쪽의 점 세 개 버튼이에요.', note: 'iOS 18 이하에서는 아래 가운데 공유 버튼(네모에 위쪽 화살표)을 바로 누르고 3단계로 넘어가요.', mock: P(<><SitePage /><BrowserBar device={d} hot="more" /></>) },
-        { title: "'공유'를 눌러요", body: '메뉴 맨 위쪽에 있어요.', mock: P(<><SitePage dim /><BrowserBar device={d} hot={null} /><Menu at="bottom-right" rows={['공유', '책갈피 추가', '읽기 목록에 추가', '새로운 탭', '페이지에서 찾기']} hot={0} /></>) },
-        { title: "'홈 화면에 추가'를 눌러요", body: '목록을 조금 내리면 보여요. 안 보이면 맨 아래 \'더 보기\'를 눌러요.', mock: P(<><SitePage /><Sheet title="우주하마 방송 예측" rows={['복사', '읽기 목록에 추가', '즐겨찾기에 추가', '홈 화면에 추가', '페이지에서 찾기']} hot={3} /></>) },
-        { title: "오른쪽 위 '추가'", body: "'웹 앱으로 열기'가 켜져 있는지 보고 '추가'를 눌러요. 이름은 바꿔도 돼요.", mock: P(<><SitePage /><IOSAddScreen /></>) },
+        { title: '주소창 왼쪽 아이콘을 눌러요', body: "아래쪽 주소창에서 주소 바로 왼쪽의 줄 모양 아이콘이에요.", mock: P(<><SitePage /><BrowserBar device={d} hot="page" /></>) },
+        { title: "'공유'를 눌러요", body: '메뉴 위쪽, 번역 바로 아래에 있어요.', mock: P(<><SitePage dim /><BrowserBar device={d} hot={null} /><Menu at="bottom" rows={['영어로 번역', '공유', '북마크에 추가', '페이지에서 찾기', '페이지 확대/축소', '방해 요소 가리기']} hot={1} /></>) },
+        { title: "'더 보기'를 눌러요", body: "공유 창 둘째 줄 맨 오른쪽, 아래 화살표 버튼이에요.", mock: P(<><SitePage /><IOSShareSheet26 expanded={false} /></>) },
+        { title: "'홈 화면에 추가'", body: '펼쳐진 목록에서 골라요.', mock: P(<><SitePage /><IOSShareSheet26 expanded /></>) },
+        { title: "오른쪽 위 '추가'", body: "'웹 앱으로 열기'가 켜져 있는지 보고 파란 '추가'를 눌러요. 이름은 바꿔도 돼요.", mock: P(<><SitePage /><IOSAddScreen /></>) },
+        done,
+      ];
+    case 'ios-safari-18':
+      return [
+        { title: '아래 가운데 공유 버튼', body: '네모에 위쪽 화살표 모양이에요. 도구 막대가 안 보이면 화면을 살짝 위로 올려요.', mock: P(<><SitePage /><BrowserBar device={d} hot="share" /></>) },
+        { title: "'홈 화면에 추가'", body: '목록을 조금 내리면 보여요.', mock: P(<><SitePage /><Sheet title="우주하마 방송 예측" rows={['복사', '읽기 목록에 추가', '책갈피 추가', '즐겨찾기에 추가', '홈 화면에 추가']} hot={4} /></>) },
+        { title: "오른쪽 위 '추가'", body: "이름을 확인하고 '추가'를 눌러요.", note: 'iOS 16.4 미만은 설치해도 알림을 받을 수 없어요. 설정 → 일반 → 소프트웨어 업데이트로 올려 주세요.', mock: P(<><SitePage /><IOSAddScreen modern={false} /></>) },
         done,
       ];
     case 'ios-chrome':
@@ -398,7 +501,7 @@ function installSlides(d: DeviceKey): Slide[] {
       return [
         { title: '오른쪽 위 ⋮ 버튼', body: '크롬 주소창 오른쪽 끝의 점 세 개를 눌러요.', mock: P(<><div className="absolute inset-0 top-[12cqw]"><SitePage /></div><BrowserBar device={d} hot="menu" /></>) },
         { title: "'홈 화면에 추가'", body: "크롬 버전에 따라 '앱 설치'로 보일 수도 있어요. 둘 다 같아요.", mock: P(<><div className="absolute inset-0 top-[12cqw]"><SitePage dim /></div><BrowserBar device={d} hot={null} /><Menu at="top-right" rows={['새 탭', '기록', '다운로드', '공유', '홈 화면에 추가', '데스크톱 사이트']} hot={4} /></>) },
-        { title: "'설치'를 눌러요", body: "'바로가기 만들기'가 아니라 '설치'를 골라야 앱처럼 열려요.", mock: P(<><SitePage /><Dialog os="android" title="앱 설치" body="우주하마 방송 예측 · uzuhama.web.app" buttons={['취소', '설치']} hot={1} /></>) },
+        { title: "'설치'를 눌러요", body: "'바로가기 만들기'가 아니라 '설치'를 골라야 앱처럼 열려요.", mock: P(<><SitePage /><Dialog os="android" title="앱 설치" body={`우주하마 방송 예측 · ${HOST}`} buttons={['취소', '설치']} hot={1} /></>) },
         done,
       ];
     case 'android-samsung':
@@ -430,9 +533,10 @@ function DevicePicker({ value, onChange, options }: { value: DeviceKey; onChange
     <div className="relative">
       <button type="button" onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white dark:bg-zinc-800 shadow-sm text-xs font-bold cursor-pointer" aria-expanded={open}>
         <Smartphone className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-        {DEVICE_LABEL[value]}
+        {value === here ? detectedSummary() : DEVICE_LABEL[value]}
         <ChevronDown className={cn('w-3.5 h-3.5 text-zinc-400 transition-transform', open && 'rotate-180')} />
       </button>
+      {value === here && <span className="block mt-1.5 ml-1 text-[11px] text-zinc-400">자동으로 확인했어요 · 다르면 눌러서 바꿔요</span>}
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="absolute z-50 left-0 mt-2 w-64 rounded-2xl bg-white dark:bg-zinc-800 shadow-xl p-1.5">
@@ -502,7 +606,7 @@ function StepNav({ index, total, setIndex, last }: { index: number; total: numbe
 
 // ───────────────────────── 안내 1: 앱 설치 ─────────────────────────
 
-const INSTALL_DEVICES: DeviceKey[] = ['ios-safari', 'ios-chrome', 'ios-inapp', 'android-chrome', 'android-samsung', 'android-inapp', 'desktop-chrome', 'desktop-safari'];
+const INSTALL_DEVICES: DeviceKey[] = ['ios-safari', 'ios-safari-18', 'ios-chrome', 'ios-inapp', 'android-chrome', 'android-samsung', 'android-inapp', 'desktop-chrome', 'desktop-safari'];
 
 function InstallGuide({ onDone, onNotify }: { onDone: () => void; onNotify: () => void }) {
   const [device, setDevice] = useState<DeviceKey>(() => (detectDevice() === 'desktop-other' ? 'desktop-chrome' : detectDevice()));
@@ -594,13 +698,13 @@ function permissionDialog(d: DeviceKey): React.ReactNode {
     return <Phone os="ios"><SitePage /><Dialog os="ios" title={'"우주하마 방송 예측"에서 알림을 보내려고 합니다'} body="알림에는 텍스트, 사운드, 아이콘 배지가 포함될 수 있습니다." buttons={['허용 안 함', '허용']} hot={1} /></Phone>;
   }
   if (d.startsWith('android')) {
-    return <Phone os="android"><SitePage /><Dialog os="android" title="uzuhama.web.app에서 알림을 보내도록 허용하시겠습니까?" buttons={['차단', '허용']} hot={1} /></Phone>;
+    return <Phone os="android"><SitePage /><Dialog os="android" title={`${HOST}에서 알림을 보내도록 허용하시겠습니까?`} buttons={['차단', '허용']} hot={1} /></Phone>;
   }
   return (
     <Desktop>
       <DesktopBrowser hot={null} />
       <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="absolute top-[8cqw] left-[4cqw] z-30 w-[46cqw] rounded-[2cqw] bg-white dark:bg-zinc-800 shadow-xl p-[2.5cqw]">
-        <div className="text-[2.6cqw] font-bold text-zinc-800 dark:text-zinc-100">uzuhama.web.app에서 다음 권한을 요청합니다</div>
+        <div className="text-[2.6cqw] font-bold text-zinc-800 dark:text-zinc-100">{HOST}에서 다음 권한을 요청합니다</div>
         <div className="mt-[1cqw] text-[2.4cqw] text-zinc-500 flex items-center gap-[1cqw]"><Bell className="w-[3cqw] h-[3cqw]" /> 알림 표시</div>
         <div className="mt-[2cqw] flex justify-end gap-[1.5cqw] text-[2.4cqw]">
           <span className="px-[2cqw] py-[0.8cqw] rounded-full border border-zinc-300 text-zinc-600">차단</span>
@@ -704,7 +808,7 @@ function NotifyGuide({ onInstall, onDone }: { onInstall: () => void; onDone: () 
   if (perm === 'denied') {
     return (
       <>
-        <DevicePicker value={device} onChange={setDevice} options={['ios-safari', 'android-chrome', 'android-samsung', 'desktop-chrome', 'desktop-safari']} />
+        <DevicePicker value={device} onChange={setDevice} options={['ios-safari', 'ios-safari-18', 'android-chrome', 'android-samsung', 'desktop-chrome', 'desktop-safari']} />
         <SlideView slides={deniedSlides(device, standalone)} index={0} setIndex={() => {}} />
         <div className="mt-4"><button type="button" className={primaryBtn} onClick={() => { setPerm(notificationPermission()); if (notificationPermission() !== 'denied') enable(); }}>다시 확인하기</button></div>
       </>
@@ -751,7 +855,7 @@ function NotifyGuide({ onInstall, onDone }: { onInstall: () => void; onDone: () 
 
   return (
     <>
-      <DevicePicker value={device} onChange={setDevice} options={['ios-safari', 'android-chrome', 'android-samsung', 'desktop-chrome', 'desktop-safari']} />
+      <DevicePicker value={device} onChange={setDevice} options={['ios-safari', 'ios-safari-18', 'android-chrome', 'android-samsung', 'desktop-chrome', 'desktop-safari']} />
       <SlideView
         index={0}
         setIndex={() => {}}
@@ -1055,7 +1159,8 @@ export default function SetupGuides({ initial, onClose }: { initial?: GuideKind;
       <div className="flex-1 min-h-0 max-w-md w-full mx-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] flex flex-col">
         {kind === null && (
           <div className="pt-2">
-            <p className="text-sm text-zinc-600 dark:text-zinc-300 mb-4 break-keep">필요한 것만 골라서 해 보세요. 실제 화면을 따라 한 단계씩 알려 드려요.</p>
+            <p className="text-sm text-zinc-600 dark:text-zinc-300 break-keep">필요한 것만 골라서 해 보세요. 실제 화면을 따라 한 단계씩 알려 드려요.</p>
+            <p className="mt-2 mb-4 inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-600/10 dark:bg-purple-400/15 rounded-full px-3 py-1.5"><Smartphone className="w-3.5 h-3.5" /> 지금 기기: {detectedSummary()}</p>
             <SetupItemList items={items} onOpen={open} />
           </div>
         )}
