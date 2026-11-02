@@ -1,0 +1,10 @@
+name: probe (임시)
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          IDS=$(curl -s --max-time 30 https://uzuhama.vercel.app/api/videos/shorts | python3 -c "import sys,json; s=json.load(sys.stdin)['shorts']; print(len(s), file=sys.stderr); print(','.join(x['videoId'] for x in s[:8]))")
+          echo "IDS=$IDS"
+          curl -s --max-time 60 "https://uzuhama.vercel.app/api/videos/shorts?kind=probe&ids=$IDS" | python3 -m json.tool | cut -c1-400
