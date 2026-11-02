@@ -1821,15 +1821,29 @@ export function RecommendTab({
 
   // 추천 탭 위쪽: 추천 쇼츠·추천 라이브 (관심 기록이 없으면 최근 것부터)
   // 탭에 들어올 때 한 번만 계산 (보는 중에 순서가 바뀌지 않게)
-  const interestEpoch = useMemo(() => Date.now(), [subTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  const interestEpoch = useMemo(() => Date.now(), [subTab, shuffleSeed]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 위쪽 카테고리 선택·새로고침도 그대로 따름: 고른 카테고리만, 새로고침하면 관심 상위 후보 안에서 다른 조합으로
+  const catFilterActive = !selectedCategories.includes('전체');
+  const pickWithSeed = <T,>(list: T[], keyOf: (x: T) => string, n: number, poolSize: number) => {
+    const rnd = (k: string) => { let t = (shuffleSeed + k.split('').reduce((a, c) => a + c.charCodeAt(0) * 31, 0)) >>> 0; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    return list.slice(0, poolSize).map((x) => ({ x, r: rnd(keyOf(x)) })).sort((a, b) => a.r - b.r).slice(0, n).map((o) => o.x);
+  };
   const recShorts = useMemo(() => {
     if (subTab !== 'recommend') return [];
-    return personalize(allShortsLite, (x) => x.interest || { id: x.id || x.url, kind: 'short', tokens: [] }).slice(0, 12);
-  }, [subTab, allShortsLite, interestEpoch]); // eslint-disable-line react-hooks/exhaustive-deps
+    const pool = catFilterActive
+      ? allShortsLite.filter((x) => (x.interest?.tokens || []).some((t) => selectedCategories.includes(t.slice(2)) || selectedCategories.some((c) => c.toLowerCase() === t.slice(2))))
+      : allShortsLite;
+    const ordered = personalize(pool, (x) => x.interest || { id: x.id || x.url, kind: 'short', tokens: [] });
+    return pickWithSeed(ordered, (x) => x.id || x.url, 12, hasInterestProfile(loadInterest()) ? 30 : ordered.length);
+  }, [subTab, allShortsLite, interestEpoch, shuffleSeed, selectedCategories]); // eslint-disable-line react-hooks/exhaustive-deps
   const recLives = useMemo(() => {
     if (subTab !== 'recommend') return [];
-    return personalize(liveVideos, videoInterestItem).slice(0, 4);
-  }, [subTab, liveVideos, interestEpoch]); // eslint-disable-line react-hooks/exhaustive-deps
+    const pool = catFilterActive
+      ? liveVideos.filter((v) => categoryIndex.videoTokens(v).some((t) => selectedCategories.includes(t)))
+      : liveVideos;
+    const ordered = personalize(pool, videoInterestItem);
+    return pickWithSeed(ordered, (v) => v.id, 4, hasInterestProfile(loadInterest()) ? 12 : ordered.length);
+  }, [subTab, liveVideos, interestEpoch, shuffleSeed, selectedCategories, categoryIndex]); // eslint-disable-line react-hooks/exhaustive-deps
   const personalized = useMemo(() => hasInterestProfile(loadInterest()), [interestEpoch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 추천 탭: 이 기기에서 관심 보인 게임·장르 순으로 (이미 본 건 뒤로, 4개마다 새로운 쪽 하나)
@@ -1838,8 +1852,14 @@ export function RecommendTab({
     if (subTab !== 'recommend') return recommendedBase;
     const pinned = pinnedVideoId ? recommendedBase.filter((v) => v.id === pinnedVideoId) : [];
     const rest = recommendedBase.filter((v) => v.id !== pinnedVideoId);
-    return [...pinned, ...personalize(rest, videoInterestItem)];
-  }, [recommendedBase, subTab, pinnedVideoId, interestEpoch]);
+    const ordered = personalize(rest, videoInterestItem);
+    // 새로고침: 관심 순서는 유지하되 8개씩 묶음 안에서 섞어 매번 조금 다르게
+    if (!hasInterestProfile(loadInterest())) return [...pinned, ...ordered];
+    const rnd = (k: string) => { let t = (shuffleSeed + k.split('').reduce((a, c) => a + c.charCodeAt(0) * 31, 0)) >>> 0; t = Math.imul(t ^ (t >>> 15), t | 1); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const mixed: any[] = [];
+    for (let i = 0; i < ordered.length; i += 8) mixed.push(...ordered.slice(i, i + 8).map((v) => ({ v, r: rnd(String(v.id)) })).sort((x, y) => x.r - y.r).map((o) => o.v));
+    return [...pinned, ...mixed];
+  }, [recommendedBase, subTab, pinnedVideoId, interestEpoch, shuffleSeed]);
 
   const handleRefresh = () => {
     Object.keys(baseWeights.current).forEach(id => {
