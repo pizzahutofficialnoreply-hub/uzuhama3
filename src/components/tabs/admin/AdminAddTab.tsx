@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { AppData, BroadcastLog, GameItem } from '../../../types';
-import { FileText, Save, Settings, Edit3, Plus, Film } from 'lucide-react';
+import { FileText, Save, Settings, Edit3, Plus, Film, ClipboardPaste } from 'lucide-react';
 import { LogEditorForm } from './LogEditorForm';
 import { AdminMolabogiSection } from './AdminMolabogiSection';
+import { AdminCafeImport } from './AdminCafeImport';
 import { format } from 'date-fns';
 
 const createEmptyLog = (): Partial<BroadcastLog> => ({
@@ -49,7 +50,7 @@ export function AdminAddTab({
   onUpdateLog?: (log: BroadcastLog) => Promise<void>, 
   data: AppData 
 }) {
-  const [entryMode, setEntryMode] = useState<'standard' | 'molabogi'>('standard');
+  const [entryMode, setEntryMode] = useState<'standard' | 'molabogi' | 'cafe'>('standard');
   const [rawText, setRawText] = useState('');
   const [parsedLogs, setParsedLogs] = useState<Partial<BroadcastLog>[]>([createEmptyLog()]);
 
@@ -323,14 +324,28 @@ export function AdminAddTab({
             <Film className="w-4 h-4" />
             몰아보기 영상 등록 (생방/게임 연동)
           </button>
+          <button
+            type="button"
+            onClick={() => setEntryMode('cafe')}
+            className={`px-3.5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-colors flex items-center gap-1.5 ${
+              entryMode === 'cafe'
+                ? 'bg-white dark:bg-zinc-900 text-purple-600 dark:text-purple-400 shadow-sm'
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+          >
+            <ClipboardPaste className="w-4 h-4" />
+            카페 정리 글 가져오기
+          </button>
         </div>
 
         <div className="text-xs text-zinc-500">
-          {entryMode === 'standard' ? '텍스트 파싱 및 수동 방송 등록' : '여러 생방을 묶어 편집된 몰아보기 영상 연동'}
+          {entryMode === 'standard' ? '텍스트 파싱 및 수동 방송 등록' : entryMode === 'cafe' ? '팬카페 생방링크 정리 글에서 빠진 링크만 채우기' : '여러 생방을 묶어 편집된 몰아보기 영상 연동'}
         </div>
       </div>
 
-      {entryMode === 'molabogi' ? (
+      {entryMode === 'cafe' ? (
+        <AdminCafeImport data={data} onAddLog={onAddLog} onUpdateLog={onUpdateLog} />
+      ) : entryMode === 'molabogi' ? (
         <AdminMolabogiSection data={data} onUpdateLog={onUpdateLog} />
       ) : (
         <div>
