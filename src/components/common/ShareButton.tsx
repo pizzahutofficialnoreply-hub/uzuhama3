@@ -8,7 +8,8 @@ import { ShareBoxArrowIcon } from './ShareIcon';
  * 영상 카드의 공유 버튼과 같은 모양·동작 (휴대폰은 공유 창, 아니면 복사)
  * - 글은 누를 때 만듦 (카드가 많아도 미리 만들지 않음)
  */
-export function ShareButton({ getText, title, className, compact = false }: {
+export function ShareButton({ getText, title, className, compact = false, onShare }: {
+  onShare?: () => void;
   getText: () => string;
   title: string;
   className?: string;
@@ -20,6 +21,7 @@ export function ShareButton({ getText, title, className, compact = false }: {
     e.stopPropagation();
     if (busy) return;
     setBusy(true);
+    onShare?.();
     try { await shareTextOrClipboard(getText(), title); } catch (err) { console.error('Share error:', err); } finally { setBusy(false); }
   };
   return (

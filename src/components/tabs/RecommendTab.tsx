@@ -14,6 +14,9 @@ import { GameTitle } from '../common/GameTitle';
 import { useVideoMeta, formatDuration, toKstDate, formatRelativeTime } from '../../hooks/useVideoDuration';
 import { ShortsFeed, useChannelShorts, useShortsRelated } from './recommend/ShortsFeed';
 import { cleanShortsTitle } from '../../utils/videoSearch';
+import { LinkMenu } from '../common/LinkMenu';
+import { useInterestTracker, noteInterest } from '../../hooks/useInterestTracker';
+import { tokensOf, personalize, hasInterestProfile, loadInterest, type InterestItem } from '../../utils/interest';
 import { ShortsShelf } from '../common/ShortsCard';
 import { CompilationDetail } from './recommend/CompilationDetail';
 import { Pagination } from '../common/Pagination';
@@ -42,6 +45,13 @@ const RECOMMEND_SUB_TABS: { id: RecommendSubTab; label: string }[] = [
   { id: 'recommend', label: '추천' },
 ];
 
+
+/** 카드 → 맞춤 추천용 정보 (게임·장르, 영상/라이브) */
+export function videoInterestItem(video: any): InterestItem {
+  const games = [...(Array.isArray(video?.games) ? video.games : []), ...(Array.isArray(video?.parentLog?.games) ? video.parentLog.games : [])];
+  if (!games.length && video?.parentLog?.game) games.push({ name: video.parentLog.game, category: video.parentLog.category });
+  return { id: String(video?.id || ''), kind: video?.isLive ? 'live' : 'video', tokens: tokensOf(games, [video?.category]) };
+}
 
 /** 연결된 쇼츠 + 방송 기록의 쇼츠를 하나로 (같은 쇼츠는 한 번만) */
 function mergeShorts(...lists: (any[] | undefined)[]): { url: string; title?: string }[] {
@@ -88,6 +98,11 @@ export const VideoCard = ({
 
   // 쇼츠: 이 영상에 직접 연결된 쇼츠 먼저, 그다음 같은 방송 기록의 쇼츠 (중복 제거, 쇼츠 표시 태그는 뗌)
   const shorts = useMemo(() => mergeShorts(linkedShorts, video.parentLog?.shorts), [linkedShorts, video.parentLog?.shorts]);
+  // 맞춤 추천: 이 카드에 관심 있어 보이는 행동을 조용히 기록
+  const interestItem = useMemo(() => videoInterestItem(video), [video]);
+  const trackRef = useInterestTracker<HTMLDivElement>(interestItem);
+  // 라이브 카드의 편집본 (그 방송 기록의 편집본 + 이 방송에 걸쳐 있는 다른 기록의 편집본)
+  const liveEdits = useMemo(() => (video.isLive ? (video.liveEdits || []) : []), [video]);
   const videoMeta = useVideoMeta(video.id);
   const durationSec = videoMeta?.durationSec ?? null;
   const uploadDate = videoMeta?.publishedAt ? toKstDate(videoMeta.publishedAt) : '';
@@ -187,6 +202,7 @@ export const VideoCard = ({
     e.stopPropagation();
     if (isSharing) return;
     setIsSharing(true);
+    noteInterest(interestItem, 'engage');
     try {
       const textToShare = formatRecommendShareText(video, allLogs);
       await shareTextOrClipboard(textToShare, `${video.videoTitle || '추천 영상'} 정보`);
@@ -216,6 +232,7 @@ export const VideoCard = ({
 
   return (
     <div 
+      ref={trackRef}
       className={cn(
         "group relative isolate flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all",
         isExpanded 
@@ -256,6 +273,7 @@ export const VideoCard = ({
               e.preventDefault();
               e.stopPropagation();
               setIsPlayingInline(true);
+              noteInterest(interestItem, 'play');
             }}
             className="group/thumb block w-full h-full relative text-left cursor-pointer border-0 p-0 m-0 bg-transparent"
             title="클릭하여 화면 내에서 바로 영상 재생"
@@ -472,6 +490,7 @@ export const VideoCard = ({
             rel="noreferrer"
             onClick={(e) => {
               if (!video.videoUrl) e.preventDefault();
+              else noteInterest(interestItem, 'play');
             }}
             className={`w-full flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-bold transition-all font-hanna font-pro ${
               video.videoUrl
@@ -479,75 +498,27 @@ export const VideoCard = ({
                 : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
             }`}
           >
-            <YoutubeLogo className="w-4 h-4 text-zinc-600 dark:text-zinc-400" /> <span className="font-hanna font-pro">영상 보기</span>
+            {video.isLive ? <PlaySquare className="w-4 h-4 text-purple-600 dark:text-purple-400" /> : <YoutubeLogo className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />} <span className="font-hanna font-pro">{video.isLive ? '생방송 보기' : '영상 보기'}</span>
           </a>
           
-          {!isMultiBroadcastOrCompilation && (
+          {(!isMultiBroadcastOrCompilation || video.isLive) && (
             <div className="flex gap-2">
- {video.isLive ? (() => {
-                // 라이브 카드: 영상 자체가 생방송이라, 대신 그날의 편집본을 보여 줌
-                const edits = (video.parentLog?.edited || []).filter((e: any) => e?.url && !e.isCompilation && !e.compilationId);
-                return edits.length > 0 ? (
-                  <a
-                    href={edits[0].url}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={edits[0].title || '편집본'}
-                    className="flex-1 min-w-0 flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 font-hanna font-pro"
-                  >
-                    <YoutubeLogo className="w-4 h-4 shrink-0" /> <span className="truncate font-hanna font-pro">편집본{edits.length > 1 ? ` (${edits.length})` : ''}</span>
-                  </a>
-                ) : null;
-              })() : vods.length > 0 && vods[0].url ? (
+              {video.isLive ? (
+                // 라이브 카드: 카드 자체가 생방송이라 그 방송의 편집본을 (두 방송에 걸친 편집본도 포함)
+                <LinkMenu items={liveEdits} label="편집본" menuTitle="편집본" tone="zinc" icon={<YoutubeLogo className="w-4 h-4 shrink-0" />} onOpen={() => noteInterest(interestItem, 'engage')} />
+              ) : vods.length > 0 && vods[0].url ? (
                 <a 
                   href={vods[0].url} 
                   target="_blank"
                   rel="noreferrer"
+                  onClick={() => noteInterest(interestItem, 'play')}
                   className="flex-1 flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-purple-50 dark:bg-purple-900/10 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/20 font-hanna font-pro"
                 >
                   <PlaySquare className="w-4 h-4" /> <span className="font-hanna font-pro">생방송 (풀영상)</span>
                 </a>
               ) : null}
 
-              {shorts.length === 1 && (
-                <a 
-                  href={shorts[0].url} 
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 font-hanna font-pro"
-                >
-                  <ShortsIcon className="w-4 h-4" /> <span className="font-hanna font-pro">쇼츠 보기</span>
-                </a>
-              )}
-
-              {shorts.length > 1 && (
-                <div className="flex-1 relative" ref={menuRef}>
-                  <button 
-                    onClick={() => setShowShortsMenu(!showShortsMenu)} 
-                    className="w-full flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20"
-                  >
-                    <ShortsIcon className="w-4 h-4" /> 쇼츠 ({shorts.length}) <ChevronDown className="w-3 h-3 opacity-70" />
-                  </button>
-                  {showShortsMenu && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-[0_14px_36px_-6px_rgba(0,0,0,0.28),0_3px_8px_rgba(0,0,0,0.10)] dark:shadow-[0_18px_44px_-6px_rgba(0,0,0,0.85),0_3px_10px_rgba(0,0,0,0.5)] ring-1 ring-black/5 dark:ring-white/10 overflow-hidden z-30 flex flex-col">
-                      <div className="px-3 py-2 text-[10px] font-bold text-zinc-500 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-700">
-                        쇼츠 선택
-                      </div>
-                      {shorts.map((s: any, idx: number) => (
-                        <a 
-                          key={idx} 
-                          href={s.url} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 border-b border-zinc-100 dark:border-zinc-700 last:border-0 truncate"
-                        >
-                          {s.title || `쇼츠 ${idx + 1}`}
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              <LinkMenu items={shorts} label={shorts.length > 1 ? '쇼츠' : '쇼츠 보기'} menuTitle="쇼츠" tone="red" icon={<ShortsIcon className="w-4 h-4" />} onOpen={() => noteInterest(interestItem, 'engage')} />
             </div>
           )}
         </div>
@@ -1213,28 +1184,36 @@ export function RecommendTab({
   const channelShorts = useChannelShorts();
   const shortsRelatedMap = useShortsRelated();
   const allShortsLite = useMemo(() => {
-    const byId = new Map<string, { url: string; title: string; caption?: string; liveUrl?: string; editUrl?: string; relatedTitle?: string }>();
+    const byId = new Map<string, { id?: string; url: string; title: string; caption?: string; liveUrl?: string; editUrl?: string; relatedTitle?: string; interest?: InterestItem }>();
     const logs = Array.isArray(data?.logs) ? data!.logs : Object.values(data?.logs || {});
     (logs as any[]).forEach((log) => (Array.isArray(log?.shorts) ? log.shorts : []).forEach((s: any) => {
       const url = typeof s === 'string' ? s : s?.url;
       const id = extractYoutubeId(url || '');
       if (!id || byId.has(id)) return;
-      byId.set(id, { url, title: (typeof s === 'string' ? '' : s?.title) || '', caption: log?.date ? `${log.date} 방송` : undefined,
+      byId.set(id, { id, interest: { id, kind: 'short', tokens: tokensOf(Array.isArray(log?.games) && log.games.length ? log.games : log?.game ? [{ name: log.game, category: log.category }] : [], [log?.category]) },
+        url, title: (typeof s === 'string' ? '' : s?.title) || '', caption: log?.date ? `${log.date} 방송` : undefined,
         liveUrl: (Array.isArray(log?.vods) ? log.vods : []).find((v: any) => v?.url)?.url });
     }));
     channelShorts.forEach((c) => {
       const hit = byId.get(c.videoId);
       if (hit) { if (!hit.title) hit.title = c.title; return; }
-      byId.set(c.videoId, { url: `https://www.youtube.com/shorts/${c.videoId}`, title: c.title, caption: c.publishedAt ? `${c.publishedAt.slice(0, 10)} 업로드` : undefined });
+      byId.set(c.videoId, { id: c.videoId, url: `https://www.youtube.com/shorts/${c.videoId}`, title: c.title, caption: c.publishedAt ? `${c.publishedAt.slice(0, 10)} 업로드` : undefined });
     });
     // 쇼츠 아래 연결된 본영상 (제목으로도 찾을 수 있게)
     const videoTitleOf = new Map<string, string>();
-    allVideos.forEach((v: any) => { const id = extractYoutubeId(v.videoUrl) || v.id; if (id && v.videoTitle) videoTitleOf.set(id, v.videoTitle); });
+    const videoById = new Map<string, any>();
+    allVideos.forEach((v: any) => { const id = extractYoutubeId(v.videoUrl) || v.id; if (id && v.videoTitle) videoTitleOf.set(id, v.videoTitle); if (id) videoById.set(id, v); });
     byId.forEach((s, id) => {
       const rel = shortsRelatedMap[id];
-      if (!rel) return;
-      if (!s.editUrl) s.editUrl = `https://www.youtube.com/watch?v=${rel}`;
-      s.relatedTitle = videoTitleOf.get(rel);
+      if (rel) {
+        if (!s.editUrl) s.editUrl = `https://www.youtube.com/watch?v=${rel}`;
+        s.relatedTitle = videoTitleOf.get(rel);
+      }
+      // 맞춤 추천용: 기록에 없는 쇼츠는 연결된 본영상의 게임·장르로
+      if (!s.interest || !s.interest.tokens.length) {
+        const v = rel ? videoById.get(rel) : null;
+        s.interest = { id, kind: 'short', tokens: v ? videoInterestItem(v).tokens : [] };
+      }
     });
     return [...byId.values()].filter((s) => s.title).map((s) => ({ ...s, title: cleanShortsTitle(s.title) }));
   }, [data?.logs, channelShorts, shortsRelatedMap, allVideos]);
@@ -1425,6 +1404,18 @@ export function RecommendTab({
   const liveVideos = useMemo(() => {
     const out: any[] = [];
     const seen = new Set<string>();
+    // 방송일 → 그 방송의 편집본 (여러 방송에 걸친 편집본은 걸친 날마다)
+    const editsByDate = new Map<string, { url: string; title?: string; id: string }[]>();
+    Object.values(data?.logs || {}).forEach((log: any) => (Array.isArray(log?.edited) ? log.edited : []).forEach((e: any) => {
+      if (!e?.url || e.isCompilation || e.compilationId) return;
+      const eid = extractYoutubeId(e.url) || e.url;
+      const dates: string[] = Array.isArray(e.allBroadcastDates) && e.allBroadcastDates.length ? e.allBroadcastDates : [log.date];
+      dates.forEach((d) => {
+        const arr = editsByDate.get(d) || [];
+        if (!arr.some((x) => x.id === eid)) arr.push({ id: eid, url: e.url, title: e.title });
+        editsByDate.set(d, arr);
+      });
+    }));
     Object.values(data?.logs || {}).forEach((log: any) => {
       if (!log || log.isAbsence || !log.date) return;
       (Array.isArray(log.vods) ? log.vods : []).forEach((v: any) => {
@@ -1436,6 +1427,7 @@ export function RecommendTab({
         const generic = !t || /^우주하마\s*생방송!?$/.test(t) || t === '생방송';
         out.push({
           id, videoUrl: url, isLive: true, parentLog: log, allBroadcastDates: [log.date],
+          liveEdits: (editsByDate.get(log.date) || []).map(({ url: u, title }) => ({ url: u, title })),
           videoTitle: generic ? `${log.date.replace(/-/g, '.')} 생방송` : t,
           games: Array.isArray(log.games) ? log.games : [], category: log.category, createdAt: log.date,
         });
@@ -1444,7 +1436,7 @@ export function RecommendTab({
     return out.sort((a, b) => b.parentLog.date.localeCompare(a.parentLog.date));
   }, [data?.logs]);
 
-  const recommended = useMemo(() => {
+  const recommendedBase = useMemo(() => {
     const pool = subTab === 'live' ? liveVideos : allVideos;
     if (pool.length === 0) return [];
     // 오타를 자동으로 고친 경우 고친 검색어로 찾음 (추천 탭은 검색과 상관없이 추천만)
@@ -1827,6 +1819,28 @@ export function RecommendTab({
     return scoredVids;
   }, [allVideos, categoryIndex, categories, selectedCategories, effectiveSearchTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos]); // Removed ratings and history to prevent jumping on watch
 
+  // 추천 탭 위쪽: 추천 쇼츠·추천 라이브 (관심 기록이 없으면 최근 것부터)
+  // 탭에 들어올 때 한 번만 계산 (보는 중에 순서가 바뀌지 않게)
+  const interestEpoch = useMemo(() => Date.now(), [subTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  const recShorts = useMemo(() => {
+    if (subTab !== 'recommend') return [];
+    return personalize(allShortsLite, (x) => x.interest || { id: x.id || x.url, kind: 'short', tokens: [] }).slice(0, 12);
+  }, [subTab, allShortsLite, interestEpoch]); // eslint-disable-line react-hooks/exhaustive-deps
+  const recLives = useMemo(() => {
+    if (subTab !== 'recommend') return [];
+    return personalize(liveVideos, videoInterestItem).slice(0, 4);
+  }, [subTab, liveVideos, interestEpoch]); // eslint-disable-line react-hooks/exhaustive-deps
+  const personalized = useMemo(() => hasInterestProfile(loadInterest()), [interestEpoch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 추천 탭: 이 기기에서 관심 보인 게임·장르 순으로 (이미 본 건 뒤로, 4개마다 새로운 쪽 하나)
+  // 탭에 들어올 때 한 번만 계산 (보는 중에 순서가 바뀌지 않게)
+  const recommended = useMemo(() => {
+    if (subTab !== 'recommend') return recommendedBase;
+    const pinned = pinnedVideoId ? recommendedBase.filter((v) => v.id === pinnedVideoId) : [];
+    const rest = recommendedBase.filter((v) => v.id !== pinnedVideoId);
+    return [...pinned, ...personalize(rest, videoInterestItem)];
+  }, [recommendedBase, subTab, pinnedVideoId, interestEpoch]);
+
   const handleRefresh = () => {
     Object.keys(baseWeights.current).forEach(id => {
        baseWeights.current[id] = Math.random();
@@ -2144,6 +2158,44 @@ export function RecommendTab({
         />
       ) : (<>
       {/* 검색 결과 영상 카드 영역 (카드가 아래로/사각형으로 펼쳐지는 인라인 확장 UX) */}
+      {/* 추천 탭 첫 페이지: 맞춤 쇼츠 · 맞춤 라이브 · 그리고 아래에 맞춤 영상 */}
+      {subTab === 'recommend' && currentPage === 1 && (recShorts.length > 0 || recLives.length > 0) && (
+        <div className="space-y-6 mb-6">
+          <p className="px-1 text-xs text-zinc-500 dark:text-zinc-400">
+            {personalized
+              ? '그동안 오래 들여다보거나 눌러 본 게임·장르를 바탕으로 골랐어요. 이미 본 건 뒤로 빼고, 가끔은 새로운 것도 섞어요.'
+              : '아직 관심 기록이 적어서 골고루 보여 드려요. 둘러볼수록 취향에 맞춰져요.'}
+          </p>
+          {recShorts.length > 0 && (
+            <section>
+              <h3 className="px-1 mb-2.5 text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5"><ShortsIcon className="w-4 h-4 text-red-500" /> 추천 쇼츠</h3>
+              <ShortsShelf items={recShorts} />
+            </section>
+          )}
+          {recLives.length > 0 && (
+            <section>
+              <h3 className="px-1 mb-1.5 text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5"><PlaySquare className="w-4 h-4 text-purple-500" /> 추천 라이브</h3>
+              <div className="flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-1.5 sm:p-2">
+                {recLives.map((v) => (
+                  <VideoListRow
+                    key={v.id}
+                    dense
+                    videoId={v.id}
+                    title={v.videoTitle}
+                    href={v.videoUrl}
+                    badge={(v.parentLog?.games || []).map((g: any) => g?.name).filter(Boolean).slice(0, 2).join(', ') || undefined}
+                    edits={v.liveEdits}
+                    shorts={mergeShorts(v.parentLog?.shorts)}
+                    interest={videoInterestItem(v)}
+                    shareText={() => formatRecommendShareText(v, data?.logs)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+          <h3 className="px-1 -mb-3 text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5"><YoutubeLogo className="w-4 h-4 text-zinc-500" /> 추천 영상</h3>
+        </div>
+      )}
       <div id="recommend-cards-container" className="min-h-[400px]">
         {/* 홈 검색: 제목이 맞는 쇼츠 줄 */}
         {matchingShorts.length > 0 && (
@@ -2234,8 +2286,10 @@ export function RecommendTab({
                               : isMulti ? `${video.allBroadcastDates.length}개 생방` : '',
                             video.relatedVia ? `${video.relatedVia}에서 찾음` : '',
                           ].filter(Boolean).join(' · ') || undefined}
-                          liveUrl={!isMulti ? video.parentLog?.vods?.find((v: any) => v?.url)?.url : undefined}
-                          onLiveClick={isMulti ? toggle : undefined}
+                          liveUrl={!isMulti && !video.isLive ? video.parentLog?.vods?.find((v: any) => v?.url)?.url : undefined}
+                          edits={video.isLive ? video.liveEdits : undefined}
+                          interest={videoInterestItem(video)}
+                          onLiveClick={isMulti && !video.isLive ? toggle : undefined}
                           liveActive={isExpanded}
                           shorts={mergeShorts(shortsByVideo.get(ytId), !isMulti ? video.parentLog?.shorts : [])}
                           shareText={() => formatRecommendShareText(video, data?.logs)}

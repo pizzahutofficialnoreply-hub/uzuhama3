@@ -9,6 +9,7 @@ import { useVideoMetaMany, toKstDate } from '../../../hooks/useVideoDuration';
 import { cn } from '../../../utils';
 import { useChannelVideos } from '../../../hooks/useChannelVideos';
 import { formatShortsShareText } from '../../../utils/shareUtils';
+import { tokensOf } from '../../../utils/interest';
 import { cleanShortsTitle } from '../../../utils/videoSearch';
 
 /** 추천 영상 > Shorts 탭: 채널 쇼츠 전체 + 기록에 등록된 쇼츠 + #shorts 몰아보기 (업로드순 기본 / 생방일순) */
@@ -26,7 +27,7 @@ interface ShortsFeedProps {
 
 const PAGE = 24;
 
-type ShortEntry = { id: string; url: string; title: string; relatedTitle?: string; date: string; category: string; genres: string[]; liveUrl?: string; editUrl?: string; publishedAt?: string; isCompilation?: boolean; autoLinked?: boolean; compilation?: CompilationRow[]; compilationVideo?: any };
+type ShortEntry = { id: string; url: string; title: string; relatedTitle?: string; gameNames?: string[]; date: string; category: string; genres: string[]; liveUrl?: string; editUrl?: string; publishedAt?: string; isCompilation?: boolean; autoLinked?: boolean; compilation?: CompilationRow[]; compilationVideo?: any };
 export type CompilationRow = { date: string; games: string[]; liveUrl?: string; editUrl?: string };
 
 const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
@@ -75,6 +76,8 @@ export function useShortsRelated(): Record<string, string> {
   return map;
 }
 
+const gameNamesOfLog = (log: any): string[] => (Array.isArray(log?.games) && log.games.length ? log.games.map((g: any) => g?.name).filter(Boolean) : log?.game ? [log.game] : []);
+
 export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToCalendar, genresOfLog, order: orderProp, onCount }: ShortsFeedProps) {
   const controlled = orderProp !== undefined;
   const [page, setPage] = useState(1);
@@ -114,6 +117,7 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
           date: log?.date || '',
           category: (typeof s === 'string' ? '' : s?.category) || log?.category || '',
           genres: genresOfLog ? genresOfLog(log) : [],
+          gameNames: gameNamesOfLog(log),
           ...linksOf(log),
         });
       });
@@ -160,6 +164,7 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
         date: relLog?.date || '',
         category: relLog?.category || '',
         genres: relLog && genresOfLog ? genresOfLog(relLog) : [],
+        gameNames: relLog ? gameNamesOfLog(relLog) : [],
         ...(relLog ? linksOf(relLog) : {}),
         ...(rel ? { editUrl: `https://www.youtube.com/watch?v=${rel}` } : {}),
         autoLinked: Boolean(rel),
@@ -306,6 +311,7 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
             caption={captionOf(s)}
             onCaptionClick={s.date && onNavigateToCalendar ? () => onNavigateToCalendar(s.date) : undefined}
             onPlay={() => setPlayerAt((page - 1) * PAGE + i)}
+            interest={{ id: s.id, kind: 'short', tokens: tokensOf((s.gameNames || []).map((name) => ({ name })), [...s.genres, s.category]) }}
             shareText={() => formatShortsShareText({ title: cleanShortsTitle(s.title), url: s.url, date: s.date, liveUrl: s.liveUrl, editUrl: s.editUrl, relatedTitle: s.relatedTitle }, logs)}
           />
         ))}

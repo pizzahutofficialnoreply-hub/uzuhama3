@@ -2,7 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Layers } from 'lucide-react';
 import { cn } from '../../utils';
 import { useVideoMeta, formatDuration, toKstDate, formatRelativeTime } from '../../hooks/useVideoDuration';
-import { ShortsIcon, PlaySquare } from './MediaIcons';
+import { ShortsIcon, PlaySquare, YoutubeLogo } from './MediaIcons';
+import { LinkMenu, type MenuLink } from './LinkMenu';
+import { useInterestTracker, noteInterest } from '../../hooks/useInterestTracker';
+import type { InterestItem } from '../../utils/interest';
 import { ShareButton } from './ShareButton';
 
 /**
@@ -33,11 +36,16 @@ export interface VideoListRowProps {
   subline?: string;
   /** 공유 글 (있으면 오른쪽에 공유 버튼) */
   shareText?: () => string;
+  /** 편집본 링크 (라이브 줄: 줄을 누르면 생방송이라 편집본은 따로 버튼으로) */
+  edits?: MenuLink[];
+  /** 맞춤 추천용 관심 기록 */
+  interest?: InterestItem;
 }
 
 export function VideoListRow({
-  videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense, placeholder, subline, shareText,
+  videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense, placeholder, subline, shareText, edits = [], interest,
 }: VideoListRowProps) {
+  const trackRef = useInterestTracker<HTMLDivElement>(interest || null);
   const meta = useVideoMeta(videoId || null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -54,9 +62,9 @@ export function VideoListRow({
   const iconBtn = 'w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 cursor-pointer';
 
   return (
-    <div className={cn('group relative flex items-center gap-3 rounded-2xl transition-colors', dense ? 'p-1.5' : 'p-2', highlighted ? 'bg-purple-50 dark:bg-purple-950/40' : 'hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60')}>
+    <div ref={trackRef} className={cn('group relative flex items-center gap-3 rounded-2xl transition-colors', dense ? 'p-1.5' : 'p-2', highlighted ? 'bg-purple-50 dark:bg-purple-950/40' : 'hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60')}>
       {/* 줄 전체를 덮는 링크 (버튼들은 그 위에 따로) */}
-      <a href={link} target="_blank" rel="noreferrer" className="absolute inset-0 rounded-2xl" aria-label={`${title} 유튜브에서 보기`} />
+      <a href={link} target="_blank" rel="noreferrer" onClick={() => noteInterest(interest, 'play')} className="absolute inset-0 rounded-2xl" aria-label={`${title} 유튜브에서 보기`} />
 
       {typeof index === 'number' && (
         <span className="w-5 text-right text-[11px] text-zinc-400 tabular-nums shrink-0 pointer-events-none">{index}</span>
@@ -86,7 +94,7 @@ export function VideoListRow({
         {(subline || upload) && <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{subline || upload}</p>}
       </div>
 
-      {(liveUrl || onLiveClick || validShorts.length > 0 || shareText) && (
+      {(liveUrl || onLiveClick || validShorts.length > 0 || shareText || edits.length > 0) && (
         <div className="relative z-10 flex flex-col sm:flex-row gap-1.5 shrink-0 items-center">
           {onLiveClick ? (
             <button
@@ -114,42 +122,10 @@ export function VideoListRow({
             </a>
           ) : null}
 
-          {validShorts.length === 1 && (
-            <a
-              href={validShorts[0].url}
-              target="_blank"
-              rel="noreferrer"
-              title={validShorts[0].title || '쇼츠 보기'}
-              aria-label="쇼츠 보기"
-              className={cn(iconBtn, 'bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20')}
-            >
-              <ShortsIcon className="w-4.5 h-4.5" />
-            </a>
+          {edits.length > 0 && (
+            <LinkMenu variant="icon" items={edits} label="편집본 보기" menuTitle="편집본" tone="zinc" icon={<YoutubeLogo className="w-4.5 h-4.5" />} onOpen={() => noteInterest(interest, 'engage')} />
           )}
-          {validShorts.length > 1 && (
-            <div className="relative" ref={menuRef}>
-              <button
-                type="button"
-                onClick={() => setMenuOpen((v) => !v)}
-                title={`쇼츠 ${validShorts.length}개`}
-                aria-label={`쇼츠 ${validShorts.length}개 보기`}
-                className={cn(iconBtn, 'relative bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20')}
-              >
-                <ShortsIcon className="w-4.5 h-4.5" />
-                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center">{validShorts.length}</span>
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 bottom-full mb-2 w-44 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-[0_14px_36px_-6px_rgba(0,0,0,0.28),0_3px_8px_rgba(0,0,0,0.10)] dark:shadow-[0_18px_44px_-6px_rgba(0,0,0,0.85),0_3px_10px_rgba(0,0,0,0.5)] overflow-hidden z-30 flex flex-col">
-                  <div className="px-3 py-2 text-[10px] font-bold text-zinc-500 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-700">쇼츠 선택</div>
-                  {validShorts.map((s, i) => (
-                    <a key={i} href={s.url} target="_blank" rel="noreferrer" className="px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 border-b border-zinc-100 dark:border-zinc-700 last:border-0 truncate">
-                      {s.title || `쇼츠 ${i + 1}`}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          <LinkMenu variant="icon" items={validShorts} label="쇼츠 보기" menuTitle="쇼츠" tone="red" icon={<ShortsIcon className="w-4.5 h-4.5" />} onOpen={() => noteInterest(interest, 'engage')} />
           {shareText && (
             <ShareButton getText={shareText} title={`${title} 정보`} className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl" />
           )}

@@ -6,6 +6,8 @@ import { cleanShortsTitle } from '../../utils/videoSearch';
 import { GlassPlayButton, PlaySquare, YoutubeLogo } from './MediaIcons';
 import { ShortsPlayer } from './ShortsPlayer';
 import { ShareButton } from './ShareButton';
+import { useInterestTracker, noteInterest } from '../../hooks/useInterestTracker';
+import type { InterestItem } from '../../utils/interest';
 import { formatShortsShareText } from '../../utils/shareUtils';
 
 /**
@@ -27,15 +29,18 @@ export interface ShortsCardProps {
   onPlay?: () => void;
   /** 공유 글 (없으면 쇼츠 제목·링크와 생방송·편집본 링크로) */
   shareText?: () => string;
+  /** 맞춤 추천용 관심 기록 */
+  interest?: InterestItem;
 }
 
-export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editUrl, className, onPlay, shareText }: ShortsCardProps) {
+export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editUrl, className, onPlay, shareText, interest }: ShortsCardProps) {
+  const trackRef = useInterestTracker<HTMLDivElement>(interest || null);
   const ytId = extractYoutubeId(url);
   const [playing, setPlaying] = useState(false);
   const label = cleanShortsTitle(title) || '유튜브 쇼츠';
 
   return (
-    <div className={cn('flex flex-col min-w-0', className)}>
+    <div ref={trackRef} className={cn('flex flex-col min-w-0', className)}>
       <div className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-zinc-900 shadow-sm">
         {playing && ytId ? (
           <>
@@ -58,7 +63,7 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
         ) : ytId ? (
           <button
             type="button"
-            onClick={() => (onPlay ? onPlay() : setPlaying(true))}
+            onClick={() => { noteInterest(interest, 'play'); if (onPlay) onPlay(); else setPlaying(true); }}
             className="group/short absolute inset-0 w-full h-full cursor-pointer"
             aria-label={`${label} 재생`}
           >
@@ -99,6 +104,7 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
           compact
           className="-mr-1 -mt-0.5"
           title={`${label} 정보`}
+          onShare={() => noteInterest(interest, 'engage')}
           getText={shareText || (() => formatShortsShareText({ title: label, url: ytId ? `https://www.youtube.com/shorts/${ytId}` : url, liveUrl, editUrl }))}
         />
       </div>
@@ -138,12 +144,12 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
 }
 
 /** 가로로 넘겨 보는 쇼츠 선반 (좁은 패널에서도 카드 폭을 일정하게 유지) */
-export function ShortsShelf({ items }: { items: { url: string; title?: string; caption?: string; liveUrl?: string; editUrl?: string }[] }) {
+export function ShortsShelf({ items }: { items: { url: string; title?: string; caption?: string; liveUrl?: string; editUrl?: string; interest?: InterestItem }[] }) {
   const [playerAt, setPlayerAt] = useState<number | null>(null);
   return (
     <div className="-mx-1 px-1 flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 no-scrollbar">
       {items.map((s, i) => (
-        <ShortsCard key={`${s.url}-${i}`} url={s.url} title={s.title} caption={s.caption} liveUrl={s.liveUrl} editUrl={s.editUrl} onPlay={() => setPlayerAt(i)} className="w-[136px] sm:w-[150px] shrink-0 snap-start" />
+        <ShortsCard key={`${s.url}-${i}`} url={s.url} title={s.title} caption={s.caption} liveUrl={s.liveUrl} editUrl={s.editUrl} interest={s.interest} onPlay={() => setPlayerAt(i)} className="w-[136px] sm:w-[150px] shrink-0 snap-start" />
       ))}
       {playerAt !== null && <ShortsPlayer items={items} startIndex={playerAt} onClose={() => setPlayerAt(null)} />}
     </div>
