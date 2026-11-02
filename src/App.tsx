@@ -31,7 +31,7 @@ import { TermsRevisionModal } from './components/TermsRevisionModal';
 import { FloatingBottomNav } from './components/FloatingBottomNav';
 import { CurrentProbability } from './components/CurrentProbability';
 import { LoadingScreen } from './components/LoadingScreen';
-import { AFTER_INSTALL_KEY, OPEN_SETUP_EVENT, isStandaloneMode, type GuideKind } from './utils/setupStatus';
+import { AFTER_INSTALL_KEY, OPEN_SETUP_EVENT, isStandaloneMode, type GuideKind, type SetupMode } from './utils/setupStatus';
 import { cn, useBodyScrollLock, resetBodyScrollLock } from './utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -151,9 +151,9 @@ function MainApp() {
   // 설정 > 공지사항: 지난 공지까지 카드 목록으로
   const [showNoticesPage, setShowNoticesPage] = useState(false);
   // 앱 설치 · 알림 · 캘린더 안내 (어디서든 openSetupGuide() 로 열림)
-  const [setupGuide, setSetupGuide] = useState<{ kind?: GuideKind } | null>(null);
+  const [setupGuide, setSetupGuide] = useState<{ kind?: GuideKind; mode?: SetupMode } | null>(null);
   useEffect(() => {
-    const on = (e: Event) => setSetupGuide({ kind: (e as CustomEvent).detail?.kind });
+    const on = (e: Event) => setSetupGuide({ kind: (e as CustomEvent).detail?.kind, mode: (e as CustomEvent).detail?.mode });
     window.addEventListener(OPEN_SETUP_EVENT, on);
     return () => window.removeEventListener(OPEN_SETUP_EVENT, on);
   }, []);
@@ -521,6 +521,7 @@ function MainApp() {
   }, [activeTab]);
 
   const handleTabChangeRef = useRef<(t: Tab) => void>(() => {});
+  const closeSettingsRef = useRef<(() => void) | null>(null);
   const handleTabChange = (nextTab: Tab, forceTop = false, isAuto = false) => {
     closeSettings();
     if (nextTab === activeTab && !forceTop) return;
@@ -686,6 +687,7 @@ function MainApp() {
   };
 
   handleTabChangeRef.current = (t: Tab) => handleTabChange(t);
+  closeSettingsRef.current = () => { if (isSettingsOpen) closeSettings(); };
 
   if (loading || isLoggingOut) {
     return (
@@ -1339,7 +1341,7 @@ function MainApp() {
       <AnimatePresence>
         {setupGuide && (
           <Suspense fallback={null}>
-            <SetupGuides key="setup-guides" initial={setupGuide.kind} onClose={() => setSetupGuide(null)} />
+            <SetupGuides key="setup-guides" initial={setupGuide.kind} mode={setupGuide.mode} onClose={() => setSetupGuide(null)} />
           </Suspense>
         )}
       </AnimatePresence>
@@ -1364,6 +1366,7 @@ function MainApp() {
         autoStart={data.system?.onboardingEnabled === false}
         activeTab={activeTab}
         onTabChange={(t) => handleTabChangeRef.current(t)}
+        onCloseSettings={() => closeSettingsRef.current?.()}
       />
 
       <FloatingBottomNav 

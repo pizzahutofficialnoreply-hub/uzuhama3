@@ -355,7 +355,7 @@ export function SettingsView({
           </div>
 
           {/* 알림 설정 */}
-          <div>
+          <div data-tour="settings-notify">
             <button 
               type="button"
               onClick={() => setActiveSection(activeSection === 'notification' ? null : 'notification')}
@@ -809,6 +809,7 @@ export function SettingsView({
           {onOpenSetup && (
             <button
               type="button"
+              data-tour="settings-setup"
               onClick={onOpenSetup}
               className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
             >

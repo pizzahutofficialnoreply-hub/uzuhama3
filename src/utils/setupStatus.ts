@@ -13,8 +13,15 @@ export const CALENDAR_SUBSCRIBED_KEY = 'uzuhama_calendar_subscribed';
 /** 안드로이드처럼 브라우저와 앱이 저장 공간을 같이 쓰는 기기에서, 설치 안내를 끝내고 앱으로 처음 열었을 때 알림 켜기를 이어서 보여 주기 위한 표시 */
 export const AFTER_INSTALL_KEY = 'uzuhama_after_install_notify';
 
-export function openSetupGuide(kind?: GuideKind) {
-  window.dispatchEvent(new CustomEvent(OPEN_SETUP_EVENT, { detail: { kind } }));
+/** mode 'after-tour': 둘러보기가 끝난 뒤 '더 알아볼까요?' (아이폰은 앱 설치 안내부터) */
+export type SetupMode = 'after-tour';
+export const INSTALL_SEEN_KEY = 'uzuhama_install_guide_seen';
+export function openSetupGuide(kind?: GuideKind, mode?: SetupMode) {
+  window.dispatchEvent(new CustomEvent(OPEN_SETUP_EVENT, { detail: { kind, mode } }));
+}
+/** 아이폰을 사파리·크롬 탭으로 보고 있는지 (설치해야 알림을 받을 수 있는 상태) */
+export function needsIOSInstall(): boolean {
+  return isIOSDevice() && !isStandaloneMode();
 }
 
 export function isIOSDevice(): boolean {

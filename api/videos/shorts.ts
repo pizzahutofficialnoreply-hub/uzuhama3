@@ -139,26 +139,6 @@ export default async function handler(req: any, res: any) {
     const { db, verifyAdmin } = await import('../_firebase.js');
     // ?kind=related → 쇼츠마다 아래에 연결된 일반 영상 (유튜브 쇼츠 화면 기준)
     if (String(req.query?.kind || '') === 'related') return await handleRelated(db, req, res);
-    if (String(req.query?.kind || '') === 'verify-related') { // (임시) 저장된 연결과 관리자 기록 비교
-      const map = ((await db.collection('youtube_cache').doc('shorts_related').get()).data()?.map || {}) as Record<string, string>;
-      const yid = (u: string) => (/(?:v=|youtu\.be\/|shorts\/|live\/|embed\/)([\w-]{11})/.exec(u || '') || [])[1];
-      const editedLog = new Map<string, string>();
-      const rows: any[] = [];
-      const logs: any[] = [];
-      (await db.collection('logs_by_month').get()).forEach((d: any) => logs.push(...Object.values(d.data()?.items || {})));
-      logs.forEach((l: any) => (l.edited || []).forEach((e: any) => { const id = yid(e.url); if (id && !e.isCompilation && !e.compilationId) editedLog.set(id, l.date); }));
-      logs.forEach((l: any) => (l.shorts || []).forEach((x: any) => {
-        const sid = yid(x.url); if (!sid || !(sid in map)) return;
-        const rel = map[sid];
-        rows.push({ sid, date: l.date, rel, relDate: rel ? editedLog.get(rel) || null : null });
-      }));
-      const withRel = rows.filter((r) => r.rel);
-      const sameDay = withRel.filter((r) => r.relDate === r.date);
-      const otherDay = withRel.filter((r) => r.relDate && r.relDate !== r.date);
-      const notInLogs = withRel.filter((r) => !r.relDate);
-      const unlinkedAuto = Object.entries(map).filter(([sid, rel]) => rel && !rows.some((r) => r.sid === sid) && editedLog.has(rel)).length;
-      return res.status(200).json({ recordedShorts: rows.length, withRelated: withRel.length, sameBroadcast: sameDay.length, otherBroadcast: otherDay, relatedNotInLogs: notInLogs.length, newlyLinkableShorts: unlinkedAuto });
-    }
     // ?kind=uploads → 채널의 일반 영상 전체 (사이트 기록에 없는 영상도 홈에 보이게)
     const kind = String(req.query?.kind || '') === 'uploads' ? 'uploads' : 'shorts';
     const itemsCol = kind === 'uploads' ? 'youtube_uploads_items' : 'youtube_shorts_items';

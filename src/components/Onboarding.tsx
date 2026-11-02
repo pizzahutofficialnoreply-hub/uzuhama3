@@ -64,17 +64,13 @@ export const DEFAULT_ONBOARDING: OnboardingConfig = {
     {
       id: 'intro', type: 'intro', title: '이렇게 쓰면 돼요',
       body: '- **요약**: 오늘 방송 확률과 켜질 만한 시간\n- **기록**: 날짜별 방송·게임·다시보기 달력\n- **분석**: 요일·시간대·방송 길이 통계\n- **검색**: 편집본·쇼츠·재생목록 찾아보기',
-      button: '다음',
+      button: '시작해볼까요?',
     },
-    SETUP_STEP,
   ],
 };
 
-/** 관리자가 만든 단계에 '준비하기'가 없으면 맨 끝에 붙임 */
-function withSetup(c: OnboardingConfig): OnboardingConfig {
-  if (c.steps.some((s) => s.type === 'setup')) return c;
-  return { ...c, steps: [...c.steps, SETUP_STEP] };
-}
+/** 앱 설치·알림·캘린더 안내는 둘러보기가 끝난 뒤 '더 알아볼까요?' 로 보여 줌 (관리자가 '준비하기' 단계를 넣었으면 그대로 씀) */
+const withSetup = (c: OnboardingConfig): OnboardingConfig => c;
 
 const fillPlaceholders = (text: string, system: any) =>
   String(text || '')
@@ -163,6 +159,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
       setConfig(withSetup(preview?.steps?.length ? preview : DEFAULT_ONBOARDING));
       setIndex(0);
       setAgreed({});
+      finishedRef.current = false;
       setOpen(true);
     };
     window.addEventListener(ONBOARDING_START_EVENT, start);
@@ -182,7 +179,8 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
   const steps = useMemo(() => {
     const all = config?.steps || [];
     if (!standalone || preview) return all;
-    const short = all.filter((s) => s.type === 'terms' || s.type === 'setup')
+    const base = all.some((s) => s.type === 'setup') ? all : [...all, SETUP_STEP];
+    const short = base.filter((s) => s.type === 'terms' || s.type === 'setup')
       .map((s) => (s.type === 'setup' ? { ...s, title: '앱으로 열었어요', body: '이제 방송 알림을 켤 수 있어요. 아래에서 눌러 켜 주세요.' } : s));
     return short.length ? short : all;
   }, [config, standalone, preview]);
@@ -195,8 +193,11 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
     return (step.sections || []).every((s) => !s.required || agreed[s.id]);
   }, [step, agreed]);
 
+  const finishedRef = React.useRef(false);
   const finish = (startTour: boolean) => {
     if (preview) { setOpen(false); return; }
+    if (finishedRef.current) return; // 두 번 눌러도 한 번만
+    finishedRef.current = true;
     try {
       localStorage.setItem(ONBOARDING_DONE_KEY, String(version));
       localStorage.setItem('uzuhama_terms_agreed_at', new Date().toISOString());
@@ -206,6 +207,8 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
       window.setTimeout(() => window.dispatchEvent(new Event(TUTORIAL_START_EVENT)), 500);
     } else {
       try { localStorage.setItem(TUTORIAL_DONE_KEY, '1'); } catch { /* 무시 */ }
+      // 둘러보기를 건너뛰어도 '더 알아볼까요?' 는 보여 줌 (앱으로 연 상태면 이미 알림 안내를 봤으니 생략)
+      if (!standalone) window.setTimeout(() => openSetupGuide(undefined, 'after-tour'), 450);
     }
   };
 

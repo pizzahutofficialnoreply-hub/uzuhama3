@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, Check, Pointer } from 'lucide-react';
 import type { Tab } from '../types';
+import { INSTALL_SEEN_KEY, needsIOSInstall, openSetupGuide } from '../utils/setupStatus';
 
 /**
  * 처음 방문한 사람을 위한 둘러보기
@@ -28,7 +29,20 @@ type Step = {
    * (아무 곳이나 눌러 넘기는 일반 단계와 구분)
    */
   action?: { hint: string; done: (ctx: { activeTab: Tab }) => boolean; reset?: () => void };
+  /** 설정 패널처럼 안쪽에서 스크롤되는 곳의 요소: 그 상자 안에서 보이게 스크롤 */
+  scrollIntoView?: boolean;
+  /** 말풍선 안의 버튼 (예: 설치 방법 보기, 알림 켜기) */
+  extra?: { label: string; onClick: () => void };
+  /** 이 단계에 들어오면 설정 패널을 닫음 */
+  closeSettings?: boolean;
 };
+
+// 같은 요소가 모바일·PC 용으로 두 번 있을 수 있어서, 화면에 보이는 것만 봄
+const visible = (sel: string) => [...document.querySelectorAll<HTMLElement>(sel)].some((el) => {
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
+});
+const IOS_INSTALL_FIRST = needsIOSInstall();
 
 const detailsOpen = () => document.querySelector('[data-tour="prob-details"]')?.getAttribute('aria-expanded') === 'true';
 const closeDetails = () => {
@@ -123,17 +137,43 @@ const STEPS: Step[] = [
     scrollTop: true,
   },
   {
-    id: 'settings',
-    title: '알림 받기',
-    body: '설정에서 방송 시작 알림과 "오늘 유력 시간 몇 분 전" 알림을 켤 수 있어요. 이 둘러보기도 설정에서 다시 볼 수 있어요.',
+    id: 'settings-try',
+    title: '마지막으로 설정',
+    body: '',
     target: { mobile: '#header-settings-btn', desktop: '#header-settings-btn' },
-    tab: 'recommend',
+    tab: 'summary',
     scrollTop: true,
+    action: { hint: '오른쪽 위 톱니바퀴(설정)를 눌러 보세요', done: () => visible('[data-tour="settings-notify"]') },
+  },
+  IOS_INSTALL_FIRST
+    ? {
+        id: 'settings-notify',
+        title: '아이폰은 앱 설치가 먼저예요',
+        body: '아이폰은 홈 화면에 추가한 앱에서만 방송 알림이 와요. 설치하고 그 앱으로 열면 여기서 알림을 켤 수 있어요.',
+        target: { mobile: '[data-tour="settings-notify"]', desktop: '[data-tour="settings-notify"]' },
+        scrollIntoView: true,
+        extra: { label: '설치 방법 보기', onClick: () => { try { sessionStorage.setItem(INSTALL_SEEN_KEY, '1'); } catch { /* 무시 */ } openSetupGuide('install'); } },
+      }
+    : {
+        id: 'settings-notify',
+        title: '여기서 알림을 켜요',
+        body: '방송 시작, 휴방 공지, 오늘 유력 시간 몇 분 전 알림을 골라서 켤 수 있어요.',
+        target: { mobile: '[data-tour="settings-notify"]', desktop: '[data-tour="settings-notify"]' },
+        scrollIntoView: true,
+        extra: { label: '지금 알림 켜기', onClick: () => openSetupGuide('notify') },
+      },
+  {
+    id: 'settings-setup',
+    title: '안내는 여기서 다시',
+    body: '앱 설치 · 알림 · 캘린더 등록 안내는 언제든 여기서 다시 볼 수 있어요. 바로 아래에서 이 둘러보기도 다시 볼 수 있어요.',
+    target: { mobile: '[data-tour="settings-setup"]', desktop: '[data-tour="settings-setup"]' },
+    scrollIntoView: true,
   },
   {
     id: 'done',
     title: '준비 끝!',
     body: '이제 편하게 둘러보세요. 방송 켜지는 날 같이 기다려요.',
+    closeSettings: true,
   },
 ];
 
@@ -146,8 +186,7 @@ function findTarget(step: Step, isMobile: boolean): HTMLElement | null {
   const sel = isMobile ? step.target?.mobile : step.target?.desktop;
   if (!sel) return null;
   for (const one of sel.split(',').map((s) => s.trim())) {
-    const el = document.querySelector<HTMLElement>(one);
-    if (el) {
+    for (const el of document.querySelectorAll<HTMLElement>(one)) {
       const r = el.getBoundingClientRect();
       if (r.width > 0 && r.height > 0) return el;
     }
@@ -169,14 +208,16 @@ function isOtherOverlayOpen(root: HTMLElement | null) {
   return false;
 }
 
-export function Tutorial({ enabled, activeTab, onTabChange, autoStart = true }: {
+export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, autoStart = true }: {
   enabled: boolean;
+  onCloseSettings?: () => void;
   /** false 면 스스로 시작하지 않음 (처음 시작 화면이 끝날 때 시작시킴) */
   autoStart?: boolean;
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
 }) {
   const [running, setRunning] = useState(false);
+  const runningRef = useRef(false);
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
   const [vp, setVp] = useState({ w: typeof window !== 'undefined' ? window.innerWidth : 390, h: typeof window !== 'undefined' ? window.innerHeight : 844 });
@@ -187,6 +228,11 @@ export function Tutorial({ enabled, activeTab, onTabChange, autoStart = true }: 
   activeTabRef.current = activeTab;
   const [actionDone, setActionDone] = useState(false);
   const [nudgeKey, setNudgeKey] = useState(0);
+  // 처음 보는 둘러보기인지 (끝나면 '더 알아볼까요?' 를 이어서 보여 줌)
+  const firstRunRef = useRef(false);
+  // 강조 칸: 단계가 바뀔 때만 부드럽게 옮기고, 스크롤 등으로 따라갈 때는 바로 붙음
+  const [settling, setSettling] = useState(true);
+  runningRef.current = running;
   const isMobile = vp.w < 640;
   const step = STEPS[index];
 
@@ -201,6 +247,8 @@ export function Tutorial({ enabled, activeTab, onTabChange, autoStart = true }: 
       calm = isOtherOverlayOpen(rootRef.current) ? 0 : calm + 1;
       if (calm >= 3) { // 약 0.9초 동안 팝업 없음
         window.clearInterval(id);
+        if (runningRef.current) return;
+        firstRunRef.current = true;
         originalTabRef.current = activeTab;
         setIndex(0);
         setRunning(true);
@@ -212,6 +260,9 @@ export function Tutorial({ enabled, activeTab, onTabChange, autoStart = true }: 
   // 설정의 '둘러보기 다시 보기'
   useEffect(() => {
     const start = () => {
+      // 이미 진행 중이면 무시 (시작 신호가 두 번 오면 첫 단계로 되돌아가 '다음'이 안 먹는 것처럼 보였음)
+      if (runningRef.current) return;
+      try { firstRunRef.current = localStorage.getItem(TUTORIAL_DONE_KEY) !== '1'; } catch { firstRunRef.current = false; }
       originalTabRef.current = activeTab;
       setIndex(0);
       setRunning(true);
@@ -231,18 +282,22 @@ export function Tutorial({ enabled, activeTab, onTabChange, autoStart = true }: 
     demoTimers.current = [];
   }, []);
 
-  const finish = useCallback(() => {
+  const finish = useCallback((completed = false) => {
     clearDemo();
     try { localStorage.setItem(TUTORIAL_DONE_KEY, '1'); } catch {}
     setRunning(false);
     setRect(null);
+    onCloseSettings?.();
     onTabChange(originalTabRef.current === 'recommend' ? 'summary' : originalTabRef.current);
-  }, [clearDemo, onTabChange]);
+    // 처음 둘러보기를 끝까지 봤으면 '더 알아볼까요?' (아이폰은 앱 설치 안내부터)
+    if (completed && firstRunRef.current) window.setTimeout(() => openSetupGuide(undefined, 'after-tour'), 450);
+    firstRunRef.current = false;
+  }, [clearDemo, onTabChange, onCloseSettings]);
 
   const next = useCallback(() => {
     clearDemo();
     setIndex((i) => {
-      if (i >= STEPS.length - 1) { window.setTimeout(finish, 0); return i; }
+      if (i >= STEPS.length - 1) { window.setTimeout(() => finish(true), 0); return i; }
       return i + 1;
     });
   }, [clearDemo, finish]);
@@ -257,6 +312,10 @@ export function Tutorial({ enabled, activeTab, onTabChange, autoStart = true }: 
     if (!running) return;
     setRect(null);
     setActionDone(false);
+    setSettling(true);
+    const settle = window.setTimeout(() => setSettling(false), 650);
+    demoTimers.current.push(settle as unknown as number);
+    if (step.closeSettings) onCloseSettings?.();
     if (step.tab) onTabChange(step.tab);
     step.action?.reset?.();
     if (!step.target) return;
@@ -272,6 +331,13 @@ export function Tutorial({ enabled, activeTab, onTabChange, autoStart = true }: 
       }
       const isFixed = (() => { let n: HTMLElement | null = el; while (n) { if (getComputedStyle(n).position === 'fixed') return true; n = n.parentElement; } return false; })();
       // 대상이 화면 밖에 있으면 보이는 곳으로 (탭 전환 뒤 스크롤 복원이 늦게 와도 다시 맞춤)
+      if (step.scrollIntoView) {
+        // 설정 패널 안쪽처럼 따로 스크롤되는 상자: 그 상자 안에서 가운데로
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        const again = window.setTimeout(() => { if (!cancelled) (findTarget(step, isMobile) || el).scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 500);
+        demoTimers.current.push(again as unknown as number);
+        return;
+      }
       const ensureVisible = () => {
         if (cancelled || isFixed) return;
         const cur = findTarget(step, isMobile) || el;
@@ -336,7 +402,7 @@ export function Tutorial({ enabled, activeTab, onTabChange, autoStart = true }: 
   useEffect(() => {
     if (!running) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') finish();
+      if (e.key === 'Escape') finish(false);
       else if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); next(); }
       else if (e.key === 'ArrowLeft') prev();
     };
@@ -401,7 +467,7 @@ export function Tutorial({ enabled, activeTab, onTabChange, autoStart = true }: 
               <motion.rect
                 initial={false}
                 animate={{ x: rect.x, y: rect.y, width: rect.w, height: rect.h, rx: rect.r }}
-                transition={SPRING}
+                transition={settling ? SPRING : { duration: 0 }}
                 fill="black"
               />
             )}
@@ -423,7 +489,7 @@ export function Tutorial({ enabled, activeTab, onTabChange, autoStart = true }: 
           className="absolute pointer-events-none"
           initial={false}
           animate={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h, borderRadius: rect.r }}
-          transition={SPRING}
+          transition={settling ? SPRING : { duration: 0 }}
         >
           <div className="absolute inset-0 rounded-[inherit] ring-2 ring-white/90 shadow-[0_0_0_4px_rgba(168,85,247,0.45)]" />
           <motion.div
@@ -459,12 +525,17 @@ export function Tutorial({ enabled, activeTab, onTabChange, autoStart = true }: 
             )}
             <div className="flex items-start justify-between gap-2">
               <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400 tabular-nums">{index + 1} / {total}</p>
-              <button type="button" onClick={finish} className="-mt-2 -mr-2 w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" aria-label="둘러보기 닫기">
+              <button type="button" onClick={() => finish(false)} className="-mt-2 -mr-2 w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" aria-label="둘러보기 닫기">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <h3 className="mt-0.5 text-base sm:text-lg font-extrabold leading-snug break-keep">{step.title}</h3>
             {step.body && <p className="mt-1.5 text-[13px] sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line break-keep">{step.body}</p>}
+            {step.extra && (
+              <button type="button" onClick={step.extra.onClick} className="mt-3 w-full h-10 rounded-xl bg-purple-600/10 dark:bg-purple-400/15 text-purple-700 dark:text-purple-200 text-[13px] font-bold cursor-pointer active:scale-[0.98] transition">
+                {step.extra.label}
+              </button>
+            )}
             {step.action && (
               <div className={`mt-2.5 flex items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-bold transition-colors ${actionDone ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300'}`}>
                 {actionDone ? <Check className="w-4 h-4 shrink-0" /> : <Pointer className="w-4 h-4 shrink-0 animate-bounce" />}
@@ -479,7 +550,7 @@ export function Tutorial({ enabled, activeTab, onTabChange, autoStart = true }: 
                     이전
                   </button>
                 )}
-                <button type="button" onClick={index < total - 1 ? next : finish} className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer ${isAction ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}>
+                <button type="button" onClick={index < total - 1 ? next : () => finish(true)} className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer ${isAction ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}>
                   {index === 0 ? '둘러보기 시작' : isAction ? '넘어가기' : index < total - 1 ? '다음' : '시작하기'}
                 </button>
               </div>

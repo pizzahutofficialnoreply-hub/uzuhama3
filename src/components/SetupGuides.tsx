@@ -8,7 +8,7 @@ import { cn } from '../utils';
 import { usePushNotification } from '../hooks/usePushNotification';
 import {
   AFTER_INSTALL_KEY, CALENDAR_SUBSCRIBED_KEY, DEVICE_LABEL, calendarSubscribed, deferredInstallPrompt, detectDevice, isIOSDevice,
-  isStandaloneMode, notificationPermission, detectedSummary, type DeviceKey, type GuideKind,
+  isStandaloneMode, notificationPermission, detectedSummary, needsIOSInstall, INSTALL_SEEN_KEY, type DeviceKey, type GuideKind, type SetupMode,
 } from '../utils/setupStatus';
 
 /**
@@ -569,7 +569,7 @@ function SlideView({ slides, index, setIndex }: { slides: Slide[]; index: number
         if (dx > 50 && index > 0) setIndex(index - 1);
       }}
     >
-      <div className="shrink-0 h-[clamp(200px,46dvh,410px)] flex items-center justify-center py-3">
+      <div className="shrink-0 h-[clamp(170px,42dvh,410px)] flex items-center justify-center py-3">
         <AnimatePresence mode="wait">
           <motion.div key={index + s.title} initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.22 }} className="h-full w-full flex items-center justify-center">
             {s.mock}
@@ -608,7 +608,7 @@ function StepNav({ index, total, setIndex, last }: { index: number; total: numbe
 
 const INSTALL_DEVICES: DeviceKey[] = ['ios-safari', 'ios-safari-18', 'ios-chrome', 'ios-inapp', 'android-chrome', 'android-samsung', 'android-inapp', 'desktop-chrome', 'desktop-safari'];
 
-function InstallGuide({ onDone, onNotify }: { onDone: () => void; onNotify: () => void }) {
+function InstallGuide({ onDone, onNotify, must }: { onDone: () => void; onNotify: () => void; /** 둘러보기 뒤 아이폰: 설치가 꼭 필요하다는 안내를 위에 */ must?: boolean }) {
   const [device, setDevice] = useState<DeviceKey>(() => (detectDevice() === 'desktop-other' ? 'desktop-chrome' : detectDevice()));
   const [index, setIndex] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -617,6 +617,7 @@ function InstallGuide({ onDone, onNotify }: { onDone: () => void; onNotify: () =
   const standalone = isStandaloneMode();
   const bip = deferredInstallPrompt();
   useEffect(() => setIndex(0), [device]);
+  useEffect(() => { try { sessionStorage.setItem(INSTALL_SEEN_KEY, '1'); } catch { /* 무시 */ } }, []);
 
   if (standalone) {
     return (
@@ -652,6 +653,12 @@ function InstallGuide({ onDone, onNotify }: { onDone: () => void; onNotify: () =
 
   return (
     <>
+      {must && (
+        <div className="mb-3 rounded-2xl bg-purple-600 text-white px-4 py-2.5">
+          <p className="text-[13px] font-black">아이폰은 앱 설치가 꼭 필요해요</p>
+          <p className="text-[11px] leading-snug text-white/85 break-keep">홈 화면에 추가한 앱에서만 방송 알림이 와요. 1분이면 끝나요.</p>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2">
         <DevicePicker value={device} onChange={setDevice} options={INSTALL_DEVICES} />
       </div>
@@ -1119,8 +1126,14 @@ export function SetupItemList({ items, onOpen }: { items: SetupItem[]; onOpen: (
 const TITLES: Record<GuideKind, string> = { install: '앱으로 설치하기', notify: '방송 알림 받기', calendar: '캘린더에 넣기' };
 
 /** 화면 전체를 덮는 안내 (initial 이 없으면 세 가지 모음부터) */
-export default function SetupGuides({ initial, onClose }: { initial?: GuideKind; onClose: () => void }) {
-  const [kind, setKind] = useState<GuideKind | null>(initial || null);
+export default function SetupGuides({ initial, mode, onClose }: { initial?: GuideKind; mode?: SetupMode; onClose: () => void }) {
+  const afterTour = mode === 'after-tour';
+  // 둘러보기 뒤: 아이폰(사파리 탭)이고 아직 설치 안내를 안 봤으면 설치부터, 끝나면 '더 알아볼까요?'
+  const [iosFirst] = useState(() => {
+    if (!afterTour || initial || !needsIOSInstall()) return false;
+    try { return sessionStorage.getItem(INSTALL_SEEN_KEY) !== '1'; } catch { return true; }
+  });
+  const [kind, setKind] = useState<GuideKind | null>(initial || (iosFirst ? 'install' : null));
   const fromHub = useRef(!initial);
   const items = useSetupItems();
 
@@ -1153,18 +1166,22 @@ export default function SetupGuides({ initial, onClose }: { initial?: GuideKind;
           <button type="button" onClick={back} className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer" aria-label={kind && fromHub.current ? '뒤로' : '닫기'}>
             {kind && fromHub.current ? <ArrowLeft className="w-5 h-5" /> : <X className="w-5 h-5" />}
           </button>
-          <h2 className="text-base font-black tracking-tight">{kind ? TITLES[kind] : '앱 설치 · 알림 · 캘린더'}</h2>
+          <h2 className="text-base font-black tracking-tight">{kind ? TITLES[kind] : afterTour ? '더 알아볼까요?' : '앱 설치 · 알림 · 캘린더'}</h2>
         </div>
       </header>
       <div className="flex-1 min-h-0 max-w-md w-full mx-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] flex flex-col">
         {kind === null && (
           <div className="pt-2">
-            <p className="text-sm text-zinc-600 dark:text-zinc-300 break-keep">필요한 것만 골라서 해 보세요. 실제 화면을 따라 한 단계씩 알려 드려요.</p>
+            {afterTour && <h3 className="text-2xl font-black tracking-tight mb-2">더 알아볼까요?</h3>}
+            <p className="text-sm text-zinc-600 dark:text-zinc-300 break-keep">{afterTour ? '둘러보기는 끝났어요. 더 편하게 쓰고 싶다면 필요한 것만 골라 보세요. 실제 화면을 따라 한 단계씩 알려 드려요.' : '필요한 것만 골라서 해 보세요. 실제 화면을 따라 한 단계씩 알려 드려요.'}</p>
             <p className="mt-2 mb-4 inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-600/10 dark:bg-purple-400/15 rounded-full px-3 py-1.5"><Smartphone className="w-3.5 h-3.5" /> 지금 기기: {detectedSummary()}</p>
-            <SetupItemList items={items} onOpen={open} />
+            <SetupItemList items={afterTour && needsIOSInstall() ? [...items.filter((i) => i.kind === 'install'), ...items.filter((i) => i.kind !== 'install')] : items} onOpen={open} />
+            {afterTour && (
+              <button type="button" onClick={close} className="mt-6 w-full h-12 rounded-2xl text-sm font-bold text-zinc-500 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">괜찮아요, 바로 쓸게요</button>
+            )}
           </div>
         )}
-        {kind === 'install' && <InstallGuide onDone={back} onNotify={() => open('notify')} />}
+        {kind === 'install' && <InstallGuide must={iosFirst} onDone={back} onNotify={() => open('notify')} />}
         {kind === 'notify' && <NotifyGuide onInstall={() => open('install')} onDone={back} />}
         {kind === 'calendar' && <CalendarGuide onDone={back} />}
       </div>
