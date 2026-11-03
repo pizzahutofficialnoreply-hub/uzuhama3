@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { LazyInput } from '../common/LazyInput';
-import { GAME_ALIASES, autoAliases, groupWeights, hasTerm, isHit, isNaturalQuery, makeDoc, planQuery, scoreDoc, textHits, type SearchDoc } from '../../utils/searchPlan';
+import { SaveButton } from '../common/SaveButton';
+import { type Intent, CONCEPTS, GAME_ALIASES, autoAliases, groupWeights, hasTerm, isHit, isNaturalQuery, makeDoc, planQuery, scoreDoc, textHits, type SearchDoc } from '../../utils/searchPlan';
 import { RefreshCw, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Star, CheckCircle, Search, Filter, Cloud, CloudDownload, X, Loader2, AlertCircle, AlertTriangle, Calendar, Layers, Play, Sparkles, Clock } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
@@ -27,6 +28,8 @@ import { ViewStyleToggle } from '../common/ViewStyleToggle';
 import { useViewStyle } from '../../hooks/useViewStyle';
 import { YoutubeLogo, ShortsIcon, PlaySquare, GlassPlayButton } from '../common/MediaIcons';
 import { PlaylistsFeed } from './recommend/PlaylistsFeed';
+import { MyPlaylists } from './recommend/MyPlaylists';
+import { currentSeason, isSeasonDate, type Season } from '../../utils/seasonal';
 import { usePlaylists } from '../../hooks/usePlaylists';
 import { useChannelVideos } from '../../hooks/useChannelVideos';
 import { useRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from '../../hooks/useRecentSearches';
@@ -360,6 +363,13 @@ export const VideoCard = ({
           <a href={video.videoUrl} target="_blank" rel="noreferrer" className={cn("font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex-1", isCompact ? "text-xs sm:text-base" : "text-sm sm:text-base")}>
             {video.videoTitle}
           </a>
+          <SaveButton
+            id={extractYoutubeId(video.videoUrl) || ''}
+            kind={video.isLive ? 'live' : 'video'}
+            title={video.videoTitle || ''}
+            compact={isCompact}
+            className={isCompact ? '-mr-1' : '-mr-1.5 -mt-0.5'}
+          />
           <button
             type="button"
             onClick={handleShare}
@@ -1242,6 +1252,15 @@ export function RecommendTab({
     return m;
   }, [shortsRelated, channelShorts]);
 
+  // 고유명사: 게임 이름(과 그 안의 단어)·줄임말·계절·분위기 말은 오타로 보고 고치지 않음
+  const isProperNoun = useMemo(() => {
+    const set = new Set<string>();
+    const add = (t: string) => { const k = squash(t); if (k.length >= 2) set.add(k); };
+    knownGameNames.forEach((n) => { add(n); n.split(/[\s:()\[\]\-,]+/).forEach(add); });
+    Object.entries(GAME_ALIASES).forEach(([k, v]) => { add(k); v.forEach(add); });
+    CONCEPTS.forEach((c) => { add(c.key); c.words.forEach(add); c.expand.forEach(add); });
+    return (w: string) => set.has(w);
+  }, [knownGameNames]);
   // 사용자가 '원래 검색어로' 를 누르면 그 검색어는 고치지 않음
   const [keepOriginalFor, setKeepOriginalFor] = useState<string | null>(null);
   const correction: Correction | null = useMemo(() => {
@@ -1253,8 +1272,8 @@ export function RecommendTab({
     // 줄임말("배그")은 고치지 않음
     if (prefs.searchAlias !== false && GAME_ALIASES[squash(raw)]) return null;
     if (/^\d{1,4}([./-]\d{1,2}){0,2}$/.test(raw) || /\d+\s*월/.test(raw)) return null; // 날짜 검색은 그대로
-    return correctQuery(raw, searchVocab, keyboard);
-  }, [searchTerm, searchVocab, keyboard, keepOriginalFor, prefs.searchTypo, prefs.searchNatural, prefs.searchAlias]);
+    return correctQuery(raw, searchVocab, keyboard, isProperNoun);
+  }, [searchTerm, searchVocab, keyboard, keepOriginalFor, prefs.searchTypo, prefs.searchNatural, prefs.searchAlias, isProperNoun]);
   // 확실한 보정(한/영 전환, 아주 가까운 오타)은 바로 그 검색어로 찾고, 애매하면 '혹시 ~?' 로 제안만
   const autoCorrected = correction && (correction.how === 'hanyeong' || correction.cost <= 0.25) ? correction : null;
   const suggestion = correction && !autoCorrected ? correction : null;
@@ -1308,11 +1327,20 @@ export function RecommendTab({
     if (/^\d{1,4}([./-]\d{1,2}){0,2}$/.test(t) || /^\d+\s*월(\s*\d+\s*일)?$/.test(t)) return null; // 날짜 검색은 예전 방식
     if (!sOpts.smart && !sOpts.alias && !sOpts.natural) return null;
     const plan = planQuery(t, sOpts, dfOf, aliasDict);
-    if (!plan.groups.length) return null;
+    if (!plan.groups.length && !(plan.natural && Object.keys(plan.intent).length)) return null;
     return { plan, weights: groupWeights(plan, dfOf, Math.max(1, allVideos.length)) };
   }, [effectiveSearchTerm, sOpts, dfOf, aliasDict, allVideos.length]);
   // 예전 방식(제목·초성·날짜 등)으로 찾을 말: 말하듯 썼으면 부탁하는 말을 뺀 것
   const literalTerm = planBundle?.plan.natural ? planBundle.plan.core : effectiveSearchTerm;
+  const intent: Intent = useMemo(() => (planBundle?.plan.natural ? planBundle.plan.intent : {}), [planBundle]);
+  // '수면방송 추천' → 라이브 탭, '짧은 거' → 쇼츠 탭으로 (검색어가 바뀔 때 한 번만)
+  const intentTabFor = useRef('');
+  useEffect(() => {
+    const raw = planBundle?.plan.raw || '';
+    if (!intent.tab || intentTabFor.current === raw) return;
+    intentTabFor.current = raw;
+    if (subTab !== intent.tab && subTab !== 'playlists') changeSubTab(intent.tab);
+  }, [intent, planBundle]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 최근 검색어 칩 (모든 탭 같은 모양)
   const recentChips = (divider: boolean) => (
@@ -1514,7 +1542,9 @@ export function RecommendTab({
   }, [data?.logs]);
 
   const recommendedBase = useMemo(() => {
-    const pool = subTab === 'live' ? liveVideos : allVideos;
+    // 말하듯 검색에서 '긴 영상'·'몰아보기'·'이동하면서' → 홈에서는 몰아보기와 생방송 다시보기를 함께
+    const longMode = subTab === 'home' && Boolean(intent.long);
+    const pool = subTab === 'live' ? liveVideos : longMode ? [...allVideos.filter((v) => v.isCompilation), ...liveVideos] : allVideos;
     if (pool.length === 0) return [];
     // 오타를 자동으로 고친 경우 고친 검색어로 찾음 (추천 탭은 검색과 상관없이 추천만)
     const searchTerm = subTab === 'recommend' ? '' : literalTerm;
@@ -1914,6 +1944,20 @@ export function RecommendTab({
       scoredVids.push(...main, ...rel, ...low);
     }
 
+    // 말하듯 검색의 보여 주는 방법: 긴 것 먼저 / 최근·옛날 순 (확실한 결과 묶음 안에서)
+    if (subTab !== 'recommend' && (intent.long || intent.sort)) {
+      const lengthOf = (v: any) => (v.isCompilation ? 6 + (v.allBroadcastDates?.length || 0) * 0.1 : Number(v.parentLog?.durationHours) && v.isLive ? Number(v.parentLog.durationHours) : 0);
+      const tier = (v: any) => (v.isRelated ? 2 : v.isHighConfidence || !searchTerm.trim() ? 0 : 1);
+      // 비슷하게 맞은 것끼리(점수 10점 단위)는 긴 것 / 최근·옛날 순
+      const band = (v: any) => (searchTerm.trim() || planBundle?.plan.groups.length ? Math.round((v.matchScore || 0) / 10) : 0);
+      const sorted = [...scoredVids].sort((a, b) => tier(a) - tier(b)
+        || band(b) - band(a)
+        || (intent.long ? lengthOf(b) - lengthOf(a) : 0)
+        || (intent.sort === 'desc' ? getVideoSortTime(b) - getVideoSortTime(a) : intent.sort === 'asc' ? getVideoSortTime(a) - getVideoSortTime(b) : 0));
+      scoredVids.length = 0;
+      scoredVids.push(...sorted);
+    }
+
     if (pinnedVideoId && (effectiveSortOrder === 'recommend' || !searchTerm.trim())) {
       const pinIndex = scoredVids.findIndex(v => 
         v.id === pinnedVideoId || 
@@ -1927,7 +1971,29 @@ export function RecommendTab({
     }
 
     return scoredVids;
-  }, [allVideos, categoryIndex, categories, selectedCategories, literalTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos, planBundle, docOf, chos, useRelated, sOpts]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, categoryIndex, categories, selectedCategories, literalTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos, planBundle, docOf, chos, useRelated, sOpts, intent]); // Removed ratings and history to prevent jumping on watch
+
+  // 명절 특집: 설·추석·크리스마스 무렵 홈 위쪽에 '이동하면서 보기 좋은 긴 영상' (예전 그 명절 방송 먼저, 그다음 긴 몰아보기·생방송)
+  const season = useMemo<Season | null>(() => {
+    try {
+      const p = new URLSearchParams(window.location.search).get('season'); // 미리보기: ?season=추석
+      if (p === '설날' || p === '추석' || p === '성탄절') return { key: p, title: p === '설날' ? '설 특집' : p === '추석' ? '추석 특집' : '크리스마스 특집', emoji: p === '설날' ? '🧧' : p === '추석' ? '🌕' : '🎄' };
+    } catch { /* 무시 */ }
+    return currentSeason();
+  }, []);
+  const seasonItems = useMemo(() => {
+    if (!season) return [];
+    const idOf = (v: any) => extractYoutubeId(v.videoUrl) || v.id;
+    const seen = new Set<string>();
+    const take = (v: any) => { const k = idOf(v); if (!k || seen.has(k)) return false; seen.add(k); return true; };
+    const datesOf = (v: any) => [v.parentLog?.date, ...(Array.isArray(v.allBroadcastDates) ? v.allBroadcastDates : [])].filter(Boolean);
+    const past = [...liveVideos, ...allVideos].filter((v) => datesOf(v).some((d: string) => isSeasonDate(d, season)))
+      .sort((a, b) => String(datesOf(b)[0] || '').localeCompare(String(datesOf(a)[0] || '')));
+    const hours = (v: any) => (v.isCompilation ? 6 : Number(v.parentLog?.durationHours) || 0);
+    const long = [...allVideos.filter((v) => v.isCompilation), ...liveVideos.filter((v) => hours(v) >= 2.5)]
+      .sort((a, b) => hours(b) - hours(a));
+    return [...past.filter(take).slice(0, 5), ...long.filter(take)].slice(0, 10);
+  }, [season, liveVideos, allVideos]);
 
   // 추천 탭 위쪽: 추천 쇼츠·추천 라이브 (관심 기록이 없으면 최근 것부터)
   // 탭에 들어올 때 한 번만 계산 (보는 중에 순서가 바뀌지 않게)
@@ -2104,7 +2170,10 @@ export function RecommendTab({
         </div>
       )}
       {subTab === 'playlists' ? (
-        <PlaylistsFeed searchTerm={searchTerm} logs={data?.logs} onNavigateToCalendar={onNavigateToCalendar} />
+        <>
+          <MyPlaylists searchTerm={searchTerm} />
+          <PlaylistsFeed searchTerm={searchTerm} logs={data?.logs} onNavigateToCalendar={onNavigateToCalendar} />
+        </>
       ) : (<>
       {/* 필터 카드 (최상단 배치: 실시간 연관 검색어 대신 필터가 맨 위에 위치) */}
       <div
@@ -2354,6 +2423,28 @@ export function RecommendTab({
           )}
           <h3 className="px-1 -mb-3 text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5"><YoutubeLogo className="w-4 h-4 text-zinc-500" /> 추천 영상</h3>
         </div>
+      )}
+      {season && seasonItems.length > 0 && (subTab === 'home' || subTab === 'recommend') && currentPage === 1 && !searchTerm.trim() && (
+        <section className="mb-6">
+          <h3 className="px-1 text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5">{season.emoji} {season.title} <span className="text-xs font-semibold text-zinc-400">이동하면서 보기 좋은 긴 영상</span></h3>
+          <p className="px-1 mt-0.5 mb-2 text-[11px] text-zinc-500 dark:text-zinc-400">예전 {season.key === '성탄절' ? '크리스마스' : season.key} 방송과 길게 볼 수 있는 몰아보기·생방송 다시보기를 모았어요.</p>
+          <div className="flex flex-col gap-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-1.5 sm:p-2">
+            {seasonItems.map((v) => (
+              <VideoListRow
+                key={`season-${v.id}`}
+                dense
+                videoId={extractYoutubeId(v.videoUrl) || v.id}
+                title={v.videoTitle || `${v.parentLog?.date} 생방송`}
+                href={v.videoUrl}
+                badge={[v.isCompilation ? '몰아보기' : v.isLive ? '생방송' : '', (v.parentLog?.games || []).map((g: any) => g?.name).filter(Boolean).slice(0, 2).join(', ')].filter(Boolean).join(' · ') || undefined}
+                isCompilation={v.isCompilation}
+                saveKind={v.isLive ? 'live' : 'video'}
+                interest={videoInterestItem(v)}
+                shareText={() => formatRecommendShareText(v, data?.logs)}
+              />
+            ))}
+          </div>
+        </section>
       )}
       <div id="recommend-cards-container" className="min-h-[400px]">
         {/* 보기 방식: 카드 / 목록(유튜브 동영상 탭처럼) + 모바일 카드 1개·2개씩 */}

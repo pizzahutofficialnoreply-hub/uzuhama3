@@ -295,10 +295,12 @@ export type Correction = { from: string; to: string; how: 'typo' | 'hanyeong'; c
 /**
  * 검색어 고치기: 단어마다 사전에 없으면 가장 가까운 단어로 (자판 고려). 고칠 게 없으면 null
  */
-export function correctQuery(query: string, vocab: Vocab, layout: KeyboardLayout): Correction | null {
+export function correctQuery(query: string, vocab: Vocab, layout: KeyboardLayout, protect?: (w: string) => boolean): Correction | null {
   const raw = query.trim();
   if (!raw || raw.length > 40) return null;
-  const known = (w: string) => { const k = squash(w); return k.length > 0 && vocab.corpus.includes(k); };
+  // 고유명사(게임 이름·줄임말·대문자 약어 등)는 사전에 없어도 그대로 둠
+  const isProtected = (w: string) => /^[A-Z0-9][A-Z0-9.\-]{1,}$/.test(w.trim()) || Boolean(protect?.(squash(w)));
+  const known = (w: string) => { const k = squash(w); return (k.length > 0 && vocab.corpus.includes(k)) || isProtected(w); };
   if (known(raw)) return null;
 
   // 1) 한/영 전환 실수 (통째로)

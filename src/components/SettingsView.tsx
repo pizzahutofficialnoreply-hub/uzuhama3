@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { setDefaultList, useMyPlaylists } from '../utils/myPlaylists';
 import { 
   MessageSquare, User, Bell, Palette, Database, Megaphone, 
   BookOpen, FileText, ExternalLink, Mail, AlertCircle, Gavel, 
@@ -1239,6 +1240,23 @@ export function SettingsView({
   );
 }
 
+/** 저장 버튼: 기본 저장 위치 (다음부터 묻지 않기) 풀기 */
+function SaveLocationRow() {
+  const { lists, defaultListId } = useMyPlaylists();
+  const def = lists.find((l) => l.id === defaultListId);
+  return (
+    <div className="py-1.5 flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">저장 버튼</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">{def ? `누르면 묻지 않고 '${def.name}'에 저장해요` : '누를 때마다 저장할 재생목록을 물어봐요'}</p>
+      </div>
+      {def && (
+        <button type="button" onClick={() => setDefaultList(null)} className="shrink-0 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer">매번 묻기</button>
+      )}
+    </div>
+  );
+}
+
 /** 설정 > 보기·정렬·검색: 펼친 목록 한 페이지 개수, 정렬 기본값, 자판 */
 function ViewPrefsPanel() {
   const prefs = usePrefs();
@@ -1292,6 +1310,7 @@ function ViewPrefsPanel() {
       <Row title="쓰는 자판" desc="검색어 오타를 자판 배열에 맞춰 고쳐 드려요">
         <Seg k="keyboard" options={KEYBOARD_OPTIONS.map((o) => [o.value, o.label] as [UserPrefs['keyboard'], string])} />
       </Row>
+      <SaveLocationRow />
       <div className="pt-1.5 space-y-0.5">
         <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">검색 도우미</p>
         <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">끄면 검색어와 똑같은 글자가 있는 것만 찾아요.</p>

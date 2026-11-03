@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Suspense, lazy, startTransition } from 'react';
+import { SaveHost } from './components/common/SaveHost';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink, AlertTriangle, CheckCircle2, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -1345,6 +1346,8 @@ function MainApp() {
           </Suspense>
         )}
       </AnimatePresence>
+      {/* 저장 버튼 → 저장할 곳 고르기 창·알림 */}
+      <SaveHost />
       {afterInstall && (
         <Suspense fallback={null}>
           <AfterInstallPrompt onOpen={(k) => setSetupGuide({ kind: k })} />

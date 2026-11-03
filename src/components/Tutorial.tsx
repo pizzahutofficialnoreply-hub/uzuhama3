@@ -131,7 +131,7 @@ const STEPS: Step[] = [
   {
     id: 'search',
     title: '영상은 여기서',
-    body: '홈 · 추천 · 동영상 · Shorts · 라이브 · 재생목록으로 나뉘어 있어요. \'겨울 특집 추천해줘\', \'무서운 거 보여줘\' 처럼 말하듯 써도 되고, 배그·옵치 같은 줄임말이나 유튜브·치지직 링크로도 찾아 줘요. 검색 도우미는 설정에서 켜고 끌 수 있어요.',
+    body: '홈 · 추천 · 동영상 · Shorts · 라이브 · 재생목록으로 나뉘어 있어요. \'겨울 특집 추천해줘\', \'무서운 거 보여줘\' 처럼 말하듯 써도 되고, 배그·옵치 같은 줄임말이나 유튜브·치지직 링크로도 찾아 줘요. 카드의 저장 버튼으로 내 재생목록도 만들 수 있어요.',
     target: { mobile: '#recommend-cards-top', desktop: '#recommend-cards-top' },
     tab: 'recommend',
     scrollTop: true,

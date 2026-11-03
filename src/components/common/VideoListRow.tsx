@@ -7,6 +7,7 @@ import { LinkMenu, type MenuLink } from './LinkMenu';
 import { useInterestTracker, noteInterest } from '../../hooks/useInterestTracker';
 import type { InterestItem } from '../../utils/interest';
 import { ShareButton } from './ShareButton';
+import { SaveButton } from './SaveButton';
 
 /**
  * 유튜브 '동영상' 탭 같은 한 줄 목록 (왼쪽 썸네일 + 오른쪽 제목·업로드 정보)
@@ -40,10 +41,12 @@ export interface VideoListRowProps {
   edits?: MenuLink[];
   /** 맞춤 추천용 관심 기록 */
   interest?: InterestItem;
+  /** 저장 버튼에 쓸 종류 (기본: 관심 기록의 종류 또는 영상) */
+  saveKind?: 'video' | 'live' | 'short';
 }
 
 export function VideoListRow({
-  videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense, placeholder, subline, shareText, edits = [], interest,
+  videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense, placeholder, subline, shareText, edits = [], interest, saveKind,
 }: VideoListRowProps) {
   const trackRef = useInterestTracker<HTMLDivElement>(interest || null);
   const meta = useVideoMeta(videoId || null);
@@ -94,8 +97,11 @@ export function VideoListRow({
         {(subline || upload) && <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{subline || upload}</p>}
       </div>
 
-      {(liveUrl || onLiveClick || validShorts.length > 0 || shareText || edits.length > 0) && (
-        <div className="relative z-10 flex flex-col sm:flex-row gap-1.5 shrink-0 items-center">
+      {(videoId || liveUrl || onLiveClick || validShorts.length > 0 || shareText || edits.length > 0) && (
+        <div className={cn('relative z-10 gap-1.5 shrink-0 items-center',
+          // 휴대폰: 버튼이 많으면 두 줄로 (줄이 너무 길어지지 않게)
+          [Boolean(liveUrl || onLiveClick), edits.length > 0, validShorts.length > 0, Boolean(shareText), Boolean(videoId)].filter(Boolean).length > 3
+            ? 'grid grid-cols-2 sm:flex sm:flex-row' : 'flex flex-col sm:flex-row')}>
           {onLiveClick ? (
             <button
               type="button"
@@ -126,6 +132,7 @@ export function VideoListRow({
             <LinkMenu variant="icon" items={edits} label="편집본 보기" menuTitle="편집본" tone="zinc" icon={<YoutubeLogo className="w-4.5 h-4.5" />} onOpen={() => noteInterest(interest, 'engage')} />
           )}
           <LinkMenu variant="icon" items={validShorts} label="쇼츠 보기" menuTitle="쇼츠" tone="red" icon={<ShortsIcon className="w-4.5 h-4.5" />} onOpen={() => noteInterest(interest, 'engage')} />
+          <SaveButton id={videoId} kind={saveKind || interest?.kind || 'video'} title={title} className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl" />
           {shareText && (
             <ShareButton getText={shareText} title={`${title} 정보`} className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl" />
           )}

@@ -71,3 +71,31 @@ describe('검색어 해석', () => {
     expect(a['tabs']).toBeTruthy();
   });
 });
+
+describe('말하듯 검색: 보여 주는 방법', () => {
+  it('수면방송 추천 → 라이브 탭, 긴 것 먼저, 공포는 빼기', () => {
+    const plan = planQuery('수면방송 추천해줘', ON, df);
+    expect(plan.intent.tab).toBe('live');
+    expect(plan.intent.long).toBe(true);
+    const calm = makeDoc({ title: '낚시하면서 노가리', genres: ['시뮬레이션'] });
+    const scary = makeDoc({ title: '잔잔한 척하는 공포게임', genres: ['공포'] });
+    const w = groupWeights(plan, df, docs.length);
+    expect(isHit(plan, scoreDoc(plan, w, calm))).toBe(true);
+    expect(isHit(plan, scoreDoc(plan, w, scary))).toBe(false);
+  });
+  it('긴 영상 추천해줘 → 찾을 말 없이 긴 것 먼저', () => {
+    const plan = planQuery('긴 영상 추천해줘', ON, df);
+    expect(plan.groups.length).toBe(0);
+    expect(plan.core).toBe('');
+    expect(plan.intent.long).toBe(true);
+  });
+  it('추석 특집 추천 → 추석 연휴에 한 방송', () => {
+    const plan = planQuery('추석 특집 추천해줘', ON, df);
+    const w = groupWeights(plan, df, docs.length);
+    const d = makeDoc({ title: '그냥 게임', dates: ['2024-09-17'] });
+    expect(scoreDoc(plan, w, d).rel).toBeGreaterThan(0.3);
+  });
+  it('최근 공포게임 보여줘 → 최근순', () => {
+    expect(planQuery('최근 공포게임 보여줘', ON, df).intent.sort).toBe('desc');
+  });
+});

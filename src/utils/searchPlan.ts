@@ -1,3 +1,5 @@
+import { getKoreanHoliday } from './koreanHolidays';
+
 /**
  * 검색어 해석 (기기 안에서만, 외부 API 없음)
  *
@@ -115,7 +117,9 @@ export function autoAliases(gameNames: string[]): Record<string, string[]> {
 }
 
 // ── 자연어: 계절·행사·분위기 ──
-type Concept = { key: string; words: string[]; expand: string[]; moods: string[]; months?: number[]; genres?: string[] };
+/** 말하듯 검색에서 '어떻게 보여 줄지' (라이브 탭으로, 긴 영상 먼저, 최근순 등) */
+export type Intent = { tab?: 'live' | 'shorts'; long?: boolean; sort?: 'desc' | 'asc' };
+type Concept = { key: string; words: string[]; expand: string[]; moods: string[]; months?: number[]; genres?: string[]; avoid?: string[]; holidays?: string[]; intent?: Intent };
 export const CONCEPTS: Concept[] = [
   { key: '겨울', words: ['겨울', '한겨울', '겨울철', '추운', '추위', '눈오는', '겨울특집'], expand: ['겨울', '눈사람', '크리스마스', '성탄', '산타', '스키', '썰매', '얼음', '빙판', '펭귄', '연말', '눈싸움', '폭설', 'winter', 'snow', 'christmas', 'ski'], moods: ['겨울', '눈', '크리스마스'], months: [12, 1, 2] },
   { key: '여름', words: ['여름', '한여름', '여름철', '더위', '더운', '피서', '바캉스', '무더위', '휴가철', '여름특집'], expand: ['여름', '바다', '해변', '물놀이', '수영', '수박', '휴가', '바캉스', '피서', '해수욕', 'summer', 'beach'], moods: ['여름', '바다', '물'], months: [7, 8] },
@@ -123,7 +127,15 @@ export const CONCEPTS: Concept[] = [
   { key: '가을', words: ['가을', '단풍', '가을특집'], expand: ['가을', '단풍', '낙엽', 'autumn'], moods: ['가을'], months: [9, 10, 11] },
   { key: '크리스마스', words: ['크리스마스', '성탄절', '성탄', 'xmas'], expand: ['크리스마스', '성탄', '산타', '트리', 'christmas'], moods: ['크리스마스'], months: [12] },
   { key: '할로윈', words: ['할로윈', '핼러윈'], expand: ['할로윈', '핼러윈', '호박', 'halloween'], moods: ['할로윈'], months: [10] },
-  { key: '명절', words: ['명절', '설날', '추석', '새해', '연휴'], expand: ['설날', '추석', '명절', '새해', '떡국', '송편', '세배'], moods: ['설날', '추석', '새해'] },
+  { key: '설날', words: ['설', '설날', '구정', '설특집', '설날특집', '설연휴'], expand: ['설날', '새해', '떡국', '세배', '복주머니', '윷놀이'], moods: ['설날', '새해'], holidays: ['설날'], intent: { long: true } },
+  { key: '추석', words: ['추석', '한가위', '추석특집', '추석연휴'], expand: ['추석', '한가위', '송편', '보름달'], moods: ['추석'], holidays: ['추석'], intent: { long: true } },
+  { key: '명절', words: ['명절', '명절특집', '연휴', '연휴특집'], expand: ['설날', '추석', '명절', '새해', '떡국', '송편', '세배'], moods: ['설날', '추석', '새해'], holidays: ['설날', '추석'], intent: { long: true } },
+  {
+    key: '잔잔한 방송', words: ['수면', '수면방송', '잠', '잘때', '자기전', '잠잘때', '잠올때', '잠안올때', '자장가', 'asmr', '불면', '숙면', '백색소음', '틀어놓기', '틀어놓고', '배경음'],
+    expand: ['잔잔', '힐링', 'asmr', '자장가', '노가리', '토크', '낚시', '농사', '요리', '평화', '수면'],
+    moods: ['힐링', '평화', '밤'], genres: ['시뮬레이션', '퍼즐', '캐주얼', '노가리', '스토리', '교육', '도서', '힐링'],
+    avoid: ['공포', 'fps', '배틀로얄', '슈팅', '액션'], intent: { tab: 'live', long: true },
+  },
   { key: '공포', words: ['공포', '무서운', '무섭', '호러', '소름', '귀신', '오싹', '쫄리는', '공포게임'], expand: ['공포', '호러', '귀신', '유령', '좀비', '괴물', '소름', 'horror', 'scary'], moods: ['공포'], genres: ['공포'] },
   { key: '웃김', words: ['웃긴', '웃기는', '웃음', '개그', '빵터지는', '꿀잼', '재밌는', '재미있는', '웃음참기'], expand: ['웃긴', '개웃', '빵터', '레전드', '웃음', 'ㅋㅋㅋㅋ'], moods: ['웃김'] },
   { key: '힐링', words: ['힐링', '잔잔한', '잔잔', '편안한', '평화로운', '느긋한', '여유로운'], expand: ['힐링', '잔잔', '평화', '여유'], moods: ['힐링', '평화'] },
@@ -134,6 +146,16 @@ export const CONCEPTS: Concept[] = [
   { key: '바다', words: ['바다', '해변', '물속', '수중', '바닷속'], expand: ['바다', '해변', '물고기', '수중', '상어', '해적', 'ocean', 'sea'], moods: ['바다', '물'] },
   { key: '우주', words: ['우주', '행성', '은하'], expand: ['우주', '행성', '로켓', '외계인', 'space'], moods: ['우주'] },
 ];
+/** 찾을 말이 아니라 보여 주는 방법만 바꾸는 말 (말하듯 검색일 때만) */
+const INTENT_WORDS: { words: string[]; intent: Intent; note: string }[] = [
+  { words: ['긴', '길게', '긴영상', '오래', '몰아보기', '몰아서', '이동하면서', '이동중', '출퇴근', '기차', '버스', '비행기', '장거리', '정주행'], intent: { long: true }, note: '길게 볼 수 있는 것 먼저' },
+  { words: ['짧은', '짧게', '잠깐', '쇼츠'], intent: { tab: 'shorts' }, note: '쇼츠에서' },
+  { words: ['생방', '생방송', '라이브', '풀영상', '풀버전', '다시보기'], intent: { tab: 'live' }, note: '라이브에서' },
+  { words: ['최근', '요즘', '최신', '새로', '새로운'], intent: { sort: 'desc' }, note: '최근 것부터' },
+  { words: ['옛날', '예전', '초창기', '과거', '옛날방송', '추억'], intent: { sort: 'asc' }, note: '옛날 것부터' },
+];
+const intentOf = (w: string) => INTENT_WORDS.find((x) => x.words.some((y) => sq(y) === w));
+
 /** 썸네일 분위기 태그로 고를 수 있는 말 (서버 썸네일 분석과 같은 목록) */
 export const MOOD_TAGS = ['봄', '여름', '가을', '겨울', '크리스마스', '할로윈', '설날', '추석', '새해', '공포', '웃김', '힐링', '감동', '긴장감', '귀여움', '분노', '슬픔', '평화', '혼돈', '눈', '바다', '물', '숲', '사막', '우주', '도시', '학교', '밤', '비', '불', '산'];
 
@@ -160,7 +182,7 @@ export function stripRequest(text: string): string {
 }
 
 export type Variant = { text: string; factor: number };
-export type Group = { label: string; variants: Variant[]; moods: string[]; months: number[]; genres: string[]; concept?: string };
+export type Group = { label: string; variants: Variant[]; moods: string[]; months: number[]; genres: string[]; avoid?: string[]; holidays?: string[]; concept?: string };
 export type QueryPlan = {
   raw: string;
   /** 예전 방식으로 찾을 검색어 (자연어면 부탁하는 말을 뺀 것) */
@@ -169,6 +191,8 @@ export type QueryPlan = {
   /** 붙여서 제목에 있으면 맨 위로 (예: iq테스트) */
   phrase: string;
   natural: boolean;
+  /** 보여 주는 방법 (라이브 탭으로, 긴 영상 먼저 등) */
+  intent: Intent;
   /** 결과 위에 보여 줄 안내 (예: '배그' → 배틀그라운드 포함) */
   notes: string[];
 };
@@ -210,6 +234,17 @@ export function planQuery(raw: string, opts: SearchToggles, df: (t: string) => n
   let tokens = coreText.split(/\s+/).map(sq).filter(Boolean);
   if (opts.smart) tokens = tokens.flatMap((t) => splitToken(t, df));
   tokens = [...new Set(tokens)];
+  // 말하듯 검색: '긴'·'최근'·'라이브' 같은 말은 찾을 말에서 빼고 보여 주는 방법으로
+  const intent: Intent = {};
+  if (natural) {
+    tokens = tokens.filter((t) => {
+      const it = intentOf(t);
+      if (!it) return true;
+      Object.assign(intent, it.intent);
+      notes.push(it.note);
+      return false;
+    });
+  }
 
   const groups: Group[] = tokens.map((t) => {
     const g: Group = { label: t, variants: [{ text: t, factor: 1 }], moods: [], months: [], genres: [] };
@@ -230,6 +265,9 @@ export function planQuery(raw: string, opts: SearchToggles, df: (t: string) => n
       g.moods = c.moods;
       g.months = c.months || [];
       g.genres = c.genres || [];
+      g.avoid = c.avoid;
+      g.holidays = c.holidays;
+      if (natural && c.intent) Object.entries(c.intent).forEach(([k, v]) => { if ((intent as any)[k] === undefined) (intent as any)[k] = v; });
     }
     g.variants = g.variants.filter((v) => v.text.length >= 1);
     return g;
@@ -245,7 +283,11 @@ export function planQuery(raw: string, opts: SearchToggles, df: (t: string) => n
     const cs = groups.filter((g) => g.concept).map((g) => g.concept);
     if (cs.length) notes.unshift(`'${cs.join(' · ')}' 느낌으로 찾았어요 (비슷한 말·썸네일 분위기·방송한 계절까지)`);
   }
-  return { raw: text, core: coreText, groups, phrase: tokens.length > 1 ? tokens.join('') : '', natural, notes };
+  if (natural && intent.tab === 'live') notes.push('라이브 탭에서 찾았어요');
+  if (natural && intent.long && !notes.includes('길게 볼 수 있는 것 먼저')) notes.push('길게 볼 수 있는 것 먼저');
+  // 찾을 말이 하나도 안 남으면(예: '긴 영상 추천해줘') 전체에서 보여 주는 방법만 적용
+  const core = natural && !groups.length ? '' : coreText;
+  return { raw: text, core, groups, phrase: tokens.length > 1 ? tokens.join('') : '', natural, intent, notes: [...new Set(notes)] };
 }
 
 // ── 영상 하나 점수 매기기 ──
@@ -258,6 +300,7 @@ export type SearchDoc = {
   desc: string; descSq: string;
   moods: string[];
   months: number[];
+  dates: string[];
   genres: string[];
   /** 빨리 걸러내기용: 모든 칸을 붙인 것 */
   allSq: string;
@@ -270,6 +313,7 @@ export function makeDoc(p: { title?: string; games?: string[]; extra?: string[];
     title, titleSq: sq(title), games, gamesSq: sq(games), extra, extraSq: sq(extra), meta, metaSq: sq(meta), desc, descSq: sq(desc),
     moods: p.moods || [],
     months: [...new Set((p.dates || []).map((d) => Number(String(d).slice(5, 7))).filter(Boolean))],
+    dates: (p.dates || []).map((d) => String(d).slice(0, 10)),
     genres: (p.genres || []).map(sq),
     allSq: sq(title) + '|' + sq(games) + '|' + sq(extra) + '|' + sq(meta) + '|' + sq(desc),
   };
@@ -296,6 +340,8 @@ const FIELD_W = { title: 1, games: 0.85, extra: 0.6, meta: 0.5, desc: 0.25 } as 
 
 /** 묶음 하나가 이 영상에서 얼마나 맞는지 (0~1) */
 export function groupStrength(g: Group, d: SearchDoc): number {
+  // 수면 방송에 공포·FPS 처럼 안 어울리는 장르는 빼기
+  if (g.avoid?.length && d.genres.some((x) => g.avoid!.some((y) => sq(y) === x))) return 0;
   let s = 0;
   for (const v of g.variants) {
     if (s >= v.factor) continue;
@@ -309,7 +355,13 @@ export function groupStrength(g: Group, d: SearchDoc): number {
     s = Math.max(s, f * v.factor);
   }
   if (g.moods.length && d.moods.some((m) => g.moods.includes(m))) s = Math.max(s, 0.55);
-  if (g.genres.length && d.genres.some((x) => g.genres.some((y) => sq(y) === x))) s = Math.max(s, 0.6);
+  if (g.genres.length) {
+    // 맞는 장르가 많을수록 (예: 시뮬레이션 + 힐링 > 시뮬레이션만)
+    const n = d.genres.filter((x) => g.genres.some((y) => sq(y) === x)).length;
+    if (n) s = Math.max(s, Math.min(0.85, 0.45 + 0.2 * n));
+  }
+  // 설·추석 특집: 그 명절 연휴에 한 방송
+  if (g.holidays?.length && d.dates.some((dt) => { const h = getKoreanHoliday(dt) || ''; return g.holidays!.some((x) => h.includes(x)); })) s = Math.max(s, 0.75);
   // 방송한 달은 다른 근거가 있을 때만 조금 더 (12월 방송이라고 다 겨울 영상은 아니니까)
   if (s > 0 && g.months.length && d.months.some((m) => g.months.includes(m))) s = Math.min(1, s + 0.12);
   return s;
