@@ -6,6 +6,7 @@ import { cn } from '../../utils';
 import { requestSave, useMyPlaylists, type MyItemKind } from '../../utils/myPlaylists';
 import { shareTextOrClipboard } from '../../utils/shareUtils';
 import { ShareBoxArrowIcon } from './ShareIcon';
+import { POPOVER_CLS } from './LinkMenu';
 
 /**
  * 카드·목록·쇼츠의 ⋮ 메뉴: 저장 / 신고
@@ -81,7 +82,7 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
               exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.1 } }}
               transition={{ type: 'spring', stiffness: 460, damping: 32 }}
               style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, transformOrigin: pos.up ? 'bottom right' : 'top right' }}
-              className="z-[380] w-[180px] rounded-2xl overflow-hidden bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-[0_14px_36px_-6px_rgba(0,0,0,0.28)] ring-1 ring-black/5"
+              className={cn('z-[380] w-[180px]', POPOVER_CLS)}
             >
               <div>
                 <button type="button" role="menuitem" className={item} onClick={(e) => { e.stopPropagation(); setOpen(false); onSave?.(); requestSave({ id, kind, title }); }}>

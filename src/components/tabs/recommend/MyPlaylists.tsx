@@ -137,7 +137,7 @@ function MyListDetail({ list, isDefault, onClose }: { list: MyList; isDefault: b
       thumbnail={thumbOf(list) || ''}
       title={list.name}
       channelTitle="나"
-      showPublisher={false}
+      showPublisher
       metaLine={`내 재생목록 · ${list.items.length}개${isDefault ? ' · 기본 저장 위치' : ''}`}
       embedSrc={embedQueueUrl(allIds)}
       playLabel="모두 재생"

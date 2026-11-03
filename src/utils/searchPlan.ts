@@ -136,7 +136,7 @@ export const CONCEPTS: Concept[] = [
     moods: ['힐링', '평화', '밤'], genres: ['시뮬레이션', '퍼즐', '캐주얼', '노가리', '스토리', '교육', '도서', '힐링'],
     avoid: ['공포', 'fps', '배틀로얄', '슈팅', '액션'], intent: { tab: 'live', long: true },
   },
-  { key: '공포', words: ['공포', '무서운', '무섭', '호러', '소름', '귀신', '오싹', '쫄리는', '공포게임'], expand: ['공포', '호러', '귀신', '유령', '좀비', '괴물', '소름', 'horror', 'scary'], moods: ['공포'], genres: ['공포'] },
+  { key: '공포', words: ['공포', '무서운', '무섭', '무서운거', '호러', '소름', '귀신', '오싹', '쫄리는', '공포게임', '심약주의', '깜놀'], expand: ['공포', '호러', '귀신', '유령', '좀비', '괴물', '소름', '심약', '비명', '살인마', '저주', 'horror', 'scary'], moods: ['공포'], genres: ['공포', '호러'] },
   { key: '웃김', words: ['웃긴', '웃기는', '웃음', '개그', '빵터지는', '꿀잼', '재밌는', '재미있는', '웃음참기'], expand: ['웃긴', '개웃', '빵터', '레전드', '웃음', 'ㅋㅋㅋㅋ'], moods: ['웃김'] },
   { key: '힐링', words: ['힐링', '잔잔한', '잔잔', '편안한', '평화로운', '느긋한', '여유로운'], expand: ['힐링', '잔잔', '평화', '여유'], moods: ['힐링', '평화'] },
   { key: '감동', words: ['감동', '감동적인', '눈물', '슬픈', '뭉클한'], expand: ['감동', '눈물', '슬픈', '오열'], moods: ['감동', '슬픔'] },
@@ -358,11 +358,13 @@ export function groupStrength(g: Group, d: SearchDoc): number {
     else if (v.text.length >= 2 && hasTerm(d.desc, d.descSq, v.text)) f = FIELD_W.desc;
     s = Math.max(s, f * v.factor);
   }
-  if (g.moods.length && d.moods.some((m) => g.moods.includes(m))) s = Math.max(s, 0.55);
+  // 썸네일 분위기(AI 가 본 것)가 맞으면
+  if (g.moods.length && d.moods.some((m) => g.moods.includes(m))) s = Math.max(s, 0.7);
   if (g.genres.length) {
     // 맞는 장르가 많을수록 (예: 시뮬레이션 + 힐링 > 시뮬레이션만)
     const n = d.genres.filter((x) => g.genres.some((y) => sq(y) === x)).length;
-    if (n) s = Math.max(s, Math.min(0.85, 0.45 + 0.2 * n));
+    // 장르가 곧 그 느낌인 경우(공포 → 공포 장르)는 제목에 그 말이 있는 것만큼 확실
+    if (n) s = Math.max(s, g.genres.length <= 2 ? 0.9 : Math.min(0.85, 0.45 + 0.2 * n));
   }
   // 설·추석 특집: 그 명절 연휴에 한 방송
   if (g.holidays?.length && d.dates.some((dt) => { const h = getKoreanHoliday(dt) || ''; return g.holidays!.some((x) => h.includes(x)); })) s = Math.max(s, 0.75);

@@ -81,7 +81,7 @@ export function CollectionPanel({
               {channelThumbnail ? (
                 <img src={channelThumbnail} alt="" className="w-7 h-7 rounded-full object-cover bg-white/20" />
               ) : (
-                <span className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">우</span>
+                <span className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">{channelTitle.slice(0, 1)}</span>
               )}
               <span>게시자: <b className="font-semibold text-white">{channelTitle}</b></span>
             </div>}

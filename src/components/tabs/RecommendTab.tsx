@@ -1304,7 +1304,8 @@ export function RecommendTab({
         desc: e?.d,
         moods: e?.m,
         dates: [v.parentLog?.date, ...(Array.isArray(v.allBroadcastDates) ? v.allBroadcastDates : [])].filter(Boolean),
-        genres: gl.flatMap((g: any) => String(g?.category || '').split(',')).map((c) => c.trim()).filter(Boolean),
+        // 장르: 게임마다 적힌 장르 + 편집본·방송 기록에 적힌 장르 (예: '공포, 인디')
+        genres: [...gl.map((g: any) => g?.category), v.category, v.parentLog?.category].flatMap((c: any) => String(c || '').split(',')).map((c) => c.trim()).filter(Boolean),
       });
       cache.set(v, d);
       return d;
