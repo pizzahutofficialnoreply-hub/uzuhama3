@@ -74,12 +74,13 @@ export function LinkMenu({
             transition={{ type: 'spring', stiffness: 420, damping: 30 }}
             style={{ transformOrigin: variant === 'icon' ? 'bottom right' : 'bottom center' }}
             className={cn(
-              'absolute bottom-full mb-2 w-48 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden z-30 flex flex-col',
-              'shadow-[0_14px_36px_-6px_rgba(0,0,0,0.28),0_3px_8px_rgba(0,0,0,0.10)] dark:shadow-[0_18px_44px_-6px_rgba(0,0,0,0.85),0_3px_10px_rgba(0,0,0,0.5)] ring-1 ring-black/5 dark:ring-white/10',
+              // ⋮ 메뉴와 같은 둥글기·그림자
+              'absolute bottom-full mb-2 w-56 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl overflow-hidden z-30 flex flex-col',
+              'shadow-[0_14px_36px_-6px_rgba(0,0,0,0.28)] dark:shadow-[0_18px_44px_-6px_rgba(0,0,0,0.85)] ring-1 ring-black/5 dark:ring-white/10',
               variant === 'icon' ? 'right-0' : 'left-1/2 -translate-x-1/2',
             )}
           >
-            <div className="px-3 py-2 text-[10px] font-bold text-zinc-500 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-700">{menuTitle} 선택</div>
+            <div className="px-3.5 pt-2.5 pb-1.5 text-[11px] font-bold text-zinc-500">{menuTitle} 선택</div>
             {valid.map((s, idx) => (
               <motion.a
                 key={`${s.url}-${idx}`}
@@ -90,7 +91,7 @@ export function LinkMenu({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.03 * idx, duration: 0.18 }}
                 onClick={() => setOpen(false)}
-                className="px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 border-b border-zinc-100 dark:border-zinc-700 last:border-0 truncate"
+                className="px-3.5 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700/60 border-t border-zinc-100 dark:border-zinc-700 truncate"
               >
                 {s.title || `${menuTitle} ${idx + 1}`}
               </motion.a>

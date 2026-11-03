@@ -62,7 +62,7 @@ describe('방송 확률·상태 문구', () => {
     for (const v of [p.dayProb, p.finalProb]) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(100); }
   });
   it('상태 문구 묶음 키는 v5', () => {
-    expect(statusMessageKey({} as any, new Date('2026-11-01T03:00:00Z')).startsWith('v5|')).toBe(true);
+    expect(statusMessageKey({} as any, new Date('2026-11-01T03:00:00Z')).startsWith('v6|')).toBe(true);
   });
   it('채널 주인처럼 들리는 AI 문구는 거름', () => {
     for (const t of ['유튜브 놀러와요', '방송 보러 와 주세요', '구독 부탁해요', '저희 채널이에요']) expect(OWNER_VOICE.test(t), t).toBe(true);

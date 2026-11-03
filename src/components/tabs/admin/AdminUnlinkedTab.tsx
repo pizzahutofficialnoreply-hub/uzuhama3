@@ -1,4 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { collection, doc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
+import { db } from '../../../lib/firebase';
+import { Flag } from 'lucide-react';
 import { Check, EyeOff, Eye, Link2, Loader2, Search, Unlink, Undo2, Film, Clapperboard, CalendarDays } from 'lucide-react';
 import type { AppData, BroadcastLog } from '../../../types';
 import { extractYoutubeId } from '../../../utils/urlUtils';
@@ -138,6 +141,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
 
   return (
     <div className="space-y-4">
+      <ReportedIssues onFind={(id, k) => { setKind(k === 'short' ? 'short' : 'video'); setStatus('linked'); setQ(id); setPage(1); }} />
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3">
         <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
           <Link2 className="w-4 h-4 text-purple-600 dark:text-purple-400" /> 영상·쇼츠 연동
@@ -281,6 +285,49 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
         </div>
       )}
       <Pagination currentPage={page} totalPages={totalPages} onChange={setPage} />
+    </div>
+  );
+}
+
+/**
+ * 방문자 제보 중 '연결이 틀렸다'·'게임 이름/링크가 다르다' (⋮ › 신고, 피드백 탭 제보를 하루 한 번 분류한 것)
+ * '이 영상 찾기'로 아래 목록에서 바로 고치고, 다 고치면 '처리 완료'
+ */
+const REASON_LABEL: Record<string, string> = {
+  wrong_link: '연결이 틀림', wrong_game_name: '게임 이름', wrong_game_link: '게임 링크', wrong_date: '날짜', other: '기타',
+};
+function ReportedIssues({ onFind }: { onFind: (videoId: string, kind?: string) => void }) {
+  const [items, setItems] = useState<any[] | null>(null);
+  const load = () => getDocs(query(collection(db, 'feedbacks'), where('route', 'in', ['link', 'game']), limit(150)))
+    .then((s) => setItems(s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((x: any) => !x.resolved)
+      .sort((a: any, b: any) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))))
+    .catch(() => setItems([]));
+  useEffect(() => { load(); }, []);
+  if (!items?.length) return null;
+  const resolve = async (id: string) => { await setDoc(doc(db, 'feedbacks', id), { resolved: true, resolvedAt: new Date().toISOString() }, { merge: true }); setItems((x) => (x || []).filter((i) => i.id !== id)); };
+  return (
+    <div className="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 space-y-2">
+      <p className="text-sm font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5"><Flag className="w-4 h-4" /> 고쳐 달라는 제보 {items.length}건</p>
+      <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">카드의 ⋮ › 신고, 그리고 피드백 탭 제보 중 연결·게임 문제로 분류된 것이에요 (하루 한 번 분류).</p>
+      <ul className="space-y-1.5 max-h-80 overflow-y-auto">
+        {items.map((x) => (
+          <li key={x.id} className="rounded-xl bg-white dark:bg-zinc-900 border border-amber-100 dark:border-zinc-800 px-3 py-2 text-xs">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-bold text-zinc-800 dark:text-zinc-100">
+                  <span className="mr-1.5 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-[10px]">{x.type === 'search_report' ? REASON_LABEL[x.reason] || x.reason : x.route === 'game' ? '게임 (피드백)' : '연결 (피드백)'}</span>
+                  {String(x.title || '').replace('[검색 신고] ', '')}
+                </p>
+                <p className="mt-0.5 text-zinc-500 whitespace-pre-line line-clamp-4">{x.content}</p>
+              </div>
+              <div className="flex flex-col gap-1 shrink-0">
+                {x.videoId && <button type="button" onClick={() => onFind(x.videoId, x.kind)} className="px-2 py-1 rounded-lg bg-purple-600 text-white font-bold cursor-pointer">이 영상 찾기</button>}
+                <button type="button" onClick={() => resolve(x.id)} className="px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer">처리 완료</button>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

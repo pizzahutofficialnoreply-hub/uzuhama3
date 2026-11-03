@@ -11,11 +11,21 @@ import { absenceReasonForMessages, statusMessageKey, broadcastDayStr } from '../
 
 const MODELS = [process.env.GEMINI_MODEL, 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest']
   .filter(Boolean) as string[];
-const SET_KEYS = ['absence', 'high', 'medium', 'lowDay', 'lowNight', 'streamedToday'] as const;
+const SET_KEYS = ['absence', 'high', 'medium', 'lowDay', 'lowNight', 'streamedToday', 'longWait'] as const;
 type SetKey = typeof SET_KEYS[number];
 const PER_SET = 25;
 
-function buildPrompt(reason: string, day: string) {
+/** 마지막 방송 후 지난 날수에 맞는 말투 안내 */
+function waitGuide(waitDays: number) {
+  if (waitDays < 3) return '';
+  const span = waitDays >= 60 ? `${Math.floor(waitDays / 30)}달 넘게` : waitDays >= 30 ? '한 달 넘게' : waitDays >= 14 ? '2주 넘게' : waitDays >= 7 ? '일주일 넘게' : '며칠째';
+  return `
+- 지금 마지막 방송 후 ${waitDays}일째(${span}) 방송이 없어. 모든 상황의 문구가 이 긴 기다림을 알고 있는 팬의 말투여야 해.
+  ${waitDays >= 7 ? `"기다림은 즐거워요", "오늘도 설레요"처럼 아무 일 없는 듯 들뜬 말은 금지. 대신 그리움·안부·담담한 응원 (예: "많이 보고 싶어요", "${span} 됐네요", "건강하게만 지내 주세요", "언제 오셔도 반가울 거예요", "심심하지만 기다릴게요").` : '조금 길어진 걸 살짝 아쉬워하는 말투로.'}
+  날짜 수는 '${span}' 정도로만 말하고 정확한 날수는 쓰지 말 것.`;
+}
+
+function buildPrompt(reason: string, day: string, waitDays = 0) {
   return `너는 스트리머 "우주하마"의 비공식 팬 사이트 "우주하마 방송 예측"의 문구 담당이야.
 메인 화면 "방송 켜질 확률" 카드 아래 작은 상태 문구를 상황별로 만들어줘. 오늘 날짜는 ${day}.
 
@@ -31,6 +41,7 @@ function buildPrompt(reason: string, day: string) {
   (금지 예: "지금도 약 잘 챙겨 먹고 누워 있어요", "푹 쉬는 중이에요", "열심히 준비하고 있어요", "엉덩이 찾는 중이에요", "곧 돌아올게요")
   (대신 팬의 바람·응원·안부로: "약 잘 챙겨 드세요", "푹 쉬고 오세요", "엉덩이 꼭 찾길 바라요", "얼른 나으세요", "준비 중이려나요?")
 - 주어가 생략돼도 스트리머가 말하는 것처럼 들리면 안 돼 ("돌아올게요", "기다려 주세요", "보고 싶었죠?" 금지)
+${waitGuide(waitDays)}
 - medium·lowDay·lowNight·streamedToday·absence 문구 중 약 4분의 1은 기다리는 동안 지난 방송 영상을 보자는 내용으로, 반드시 '영상' 또는 '다시보기' 단어를 넣을 것 (예: "옛날 영상이나 보면서 기다려요", "다시보기 정주행 어때요?") — 사이트에서 이 단어를 누르면 추천 영상으로 이동함
 
 상황:
@@ -40,8 +51,9 @@ function buildPrompt(reason: string, day: string) {
 - lowDay: 낮 시간, 아직 켜질 가능성 낮음 (여유)
 - lowNight: 늦은 밤·새벽, 가능성 낮음 (편안한 밤 인사)
 - streamedToday: 오늘 방송이 이미 끝남 (수고 인사, 다음 방송 기대)
+- longWait: ${waitDays >= 7 ? '방송이 오래 없을 때 확률이 낮은 시간에 보여 줄 문구 (그리움, 안부, 심심함, 담담한 기다림. 억지로 밝게 하지 말 것)' : '지금은 해당 없음 → 빈 배열'}
 
-JSON 으로만 답해: {"absence":[...],"high":[...],"medium":[...],"lowDay":[...],"lowNight":[...],"streamedToday":[...]}`;
+JSON 으로만 답해: {"absence":[...],"high":[...],"medium":[...],"lowDay":[...],"lowNight":[...],"streamedToday":[...],"longWait":[...]}`;
 }
 
 // 팬이 아니라 채널 주인·운영자처럼 들리는 문구는 버림
@@ -70,6 +82,13 @@ export default async function handler(req: any, res: any) {
     const key = statusMessageKey(system as any, now);
     const reason = absenceReasonForMessages(system as any, now);
     const day = broadcastDayStr(now);
+    // 마지막 방송 후 지난 날수 (오래 쉬면 문구 말투가 달라짐)
+    let waitDays = 0;
+    try {
+      const snap = await db.collection('logs').orderBy('date', 'desc').limit(20).get();
+      const last = snap.docs.map((d: any) => d.data()).find((l: any) => !l.isAbsence && l.date && l.date <= day)?.date;
+      if (last) waitDays = Math.max(0, Math.round((Date.parse(`${day}T00:00:00Z`) - Date.parse(`${last}T00:00:00Z`)) / 86400000));
+    } catch { /* 모르면 0 */ }
 
     const ref = db.collection('status_messages').doc('current');
     const current = (await ref.get()).data() || null;
@@ -103,12 +122,12 @@ export default async function handler(req: any, res: any) {
       try {
         const r = await ai.models.generateContent({
           model,
-          contents: buildPrompt(reason, day),
+          contents: buildPrompt(reason, day, waitDays),
           config: { responseMimeType: 'application/json', temperature: 1.1, httpOptions: { timeout: 25000 } },
         });
         const sets = sanitizeSets(JSON.parse(r.text || '{}'));
         if (sets.high.length >= 5 && sets.lowDay.length >= 5) {
-          const doc = { key, reason, sets, model, generatedAt: now.toISOString(), lockUntil: 0 };
+          const doc = { key, reason, waitDays, sets, model, generatedAt: now.toISOString(), lockUntil: 0 };
           await ref.set(doc); // 누적하지 않고 통째로 교체
           return send(doc);
         }

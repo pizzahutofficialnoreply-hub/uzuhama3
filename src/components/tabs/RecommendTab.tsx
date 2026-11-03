@@ -74,6 +74,25 @@ function mergeShorts(...lists: (any[] | undefined)[]): { url: string; title?: st
   return out;
 }
 
+/** 영상이 걸친 방송들의 생방송 다시보기 링크 (날짜순, 같은 링크는 한 번) */
+export function liveLinksFor(video: any, allLogs: any, dates?: string[]): { url: string; title: string }[] {
+  const all: any[] = Array.isArray(allLogs) ? allLogs : Object.values(allLogs || {});
+  const out: { url: string; title: string }[] = [];
+  const seen = new Set<string>();
+  const push = (d: string, list: any[]) => list.filter((v: any) => v?.url).forEach((v: any, i: number, arr: any[]) => {
+    if (seen.has(v.url)) return;
+    seen.add(v.url);
+    out.push({ url: v.url, title: `${d || ''} 생방송${arr.length > 1 ? ` (${i + 1})` : ''}`.trim() });
+  });
+  const ds = dates?.length ? dates : Array.isArray(video?.allBroadcastDates) && video.allBroadcastDates.length ? [...new Set(video.allBroadcastDates as string[])].sort((a, b) => b.localeCompare(a)) : [video?.parentLog?.date];
+  ds.forEach((d: string) => {
+    const logs = all.filter((l: any) => l?.date === d);
+    (logs.length ? logs : video?.parentLog?.date === d ? [video.parentLog] : []).forEach((l: any) => push(d, Array.isArray(l?.vods) ? l.vods : []));
+  });
+  if (!out.length) push(video?.parentLog?.date || '', Array.isArray(video?.parentLog?.vods) ? video.parentLog.vods : []);
+  return out;
+}
+
 export const VideoCard = ({ 
   video,
   allLogs,
@@ -158,6 +177,8 @@ export const VideoCard = ({
   const mostRecentDate = broadcastDates[0];
   const hasMultipleDates = broadcastDates.length > 1;
   const isMultiBroadcastOrCompilation = hasMultipleDates || video.isCompilation || (Array.isArray(video.allBroadcastDates) && video.allBroadcastDates.length > 1);
+  // 생방이 여러 개(몰아보기 제외)면 펼치지 않고 '생방송' 버튼에서 골라 보기
+  const liveLinks = useMemo(() => liveLinksFor(video, allLogs, broadcastDates), [broadcastDates, allLogs, video]);
 
   // 게임 목록 추출 (게임 링크가 누락되지 않도록 parentLog 및 allLogs와 완벽 연동)
   const gamesList: { name: string; link?: string; category?: string }[] = useMemo(() => {
@@ -307,7 +328,7 @@ export const VideoCard = ({
         )}
         {!isPlayingInline && (
           <div className={cn("absolute bottom-2 left-2 z-20 flex flex-col items-start gap-1", isCompact ? "max-w-[calc(100%-3.75rem)]" : "max-w-[calc(100%-5rem)]")}>
-          {isMultiBroadcastOrCompilation ? (
+          {video.isCompilation ? (
             <button
               type="button"
               onClick={(e) => {
@@ -371,21 +392,9 @@ export const VideoCard = ({
             title={video.videoTitle || ''}
             compact={isCompact}
             className={isCompact ? '-mr-1' : '-mr-1.5 -mt-0.5'}
+            shareText={() => formatRecommendShareText(video, allLogs)}
+            onShare={() => noteInterest(interestItem, 'engage')}
           />
-          <button
-            type="button"
-            onClick={handleShare}
-            disabled={isSharing}
-            className={cn("rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0 cursor-pointer disabled:opacity-50 flex items-center justify-center", isCompact ? "p-1 -mr-0.5" : "p-1.5 -mr-1 -mt-0.5")}
-            title="방송 및 영상 정보 공유"
-            aria-label="공유"
-          >
-            {isSharing ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-600 dark:text-zinc-400" />
-            ) : (
-              <ShareBoxArrowIcon className="w-4 h-4" />
-            )}
-          </button>
         </div>
 
         {/* 업로드일 · 경과 시간 (유튜브 표기 방식) */}
@@ -397,8 +406,8 @@ export const VideoCard = ({
           </p>
         )}
         
-        {/* 생방이 여러개이거나 몰아보기의 경우 펼치기 UI (몰아보기에는 산뜻하고 감각적인 보라 강조색 적용) */}
-        {isMultiBroadcastOrCompilation ? (
+        {/* 몰아보기는 펼치기 UI (생방 여러 개는 아래 '생방송' 버튼에서 골라 보기) */}
+        {video.isCompilation ? (
           <div className="mt-3 mb-2">
             <button
               type="button"
@@ -515,22 +524,15 @@ export const VideoCard = ({
             {video.isLive ? <PlaySquare className="w-4 h-4 text-purple-600 dark:text-purple-400" /> : <YoutubeLogo className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />} <span className="font-hanna font-pro">{video.isLive ? '생방송 보기' : '영상 보기'}</span>
           </a>
           
-          {(!isMultiBroadcastOrCompilation || video.isLive) && (
+          {(!video.isCompilation || video.isLive) && (
             <div className="flex gap-2">
               {video.isLive ? (
                 // 라이브 카드: 카드 자체가 생방송이라 그 방송의 편집본을 (두 방송에 걸친 편집본도 포함)
                 <LinkMenu items={liveEdits} label="편집본" menuTitle="편집본" tone="zinc" icon={<YoutubeLogo className="w-4 h-4 shrink-0" />} onOpen={() => noteInterest(interestItem, 'engage')} />
-              ) : vods.length > 0 && vods[0].url ? (
-                <a 
-                  href={vods[0].url} 
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => noteInterest(interestItem, 'play')}
-                  className="flex-1 flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors bg-purple-50 dark:bg-purple-900/10 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/20 font-hanna font-pro"
-                >
-                  <PlaySquare className="w-4 h-4" /> <span className="font-hanna font-pro">생방송 (풀영상)</span>
-                </a>
-              ) : null}
+              ) : (
+                // 생방송이 하나면 바로, 여러 개면 골라 보기 (생방 두 개에 걸친 편집본도)
+                <LinkMenu items={liveLinks} label={liveLinks.length > 1 ? '생방송' : '생방송 (풀영상)'} menuTitle="생방송" tone="purple" icon={<PlaySquare className="w-4 h-4 shrink-0" />} onOpen={() => noteInterest(interestItem, 'play')} />
+              )}
 
               <LinkMenu items={shorts} label={shorts.length > 1 ? '쇼츠' : '쇼츠 보기'} menuTitle="쇼츠" tone="red" icon={<ShortsIcon className="w-4 h-4" />} onOpen={() => noteInterest(interestItem, 'engage')} />
             </div>
@@ -2543,10 +2545,10 @@ export function RecommendTab({
                               : isMulti ? `${video.allBroadcastDates.length}개 생방` : '',
                             video.relatedVia ? `${video.relatedVia}에서 찾음` : '',
                           ].filter(Boolean).join(' · ') || undefined}
-                          liveUrl={!isMulti && !video.isLive ? video.parentLog?.vods?.find((v: any) => v?.url)?.url : undefined}
+                          lives={!video.isLive && !video.isCompilation ? liveLinksFor(video, data?.logs) : undefined}
                           edits={video.isLive ? video.liveEdits : undefined}
                           interest={videoInterestItem(video)}
-                          onLiveClick={isMulti && !video.isLive ? toggle : undefined}
+                          onLiveClick={video.isCompilation ? toggle : undefined}
                           liveActive={isExpanded}
                           shorts={mergeShorts(shortsByVideo.get(ytId), !isMulti ? video.parentLog?.shorts : [])}
                           shareText={() => formatRecommendShareText(video, data?.logs)}

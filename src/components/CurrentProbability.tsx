@@ -71,6 +71,12 @@ export function CurrentProbability({
   onNavigateToRecommend?: (category?: string, searchTerm?: string, pinnedVideoId?: string) => void;
 }) {
   const streamLogs = logs.filter((l) => !l.isAbsence);
+  // 마지막 방송 후 지난 날수 (오래 쉬면 문구가 달라짐)
+  const waitDays = (() => {
+    const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+    const last = streamLogs.reduce((m, l) => (l.date && l.date <= today && l.date > m ? l.date : m), '');
+    return last ? Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${last}T00:00:00Z`)) / 86400000) : 0;
+  })();
   const absenceLogs = logs.filter((l) => l.isAbsence);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [liveData, setLiveData] = useState<any>(null);
@@ -320,6 +326,12 @@ export function CurrentProbability({
     messageContent = pickAi(aiMessages?.streamedToday, true) ?? renderRecommendSpan();
   } else if (isAbsencePeriod && aiMessages?.absence?.length) {
     messageContent = pickAi(aiMessages.absence, true);
+  } else if (waitDays >= 7 && probabilityLevel !== "high") {
+    // 방송이 오래 없을 때: 들뜬 말 대신 그리움·안부
+    const LONG_WAIT: React.ReactNode[] = aiMessages?.longWait?.length
+      ? [...aiMessages.longWait.map(linkVideoWord), renderRecommendSpan()]
+      : ["많이 보고 싶어요", "언제 오셔도 반가울 거예요", "건강하게만 지내 주세요", "심심하지만 기다려요", renderRecommendSpan()];
+    messageContent = LONG_WAIT[timeSlotSeed % LONG_WAIT.length];
   } else if (probabilityLevel === "high" && aiMessages?.high?.length) {
     messageContent = pickAi(aiMessages.high);
   } else if (probabilityLevel === "medium" && aiMessages?.medium?.length) {

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addToYoutubePlaylist, createYoutubePlaylist, onYoutubeConfig, youtubeSaveEnabled } from '../../../utils/youtubeAccount';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowDown, ArrowUp, Bookmark, Check, ExternalLink, ListVideo, Pencil, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Bookmark, Check, ChevronDown, ExternalLink, ListVideo, Pencil, Trash2, X } from 'lucide-react';
 import { cn } from '../../../utils';
 import { CollectionPanel } from '../../common/CollectionPanel';
 import { VideoListRow } from '../../common/VideoListRow';
@@ -70,7 +70,7 @@ function shareTextOf(l: MyList) {
 function MyListCard({ list, isDefault, onOpen }: { list: MyList; isDefault: boolean; onOpen: () => void }) {
   const thumb = thumbOf(list);
   return (
-    <div className="group relative flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
+    <div className="group relative h-full flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
       <button type="button" onClick={onOpen} className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800 cursor-pointer" title="재생목록 열기">
         {thumb ? <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /> : <span className="absolute inset-0 flex items-center justify-center text-xs text-zinc-400">아직 비어 있어요</span>}
         {thumb && <span className="absolute inset-0 bg-black/10 flex items-center justify-center"><GlassPlayButton /></span>}
@@ -78,12 +78,30 @@ function MyListCard({ list, isDefault, onOpen }: { list: MyList; isDefault: bool
           <ListVideo className="w-3.5 h-3.5" /> 내 재생목록 ({list.items.length}개)
         </span>
       </button>
-      <div className="p-4 flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-bold text-zinc-900 dark:text-white truncate">{list.name}</p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">{isDefault ? '저장 버튼을 누르면 바로 여기에 담겨요' : `마지막 수정 ${new Date(list.updatedAt).toLocaleDateString('ko-KR')}`}</p>
+      <div className="p-4 flex-1 flex flex-col">
+        <div className="flex items-start justify-between gap-2">
+          <button type="button" onClick={onOpen} className="flex-1 min-w-0 text-left cursor-pointer">
+            <p className="font-bold text-zinc-900 dark:text-white truncate hover:text-purple-600 dark:hover:text-purple-400 transition-colors">{list.name}</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">{isDefault ? '저장을 누르면 바로 여기에 담겨요' : `마지막 수정 ${new Date(list.updatedAt).toLocaleDateString('ko-KR')}`}</p>
+          </button>
+          {list.items.length > 0 && <ShareButton className="-mr-1 -mt-0.5" getText={() => shareTextOf(list)} title={`${list.name} 재생목록`} />}
         </div>
-        {list.items.length > 0 && <ShareButton getText={() => shareTextOf(list)} title={`${list.name} 재생목록`} />}
+        <div className="mt-auto pt-3">
+          <button
+            type="button"
+            onClick={onOpen}
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs hover:scale-[1.01] bg-purple-50 hover:bg-purple-100/90 dark:bg-purple-950/70 dark:hover:bg-purple-900/70 text-purple-700 dark:text-purple-300 border border-purple-200/90 dark:border-purple-800/90"
+          >
+            <span className="flex items-center gap-2">
+              <ListVideo className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+              <span className="font-bold text-purple-900 dark:text-purple-200">재생목록 영상 펼치기</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-200/90 dark:bg-purple-900/90 text-purple-800 dark:text-purple-200">{list.items.length}개</span>
+              <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   );

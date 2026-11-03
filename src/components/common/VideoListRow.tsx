@@ -6,7 +6,6 @@ import { ShortsIcon, PlaySquare, YoutubeLogo } from './MediaIcons';
 import { LinkMenu, type MenuLink } from './LinkMenu';
 import { useInterestTracker, noteInterest } from '../../hooks/useInterestTracker';
 import type { InterestItem } from '../../utils/interest';
-import { ShareButton } from './ShareButton';
 import { ItemMenu } from './ItemMenu';
 
 /**
@@ -41,12 +40,14 @@ export interface VideoListRowProps {
   edits?: MenuLink[];
   /** 맞춤 추천용 관심 기록 */
   interest?: InterestItem;
+  /** 생방송 링크들 (하나면 바로, 여러 개면 골라 보기) */
+  lives?: MenuLink[];
   /** 저장 버튼에 쓸 종류 (기본: 관심 기록의 종류 또는 영상) */
   saveKind?: 'video' | 'live' | 'short';
 }
 
 export function VideoListRow({
-  videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense, placeholder, subline, shareText, edits = [], interest, saveKind,
+  videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense, placeholder, subline, shareText, edits = [], interest, saveKind, lives = [],
 }: VideoListRowProps) {
   const trackRef = useInterestTracker<HTMLDivElement>(interest || null);
   const meta = useVideoMeta(videoId || null);
@@ -97,10 +98,10 @@ export function VideoListRow({
         {(subline || upload) && <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{subline || upload}</p>}
       </div>
 
-      {(videoId || liveUrl || onLiveClick || validShorts.length > 0 || shareText || edits.length > 0) && (
+      {(videoId || liveUrl || lives.length > 0 || onLiveClick || validShorts.length > 0 || shareText || edits.length > 0) && (
         <div className={cn('relative z-10 gap-1.5 shrink-0 items-center',
           // 휴대폰: 버튼이 많으면 두 줄로 (줄이 너무 길어지지 않게)
-          [Boolean(liveUrl || onLiveClick), edits.length > 0, validShorts.length > 0, Boolean(shareText), Boolean(videoId)].filter(Boolean).length > 3
+          [Boolean(liveUrl || onLiveClick || lives.length), edits.length > 0, validShorts.length > 0, Boolean(videoId)].filter(Boolean).length > 3
             ? 'grid grid-cols-2 sm:flex sm:flex-row' : 'flex flex-col sm:flex-row')}>
           {onLiveClick ? (
             <button
@@ -126,16 +127,15 @@ export function VideoListRow({
             >
               <PlaySquare className="w-4.5 h-4.5" />
             </a>
+          ) : lives.length > 0 ? (
+            <LinkMenu variant="icon" items={lives} label="생방송 보기" menuTitle="생방송" tone="purple" icon={<PlaySquare className="w-4.5 h-4.5" />} onOpen={() => noteInterest(interest, 'play')} />
           ) : null}
 
           {edits.length > 0 && (
             <LinkMenu variant="icon" items={edits} label="편집본 보기" menuTitle="편집본" tone="zinc" icon={<YoutubeLogo className="w-4.5 h-4.5" />} onOpen={() => noteInterest(interest, 'engage')} />
           )}
           <LinkMenu variant="icon" items={validShorts} label="쇼츠 보기" menuTitle="쇼츠" tone="red" icon={<ShortsIcon className="w-4.5 h-4.5" />} onOpen={() => noteInterest(interest, 'engage')} />
-          <ItemMenu id={videoId} kind={saveKind || interest?.kind || 'video'} title={title} className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl" />
-          {shareText && (
-            <ShareButton getText={shareText} title={`${title} 정보`} className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl" />
-          )}
+          <ItemMenu id={videoId} kind={saveKind || interest?.kind || 'video'} title={title} className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl" shareText={shareText} onShare={() => noteInterest(interest, 'engage')} />
         </div>
       )}
     </div>

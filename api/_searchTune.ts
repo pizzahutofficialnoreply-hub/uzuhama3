@@ -47,6 +47,13 @@ export async function tuneSearch(db: any, opts: { force?: boolean } = {}) {
   const reports = docs.filter((d: any) => d.type === 'search_report');
   const ratings = docs.filter((d: any) => d.type === 'search_rating');
   const general = docs.filter((d: any) => (d.type === 'suggestion' || d.type === 'bug') && /검색|추천/.test(`${d.title || ''} ${d.content || ''}`));
+  // 피드백 탭 제보 중 '연결이 틀렸다'·'게임 이름/링크가 다르다' 류는 관리자 '연동' 탭으로 (먼저 낱말로, AI 가 있으면 다시 분류)
+  const toRoute = docs.filter((d: any) => (d.type === 'data_request' || d.type === 'bug') && !d.route).slice(0, 40);
+  const routes: Record<string, string> = {};
+  toRoute.forEach((d: any) => {
+    const t = `${d.title || ''} ${d.content || ''}`;
+    routes[d.id] = /게임\s*(이름|명|제목|링크|주소)|스팀|steam|게임이\s*(다|틀)/i.test(t) ? 'game' : /(링크|연결|연동|쇼츠|편집본|생방|다시보기|url|https?:)/i.test(t) ? 'link' : 'other';
+  });
 
   const cur: SearchTuning = { updatedAt: '', demote: {}, conceptDemote: {}, synonyms: {}, conceptAdd: {}, log: [], ...((await ref.get()).data() || {}) };
 
@@ -75,12 +82,13 @@ export async function tuneSearch(db: any, opts: { force?: boolean } = {}) {
   let summary = `신고 ${reports.length} · 평가 ${ratings.length}(불만족 ${bad.length})`;
   let model: string | undefined;
   const apiKey = process.env.GEMINI_API_KEY;
-  const worthAsking = bad.length + reports.filter((r: any) => r.note).length + general.length > 0;
+  const worthAsking = bad.length + reports.filter((r: any) => r.note).length + general.length + toRoute.length > 0;
   if (apiKey && worthAsking) {
     const lines = [
       ...bad.slice(0, 60).map((r: any) => `[불만족] 검색어: ${r.query} / 해석: ${r.understood || '-'}${r.note ? ` / 의견: ${String(r.note).slice(0, 120)}` : ''}`),
       ...reports.filter((r: any) => r.note || r.reason !== 'not_match').slice(0, 40).map((r: any) => `[신고:${r.reason}] 검색어: ${r.query || '-'} / 영상: ${String(r.title || '').slice(0, 60)}${r.note ? ` / 의견: ${String(r.note).slice(0, 120)}` : ''}`),
       ...general.slice(0, 15).map((g: any) => `[제보] ${String(g.title || '').slice(0, 60)}: ${String(g.content || '').slice(0, 160)}`),
+      ...toRoute.map((g: any) => `[분류 id=${g.id}] ${String(g.title || '').slice(0, 60)}: ${String(g.content || '').slice(0, 200)}`),
     ];
     const prompt = `스트리머 "우주하마" 팬 사이트의 영상 검색을 개선하려고 해. 검색은 기기 안에서 규칙으로 돌아가고, 너는 하루 한 번 아래 사용자 반응을 보고 사전만 보강해.
 느낌(콘셉트) 목록: ${CONCEPT_KEYS.join(', ')}
@@ -93,8 +101,9 @@ ${lines.join('\n')}
 - synonyms: 검색어 속 단어가 사이트 영상 제목에서 다른 말로 쓰일 법하면 같은 뜻 말 (예: "잠" → ["수면", "자장가"]). 단어마다 최대 5개, 확실한 것만.
 - conceptAdd: 위 느낌 목록의 이름만 키로. expand 는 그 느낌으로 찾을 때 더 볼 말, avoid 는 그 느낌에 안 어울리는 게임 장르(예: 공포, FPS). 각각 최대 5개.
 - 반응에 근거가 없으면 빈 값으로. 지어내지 말 것.
+- routes: [분류 id=…] 제보마다 "link"(영상·쇼츠·생방송 연결이나 링크가 틀림), "game"(게임 이름·게임 링크가 틀림), "other"(그 밖) 중 하나. 키는 id.
 - summary: 오늘 무엇을 바꿨는지 한국어 한 문장.
-JSON 으로만: {"synonyms":{},"conceptAdd":{},"summary":""}`;
+JSON 으로만: {"synonyms":{},"conceptAdd":{},"routes":{},"summary":""}`;
     const { GoogleGenAI } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey });
     for (const m of MODELS) {
@@ -111,6 +120,7 @@ JSON 으로만: {"synonyms":{},"conceptAdd":{},"summary":""}`;
           const prev = cur.conceptAdd[k] || {};
           cur.conceptAdd[k] = { expand: pushUnique(prev.expand, words(v?.expand, 5), 15), avoid: pushUnique(prev.avoid, words(v?.avoid, 5), 10) };
         });
+        Object.entries(out.routes || {}).forEach(([id, r]) => { if (id in routes && (r === 'link' || r === 'game' || r === 'other')) routes[id] = r as string; });
         if (typeof out.summary === 'string' && out.summary.trim()) summary = `${summary} · ${out.summary.trim().slice(0, 140)}`;
         model = m;
         break;
@@ -119,6 +129,11 @@ JSON 으로만: {"synonyms":{},"conceptAdd":{},"summary":""}`;
       }
     }
   }
+
+  // 분류 결과 저장 (연동 탭에서 'link'·'game' 만 보여 줌)
+  await Promise.all(Object.entries(routes).map(([id, route]) => db.collection('feedbacks').doc(id).set({ route, routedAt: new Date().toISOString() }, { merge: true }).catch(() => {})));
+  const routed = Object.values(routes).filter((r) => r !== 'other').length;
+  if (routed) summary = `${summary} · 연동 탭으로 ${routed}건`;
 
   cur.updatedAt = new Date().toISOString();
   cur.log = [{ day, reports: reports.length, ratings: ratings.length, bad: bad.length, summary, ...(model ? { model } : {}) }, ...(cur.log || [])].slice(0, 30);

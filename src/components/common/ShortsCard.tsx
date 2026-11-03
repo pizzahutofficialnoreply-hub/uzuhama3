@@ -5,7 +5,6 @@ import { extractYoutubeId } from '../../utils/urlUtils';
 import { cleanShortsTitle } from '../../utils/videoSearch';
 import { GlassPlayButton, PlaySquare, YoutubeLogo } from './MediaIcons';
 import { ShortsPlayer } from './ShortsPlayer';
-import { ShareButton } from './ShareButton';
 import { ItemMenu } from './ItemMenu';
 import { useInterestTracker, noteInterest } from '../../hooks/useInterestTracker';
 import type { InterestItem } from '../../utils/interest';
@@ -101,14 +100,8 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
         >
           {label}
         </a>
-        <ItemMenu compact id={ytId || ''} kind="short" title={label} className="-mr-1 -mt-0.5" onSave={() => noteInterest(interest, 'engage')} />
-        <ShareButton
-          compact
-          className="-mr-1 -mt-0.5"
-          title={`${label} 정보`}
-          onShare={() => noteInterest(interest, 'engage')}
-          getText={shareText || (() => formatShortsShareText({ title: label, url: ytId ? `https://www.youtube.com/shorts/${ytId}` : url, liveUrl, editUrl }))}
-        />
+        <ItemMenu compact id={ytId || ''} kind="short" title={label} className="-mr-1 -mt-0.5" onSave={() => noteInterest(interest, 'engage')} onShare={() => noteInterest(interest, 'engage')}
+          shareText={shareText || (() => formatShortsShareText({ title: label, url: ytId ? `https://www.youtube.com/shorts/${ytId}` : url, liveUrl, editUrl }))} />
       </div>
       {(caption || liveUrl || editUrl) && (
         <div className="mt-1 px-0.5 flex items-center justify-between gap-1.5">

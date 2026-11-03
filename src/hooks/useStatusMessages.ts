@@ -7,7 +7,7 @@ import { statusMessageKey } from '../utils/probability';
  * - 한 번 받아 로컬에 저장해 두고 그대로 사용 (서버와 계속 동기화하지 않음)
  * - 방송일(오전 6시)이 바뀌거나 휴방 상황·사유가 바뀌어 키가 달라질 때만 서버에서 새 묶음을 받음
  */
-export type StatusMessageSets = Partial<Record<'absence' | 'high' | 'medium' | 'lowDay' | 'lowNight' | 'streamedToday', string[]>>;
+export type StatusMessageSets = Partial<Record<'absence' | 'high' | 'medium' | 'lowDay' | 'lowNight' | 'streamedToday' | 'longWait', string[]>>;
 
 const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')
