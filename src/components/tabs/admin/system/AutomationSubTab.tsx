@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { SearchTuningCard } from './SearchTuningCard';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Activity, AlertTriangle, CheckCircle2, Loader2, Play, RefreshCw } from 'lucide-react';
 import { auth, db } from '../../../../lib/firebase';
@@ -88,6 +89,7 @@ export function AutomationSubTab() {
       <div className="flex justify-end">
         <button type="button" onClick={load} className={`${btn} bg-zinc-100 dark:bg-zinc-800`}><RefreshCw className="w-3.5 h-3.5" /> 새로 보기</button>
       </div>
+      <SearchTuningCard />
 
       <Card title="알림 자동 확인 (방송 시작·유력 시간)" ok={tick ? tickOk : null}>
         <p className="text-xs text-zinc-600 dark:text-zinc-300">마지막 실행: <b>{ago(lastRun)}</b>{tick?.lastResult?.live ? ` · 방송 ${tick.lastResult.live}` : ''}{tick?.lastResult?.prob?.final != null ? ` · 확률 ${Number(tick.lastResult.prob.final).toFixed(0)}%` : ''}</p>

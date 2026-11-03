@@ -7,7 +7,7 @@ import { LinkMenu, type MenuLink } from './LinkMenu';
 import { useInterestTracker, noteInterest } from '../../hooks/useInterestTracker';
 import type { InterestItem } from '../../utils/interest';
 import { ShareButton } from './ShareButton';
-import { SaveButton } from './SaveButton';
+import { ItemMenu } from './ItemMenu';
 
 /**
  * 유튜브 '동영상' 탭 같은 한 줄 목록 (왼쪽 썸네일 + 오른쪽 제목·업로드 정보)
@@ -132,7 +132,7 @@ export function VideoListRow({
             <LinkMenu variant="icon" items={edits} label="편집본 보기" menuTitle="편집본" tone="zinc" icon={<YoutubeLogo className="w-4.5 h-4.5" />} onOpen={() => noteInterest(interest, 'engage')} />
           )}
           <LinkMenu variant="icon" items={validShorts} label="쇼츠 보기" menuTitle="쇼츠" tone="red" icon={<ShortsIcon className="w-4.5 h-4.5" />} onOpen={() => noteInterest(interest, 'engage')} />
-          <SaveButton id={videoId} kind={saveKind || interest?.kind || 'video'} title={title} className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl" />
+          <ItemMenu id={videoId} kind={saveKind || interest?.kind || 'video'} title={title} className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl" />
           {shareText && (
             <ShareButton getText={shareText} title={`${title} 정보`} className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl" />
           )}

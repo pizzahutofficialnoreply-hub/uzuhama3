@@ -22,6 +22,8 @@ interface ShortsFeedProps {
   plan?: { plan: QueryPlan; weights: number[] } | null;
   /** 초성으로 찾기 */
   chosung?: boolean;
+  /** 신고로 이 검색에서 빠진 쇼츠 */
+  exclude?: Set<string>;
   selectedCategories: string[];
   onNavigateToCalendar?: (date: string) => void;
   /** 방송 기록 → 장르 목록 (추천 영상 카테고리 필터와 같은 기준) */
@@ -92,7 +94,7 @@ export function useShortsRelatedAuto(): Record<string, string> {
 
 const gameNamesOfLog = (log: any): string[] => (Array.isArray(log?.games) && log.games.length ? log.games.map((g: any) => g?.name).filter(Boolean) : log?.game ? [log.game] : []);
 
-export function ShortsFeed({ logs, searchTerm, plan, chosung = true, selectedCategories, onNavigateToCalendar, genresOfLog, order: orderProp, onCount }: ShortsFeedProps) {
+export function ShortsFeed({ logs, searchTerm, plan, chosung = true, exclude, selectedCategories, onNavigateToCalendar, genresOfLog, order: orderProp, onCount }: ShortsFeedProps) {
   const controlled = orderProp !== undefined;
   const [page, setPage] = useState(1);
   // 정렬: 생방일순(방송 날짜) / 업로드순(유튜브에 올라온 날짜)
@@ -220,6 +222,7 @@ export function ShortsFeed({ logs, searchTerm, plan, chosung = true, selectedCat
     const gNorm = activeGenre.replace(/\s+/g, '').toLowerCase();
     const termNorm = term.replace(/\s+/g, '').toLowerCase();
     return allShorts.filter((s) => {
+      if (exclude?.has(s.id)) return false;
       if (onlyComp && !s.isCompilation) return false;
       if (activeGenre !== '전체' && !s.genres.some((g) => g.replace(/\s+/g, '').toLowerCase() === gNorm)) return false;
       if (cats.length > 0) {
@@ -238,7 +241,7 @@ export function ShortsFeed({ logs, searchTerm, plan, chosung = true, selectedCat
         || s.genres.some((g) => g.replace(/\s+/g, '').toLowerCase() === termNorm)
         || Boolean(plan && isHit(plan.plan, scoreOf(s)!));
     });
-  }, [allShorts, searchTerm, selectedCategories, genre, genreOptions, plan, chosung]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allShorts, searchTerm, selectedCategories, genre, genreOptions, plan, chosung, exclude]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 업로드일을 모르는 것(기록에만 있는 쇼츠)만 한 번 조회
   const metaMap = useVideoMetaMany(filtered.filter((s) => !s.publishedAt).map((s) => s.id), sortBy === 'upload');

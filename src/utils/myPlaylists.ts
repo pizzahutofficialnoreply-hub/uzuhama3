@@ -8,7 +8,8 @@ import { useEffect, useState } from 'react';
 export type MyItemKind = 'video' | 'short' | 'live';
 export type MyItem = { id: string; kind: MyItemKind; title: string; addedAt: number };
 export type MyList = { id: string; name: string; items: MyItem[]; createdAt: number; updatedAt: number };
-type Store = { lists: MyList[]; defaultListId: string | null };
+/** defaultYoutube: 다음부터 묻지 않고 바로 담을 '내 유튜브 재생목록' */
+type Store = { lists: MyList[]; defaultListId: string | null; defaultYoutube?: { id: string; title: string } | null };
 
 const KEY = 'uzuhama_my_playlists_v1';
 const EVENT = 'uzuhama-my-playlists-change';
@@ -17,7 +18,7 @@ const uid = () => `pl_${Date.now().toString(36)}${Math.random().toString(36).sli
 function read(): Store {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (s && Array.isArray(s.lists)) return { lists: s.lists, defaultListId: s.defaultListId ?? null };
+    if (s && Array.isArray(s.lists)) return { lists: s.lists, defaultListId: s.defaultListId ?? null, defaultYoutube: s.defaultYoutube ?? null };
   } catch { /* 처음이거나 저장 불가 */ }
   return { lists: [], defaultListId: null };
 }
@@ -51,7 +52,7 @@ export function renameList(id: string, name: string) {
   write({ ...cache, lists: cache.lists.map((l) => (l.id === id ? { ...l, name: name.trim() || l.name, updatedAt: Date.now() } : l)) });
 }
 export function deleteList(id: string) {
-  write({ lists: cache.lists.filter((l) => l.id !== id), defaultListId: cache.defaultListId === id ? null : cache.defaultListId });
+  write({ ...cache, lists: cache.lists.filter((l) => l.id !== id), defaultListId: cache.defaultListId === id ? null : cache.defaultListId });
 }
 export function addToList(listId: string, item: Omit<MyItem, 'addedAt'>) {
   write({
@@ -77,7 +78,8 @@ export function moveItem(listId: string, itemId: string, dir: -1 | 1) {
   });
 }
 /** 다음부터 묻지 않고 바로 저장할 목록 (null 이면 매번 물어봄) */
-export function setDefaultList(id: string | null) { write({ ...cache, defaultListId: id }); }
+export function setDefaultList(id: string | null) { write({ ...cache, defaultListId: id, defaultYoutube: id ? null : cache.defaultYoutube }); }
+export function setDefaultYoutube(p: { id: string; title: string } | null) { write({ ...cache, defaultYoutube: p, defaultListId: p ? null : cache.defaultListId }); }
 export function listsContaining(itemId: string): string[] { return cache.lists.filter((l) => l.items.some((x) => x.id === itemId)).map((l) => l.id); }
 
 /**

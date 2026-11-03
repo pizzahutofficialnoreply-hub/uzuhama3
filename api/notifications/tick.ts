@@ -253,6 +253,17 @@ export default async function handler(req: any, res: any) {
       lastBySource: { [src]: now.getTime() }, // merge 라서 다른 출처 기록은 유지
     }, { merge: true }).catch(() => {});
 
+    // ── 하루 한 번: 검색 조정 (신고·만족도 반영, 오전 5시 이후) ──
+    if (new Date(now.getTime() + 9 * 3600000).getUTCHours() >= 5) {
+      try {
+        const { tuneSearch } = await import('../_searchTune.js');
+        const t = await tuneSearch(db);
+        if (!(t as any).skipped) result.searchTune = t;
+      } catch (e: any) {
+        result.searchTuneError = String(e?.message || e).slice(0, 200);
+      }
+    }
+
     return res.status(200).json(result);
   } catch (error: any) {
     console.error('[notifications/tick] failed:', error);

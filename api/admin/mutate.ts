@@ -37,6 +37,17 @@ export default async function handler(req: any, res: any) {
     }
 
     switch (action) {
+      case 'tuneSearch': {
+        // 관리자 '지금 조정': 오늘 이미 했어도 다시
+        const { tuneSearch } = await import('../_searchTune.js');
+        const r = await tuneSearch(db, { force: true });
+        return res.status(200).json({ success: true, ...r });
+      }
+      case 'resetSearchTuning': {
+        await db.collection('config').doc('searchTuning').set({ updatedAt: new Date().toISOString(), demote: {}, conceptDemote: {}, synonyms: {}, conceptAdd: {}, log: [] });
+        await db.collection('notification_state').doc('searchTune').set({ conceptCounts: {} }, { merge: true });
+        return res.status(200).json({ success: true });
+      }
       case 'addLog': {
         if (!log || !log.id || !log.date) {
           return res.status(400).json({ error: 'Invalid log payload' });

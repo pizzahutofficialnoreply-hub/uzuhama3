@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Suspense, lazy, startTransition } from 'react';
+import { setYoutubeClientId } from './utils/youtubeAccount';
 import { SaveHost } from './components/common/SaveHost';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink, AlertTriangle, CheckCircle2, Check } from 'lucide-react';
@@ -225,6 +226,8 @@ function MainApp() {
     }
   });
 
+  // 내 유튜브 재생목록 저장: 관리자가 넣은 구글 클라이언트 ID
+  useEffect(() => { setYoutubeClientId(data?.system?.youtubeOAuthClientId); }, [data?.system?.youtubeOAuthClientId]);
   const isAutoNavigatedRef = useRef<boolean>(false);
   const autoNavSourceTabRef = useRef<Tab | null>(null);
 

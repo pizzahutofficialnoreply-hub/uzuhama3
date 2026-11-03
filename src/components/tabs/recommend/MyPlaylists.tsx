@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { addToYoutubePlaylist, createYoutubePlaylist, onYoutubeConfig, youtubeSaveEnabled } from '../../../utils/youtubeAccount';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowDown, ArrowUp, Bookmark, Check, ExternalLink, ListVideo, Pencil, Trash2, X } from 'lucide-react';
 import { cn } from '../../../utils';
@@ -93,6 +94,23 @@ function MyListDetail({ list, isDefault, onClose }: { list: MyList; isDefault: b
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(list.name);
   const ids = list.items.filter((x) => x.kind !== 'short').map((x) => x.id);
+  // 내 유튜브로 통째로 보내기 (관리자가 구글 클라이언트 ID 를 넣었을 때)
+  const [ytOn, setYtOn] = useState(youtubeSaveEnabled());
+  useEffect(() => onYoutubeConfig(() => setYtOn(youtubeSaveEnabled())), []);
+  const [ytMsg, setYtMsg] = useState('');
+  const sendToYoutube = async () => {
+    if (!window.confirm(`'${list.name}' 이름으로 내 유튜브에 비공개 재생목록을 만들고 영상 ${ids.length}개를 담을까요?`)) return;
+    try {
+      setYtMsg('구글 로그인 중…');
+      const p = await createYoutubePlaylist(list.name);
+      let ok = 0;
+      for (const id of ids) {
+        setYtMsg(`담는 중 ${ok}/${ids.length}`);
+        try { await addToYoutubePlaylist(p.id, id); ok++; } catch (e: any) { if (/한도/.test(String(e?.message))) throw e; }
+      }
+      setYtMsg(`내 유튜브에 '${p.title}' 재생목록을 만들었어요 (${ok}/${ids.length}개).`);
+    } catch (e: any) { setYtMsg(String(e?.message || e)); }
+  };
   const allIds = list.items.map((x) => x.id);
 
   return (
@@ -124,11 +142,17 @@ function MyListDetail({ list, isDefault, onClose }: { list: MyList; isDefault: b
             <YoutubeLogo className="w-3.5 h-3.5" /> 유튜브에서 이어 보기 <ExternalLink className="w-3 h-3" />
           </a>
         )}
+        {ytOn && ids.length > 0 && (
+          <button type="button" onClick={sendToYoutube} className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-xs font-bold flex items-center gap-1 cursor-pointer">
+            <YoutubeLogo className="w-3.5 h-3.5" /> 내 유튜브 재생목록으로 만들기
+          </button>
+        )}
         <button type="button" onClick={() => setDefaultList(isDefault ? null : list.id)} className={cn('px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer', isDefault ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800')}>
           {isDefault ? '기본 저장 위치 ✓' : '기본 저장 위치로'}
         </button>
         <button type="button" onClick={() => { if (window.confirm(`'${list.name}' 재생목록을 지울까요?`)) { deleteList(list.id); onClose(); } }} className="ml-auto px-3 py-1.5 rounded-xl text-red-600 text-xs font-bold flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /> 목록 지우기</button>
       </div>
+      {ytMsg && <p className="px-1 -mt-1 mb-2 text-xs font-bold text-red-600">{ytMsg}</p>}
       {ids.length > 0 && <p className="px-1 -mt-1 mb-3 text-[11px] text-zinc-500">유튜브에서 이어 보기를 누르면 유튜브가 임시 재생목록으로 열어 줘요. 거기서 '저장'을 누르면 내 유튜브 재생목록이 돼요 (쇼츠 제외, 50개까지).</p>}
 
       {list.items.length === 0 ? (

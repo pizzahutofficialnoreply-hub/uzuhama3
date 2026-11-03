@@ -223,7 +223,9 @@ function splitToken(tok: string, df: (t: string) => number): string[] {
  * 검색어 → 찾을 단어 묶음
  * df: 그 말이 들어간 영상 수 (중요도 계산용), aliases: 게임 줄임말 사전
  */
-export function planQuery(raw: string, opts: SearchToggles, df: (t: string) => number, aliases: Record<string, string[]> = GAME_ALIASES): QueryPlan {
+export function planQuery(raw: string, opts: SearchToggles, df: (t: string) => number, aliases: Record<string, string[]> = GAME_ALIASES,
+  /** 하루 한 번 서버가 신고·만족도로 보강한 느낌별 말·뺄 장르 */
+  conceptAdd: Record<string, { expand?: string[]; avoid?: string[] }> = {}): QueryPlan {
   const text = String(raw || '').trim();
   // 부탁하는 말이 있거나, '무서운'·'잔잔한' 처럼 느낌을 말하면 자연어로 봄
   const natural = opts.natural && isNaturalQuery(text);
@@ -265,7 +267,9 @@ export function planQuery(raw: string, opts: SearchToggles, df: (t: string) => n
       g.moods = c.moods;
       g.months = c.months || [];
       g.genres = c.genres || [];
-      g.avoid = c.avoid;
+      const extra = conceptAdd[c.key];
+      (extra?.expand || []).forEach((e) => { const t2 = sq(e); if (t2 && !g.variants.some((v) => v.text === t2)) g.variants.push({ text: t2, factor: natural ? 0.75 : 0.45 }); });
+      g.avoid = [...(c.avoid || []), ...(extra?.avoid || [])];
       g.holidays = c.holidays;
       if (natural && c.intent) Object.entries(c.intent).forEach(([k, v]) => { if ((intent as any)[k] === undefined) (intent as any)[k] = v; });
     }

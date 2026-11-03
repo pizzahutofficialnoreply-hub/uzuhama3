@@ -6,7 +6,7 @@ import { cleanShortsTitle } from '../../utils/videoSearch';
 import { GlassPlayButton, PlaySquare, YoutubeLogo } from './MediaIcons';
 import { ShortsPlayer } from './ShortsPlayer';
 import { ShareButton } from './ShareButton';
-import { SaveButton } from './SaveButton';
+import { ItemMenu } from './ItemMenu';
 import { useInterestTracker, noteInterest } from '../../hooks/useInterestTracker';
 import type { InterestItem } from '../../utils/interest';
 import { formatShortsShareText } from '../../utils/shareUtils';
@@ -101,7 +101,7 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
         >
           {label}
         </a>
-        <SaveButton compact id={ytId || ''} kind="short" title={label} className="-mr-1 -mt-0.5" onSave={() => noteInterest(interest, 'engage')} />
+        <ItemMenu compact id={ytId || ''} kind="short" title={label} className="-mr-1 -mt-0.5" onSave={() => noteInterest(interest, 'engage')} />
         <ShareButton
           compact
           className="-mr-1 -mt-0.5"

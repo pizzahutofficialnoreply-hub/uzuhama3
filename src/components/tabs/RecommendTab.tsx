@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { LazyInput } from '../common/LazyInput';
-import { SaveButton } from '../common/SaveButton';
+import { ItemMenu, SearchContext } from '../common/ItemMenu';
+import { useSearchTuning } from '../../hooks/useSearchTuning';
+import { SearchRating } from '../common/SearchRating';
 import { type Intent, CONCEPTS, GAME_ALIASES, autoAliases, groupWeights, hasTerm, isHit, isNaturalQuery, makeDoc, planQuery, scoreDoc, textHits, type SearchDoc } from '../../utils/searchPlan';
 import { RefreshCw, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Star, CheckCircle, Search, Filter, Cloud, CloudDownload, X, Loader2, AlertCircle, AlertTriangle, Calendar, Layers, Play, Sparkles, Clock } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -363,7 +365,7 @@ export const VideoCard = ({
           <a href={video.videoUrl} target="_blank" rel="noreferrer" className={cn("font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex-1", isCompact ? "text-xs sm:text-base" : "text-sm sm:text-base")}>
             {video.videoTitle}
           </a>
-          <SaveButton
+          <ItemMenu
             id={extractYoutubeId(video.videoUrl) || ''}
             kind={video.isLive ? 'live' : 'video'}
             title={video.videoTitle || ''}
@@ -1320,16 +1322,37 @@ export function RecommendTab({
       return n;
     };
   }, [allVideos, docOf]);
-  const aliasDict = useMemo(() => ({ ...autoAliases(knownGameNames), ...GAME_ALIASES }), [knownGameNames]);
+  // 하루 한 번 신고·만족도로 보강된 사전 (같은 뜻 말·느낌별 말·뺄 영상)
+  const tuning = useSearchTuning();
+  const aliasDict = useMemo(() => {
+    const out: Record<string, string[]> = { ...autoAliases(knownGameNames), ...GAME_ALIASES };
+    Object.entries(tuning.synonyms || {}).forEach(([k, v]) => { out[k] = [...new Set([...(out[k] || []), ...v])]; });
+    return out;
+  }, [knownGameNames, tuning.synonyms]);
   const planBundle = useMemo(() => {
     const t = effectiveSearchTerm.trim();
     if (!t || t.startsWith('#') || isVideoUrl(t) || extractYoutubeId(t) || extractChzzkId(t)) return null;
     if (/^\d{1,4}([./-]\d{1,2}){0,2}$/.test(t) || /^\d+\s*월(\s*\d+\s*일)?$/.test(t)) return null; // 날짜 검색은 예전 방식
     if (!sOpts.smart && !sOpts.alias && !sOpts.natural) return null;
-    const plan = planQuery(t, sOpts, dfOf, aliasDict);
+    const plan = planQuery(t, sOpts, dfOf, aliasDict, tuning.conceptAdd || {});
     if (!plan.groups.length && !(plan.natural && Object.keys(plan.intent).length)) return null;
     return { plan, weights: groupWeights(plan, dfOf, Math.max(1, allVideos.length)) };
-  }, [effectiveSearchTerm, sOpts, dfOf, aliasDict, allVideos.length]);
+  }, [effectiveSearchTerm, sOpts, dfOf, aliasDict, allVideos.length, tuning.conceptAdd]);
+  // 신고로 이 검색어(또는 이 느낌)에서 빠진 영상
+  const excludedIds = useMemo(() => {
+    const set = new Set<string>();
+    const q = searchTerm.trim();
+    if (!q) return set;
+    [squash(q), squash(effectiveSearchTerm), planBundle ? squash(planBundle.plan.core) : ''].filter(Boolean).forEach((k) => (tuning.demote?.[k] || []).forEach((id) => set.add(id)));
+    planBundle?.plan.groups.forEach((g) => g.concept && (tuning.conceptDemote?.[g.concept] || []).forEach((id) => set.add(id)));
+    return set;
+  }, [searchTerm, effectiveSearchTerm, planBundle, tuning]);
+  // 카드의 ⋮ > 신고 에서 쓰는 지금 검색 정보
+  const searchCtx = useMemo(() => ({
+    query: searchTerm.trim(),
+    concepts: (planBundle?.plan.groups || []).map((g) => g.concept).filter(Boolean) as string[],
+    understood: [autoCorrected ? `'${autoCorrected.to}'로 고침` : '', ...(planBundle?.plan.notes || [])].filter(Boolean).join(' · '),
+  }), [searchTerm, planBundle, autoCorrected]);
   // 예전 방식(제목·초성·날짜 등)으로 찾을 말: 말하듯 썼으면 부탁하는 말을 뺀 것
   const literalTerm = planBundle?.plan.natural ? planBundle.plan.core : effectiveSearchTerm;
   const intent: Intent = useMemo(() => (planBundle?.plan.natural ? planBundle.plan.intent : {}), [planBundle]);
@@ -1398,8 +1421,9 @@ export function RecommendTab({
       .filter(({ s, sc }) => (lit.length >= 2 && (titleMatches(lit, s.title) || (s.relatedTitle && titleMatches(lit, s.relatedTitle)))) || (sc && pb && isHit(pb.plan, sc)))
       .sort((a, b) => (pb ? Number(b.sc?.phrase) - Number(a.sc?.phrase) || (b.sc?.rel || 0) - (a.sc?.rel || 0) : 0))
       .map(({ s }) => s)
+      .filter((s) => !excludedIds.has(extractYoutubeId(s.url) || ''))
       .slice(0, 20);
-  }, [effectiveSearchTerm, literalTerm, planBundle, allShortsLite, subTab]);
+  }, [effectiveSearchTerm, literalTerm, planBundle, allShortsLite, subTab, excludedIds]);
 
   // 카테고리 사전: 게임 장르(games[].category)를 기준으로 만들고, 게임명이 섞여 들어간 값은 제외
   const categoryIndex = useMemo(() => {
@@ -1958,6 +1982,12 @@ export function RecommendTab({
       scoredVids.push(...sorted);
     }
 
+    if (excludedIds.size && subTab !== 'recommend') {
+      const kept = scoredVids.filter((v) => !excludedIds.has(extractYoutubeId(v.videoUrl) || v.id));
+      scoredVids.length = 0;
+      scoredVids.push(...kept);
+    }
+
     if (pinnedVideoId && (effectiveSortOrder === 'recommend' || !searchTerm.trim())) {
       const pinIndex = scoredVids.findIndex(v => 
         v.id === pinnedVideoId || 
@@ -1971,7 +2001,7 @@ export function RecommendTab({
     }
 
     return scoredVids;
-  }, [allVideos, categoryIndex, categories, selectedCategories, literalTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos, planBundle, docOf, chos, useRelated, sOpts, intent]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, categoryIndex, categories, selectedCategories, literalTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos, planBundle, docOf, chos, useRelated, sOpts, intent, excludedIds]); // Removed ratings and history to prevent jumping on watch
 
   // 명절 특집: 설·추석·크리스마스 무렵 홈 위쪽에 '이동하면서 보기 좋은 긴 영상' (예전 그 명절 방송 먼저, 그다음 긴 몰아보기·생방송)
   const season = useMemo<Season | null>(() => {
@@ -2133,6 +2163,7 @@ export function RecommendTab({
   };
 
   return (
+    <SearchContext.Provider value={searchCtx}>
     <div className="space-y-6 pb-28 sm:pb-12" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
       {/* 하위 탭 (유튜브 채널 화면처럼 홈 / 추천 / 동영상 / Shorts / 재생목록) */}
       <div id="recommend-cards-top" role="tablist" aria-label="추천 영상 보기 방식" className="scroll-mt-24 -mx-3 px-3 sm:mx-0 sm:px-0 flex items-center gap-2 overflow-x-auto no-scrollbar">
@@ -2369,6 +2400,10 @@ export function RecommendTab({
                 <span>{planBundle.plan.notes.join(' · ')}</span>
               </p>
             )}
+            {/* 검색어를 해석한 경우에만 만족도 묻기 (하루 한 번 검색 조정에 쓰임) */}
+            {(autoCorrected || (planBundle && planBundle.plan.notes.length > 0)) && (
+              <SearchRating query={searchTerm} understood={searchCtx.understood} resultCount={subTab === 'shorts' ? shortsCount : recommended.length} />
+            )}
           </div>
         )}
       {subTab === 'shorts' ? (
@@ -2378,6 +2413,7 @@ export function RecommendTab({
           searchTerm={literalTerm}
           plan={planBundle}
           chosung={chos}
+          exclude={excludedIds}
           selectedCategories={selectedCategories}
           order={sortOrder === 'asc' ? 'asc' : sortOrder === 'accuracy' && searchTerm.trim() ? 'accuracy' : 'desc'}
           onCount={setShortsCount}
@@ -2647,5 +2683,6 @@ export function RecommendTab({
         <p className="mt-1 text-xs">※ 최신순 영상의 정렬 기준은 방송일(생방일)이에요.</p>
       </footer>
     </div>
+    </SearchContext.Provider>
   );
 }
