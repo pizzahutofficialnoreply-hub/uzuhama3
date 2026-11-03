@@ -31,8 +31,12 @@ const CHUNK_SIZE = 400;
 const MODELS = [process.env.GEMINI_MODEL, 'gemini-flash-lite-latest', 'gemini-flash-latest']
   .filter(Boolean) as string[];
 
-/** g=태그, t=썸네일 글자, k=키워드, d=설명 앞부분, x=영상 없음, p=썸네일 아직 */
-type Entry = { g?: string[]; t?: string; k?: string[]; d?: string; x?: 1; p?: 1 };
+/** g=태그, t=썸네일 글자, k=키워드, d=설명 앞부분, m=분위기·계절 태그, x=영상 없음, p=썸네일 아직 */
+type Entry = { g?: string[]; t?: string; k?: string[]; d?: string; m?: string[]; x?: 1; p?: 1 };
+/** 썸네일 분위기·계절 태그는 이 목록에서만 (앱의 '말하듯 검색'이 같은 목록을 씀) */
+const MOODS = ['봄', '여름', '가을', '겨울', '크리스마스', '할로윈', '설날', '추석', '새해', '공포', '웃김', '힐링', '감동', '긴장감', '귀여움', '분노', '슬픔', '평화', '혼돈', '눈', '바다', '물', '숲', '사막', '우주', '도시', '학교', '밤', '비', '불', '산'];
+/** 썸네일을 아직 안 봤거나, 분위기 태그가 생기기 전에 본 것 (한 번만 다시 봄) */
+const needsVision = (e?: Entry) => Boolean(e && !e.x && (e.p || e.m === undefined));
 
 const todayKst = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
 
@@ -107,7 +111,8 @@ async function readThumbnails(ai: any, batch: { id: string; desc: string; img: {
     text: `아래는 스트리머 "우주하마" 유튜브 영상 썸네일 ${batch.length}장이야. 각 이미지마다:
 - texts: 썸네일 그림 안에 실제로 적힌 글자를 보이는 그대로, 떨어져 있는 글자 덩어리마다 따로 (예: ["히말라야 등반", "범죄현장 청소"], 없으면 []). 추측해서 지어내지 말 것.
 - keywords: 썸네일 장면을 보고 검색에 쓸 만한 한국어 키워드 최대 8개 (장소, 상황, 등장 사물·인물 특징, 금액·숫자 등).
-JSON 배열로만 답해: [{"i":0,"texts":["..."],"keywords":["..."]}, ...] (i 는 이미지 순서 번호)`,
+- moods: 썸네일의 계절·행사·분위기·배경을 다음 목록에서만 0~4개: ${MOODS.join(', ')}. 확실한 것만 (예: 눈 덮인 배경 → 겨울, 눈 / 산타 모자 → 크리스마스).
+JSON 배열로만 답해: [{"i":0,"texts":["..."],"keywords":["..."],"moods":["..."]}, ...] (i 는 이미지 순서 번호)`,
   }];
   batch.forEach((b, i) => {
     parts.push({ text: `#${i}${b.desc ? ` 설명: ${b.desc.slice(0, 100)}` : ''}` });
@@ -115,7 +120,7 @@ JSON 배열로만 답해: [{"i":0,"texts":["..."],"keywords":["..."]}, ...] (i �
   });
   const arr = await gemini(ai, [{ role: 'user', parts }]);
   if (!Array.isArray(arr)) throw new Error('응답 형식 오류');
-  const out = new Map<string, { text: string; keywords: string[] }>();
+  const out = new Map<string, { text: string; keywords: string[]; moods: string[] }>();
   arr.forEach((x: any) => {
     const i = Number(x?.i);
     if (!Number.isInteger(i) || !batch[i]) return;
@@ -123,6 +128,7 @@ JSON 배열로만 답해: [{"i":0,"texts":["..."],"keywords":["..."]}, ...] (i �
       // 글자 덩어리는 ' | ' 로 구분해 저장 (앱에서 덩어리마다 따로 검색)
       text: (Array.isArray(x?.texts) ? x.texts : [x?.text]).map((t: any) => String(t || '').replace(/\s+/g, ' ').trim()).filter(Boolean).join(' | ').slice(0, 200),
       keywords: cleanList(x?.keywords, 8, 30),
+      moods: cleanList(x?.moods, 4, 10).filter((m) => MOODS.includes(m)),
     });
   });
   return out;
@@ -262,7 +268,7 @@ export default async function handler(req: any, res: any) {
         for (const id of order) {
           if (seen.has(id)) continue;
           seen.add(id);
-          if (entryOf(id)?.p) pend.push(id);
+          if (needsVision(entryOf(id))) pend.push(id);
           if (pend.length >= Math.min(VISION_PER_REQUEST, DAILY_VISION_LIMIT - vUsed)) break;
         }
         const withImg = (await Promise.all(pend.map(async (id) => ({ id, desc: entryOf(id)?.d || '', img: await thumbnailBase64(id) }))));
@@ -278,6 +284,7 @@ export default async function handler(req: any, res: any) {
               delete e.p;
               if (v?.text) e.t = v.text;
               if (v?.keywords?.length) e.k = v.keywords;
+              e.m = v?.moods || []; // 빈 목록도 저장 (다시 보지 않게)
               setEntry(x.id, e);
             });
             done += group.length;
@@ -329,7 +336,7 @@ export default async function handler(req: any, res: any) {
       touched.forEach((i) => batch.set(db.collection('youtube_search_chunks').doc(String(i)), { items: chunks[i] }));
       let count = 0;
       let pending = 0;
-      chunks.forEach((c) => (Object.values(c) as Entry[]).forEach((e) => { count += 1; if (e?.p) pending += 1; }));
+      chunks.forEach((c) => (Object.values(c) as Entry[]).forEach((e) => { count += 1; if (needsVision(e)) pending += 1; }));
       batch.set(metaRef, {
         ...metaUpdate, chunks: chunks.length, count, pending,
         updatedAt: new Date().toISOString(),

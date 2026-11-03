@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { LazyInput } from '../common/LazyInput';
+import { GAME_ALIASES, autoAliases, groupWeights, hasTerm, isHit, isNaturalQuery, makeDoc, planQuery, scoreDoc, textHits, type SearchDoc } from '../../utils/searchPlan';
 import { RefreshCw, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Star, CheckCircle, Search, Filter, Cloud, CloudDownload, X, Loader2, AlertCircle, AlertTriangle, Calendar, Layers, Play, Sparkles, Clock } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { useFirebaseData } from '../../hooks/useFirebaseData';
-import { fuzzyKoreanMatch, fuzzyDateMatch, cn } from '../../utils';
+import { fuzzyKoreanMatch, fuzzyDateMatch, cn, getChosung } from '../../utils';
 import { extractYoutubeId, extractChzzkId, isVideoUrl, matchMediaUrl, matchLogMedia } from '../../utils/urlUtils';
 import { formatRecommendShareText, shareTextOrClipboard } from '../../utils/shareUtils';
 import { ShareBoxArrowIcon } from '../common/ShareIcon';
@@ -1176,7 +1177,8 @@ export function RecommendTab({
   const gameKeywordMap = searchData.games;
 
   // ── 구글처럼 너그러운 검색: 오타 보정용 단어 사전 (제목·게임·장르·태그·썸네일 글자·게임 키워드) ──
-  const { keyboard } = usePrefs();
+  const prefs = usePrefs();
+  const keyboard = prefs.keyboard;
   const searchVocab = useMemo(() => {
     const texts: string[] = [];
     allVideos.forEach((v: any) => {
@@ -1244,14 +1246,73 @@ export function RecommendTab({
   const [keepOriginalFor, setKeepOriginalFor] = useState<string | null>(null);
   const correction: Correction | null = useMemo(() => {
     const raw = searchTerm.trim();
+    if (prefs.searchTypo === false) return null;
     if (!raw || raw.startsWith('#') || raw === keepOriginalFor || isVideoUrl(raw) || extractYoutubeId(raw) || extractChzzkId(raw)) return null;
+    // 말하듯 쓴 검색어("겨울 특집 추천해줘")는 고치지 않고 아래에서 해석
+    if (prefs.searchNatural !== false && isNaturalQuery(raw)) return null;
+    // 줄임말("배그")은 고치지 않음
+    if (prefs.searchAlias !== false && GAME_ALIASES[squash(raw)]) return null;
     if (/^\d{1,4}([./-]\d{1,2}){0,2}$/.test(raw) || /\d+\s*월/.test(raw)) return null; // 날짜 검색은 그대로
     return correctQuery(raw, searchVocab, keyboard);
-  }, [searchTerm, searchVocab, keyboard, keepOriginalFor]);
+  }, [searchTerm, searchVocab, keyboard, keepOriginalFor, prefs.searchTypo, prefs.searchNatural, prefs.searchAlias]);
   // 확실한 보정(한/영 전환, 아주 가까운 오타)은 바로 그 검색어로 찾고, 애매하면 '혹시 ~?' 로 제안만
   const autoCorrected = correction && (correction.how === 'hanyeong' || correction.cost <= 0.25) ? correction : null;
   const suggestion = correction && !autoCorrected ? correction : null;
   const effectiveSearchTerm = autoCorrected ? autoCorrected.to : searchTerm;
+
+  // ── 검색 도우미: 중요한 단어 우선 · 게임 줄임말 · 말하듯 검색 (설정에서 켜고 끔) ──
+  const sOpts = useMemo(() => ({ smart: prefs.searchSmart !== false, alias: prefs.searchAlias !== false, natural: prefs.searchNatural !== false }), [prefs.searchSmart, prefs.searchAlias, prefs.searchNatural]);
+  const chos = prefs.searchChosung !== false;
+  const useRelated = prefs.searchRelated !== false;
+  // 영상마다 검색용으로 한 번만 정리해 둠 (제목·게임·연결된 쇼츠 제목·썸네일 글자·태그·분위기·방송한 달)
+  const docOf = useMemo(() => {
+    const cache = new WeakMap<object, SearchDoc>();
+    return (v: any): SearchDoc => {
+      let d = cache.get(v);
+      if (d) return d;
+      const yid = extractYoutubeId(v.videoUrl) || v.id;
+      const e: any = searchIndex[yid];
+      const gl = [...(v.parentLog?.games || []), ...(v.games || [])];
+      d = makeDoc({
+        title: v.videoTitle,
+        games: [v.parentLog?.game, v.category, v.parentLog?.category, ...gl.map((g: any) => g?.name)].filter(Boolean),
+        extra: (shortsByVideo.get(yid) || []).map((x) => x.title || ''),
+        meta: e ? [e.t, ...(e.k || []), ...(e.g || [])].filter(Boolean) : [],
+        desc: e?.d,
+        moods: e?.m,
+        dates: [v.parentLog?.date, ...(Array.isArray(v.allBroadcastDates) ? v.allBroadcastDates : [])].filter(Boolean),
+        genres: gl.flatMap((g: any) => String(g?.category || '').split(',')).map((c) => c.trim()).filter(Boolean),
+      });
+      cache.set(v, d);
+      return d;
+    };
+  }, [searchIndex, shortsByVideo]);
+  // 그 말이 제목·게임에 들어간 영상 수 (드물수록 중요한 단어)
+  const dfOf = useMemo(() => {
+    const docs = allVideos.map(docOf);
+    const cache = new Map<string, number>();
+    return (t: string) => {
+      let n = cache.get(t);
+      if (n === undefined) {
+        n = 0;
+        for (const d of docs) if (hasTerm(d.title, d.titleSq, t) || hasTerm(d.games, d.gamesSq, t)) n++;
+        cache.set(t, n);
+      }
+      return n;
+    };
+  }, [allVideos, docOf]);
+  const aliasDict = useMemo(() => ({ ...autoAliases(knownGameNames), ...GAME_ALIASES }), [knownGameNames]);
+  const planBundle = useMemo(() => {
+    const t = effectiveSearchTerm.trim();
+    if (!t || t.startsWith('#') || isVideoUrl(t) || extractYoutubeId(t) || extractChzzkId(t)) return null;
+    if (/^\d{1,4}([./-]\d{1,2}){0,2}$/.test(t) || /^\d+\s*월(\s*\d+\s*일)?$/.test(t)) return null; // 날짜 검색은 예전 방식
+    if (!sOpts.smart && !sOpts.alias && !sOpts.natural) return null;
+    const plan = planQuery(t, sOpts, dfOf, aliasDict);
+    if (!plan.groups.length) return null;
+    return { plan, weights: groupWeights(plan, dfOf, Math.max(1, allVideos.length)) };
+  }, [effectiveSearchTerm, sOpts, dfOf, aliasDict, allVideos.length]);
+  // 예전 방식(제목·초성·날짜 등)으로 찾을 말: 말하듯 썼으면 부탁하는 말을 뺀 것
+  const literalTerm = planBundle?.plan.natural ? planBundle.plan.core : effectiveSearchTerm;
 
   // 최근 검색어 칩 (모든 탭 같은 모양)
   const recentChips = (divider: boolean) => (
@@ -1300,9 +1361,17 @@ export function RecommendTab({
       return allShortsLite.filter((s) => (linkId && (extractYoutubeId(s.url) === linkId || extractYoutubeId(s.editUrl || '') === linkId || extractYoutubeId(s.liveUrl || '') === linkId))
         || matchMediaUrl(s.liveUrl, raw)).slice(0, 20);
     }
-    // 제목, 또는 쇼츠가 연결된 본영상 제목으로
-    return allShortsLite.filter((s) => titleMatches(raw, s.title) || (s.relatedTitle && titleMatches(raw, s.relatedTitle))).slice(0, 20);
-  }, [effectiveSearchTerm, allShortsLite, subTab]);
+    // 제목, 또는 쇼츠가 연결된 본영상 제목으로 (검색 도우미: 중요한 단어·줄임말·말하듯 검색)
+    const lit = literalTerm.trim().replace(/^#+/, '');
+    const pb = planBundle;
+    const scoreOf = (s: { title: string; relatedTitle?: string }) => (pb ? scoreDoc(pb.plan, pb.weights, makeDoc({ title: s.title, extra: s.relatedTitle ? [s.relatedTitle] : [] })) : null);
+    return allShortsLite
+      .map((s) => ({ s, sc: scoreOf(s) }))
+      .filter(({ s, sc }) => (lit.length >= 2 && (titleMatches(lit, s.title) || (s.relatedTitle && titleMatches(lit, s.relatedTitle)))) || (sc && pb && isHit(pb.plan, sc)))
+      .sort((a, b) => (pb ? Number(b.sc?.phrase) - Number(a.sc?.phrase) || (b.sc?.rel || 0) - (a.sc?.rel || 0) : 0))
+      .map(({ s }) => s)
+      .slice(0, 20);
+  }, [effectiveSearchTerm, literalTerm, planBundle, allShortsLite, subTab]);
 
   // 카테고리 사전: 게임 장르(games[].category)를 기준으로 만들고, 게임명이 섞여 들어간 값은 제외
   const categoryIndex = useMemo(() => {
@@ -1448,7 +1517,10 @@ export function RecommendTab({
     const pool = subTab === 'live' ? liveVideos : allVideos;
     if (pool.length === 0) return [];
     // 오타를 자동으로 고친 경우 고친 검색어로 찾음 (추천 탭은 검색과 상관없이 추천만)
-    const searchTerm = subTab === 'recommend' ? '' : effectiveSearchTerm;
+    const searchTerm = subTab === 'recommend' ? '' : literalTerm;
+    const fkm = (q: string, t: string) => fuzzyKoreanMatch(q, t, chos);
+    const plan = subTab === 'recommend' ? null : planBundle;
+    const planScore = (v: any) => (plan ? scoreDoc(plan.plan, plan.weights, docOf(v)) : null);
 
     // 동영상 탭: 몰아보기를 뺀 편집본만
     let vids = subTab === 'videos' ? allVideos.filter((v) => !v.isCompilation) : pool;
@@ -1502,8 +1574,8 @@ export function RecommendTab({
       const entryOf = (v: any) => searchIndex[extractYoutubeId(v.videoUrl) || v.id];
       const sqTerm = squash(term);
       const termWords = term.split(/\s+/).map(squash).filter(Boolean);
-      const videoText = (v: any) => squash([v.videoTitle, v.category, v.parentLog?.game, v.parentLog?.category,
-        ...(v.parentLog?.games || []).flatMap((g: any) => [g?.name, g?.category]), ...(v.games || []).flatMap((g: any) => [g?.name, g?.category])].filter(Boolean).join(' '));
+      // 제목·게임·장르를 붙인 비교용 글 (영상마다 한 번만 만들어 둔 것)
+      const videoText = (v: any) => { const d = docOf(v); return d.titleSq + '|' + d.gamesSq + '|' + d.genres.join('|'); };
 
       // '#태그': 유튜브 태그·설명의 #해시태그·제목의 #단어
       const tagHits = isTagMode ? searchTarget.filter((v) => {
@@ -1554,22 +1626,25 @@ export function RecommendTab({
         if (Array.isArray(v.allBroadcastDates) && v.allBroadcastDates.some((d: string) => fuzzyDateMatch(term, d))) return true;
 
         // 3. 제목 및 초성 검색 (띄어쓰기·기호 무시: "3.0.만.원" == "30만원")
-        if (fuzzyKoreanMatch(term, v.videoTitle)) return true;
+        if (fkm(term, v.videoTitle)) return true;
         if (sqTerm.length >= 2 && squash(v.videoTitle).includes(sqTerm)) return true;
         // 여러 단어: 단어마다 제목·게임·장르 어디든 있으면
         if (termWords.length > 1 && termWords.every((w) => videoText(v).includes(w))) return true;
         
         // 3-1. 이 영상에 연결된 쇼츠 제목으로도
         const linked = shortsByVideo.get(extractYoutubeId(v.videoUrl) || v.id);
-        if (linked?.some((s) => s.title && (fuzzyKoreanMatch(term, s.title) || (sqTerm.length >= 2 && squash(s.title).includes(sqTerm))))) return true;
+        if (linked?.some((s) => s.title && (fkm(term, s.title) || (sqTerm.length >= 2 && squash(s.title).includes(sqTerm))))) return true;
 
         // 4. 카테고리 및 게임명 검색
         const qLower = term.toLowerCase();
-        if (v.category && (fuzzyKoreanMatch(term, v.category) || v.category.toLowerCase().includes(qLower))) return true;
-        if (v.games?.some((g: any) => fuzzyKoreanMatch(term, g.name) || (g.category && (fuzzyKoreanMatch(term, g.category) || g.category.toLowerCase().includes(qLower))))) return true;
-        if (v.parentLog?.games?.some((g: any) => fuzzyKoreanMatch(term, g.name) || (g.category && (fuzzyKoreanMatch(term, g.category) || g.category.toLowerCase().includes(qLower))))) return true;
-        if (v.parentLog?.game && fuzzyKoreanMatch(term, v.parentLog.game)) return true;
-        if (v.parentLog?.category && (fuzzyKoreanMatch(term, v.parentLog.category) || v.parentLog.category.toLowerCase().includes(qLower))) return true;
+        if (v.category && (fkm(term, v.category) || v.category.toLowerCase().includes(qLower))) return true;
+        if (v.games?.some((g: any) => fkm(term, g.name) || (g.category && (fkm(term, g.category) || g.category.toLowerCase().includes(qLower))))) return true;
+        if (v.parentLog?.games?.some((g: any) => fkm(term, g.name) || (g.category && (fkm(term, g.category) || g.category.toLowerCase().includes(qLower))))) return true;
+        if (v.parentLog?.game && fkm(term, v.parentLog.game)) return true;
+        if (v.parentLog?.category && (fkm(term, v.parentLog.category) || v.parentLog.category.toLowerCase().includes(qLower))) return true;
+        // 5. 검색 도우미: 중요한 단어가 맞거나, 줄임말·비슷한 말(겨울 → 눈사람·크리스마스)·썸네일 분위기로 맞으면
+        const ps = planScore(v);
+        if (ps && plan && isHit(plan.plan, ps)) return true;
         return false;
       });
 
@@ -1581,7 +1656,7 @@ export function RecommendTab({
       }
 
       // 연관 검색: 제목 등에는 없지만 썸네일 글자·키워드·태그·설명, 또는 게임의 한국어 키워드(예: 도서관 → Librarian)에 검색어가 있는 영상 (맨 아래)
-      if (!isUrl) {
+      if (!isUrl && useRelated) {
         const found = new Set(vids.map((v) => v.id));
         const kwGames = gamesMatchingKeyword(gameKeywordMap, term);
         const gameNamesOf = (v: any) => [v.parentLog?.game, ...(v.parentLog?.games || []).map((g: any) => g?.name), ...(v.games || []).map((g: any) => g?.name)]
@@ -1721,17 +1796,44 @@ export function RecommendTab({
          // 6. 초성 검색, 오타 교정, 간접 fuzzy 매칭 (일치 확률이 비교적 낮은 검색 결과)
          else {
            let fuzzyScore = 20;
-           if (fuzzyKoreanMatch(q, v.videoTitle)) {
-             fuzzyScore = 35;
-           } else if (fuzzyKoreanMatch(q, category) || fuzzyKoreanMatch(q, primaryGame)) {
+           // 초성 검색: 초성이 이어서 맞으면(ㅂㅌㄱㄹㅇㄷ → 배틀그라운드) 띄엄띄엄 맞는 것보다 위, 게임 이름이 맞으면 더 위
+           const qc = /[ㄱ-ㅎ]/.test(q) ? q.replace(/\s+/g, '') : '';
+           const chosungOf = (t: string) => getChosung(String(t || '').toLowerCase().replace(/\s+/g, ''));
+           const gameNames = [primaryGame, ...[...(v.parentLog?.games || []), ...(v.games || [])].map((g: any) => g?.name || '')];
+           if (qc && gameNames.some((n) => n && chosungOf(n).includes(qc))) {
+             fuzzyScore = 46;
+           } else if (qc && chosungOf(v.videoTitle).includes(qc)) {
+             fuzzyScore = 42;
+           } else if (fkm(q, v.videoTitle)) {
+             fuzzyScore = qc ? 25 : 35;
+           } else if (fkm(q, category) || fkm(q, primaryGame)) {
              fuzzyScore = 30;
            }
            matchScore = fuzzyScore;
-           isHighConfidence = false;
+           // 초성이 이어서 맞은 건 확실한 결과로
+           isHighConfidence = fuzzyScore >= 42;
          }
        }
 
-       return { ...v, rType, weight, matchScore, isHighConfidence, isRelated, relatedVia: relatedVia.get(v.id) };
+       // 검색 도우미 점수: 붙여 쓴 그대로 제목에 있으면 맨 위, 중요한 단어가 많이 맞을수록 위, 흔한 단어만 맞으면 아래
+       let isRel = isRelated;
+       if (plan && sOpts.smart && !isTagMode && searchTerm.trim()) {
+         const ps = planScore(v)!;
+         const hit = isHit(plan.plan, ps);
+         if (ps.phrase) { matchScore = Math.max(matchScore, 98); isHighConfidence = true; isRel = false; }
+         else if (hit) {
+           matchScore = Math.max(matchScore, Math.round(45 + 45 * Math.min(1, ps.rel)));
+           if (ps.rel >= 0.45) { isHighConfidence = true; isRel = false; }
+         } else if (plan.plan.groups.length > 1 && matchScore < 80 && matchScore !== 60) {
+           isHighConfidence = false;
+         }
+       } else if (plan && !isTagMode && searchTerm.trim() && !matchScore) {
+         // 줄임말·말하듯 검색만 켠 경우
+         const ps = planScore(v)!;
+         if (isHit(plan.plan, ps)) { matchScore = Math.round(45 + 40 * Math.min(1, ps.rel)); isHighConfidence = true; }
+       }
+
+       return { ...v, rType, weight, matchScore, isHighConfidence, isRelated: isRel, relatedVia: isRel ? relatedVia.get(v.id) : undefined };
     });
     
     const getVideoSortTime = (v: any): number => {
@@ -1825,7 +1927,7 @@ export function RecommendTab({
     }
 
     return scoredVids;
-  }, [allVideos, categoryIndex, categories, selectedCategories, effectiveSearchTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, categoryIndex, categories, selectedCategories, literalTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos, planBundle, docOf, chos, useRelated, sOpts]); // Removed ratings and history to prevent jumping on watch
 
   // 추천 탭 위쪽: 추천 쇼츠·추천 라이브 (관심 기록이 없으면 최근 것부터)
   // 탭에 들어올 때 한 번만 계산 (보는 중에 순서가 바뀌지 않게)
@@ -2173,11 +2275,40 @@ export function RecommendTab({
         {recentSearches.length > 0 && recentChips(true)}
       </div>
 
+        {/* 오타 보정 안내: 바로 고친 경우 / 혹시 ~? 제안 */}
+        {subTab !== 'recommend' && (autoCorrected || suggestion || (planBundle && planBundle.plan.notes.length > 0)) && (
+          <div className="-mt-1 mb-4 px-1 text-sm text-zinc-600 dark:text-zinc-300 break-keep space-y-1">
+            {autoCorrected ? (
+              <p>
+                <button type="button" onClick={() => setSearchTerm(autoCorrected.to)} className="font-bold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer">'{autoCorrected.to}'</button>
+                (으)로 검색한 결과예요{autoCorrected.how === 'hanyeong' ? ' (한/영 전환)' : ''}.{' '}
+                <button type="button" onClick={() => setKeepOriginalFor(autoCorrected.from)} className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 underline cursor-pointer">
+                  '{autoCorrected.from}' 그대로 검색
+                </button>
+              </p>
+            ) : suggestion && (
+              <p>
+                혹시{' '}
+                <button type="button" onClick={() => setSearchTerm(suggestion.to)} className="font-bold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer">'{suggestion.to}'</button>
+                {' '}을(를) 검색하셨나요?
+              </p>
+            )}
+            {/* 줄임말·말하듯 검색 안내 */}
+            {planBundle && planBundle.plan.notes.length > 0 && (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 mt-px text-purple-500 shrink-0" />
+                <span>{planBundle.plan.notes.join(' · ')}</span>
+              </p>
+            )}
+          </div>
+        )}
       {subTab === 'shorts' ? (
         // 쇼츠: 위 필터 카드(카테고리·정렬·최근 검색)를 동영상과 똑같이 쓰고, 목록만 쇼츠로
         <ShortsFeed
           logs={data?.logs}
-          searchTerm={effectiveSearchTerm}
+          searchTerm={literalTerm}
+          plan={planBundle}
+          chosung={chos}
           selectedCategories={selectedCategories}
           order={sortOrder === 'asc' ? 'asc' : sortOrder === 'accuracy' && searchTerm.trim() ? 'accuracy' : 'desc'}
           onCount={setShortsCount}
@@ -2225,35 +2356,6 @@ export function RecommendTab({
         </div>
       )}
       <div id="recommend-cards-container" className="min-h-[400px]">
-        {/* 홈 검색: 제목이 맞는 쇼츠 줄 */}
-        {matchingShorts.length > 0 && (
-          <div className="mb-5" data-no-swipe>
-            <div className="flex items-center gap-1.5 px-1 mb-2 text-sm font-bold text-zinc-900 dark:text-white">
-              <ShortsIcon className="w-4 h-4 text-red-500" /> Shorts <span className="text-xs font-semibold text-zinc-400">{matchingShorts.length}개</span>
-            </div>
-            <ShortsShelf items={matchingShorts} />
-          </div>
-        )}
-        {/* 오타 보정 안내: 바로 고친 경우 / 혹시 ~? 제안 */}
-        {(autoCorrected || suggestion) && (
-          <div className="mb-3 px-1 text-sm text-zinc-600 dark:text-zinc-300 break-keep">
-            {autoCorrected ? (
-              <p>
-                <button type="button" onClick={() => setSearchTerm(autoCorrected.to)} className="font-bold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer">'{autoCorrected.to}'</button>
-                (으)로 검색한 결과예요{autoCorrected.how === 'hanyeong' ? ' (한/영 전환)' : ''}.{' '}
-                <button type="button" onClick={() => setKeepOriginalFor(autoCorrected.from)} className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 underline cursor-pointer">
-                  '{autoCorrected.from}' 그대로 검색
-                </button>
-              </p>
-            ) : suggestion && (
-              <p>
-                혹시{' '}
-                <button type="button" onClick={() => setSearchTerm(suggestion.to)} className="font-bold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer">'{suggestion.to}'</button>
-                {' '}을(를) 검색하셨나요?
-              </p>
-            )}
-          </div>
-        )}
         {/* 보기 방식: 카드 / 목록(유튜브 동영상 탭처럼) + 모바일 카드 1개·2개씩 */}
         {recommended.length > 0 && (
           <div className="flex items-center justify-between gap-2 px-1 mb-3">
@@ -2328,7 +2430,7 @@ export function RecommendTab({
                 </div>
               );
             })}
-            {recommended.length === 0 && (
+            {recommended.length === 0 && matchingShorts.length === 0 && (
               <div className="py-12 text-center text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px]">
                 조건에 맞는 추천 영상을 찾을 수 없어요.
               </div>
@@ -2408,7 +2510,7 @@ export function RecommendTab({
             );
           })}
               
-              {recommended.length === 0 && (
+              {recommended.length === 0 && matchingShorts.length === 0 && (
                 <div className="col-span-full py-12 text-center text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px]">
                   <YoutubeLogo className="w-12 h-12 mx-auto mb-4 opacity-20" />
                   <p>조건에 맞는 추천 영상을 찾을 수 없어요.</p>
@@ -2417,6 +2519,15 @@ export function RecommendTab({
             </div>
         )}
 
+        {/* 홈 검색: 제목이 맞는 쇼츠 줄 (영상 카드 다음에, 영상이 없으면 맨 위) */}
+        {matchingShorts.length > 0 && currentPage === 1 && (
+          <div className={cn(recommended.length ? 'mt-6' : 'mb-5')} data-no-swipe>
+            <div className="flex items-center gap-1.5 px-1 mb-2 text-sm font-bold text-zinc-900 dark:text-white">
+              <ShortsIcon className="w-4 h-4 text-red-500" /> Shorts <span className="text-xs font-semibold text-zinc-400">{matchingShorts.length}개</span>
+            </div>
+            <ShortsShelf items={matchingShorts} />
+          </div>
+        )}
             <Pagination currentPage={currentPage} totalPages={totalPages} onChange={setCurrentPage} />
       </div>
       </>)}

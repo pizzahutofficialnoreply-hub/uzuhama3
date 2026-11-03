@@ -14,7 +14,7 @@ type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChan
 };
 
 export const LazyInput = memo(forwardRef<HTMLInputElement, Props>(function LazyInput(
-  { value, onCommit, delay = 220, onKeyDown, onBlur, onCompositionStart, onCompositionEnd, ...rest },
+  { value, onCommit, delay = 160, onKeyDown, onBlur, onCompositionStart, onCompositionEnd, ...rest },
   ref,
 ) {
   const [draft, setDraft] = useState(value);

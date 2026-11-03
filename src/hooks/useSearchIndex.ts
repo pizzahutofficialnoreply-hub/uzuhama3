@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
+import { hasTerm } from '../utils/searchPlan';
 
 /**
  * 영상 검색 보조 색인 (태그·설명·썸네일 글자·키워드 + 게임 이름 한국어 키워드)
  * - 서버에서 받아 기기에 저장, 검색은 전부 기기 안에서 (검색할 때 외부 API 호출 없음)
  * - 아직 없는 영상·게임은 화면을 열어 둔 동안 조금씩 서버에 넘겨 한 번만 만들게 함 (서버가 잠금·한도로 비용 제한)
  */
-export type SearchEntry = { g?: string[]; t?: string; k?: string[]; d?: string; x?: 1; p?: 1 };
+/** m = 썸네일 분위기·계절 태그 (정해진 목록에서만) */
+export type SearchEntry = { g?: string[]; t?: string; k?: string[]; d?: string; m?: string[]; x?: 1; p?: 1 };
+/** 썸네일을 아직 안 봤거나(p), 분위기 태그가 생기기 전에 본 것 */
+export const needsVision = (e?: SearchEntry) => Boolean(e && !e.x && (e.p || e.m === undefined));
 export type SearchIndex = Record<string, SearchEntry>;
 export type GameKeywords = Record<string, string[]>;
 export type SearchData = { entries: SearchIndex; games: GameKeywords };
@@ -59,7 +63,7 @@ async function enrich(ids: string[], games: string[]) {
     let busy = 0;
     while (rounds < 120) {
       const newIds = ids.filter((id) => ID_RE.test(id) && !data.entries[id]).slice(0, 150);
-      const pendingIds = ids.filter((id) => data.entries[id]?.p).slice(0, 50);
+      const pendingIds = ids.filter((id) => needsVision(data.entries[id])).slice(0, 50);
       const newGames = games.filter((g) => !(g in data.games)).slice(0, 200);
       if (!newIds.length && !pendingIds.length && !newGames.length) {
         if (!complete) { complete = true; persist(); }
@@ -146,18 +150,24 @@ export function matchRelated(entry: SearchEntry | undefined, query: string): str
   if (!entry || entry.x) return null;
   const q = normSearch(query.replace(/^#+/, ''));
   if (q.length < 2) return null;
+  // 영어·숫자 단어는 단어 단위로만 (iq 가 unique 안에서 맞지 않게)
+  const has = (text: string | undefined, w: string) => {
+    if (!text) return false;
+    if (!/^[0-9a-z]+$/.test(w)) return normSearch(text).includes(w);
+    return hasTerm(text.toLowerCase(), normSearch(text), w);
+  };
   // 여러 단어면 단어마다 어디든 있으면 (예: 썸네일 글자 덩어리가 둘이어도 각각으로 찾기)
   const words = query.replace(/^#+/, '').split(/\s+/).map(normSearch).filter((w) => w.length >= 1);
   if (words.length > 1) {
-    const all = normSearch([entry.t, ...(entry.k || []), ...(entry.g || []), entry.d].filter(Boolean).join(' '));
-    if (!all.includes(q) && words.every((w) => all.includes(w))) {
-      return entry.t && words.some((w) => normSearch(entry.t!).includes(w)) ? '썸네일' : '태그·설명';
+    const all = [entry.t, ...(entry.k || []), ...(entry.g || []), entry.d].filter(Boolean).join(' | ');
+    if (!normSearch(all).includes(q) && words.every((w) => has(all, w))) {
+      return entry.t && words.some((w) => has(entry.t, w)) ? '썸네일' : '태그·설명';
     }
   }
-  if (entry.t && normSearch(entry.t).includes(q)) return '썸네일';
-  if (entry.k?.some((k) => normSearch(k).includes(q))) return '키워드';
-  if (entry.g?.some((g) => normSearch(g).includes(q))) return '태그';
-  if (entry.d && normSearch(entry.d).includes(q)) return '설명';
+  if (has(entry.t, q)) return '썸네일';
+  if (entry.k?.some((k) => has(k, q))) return '키워드';
+  if (entry.g?.some((g) => has(g, q))) return '태그';
+  if (has(entry.d, q)) return '설명';
   return null;
 }
 

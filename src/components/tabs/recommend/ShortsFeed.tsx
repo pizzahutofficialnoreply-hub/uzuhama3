@@ -12,11 +12,16 @@ import { formatShortsShareText } from '../../../utils/shareUtils';
 import { tokensOf } from '../../../utils/interest';
 import { cleanShortsTitle } from '../../../utils/videoSearch';
 import { applyShortsOverrides, useLinkOverrides } from '../../../utils/linkOverrides';
+import { isHit, makeDoc, scoreDoc, type QueryPlan } from '../../../utils/searchPlan';
 
 /** 추천 영상 > Shorts 탭: 채널 쇼츠 전체 + 기록에 등록된 쇼츠 + #shorts 몰아보기 (업로드순 기본 / 생방일순) */
 interface ShortsFeedProps {
   logs: any;
   searchTerm: string;
+  /** 검색 도우미 (중요한 단어 우선·줄임말·말하듯 검색) */
+  plan?: { plan: QueryPlan; weights: number[] } | null;
+  /** 초성으로 찾기 */
+  chosung?: boolean;
   selectedCategories: string[];
   onNavigateToCalendar?: (date: string) => void;
   /** 방송 기록 → 장르 목록 (추천 영상 카테고리 필터와 같은 기준) */
@@ -87,7 +92,7 @@ export function useShortsRelatedAuto(): Record<string, string> {
 
 const gameNamesOfLog = (log: any): string[] => (Array.isArray(log?.games) && log.games.length ? log.games.map((g: any) => g?.name).filter(Boolean) : log?.game ? [log.game] : []);
 
-export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToCalendar, genresOfLog, order: orderProp, onCount }: ShortsFeedProps) {
+export function ShortsFeed({ logs, searchTerm, plan, chosung = true, selectedCategories, onNavigateToCalendar, genresOfLog, order: orderProp, onCount }: ShortsFeedProps) {
   const controlled = orderProp !== undefined;
   const [page, setPage] = useState(1);
   // 정렬: 생방일순(방송 날짜) / 업로드순(유튜브에 올라온 날짜)
@@ -205,6 +210,8 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko')).map(([g]) => g);
   }, [allShorts]);
 
+  // 검색 도우미 점수 (쇼츠 제목·게임·연결된 본영상 제목)
+  const scoreOf = (s: ShortEntry) => (plan ? scoreDoc(plan.plan, plan.weights, makeDoc({ title: s.title, games: [s.category, ...(s.gameNames || []), ...s.genres], extra: s.relatedTitle ? [s.relatedTitle] : [], dates: s.date ? [s.date] : [] })) : null);
   const filtered = useMemo(() => {
     const term = searchTerm.trim();
     const onlyComp = selectedCategories.length === 1 && selectedCategories[0] === '몰아보기';
@@ -226,11 +233,12 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
         return Boolean(linkId && [s.url, s.editUrl, s.liveUrl].some((u) => u && extractYoutubeId(u) === linkId))
           || [s.url, s.editUrl, s.liveUrl].some((u) => u && term.length > 8 && u.includes(term.replace(/^https?:\/\/(www\.)?/i, '')));
       }
-      return fuzzyKoreanMatch(term, s.title) || fuzzyKoreanMatch(term, s.category) || s.date.includes(term)
-        || (s.relatedTitle ? fuzzyKoreanMatch(term, s.relatedTitle) : false)
-        || s.genres.some((g) => g.replace(/\s+/g, '').toLowerCase() === termNorm);
+      return fuzzyKoreanMatch(term, s.title, chosung) || fuzzyKoreanMatch(term, s.category, chosung) || s.date.includes(term)
+        || (s.relatedTitle ? fuzzyKoreanMatch(term, s.relatedTitle, chosung) : false)
+        || s.genres.some((g) => g.replace(/\s+/g, '').toLowerCase() === termNorm)
+        || Boolean(plan && isHit(plan.plan, scoreOf(s)!));
     });
-  }, [allShorts, searchTerm, selectedCategories, genre, genreOptions]);
+  }, [allShorts, searchTerm, selectedCategories, genre, genreOptions, plan, chosung]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 업로드일을 모르는 것(기록에만 있는 쇼츠)만 한 번 조회
   const metaMap = useVideoMetaMany(filtered.filter((s) => !s.publishedAt).map((s) => s.id), sortBy === 'upload');
@@ -244,6 +252,11 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
       // 정확도순: 제목에 검색어가 그대로 있는 쇼츠 먼저
       const q = searchTerm.trim().toLowerCase().replace(/\s+/g, '');
       const hit = (s: ShortEntry) => (s.title.toLowerCase().replace(/\s+/g, '').includes(q) ? 0 : 1);
+      if (plan) {
+        // 붙여 쓴 그대로 → 중요한 단어가 많이 맞는 순
+        const sc = new Map(desc.map((s) => [s, scoreOf(s)!] as const));
+        return [...desc].sort((a, b) => Number(sc.get(b)!.phrase) - Number(sc.get(a)!.phrase) || hit(a) - hit(b) || sc.get(b)!.rel - sc.get(a)!.rel);
+      }
       return [...desc].sort((a, b) => hit(a) - hit(b));
     }
     if (order === 'desc') return desc;
@@ -251,7 +264,7 @@ export function ShortsFeed({ logs, searchTerm, selectedCategories, onNavigateToC
     const known = desc.filter((s) => (sortBy === 'upload' ? t(s) > 0 : Boolean(s.date)));
     const unknown = desc.filter((s) => !(sortBy === 'upload' ? t(s) > 0 : Boolean(s.date)));
     return [...known.reverse(), ...unknown];
-  }, [filtered, sortBy, order, metaMap]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filtered, sortBy, order, metaMap, plan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const captionOf = (s: ShortEntry) => (sortBy === 'upload' && uploadedAt(s)
     ? `${toKstDate(uploadedAt(s))} 업로드`

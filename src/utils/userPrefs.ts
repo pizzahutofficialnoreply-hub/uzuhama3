@@ -19,6 +19,13 @@ export interface UserPrefs {
   searchSort: 'accuracy' | 'desc' | 'asc';
   /** 카드/목록 보기: 모든 화면 같이 바꾸기 / 화면마다 따로 */
   viewStyleScope: 'global' | 'per-page';
+  /** 검색 도우미 켜고 끄기 */
+  searchTypo: boolean; // 오타·한/영 자동 보정
+  searchChosung: boolean; // 초성으로 찾기 (ㅂㅌㄱㄹㅇㄷ)
+  searchSmart: boolean; // 중요한 단어 우선 · 붙여 쓴 말 나누기
+  searchAlias: boolean; // 게임 줄임말 (배그 → 배틀그라운드)
+  searchNatural: boolean; // 말하듯 검색 (겨울 특집 추천해줘)
+  searchRelated: boolean; // 썸네일 글자·태그·설명에서도 찾기
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -29,6 +36,12 @@ export const DEFAULT_PREFS: UserPrefs = {
   keyboard: 'unknown',
   searchSort: 'accuracy',
   viewStyleScope: 'global',
+  searchTypo: true,
+  searchChosung: true,
+  searchSmart: true,
+  searchAlias: true,
+  searchNatural: true,
+  searchRelated: true,
 };
 
 export const PAGE_SIZE_OPTIONS = [8, 12, 20, 30];

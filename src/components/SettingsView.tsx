@@ -1292,6 +1292,32 @@ function ViewPrefsPanel() {
       <Row title="쓰는 자판" desc="검색어 오타를 자판 배열에 맞춰 고쳐 드려요">
         <Seg k="keyboard" options={KEYBOARD_OPTIONS.map((o) => [o.value, o.label] as [UserPrefs['keyboard'], string])} />
       </Row>
+      <div className="pt-1.5 space-y-0.5">
+        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">검색 도우미</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">끄면 검색어와 똑같은 글자가 있는 것만 찾아요.</p>
+        {([
+          ['searchTypo', '오타·한/영 자동 보정', "'현강' → 현상, 'gustkd' → 현상"],
+          ['searchChosung', '초성으로 찾기', 'ㅂㅌㄱㄹㅇㄷ → 배틀그라운드'],
+          ['searchSmart', '중요한 단어 먼저', "'IQ 테스트' 는 IQ 가 들어간 걸 먼저, '테스트'만 맞는 건 빼요. 붙여 써도 나눠서 찾아요"],
+          ['searchAlias', '게임 줄임말', '배그 → 배틀그라운드, 콜옵 → 콜 오브 듀티, 옵치 → 오버워치'],
+          ['searchNatural', '말하듯 검색', "'겨울 특집 추천해줘', '무서운 거 보여줘' 처럼 써도 계절·분위기에 맞춰 찾아요"],
+          ['searchRelated', '썸네일·태그에서도 찾기', '제목에 없어도 썸네일 글자·유튜브 태그·설명에 있으면 아래쪽에 보여 줘요'],
+        ] as [keyof UserPrefs, string, string][]).map(([k, title, desc]) => {
+          const on = prefs[k] !== false;
+          return (
+            <div key={k} className="flex items-center justify-between gap-3 py-2">
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200">{title}</p>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 break-keep">{desc}</p>
+              </div>
+              <button type="button" role="switch" aria-checked={on} aria-label={title} onClick={() => setPref(k, !on as any)}
+                className={cn('relative shrink-0 w-11 h-6 rounded-full transition-colors cursor-pointer', on ? 'bg-purple-600' : 'bg-zinc-300 dark:bg-zinc-700')}>
+                <span className={cn('absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all', on ? 'left-[22px]' : 'left-0.5')} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

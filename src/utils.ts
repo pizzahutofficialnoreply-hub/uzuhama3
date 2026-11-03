@@ -157,7 +157,7 @@ function fuzzyForm(text: string): FuzzyForm {
   return f;
 }
 
-export function fuzzyKoreanMatch(query: string, target: string) {
+export function fuzzyKoreanMatch(query: string, target: string, chosung = true) {
   if (!query) return true;
   if (!target) return false;
   const Q = fuzzyForm(query);
@@ -165,6 +165,8 @@ export function fuzzyKoreanMatch(query: string, target: string) {
 
   const check = (q: string, t: string, cQ: string, cT: string, consonants: string[]) => {
     if (t.includes(q)) return true;
+    // 초성 비교는 초성(ㄱ~ㅎ)을 쳤을 때만 (예: ㅂㅌㄱㄹㅇㄷ). '옵치' 같은 글자를 초성으로 바꿔 맞추면 엉뚱한 게 너무 많이 걸림
+    if (!chosung || !/[ㄱ-ㅎ]/.test(q)) return false;
     if (cT.includes(cQ)) return true;
     if (consonants.length > 0) {
       let qIdx = 0;
