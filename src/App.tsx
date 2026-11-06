@@ -758,7 +758,9 @@ function MainApp() {
   const maintSystem = effectiveMaintenanceSystem(data.system, nowTime);
   const maintenanceStatus = checkMaintenanceStatus(maintSystem, nowTime);
 
-  if (maintenanceStatus.isInProgress) {
+  // 주간 자동 점검(브라우저 자동화)은 점검 화면을 건너뛰고 실제 화면을 시험함
+  const automationBypass = typeof navigator !== 'undefined' && (navigator as any).webdriver === true;
+  if (maintenanceStatus.isInProgress && !automationBypass) {
     const endTimeMs = maintSystem?.maintenanceEnd ? parseDateSafe(maintSystem.maintenanceEnd) : null;
     const remainingSeconds = endTimeMs && !isNaN(endTimeMs) ? Math.max(0, Math.floor((endTimeMs - nowTime) / 1000)) : null;
 

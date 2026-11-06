@@ -100,6 +100,11 @@ export default async function handler(req: any, res: any) {
         await ref.update({ [`pins.${p.key}`]: pins[p.key] || (await import('firebase-admin/firestore')).FieldValue.delete() }).catch(() => {});
         return res.status(200).json({ success: true, summary: '뺐어요' });
       }
+      case 'weeklyReports': {
+        // 주간 점검 보고서 (최근 8개)
+        const snap = await db.collection('weekly_reports').orderBy('at', 'desc').limit(9).get();
+        return res.status(200).json({ success: true, reports: snap.docs.filter((d: any) => d.id !== '_meta').map((d: any) => d.data()).slice(0, 8) });
+      }
       case 'aiVideo': {
         // AI 영상 분석: 멈춤 / 다시 / 지금 한 구간
         const op = String(payload?.op || '');

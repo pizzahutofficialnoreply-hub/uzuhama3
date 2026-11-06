@@ -985,6 +985,30 @@
         "path": "/home/claude/repo/node_modules/@ungap/structured-clone",
         "licenseFile": "/home/claude/repo/node_modules/@ungap/structured-clone/LICENSE"
     },
+    "@vercel/cli-config@0.3.7": {
+        "licenses": "Apache-2.0",
+        "repository": "https://github.com/vercel/vercel",
+        "path": "/home/claude/repo/node_modules/@vercel/cli-config",
+        "licenseFile": "/home/claude/repo/node_modules/@vercel/cli-config/LICENSE"
+    },
+    "@vercel/cli-exec@1.0.1": {
+        "licenses": "Apache-2.0",
+        "repository": "https://github.com/vercel/vercel",
+        "path": "/home/claude/repo/node_modules/@vercel/cli-exec",
+        "licenseFile": "/home/claude/repo/node_modules/@vercel/cli-exec/LICENSE"
+    },
+    "@vercel/functions@3.11.0": {
+        "licenses": "Apache-2.0",
+        "repository": "https://github.com/vercel/vercel",
+        "path": "/home/claude/repo/node_modules/@vercel/functions",
+        "licenseFile": "/home/claude/repo/node_modules/@vercel/functions/LICENSE"
+    },
+    "@vercel/oidc@4.0.7": {
+        "licenses": "Apache-2.0",
+        "repository": "https://github.com/vercel/vercel",
+        "path": "/home/claude/repo/node_modules/@vercel/oidc",
+        "licenseFile": "/home/claude/repo/node_modules/@vercel/oidc/LICENSE"
+    },
     "@vitejs/plugin-react@5.2.0": {
         "licenses": "MIT",
         "repository": "https://github.com/vitejs/vite-plugin-react",
@@ -1707,6 +1731,14 @@
         "path": "/home/claude/repo/node_modules/eventemitter3",
         "licenseFile": "/home/claude/repo/node_modules/eventemitter3/LICENSE"
     },
+    "execa@5.1.1": {
+        "licenses": "MIT",
+        "repository": "https://github.com/sindresorhus/execa",
+        "publisher": "Sindre Sorhus",
+        "email": "sindresorhus@gmail.com",
+        "path": "/home/claude/repo/node_modules/execa",
+        "licenseFile": "/home/claude/repo/node_modules/execa/license"
+    },
     "express@4.22.3": {
         "licenses": "MIT",
         "repository": "https://github.com/expressjs/express",
@@ -1917,6 +1949,14 @@
         "path": "/home/claude/repo/node_modules/get-proto",
         "licenseFile": "/home/claude/repo/node_modules/get-proto/LICENSE"
     },
+    "get-stream@6.0.1": {
+        "licenses": "MIT",
+        "repository": "https://github.com/sindresorhus/get-stream",
+        "publisher": "Sindre Sorhus",
+        "email": "sindresorhus@gmail.com",
+        "path": "/home/claude/repo/node_modules/get-stream",
+        "licenseFile": "/home/claude/repo/node_modules/get-stream/license"
+    },
     "glob@10.5.0": {
         "licenses": "ISC",
         "repository": "https://github.com/isaacs/node-glob",
@@ -2089,6 +2129,14 @@
         "path": "/home/claude/repo/node_modules/https-proxy-agent",
         "licenseFile": "/home/claude/repo/node_modules/https-proxy-agent/LICENSE"
     },
+    "human-signals@2.1.0": {
+        "licenses": "Apache-2.0",
+        "repository": "https://github.com/ehmicky/human-signals",
+        "publisher": "ehmicky",
+        "email": "ehmicky@gmail.com",
+        "path": "/home/claude/repo/node_modules/human-signals",
+        "licenseFile": "/home/claude/repo/node_modules/human-signals/LICENSE"
+    },
     "iconv-lite@0.4.24": {
         "licenses": "MIT",
         "repository": "https://github.com/ashtuchkin/iconv-lite",
@@ -2194,6 +2242,14 @@
         "path": "/home/claude/repo/node_modules/is-plain-obj",
         "licenseFile": "/home/claude/repo/node_modules/is-plain-obj/license"
     },
+    "is-stream@2.0.1": {
+        "licenses": "MIT",
+        "repository": "https://github.com/sindresorhus/is-stream",
+        "publisher": "Sindre Sorhus",
+        "email": "sindresorhus@gmail.com",
+        "path": "/home/claude/repo/node_modules/is-stream",
+        "licenseFile": "/home/claude/repo/node_modules/is-stream/license"
+    },
     "is-unsafe@2.0.2": {
         "licenses": "MIT",
         "repository": "https://github.com/NaturalIntelligence/is-unsafe",
@@ -2230,6 +2286,14 @@
         "email": "panva.ip@gmail.com",
         "path": "/home/claude/repo/node_modules/jose",
         "licenseFile": "/home/claude/repo/node_modules/jose/LICENSE.md"
+    },
+    "jose@5.10.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/panva/jose",
+        "publisher": "Filip Skokan",
+        "email": "panva.ip@gmail.com",
+        "path": "/home/claude/repo/node_modules/@vercel/oidc/node_modules/jose",
+        "licenseFile": "/home/claude/repo/node_modules/@vercel/oidc/node_modules/jose/LICENSE.md"
     },
     "js-tokens@4.0.0": {
         "licenses": "MIT",
@@ -2610,6 +2674,14 @@
         "path": "/home/claude/repo/node_modules/merge-descriptors",
         "licenseFile": "/home/claude/repo/node_modules/merge-descriptors/LICENSE"
     },
+    "merge-stream@2.0.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/grncdr/merge-stream",
+        "publisher": "Stephen Sugden",
+        "email": "me@stephensugden.com",
+        "path": "/home/claude/repo/node_modules/merge-stream",
+        "licenseFile": "/home/claude/repo/node_modules/merge-stream/LICENSE"
+    },
     "methods@1.1.2": {
         "licenses": "MIT",
         "repository": "https://github.com/jshttp/methods",
@@ -2876,6 +2948,14 @@
         "path": "/home/claude/repo/node_modules/mime",
         "licenseFile": "/home/claude/repo/node_modules/mime/LICENSE"
     },
+    "mimic-fn@2.1.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/sindresorhus/mimic-fn",
+        "publisher": "Sindre Sorhus",
+        "email": "sindresorhus@gmail.com",
+        "path": "/home/claude/repo/node_modules/mimic-fn",
+        "licenseFile": "/home/claude/repo/node_modules/mimic-fn/license"
+    },
     "minimatch@9.0.9": {
         "licenses": "ISC",
         "repository": "https://github.com/isaacs/minimatch",
@@ -2961,6 +3041,14 @@
         "path": "/home/claude/repo/node_modules/node-releases",
         "licenseFile": "/home/claude/repo/node_modules/node-releases/LICENSE"
     },
+    "npm-run-path@4.0.1": {
+        "licenses": "MIT",
+        "repository": "https://github.com/sindresorhus/npm-run-path",
+        "publisher": "Sindre Sorhus",
+        "email": "sindresorhus@gmail.com",
+        "path": "/home/claude/repo/node_modules/npm-run-path",
+        "licenseFile": "/home/claude/repo/node_modules/npm-run-path/license"
+    },
     "object-hash@3.0.0": {
         "licenses": "MIT",
         "repository": "https://github.com/puleos/object-hash",
@@ -2990,6 +3078,22 @@
         "email": "i@izs.me",
         "path": "/home/claude/repo/node_modules/once",
         "licenseFile": "/home/claude/repo/node_modules/once/LICENSE"
+    },
+    "onetime@5.1.2": {
+        "licenses": "MIT",
+        "repository": "https://github.com/sindresorhus/onetime",
+        "publisher": "Sindre Sorhus",
+        "email": "sindresorhus@gmail.com",
+        "path": "/home/claude/repo/node_modules/onetime",
+        "licenseFile": "/home/claude/repo/node_modules/onetime/license"
+    },
+    "os-paths@4.4.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/rivy/js.os-paths",
+        "publisher": "Roy Ivy III",
+        "email": "rivy.dev@gmail.com",
+        "path": "/home/claude/repo/node_modules/os-paths",
+        "licenseFile": "/home/claude/repo/node_modules/os-paths/LICENSE"
     },
     "p-limit@3.1.0": {
         "licenses": "MIT",
@@ -3479,6 +3583,14 @@
         "path": "/home/claude/repo/node_modules/side-channel",
         "licenseFile": "/home/claude/repo/node_modules/side-channel/LICENSE"
     },
+    "signal-exit@3.0.7": {
+        "licenses": "ISC",
+        "repository": "https://github.com/tapjs/signal-exit",
+        "publisher": "Ben Coe",
+        "email": "ben@npmjs.com",
+        "path": "/home/claude/repo/node_modules/execa/node_modules/signal-exit",
+        "licenseFile": "/home/claude/repo/node_modules/execa/node_modules/signal-exit/LICENSE.txt"
+    },
     "signal-exit@4.1.0": {
         "licenses": "ISC",
         "repository": "https://github.com/tapjs/signal-exit",
@@ -3589,6 +3701,14 @@
         "email": "sindresorhus@gmail.com",
         "path": "/home/claude/repo/node_modules/@isaacs/cliui/node_modules/strip-ansi",
         "licenseFile": "/home/claude/repo/node_modules/@isaacs/cliui/node_modules/strip-ansi/license"
+    },
+    "strip-final-newline@2.0.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/sindresorhus/strip-final-newline",
+        "publisher": "Sindre Sorhus",
+        "email": "sindresorhus@gmail.com",
+        "path": "/home/claude/repo/node_modules/strip-final-newline",
+        "licenseFile": "/home/claude/repo/node_modules/strip-final-newline/license"
     },
     "strnum@2.5.1": {
         "licenses": "MIT",
@@ -3939,6 +4059,22 @@
         "path": "/home/claude/repo/node_modules/ws",
         "licenseFile": "/home/claude/repo/node_modules/ws/LICENSE"
     },
+    "xdg-app-paths@5.5.1": {
+        "licenses": "MIT",
+        "repository": "https://github.com/rivy/js.xdg-app-paths",
+        "publisher": "Roy Ivy III",
+        "email": "rivy.dev@gmail.com",
+        "path": "/home/claude/repo/node_modules/xdg-app-paths",
+        "licenseFile": "/home/claude/repo/node_modules/xdg-app-paths/LICENSE"
+    },
+    "xdg-portable@7.3.0": {
+        "licenses": "MIT",
+        "repository": "https://github.com/rivy/js.xdg-portable",
+        "publisher": "Roy Ivy III",
+        "email": "rivy.dev@gmail.com",
+        "path": "/home/claude/repo/node_modules/xdg-portable",
+        "licenseFile": "/home/claude/repo/node_modules/xdg-portable/LICENSE"
+    },
     "xml-naming@0.3.0": {
         "licenses": "MIT",
         "repository": "https://github.com/NaturalIntelligence/xml-naming",
@@ -3983,6 +4119,14 @@
         "email": "sindresorhus@gmail.com",
         "path": "/home/claude/repo/node_modules/yocto-queue",
         "licenseFile": "/home/claude/repo/node_modules/yocto-queue/license"
+    },
+    "zod@4.6.7": {
+        "licenses": "MIT",
+        "repository": "https://github.com/colinhacks/zod",
+        "publisher": "Colin McDonnell",
+        "email": "zod@colinhacks.com",
+        "path": "/home/claude/repo/node_modules/zod",
+        "licenseFile": "/home/claude/repo/node_modules/zod/LICENSE"
     },
     "zwitch@2.0.4": {
         "licenses": "MIT",

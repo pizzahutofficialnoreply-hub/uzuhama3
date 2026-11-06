@@ -27,8 +27,8 @@ const QUEUE_TTL = 12 * 3600 * 1000;
 const MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean) as string[];
 const TEXT_MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean) as string[];
 
-type QItem = { id: string; title: string; publishedAt: string; kind?: 'video' | 'short' | 'live'; duration?: number; live?: string; logDate?: string; games?: string[]; gameLinks?: Record<string, string> };
-const QUEUE_VER = 2; // 2: 방송 기록의 생방송 다시보기 포함
+type QItem = { id: string; title: string; publishedAt: string; kind?: 'video' | 'short' | 'live'; duration?: number; live?: string; logDate?: string; games?: string[]; gameLinks?: Record<string, string>; comp?: boolean };
+const QUEUE_VER = 3; // 2: 방송 기록의 생방송 다시보기 포함, 3: 몰아보기 표시(분석 안 함)
 export type Scene = { t: number; d: string; k: string[] };
 
 const kstDay = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
@@ -121,6 +121,14 @@ async function loadQueue(db: any): Promise<{ items: QItem[]; fresh: boolean }> {
   const byId = new Map<string, QItem>(items.map((x) => [x.id, x]));
   try {
     const logs = await db.collection('logs').get();
+    // 몰아보기: 각 영상을 이어 붙인 것이라 따로 분석 안 함
+    const comps = new Set<string>();
+    logs.docs.forEach((d: any) => (d.data()?.edited || []).forEach((e: any) => {
+      if (!(e?.isCompilation || e?.compilationId)) return;
+      const m = String(e?.url || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/);
+      if (m) comps.add(m[1]);
+    }));
+    items.forEach((x) => { if (comps.has(x.id)) x.comp = true; });
     logs.docs.forEach((d: any) => {
       const log = d.data() || {};
       if (log.isAbsence || !log.date) return;
@@ -159,7 +167,10 @@ async function loadQueue(db: any): Promise<{ items: QItem[]; fresh: boolean }> {
       if (x.logDate && v.snippet?.title && /생방송$/.test(x.title)) x.title = v.snippet.title;
     });
   }
-  items.forEach((x) => { if (!x.kind) x.kind = shorts.has(x.id) ? 'short' : 'video'; });
+  items.forEach((x) => {
+    if (!x.kind) x.kind = shorts.has(x.id) ? 'short' : 'video';
+    if (x.kind !== 'live' && /몰아\s*보기|모아\s*보기|합본/.test(x.title)) x.comp = true;
+  });
   // 비공개·삭제된 다시보기(유튜브가 정보를 안 줌)는 빼기
   for (let i = items.length - 1; i >= 0; i--) if (items[i].logDate && !items[i].duration) items.splice(i, 1);
   items.sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''));
@@ -322,7 +333,7 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
     let cur: any;
     const col = db.collection('ai_video');
     for (let i = 0; i < queue.length && !item; i += 30) {
-      const part = queue.slice(i, i + 30).filter((q) => q.live !== 'live' && q.live !== 'upcoming' && (!opts.kind || q.kind === opts.kind));
+      const part = queue.slice(i, i + 30).filter((q) => !q.comp && q.live !== 'live' && q.live !== 'upcoming' && (!opts.kind || q.kind === opts.kind));
       if (!part.length) continue;
       const snaps = await db.getAll(...part.map((q) => col.doc(q.id)));
       for (let j = 0; j < part.length; j++) {
@@ -444,8 +455,8 @@ export async function aiVideoStatus(db: any) {
     partial = (await db.collection('ai_video').where('status', 'in', ['partial', 'finishing']).count().get()).data().count;
   } catch { /* count 미지원 */ }
   const kinds: Record<string, number> = {};
-  (q?.items || []).forEach((x: QItem) => { kinds[x.kind || 'video'] = (kinds[x.kind || 'video'] || 0) + 1; });
-  return { ...st, lockUntil: undefined, total: q?.count || 0, channelCount: q?.channelCount || 0, fetchedAt: q?.fetchedAt, kinds, done, partial, dailySec: DAILY_SEC, models: MODELS };
+  (q?.items || []).forEach((x: QItem) => { const k = x.comp ? 'comp' : x.kind || 'video'; kinds[k] = (kinds[k] || 0) + 1; });
+  return { ...st, lockUntil: undefined, total: (q?.items || []).filter((x: QItem) => !x.comp).length || q?.count || 0, channelCount: q?.channelCount || 0, fetchedAt: q?.fetchedAt, kinds, done, partial, dailySec: DAILY_SEC, models: MODELS };
 }
 
 /** AI 검색: 키워드로 1단계 거르고 장면 단위로 점수 */

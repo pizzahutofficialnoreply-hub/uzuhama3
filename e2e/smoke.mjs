@@ -100,4 +100,8 @@ await browser.close();
 results.forEach((r) => console.log(r.join(' ')));
 const failed = results.filter((r) => r[0] === '✗');
 console.log(`\n${results.length - failed.length}/${results.length} 통과`);
+if (process.env.E2E_JSON) {
+  const { writeFileSync } = await import('node:fs');
+  writeFileSync(process.env.E2E_JSON, JSON.stringify({ base: BASE, total: results.length, failed: failed.length, results: results.map(([ok, name, err]) => ({ ok: ok === '✓', name, err: err || '' })) }));
+}
 process.exit(failed.length ? 1 : 0);

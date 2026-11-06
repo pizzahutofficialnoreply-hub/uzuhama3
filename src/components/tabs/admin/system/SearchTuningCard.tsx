@@ -206,7 +206,7 @@ function AiVideoPanel() {
       {st && (
         <div className="text-[11px] text-zinc-500 space-y-1">
           <p>
-            영상 목록 {st.total ?? 0}개{st.kinds ? ` (영상 ${st.kinds.video || 0} · 생방송 ${st.kinds.live || 0} · 쇼츠 ${st.kinds.short || 0})` : ''}
+            영상 목록 {st.total ?? 0}개{st.kinds ? ` (영상 ${st.kinds.video || 0} · 생방송 ${st.kinds.live || 0} · 쇼츠 ${st.kinds.short || 0}${st.kinds.comp ? ` · 몰아보기 ${st.kinds.comp}개는 분석 안 함` : ''})` : ''}
             {st.channelCount ? ` · 유튜브 채널 표시 ${st.channelCount}개` : ''}{st.paused ? ' · 멈춤' : ''}
           </p>
           {st.lastRunAt && <p>마지막 실행 {new Date(st.lastRunAt).toLocaleString('ko-KR')} · 마지막 모델 {st.model || '-'}</p>}
