@@ -1,0 +1,12 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          U=https://uzuhama.vercel.app/api/videos/search-index
+          sleep 200
+          echo STATUS; curl -s "$U?ai=status"; echo
+          echo SEARCH; curl -s "$U?ai=search&q=$(python3 -c 'import urllib.parse;print(urllib.parse.quote("비명 지르는 장면"))')"; echo
+          echo PN; curl -s "https://uzuhama.vercel.app/api/patch-notes" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d['counts'])"
