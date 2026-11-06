@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, doc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Flag } from 'lucide-react';
 import { Check, EyeOff, Eye, Link2, Loader2, Search, Unlink, Undo2, Film, Clapperboard, CalendarDays } from 'lucide-react';
@@ -142,6 +142,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
   return (
     <div className="space-y-4">
       <ReportedIssues onFind={(id, k) => { setKind(k === 'short' ? 'short' : 'video'); setStatus('linked'); setQ(id); setPage(1); }} />
+      <DeadVideos logs={logs} onUpdateLog={onUpdateLog} />
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3">
         <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
           <Link2 className="w-4 h-4 text-purple-600 dark:text-purple-400" /> 영상·쇼츠 연동
@@ -328,6 +329,48 @@ function ReportedIssues({ onFind }: { onFind: (videoId: string, kind?: string) =
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** 사라진 영상: 방송 기록에 있는데 유튜브에서 삭제·비공개된 것 (하루 한 번 확인) */
+function DeadVideos({ logs, onUpdateLog }: { logs: BroadcastLog[]; onUpdateLog: (log: BroadcastLog) => Promise<void> }) {
+  const [d, setD] = useState<any>(null);
+  const [busy, setBusy] = useState('');
+  const load = () => getDoc(doc(db, 'config', 'deadVideos')).then((x) => setD(x.data() || null)).catch(() => setD(null));
+  useEffect(() => { load(); }, []);
+  const items = Object.entries(d?.items || {}) as [string, any][];
+  const removeFromLog = async (id: string, info: any) => {
+    const log = logs.find((l) => l.id === info.logId);
+    if (!log) { alert('그 방송 기록을 찾지 못했어요.'); return; }
+    if (!window.confirm(`${log.date} 기록의 ${info.slot === 'edited' ? '편집본' : info.slot === 'shorts' ? '쇼츠' : '다시보기'}에서 이 링크를 뺄까요?`)) return;
+    setBusy(id);
+    try {
+      const arr = ((log as any)[info.slot] || []).filter((it: any) => extractYoutubeId(typeof it === 'string' ? it : it?.url || '') !== id);
+      await onUpdateLog({ ...log, [info.slot]: arr } as BroadcastLog);
+      setD((x: any) => { const n = { ...(x || {}), items: { ...(x?.items || {}) } }; delete n.items[id]; return n; });
+    } finally { setBusy(''); }
+  };
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-zinc-900 dark:text-white">사라진 영상 {items.length}개 <span className="text-[11px] font-normal text-zinc-500">{d?.checkedAt ? `· ${new Date(d.checkedAt).toLocaleString('ko-KR')} 확인 (링크 ${d.total}개 중)` : '· 아직 확인 전'}</span></p>
+        <button type="button" disabled={!!busy} onClick={async () => { setBusy('check'); try { const { mutate } = await import('./system/SearchTuningCard'); await mutate('checkDeadVideos'); await load(); } catch (e: any) { alert('오류: ' + (e?.message || e)); } finally { setBusy(''); } }} className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer disabled:opacity-50">{busy === 'check' ? '확인 중…' : '지금 확인'}</button>
+      </div>
+      <p className="text-[11px] text-zinc-500">방송 기록에 들어 있는 유튜브 링크 중 삭제됐거나 비공개로 바뀐 것이에요. 매일 한 번 자동으로 확인해요.</p>
+      {items.length > 0 && (
+        <ul className="space-y-1 max-h-64 overflow-y-auto">
+          {items.map(([id, info]) => (
+            <li key={id} className="flex items-center justify-between gap-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-xs">
+              <span className="min-w-0">
+                <span className="mr-1.5 px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 text-[10px] font-bold">{info.reason}</span>
+                <b>{info.date}</b> · {info.slot === 'edited' ? '편집본' : info.slot === 'shorts' ? '쇼츠' : '다시보기'} · <span className="text-zinc-500">{info.title || id}</span>
+              </span>
+              <button type="button" disabled={busy === id} onClick={() => removeFromLog(id, info)} className="shrink-0 px-2 py-1 rounded-lg text-red-600 bg-red-50 dark:bg-red-950/30 font-bold cursor-pointer">기록에서 빼기</button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

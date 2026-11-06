@@ -3,6 +3,7 @@ import { ThumbsDown, ThumbsUp } from 'lucide-react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { cn } from '../../utils';
+import { checkSubmit, noteSubmit, visitorId } from '../../utils/submitGuard';
 
 /**
  * 검색 도우미가 검색어를 해석한 경우(말하듯 검색·줄임말·오타 보정) 아래에 "결과에 만족하시나요?"
@@ -20,6 +21,8 @@ export function SearchRating({ query, understood, resultCount }: { query: string
   if (!k || state === 'hidden') return null;
 
   const send = async (good: boolean, n = '') => {
+    if (checkSubmit('rating')) { setState('done'); return; } // 너무 많이 보냈으면 조용히 넘어감
+    noteSubmit('rating');
     try {
       const all = rated(); all[k] = 1;
       const keys = Object.keys(all); if (keys.length > 300) keys.slice(0, keys.length - 300).forEach((x) => delete all[x]);
@@ -28,7 +31,7 @@ export function SearchRating({ query, understood, resultCount }: { query: string
     setState('done');
     try {
       await addDoc(collection(db, 'feedbacks'), {
-        type: 'search_rating', good, query: query.trim(), understood: understood || null, resultCount, note: n.trim() || null,
+        type: 'search_rating', vid: visitorId(), good, query: query.trim(), understood: understood || null, resultCount, note: n.trim() || null,
         title: `[검색 ${good ? '만족' : '불만족'}] ${query.trim()}`.slice(0, 100),
         content: [`해석: ${understood || '-'}`, `결과 ${resultCount}개`, n.trim() ? `의견: ${n.trim()}` : ''].filter(Boolean).join('\n'),
         createdAt: serverTimestamp(),

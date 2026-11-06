@@ -36,11 +36,26 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Missing action parameter' });
     }
 
+    // 수정 기록: 방송 기록·시스템 설정을 바꾸기 전 모습을 남겨 두어 되돌릴 수 있게 (최근 것만 보관)
+    const audit = async (entry: Record<string, any>) => {
+      try {
+        await db.collection('admin_audit').add({ ...entry, by: adminUser.email || null, at: new Date().toISOString() });
+      } catch (e) { console.error('[Admin Mutate] audit failed', e); }
+    };
+    const before = async (logId: string) => {
+      try { const d = await db.collection('logs').doc(logId).get(); return d.exists ? d.data() : null; } catch { return null; }
+    };
+
     switch (action) {
       case 'tuneSearch': {
         // 관리자 '지금 조정': 오늘 이미 했어도 다시
         const { tuneSearch } = await import('../_searchTune.js');
         const r = await tuneSearch(db, { force: true });
+        return res.status(200).json({ success: true, ...r });
+      }
+      case 'checkDeadVideos': {
+        const { checkDeadVideos } = await import('../_deadVideos.js');
+        const r = await checkDeadVideos(db, { force: true });
         return res.status(200).json({ success: true, ...r });
       }
       case 'resetSearchTuning': {
@@ -52,6 +67,7 @@ export default async function handler(req: any, res: any) {
         if (!log || !log.id || !log.date) {
           return res.status(400).json({ error: 'Invalid log payload' });
         }
+        await audit({ action: 'addLog', logId: log.id, date: log.date, before: await before(log.id), after: log });
         await db.collection('logs').doc(log.id).set(log);
 
         const monthKey = log.date.slice(0, 7);
@@ -70,6 +86,7 @@ export default async function handler(req: any, res: any) {
           return res.status(400).json({ error: 'Invalid log payload' });
         }
         // log._patch === true: 아카이브(JSON) 기록의 수정분(바뀐 필드만)
+        await audit({ action: 'updateLog', logId: log.id, date: log.date, before: await before(log.id), after: log });
         await db.collection('logs').doc(log.id).set(log);
 
         const monthKey = log.date.slice(0, 7);
@@ -102,6 +119,7 @@ export default async function handler(req: any, res: any) {
         const logDoc = await db.collection('logs').doc(id).get();
         const logData = logDoc.exists ? logDoc.data() : null;
         const monthKey = logData?.date ? logData.date.slice(0, 7) : null;
+        await audit({ action: 'deleteLog', logId: id, date: logData?.date || null, before: logData, after: null });
 
         await db.collection('logs').doc(id).delete();
 
@@ -120,6 +138,12 @@ export default async function handler(req: any, res: any) {
         if (!config || typeof config !== 'object') {
           return res.status(400).json({ error: 'Invalid config payload' });
         }
+        try {
+          const prev = (await db.collection('config').doc('system').get()).data() || {};
+          // 바뀐 칸만 남김 (약관 전문 같은 긴 값도 그대로)
+          const changedBefore = Object.fromEntries(Object.keys(config).map((k) => [k, prev[k] === undefined ? null : prev[k]]));
+          await audit({ action: 'updateSystemConfig', before: changedBefore, after: config });
+        } catch { /* 기록 실패해도 저장은 진행 */ }
         await db.collection('config').doc('system').set(config, { merge: true });
         return res.status(200).json({ success: true });
       }

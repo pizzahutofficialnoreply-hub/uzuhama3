@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { LazyInput } from '../common/LazyInput';
 import { 
   format, 
@@ -112,7 +113,8 @@ const VideoLinkCard = ({
       {isPlaying && ytId ? (
         <div className={cn("relative w-full bg-black overflow-hidden", isShorts ? "aspect-[9/16]" : "aspect-video")}>
           <iframe
-            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&enablejsapi=1&rel=0`}
+            ref={trackYoutubeFrame}
+              src={embedSrc(ytId)}
             title={title || '영상 재생'}
             className="w-full h-full border-0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -1343,7 +1345,8 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                             {isPlaying && ytId ? (
                               <div className={cn("relative w-full bg-black overflow-hidden", isVertical ? "aspect-[9/16]" : "aspect-video")}>
                                 <iframe
-                                  src={`https://www.youtube.com/embed/${ytId}?autoplay=1&enablejsapi=1&rel=0`}
+                                  ref={trackYoutubeFrame}
+              src={embedSrc(ytId)}
                                   title={title}
                                   className="w-full h-full border-0"
                                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -2176,7 +2179,8 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                   const ytId = extractYoutubeId(playingModalVideo.url);
                   return ytId ? (
                     <iframe
-                      src={`https://www.youtube.com/embed/${ytId}?autoplay=1&enablejsapi=1&rel=0`}
+                      ref={trackYoutubeFrame}
+              src={embedSrc(ytId)}
                       title={playingModalVideo.title}
                       className="w-full h-full border-0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

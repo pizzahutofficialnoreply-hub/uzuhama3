@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useBackToClose } from '../../hooks/useBackToClose';
+import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { X, Layers, Calendar, ExternalLink, ArrowLeft, Play } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../utils';
@@ -162,6 +164,8 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [onClose]);
+  // 뒤로 가기로 닫기
+  useBackToClose(true, onClose);
 
   // (펼칠 때 자동 스크롤은 하지 않음: 누른 자리에서 그대로 펼쳐짐)
 
@@ -400,7 +404,8 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
                     {playingDateStr === dateStr && primaryYtId ? (
                       <div className="relative w-full h-full bg-black z-20">
                         <iframe
-                          src={`https://www.youtube.com/embed/${primaryYtId}?autoplay=1&enablejsapi=1&rel=0`}
+                          ref={trackYoutubeFrame}
+              src={embedSrc(primaryYtId)}
                           title={displayTitle}
                           className="w-full h-full border-0"
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

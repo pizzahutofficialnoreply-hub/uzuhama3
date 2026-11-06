@@ -8,6 +8,14 @@
   },
   "rewrites": [
     {
+      "source": "/v/:id",
+      "destination": "/api/videos/meta?share=:id"
+    },
+    {
+      "source": "/s/:id",
+      "destination": "/api/videos/meta?share=:id&kind=short"
+    },
+    {
       "source": "/feed.ics",
       "destination": "/api/calendar"
     },

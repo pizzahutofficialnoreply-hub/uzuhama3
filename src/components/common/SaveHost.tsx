@@ -4,7 +4,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Check, Flag, ListPlus, Plus, X } from 'lucide-react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { REPORT_EVENT, type ReportTarget } from './ItemMenu';
+import { REPORT_EVENT, TOAST_EVENT, type ReportTarget } from './ItemMenu';
+import { useBackToClose } from '../../hooks/useBackToClose';
+import { checkSubmit, noteSubmit, visitorId } from '../../utils/submitGuard';
 import { addToYoutubePlaylist, createYoutubePlaylist, listMyYoutubePlaylists, onYoutubeConfig, youtubeSaveEnabled, type YtPlaylist } from '../../utils/youtubeAccount';
 import { cn } from '../../utils';
 import {
@@ -30,17 +32,22 @@ const REASONS = (t: ReportTarget) => [
 
 /** ⋮ > 신고: 이유 고르기 + 한 줄 의견 → 제보함(feedbacks)에. 하루 한 번 검색 조정에 쓰임 */
 function ReportSheet({ target, onClose }: { target: ReportTarget; onClose: () => void }) {
+  useBackToClose(true, onClose);
   const reasons = REASONS(target);
   const [reason, setReason] = useState(reasons[0].key);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const send = async () => {
+    const guardKey = `${target.id}|${reason}|${(target.search.query || '').trim().toLowerCase()}`;
+    const blocked = checkSubmit('report', guardKey);
+    if (blocked) { alert(blocked); return; }
     setBusy(true);
     try {
       const label = reasons.find((r) => r.key === reason)?.label || reason;
       await addDoc(collection(db, 'feedbacks'), {
         type: 'search_report',
+        vid: visitorId(),
         reason,
         // 연결·게임·날짜 문제는 관리자 '연동' 탭으로
         route: reason.startsWith('wrong_') ? (reason === 'wrong_game_name' || reason === 'wrong_game_link' ? 'game' : 'link') : null,
@@ -54,6 +61,7 @@ function ReportSheet({ target, onClose }: { target: ReportTarget; onClose: () =>
         content: [`영상: ${target.title}`, `https://youtu.be/${target.id}`, target.search.query ? `검색어: ${target.search.query}` : '', target.search.understood ? `해석: ${target.search.understood}` : '', note.trim() ? `의견: ${note.trim()}` : ''].filter(Boolean).join('\n'),
         createdAt: serverTimestamp(),
       });
+      noteSubmit('report', guardKey);
       setDone(true);
       window.setTimeout(onClose, 1100);
     } catch (e) {
@@ -152,12 +160,19 @@ function SaveSheetHost() {
     return () => window.removeEventListener(SAVE_EVENT, on);
   }, []);
 
+  // 다른 곳에서 띄우는 짧은 알림 (예: 사이트 링크 복사)
+  useEffect(() => {
+    const on = (e: Event) => setToast({ text: String((e as CustomEvent).detail || ''), item: null as any });
+    window.addEventListener(TOAST_EVENT, on);
+    return () => window.removeEventListener(TOAST_EVENT, on);
+  }, []);
   useEffect(() => {
     if (!toast) return;
     const t = window.setTimeout(() => setToast(null), 3200);
     return () => window.clearTimeout(t);
   }, [toast]);
 
+  useBackToClose(Boolean(item), () => setItem(null));
   const close = () => {
     if (item && remember && yt.picked) {
       setDefaultYoutube(yt.picked);
@@ -307,7 +322,7 @@ function SaveSheetHost() {
           >
             <ListPlus className="w-4 h-4 text-purple-300 shrink-0" />
             <span className="font-semibold">{toast.text}</span>
-            <button type="button" onClick={() => { const it = toast.item; setToast(null); setItem(it); setRemember(false); setRememberId(getMyPlaylists().defaultListId); }} className="px-2.5 py-1 rounded-lg bg-white/15 text-xs font-bold cursor-pointer">바꾸기</button>
+            {toast.item && <button type="button" onClick={() => { const it = toast.item; setToast(null); setItem(it); setRemember(false); setRememberId(getMyPlaylists().defaultListId); }} className="px-2.5 py-1 rounded-lg bg-white/15 text-xs font-bold cursor-pointer">바꾸기</button>}
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addToYoutubePlaylist, createYoutubePlaylist, onYoutubeConfig, youtubeSaveEnabled } from '../../../utils/youtubeAccount';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowDown, ArrowUp, Bookmark, Check, ChevronDown, ExternalLink, ListVideo, Pencil, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Bookmark, Check, ChevronDown, Send, ExternalLink, ListVideo, Pencil, Trash2, X } from 'lucide-react';
 import { cn } from '../../../utils';
 import { CollectionPanel } from '../../common/CollectionPanel';
 import { VideoListRow } from '../../common/VideoListRow';
@@ -9,8 +9,9 @@ import { ShareButton } from '../../common/ShareButton';
 import { GlassPlayButton, YoutubeLogo } from '../../common/MediaIcons';
 import { useViewStyle } from '../../../hooks/useViewStyle';
 import { VideoCard } from '../RecommendTab';
+import { toast } from '../../common/ItemMenu';
 import {
-  deleteList, embedQueueUrl, moveItem, removeFromList, renameList, setDefaultList, useMyPlaylists, youtubeQueueUrl, type MyList,
+  deleteList, embedQueueUrl, exportLink, importList, parseImport, moveItem, removeFromList, renameList, setDefaultList, useMyPlaylists, youtubeQueueUrl, type MyList,
 } from '../../../utils/myPlaylists';
 
 /**
@@ -33,7 +34,8 @@ export function MyPlaylists({ searchTerm }: { searchTerm: string }) {
     return term ? null : (
       <div className="mb-6 px-4 py-3.5 rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
         <Bookmark className="w-4 h-4 text-purple-500 shrink-0" />
-        영상·쇼츠·라이브 카드의 <b className="text-zinc-700 dark:text-zinc-200">저장</b> 버튼을 누르면 여기에 내 재생목록이 생겨요.
+        <span className="flex-1">카드의 <b className="text-zinc-700 dark:text-zinc-200">⋮ › 저장</b>을 누르면 여기에 내 재생목록이 생겨요.</span>
+        <ImportButton />
       </div>
     );
   }
@@ -41,7 +43,10 @@ export function MyPlaylists({ searchTerm }: { searchTerm: string }) {
 
   return (
     <section className="mb-8">
-      <h3 className="px-1 mb-2.5 text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5"><Bookmark className="w-4 h-4 text-purple-500" /> 내 재생목록 <span className="text-xs font-semibold text-zinc-400">이 기기에 저장돼요</span></h3>
+      <div className="px-1 mb-2.5 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5"><Bookmark className="w-4 h-4 text-purple-500" /> 내 재생목록 <span className="text-xs font-semibold text-zinc-400">이 기기에 저장돼요</span></h3>
+        <ImportButton />
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {shown.map((l) => (
           <div key={l.id} className={cn(openId === l.id && 'col-span-full')}>
@@ -168,6 +173,14 @@ function MyListDetail({ list, isDefault, onClose }: { list: MyList; isDefault: b
         <button type="button" onClick={() => setDefaultList(isDefault ? null : list.id)} className={cn('px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer', isDefault ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800')}>
           {isDefault ? '기본 저장 위치 ✓' : '기본 저장 위치로'}
         </button>
+        <button type="button" onClick={async () => {
+          // 다른 기기(예: 사파리 ↔ 홈 화면 앱)로 옮기거나 친구에게 나눠 주기: 링크 하나로
+          const link = exportLink(list);
+          try {
+            if (navigator.share) await navigator.share({ title: `${list.name} 재생목록`, text: `우주하마 방송 예측 재생목록 '${list.name}' (${list.items.length}개)`, url: link });
+            else { await navigator.clipboard.writeText(link); toast('가져오기 링크를 복사했어요. 다른 기기에서 열면 돼요'); }
+          } catch { /* 취소 */ }
+        }} className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold flex items-center gap-1 cursor-pointer"><Send className="w-3.5 h-3.5" /> 다른 기기로 옮기기·나눠 주기</button>
         <button type="button" onClick={() => { if (window.confirm(`'${list.name}' 재생목록을 지울까요?`)) { deleteList(list.id); onClose(); } }} className="ml-auto px-3 py-1.5 rounded-xl text-red-600 text-xs font-bold flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /> 목록 지우기</button>
       </div>
       {ytMsg && <p className="px-1 -mt-1 mb-2 text-xs font-bold text-red-600">{ytMsg}</p>}
@@ -198,5 +211,19 @@ function MyListDetail({ list, isDefault, onClose }: { list: MyList; isDefault: b
         </div>
       )}
     </CollectionPanel>
+  );
+}
+
+/** 다른 기기에서 보낸 가져오기 링크·코드 붙여 넣기 */
+function ImportButton() {
+  return (
+    <button type="button" onClick={() => {
+      const raw = window.prompt('다른 기기에서 받은 재생목록 링크(또는 코드)를 붙여 넣어 주세요');
+      if (!raw) return;
+      const p = parseImport(raw);
+      if (!p) { alert('읽을 수 없는 링크예요. 다시 복사해 주세요.'); return; }
+      importList(p);
+      toast(`'${p.name}' (${p.items.length}개)을 가져왔어요`);
+    }} className="shrink-0 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 cursor-pointer">가져오기</button>
   );
 }

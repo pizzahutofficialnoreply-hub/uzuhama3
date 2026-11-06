@@ -336,7 +336,7 @@ export function ShortsFeed({ logs, searchTerm, plan, chosung = true, exclude, se
             caption={captionOf(s)}
             onCaptionClick={s.date && onNavigateToCalendar ? () => onNavigateToCalendar(s.date) : undefined}
             onPlay={() => setPlayerAt((page - 1) * PAGE + i)}
-            interest={{ id: s.id, kind: 'short', tokens: tokensOf((s.gameNames || []).map((name) => ({ name })), [...s.genres, s.category]) }}
+            interest={{ id: s.id, kind: 'short', title: s.title, tokens: tokensOf((s.gameNames || []).map((name) => ({ name })), [...s.genres, s.category]) }}
             shareText={() => formatShortsShareText({ title: cleanShortsTitle(s.title), url: s.url, date: s.date, liveUrl: s.liveUrl, editUrl: s.editUrl, relatedTitle: s.relatedTitle }, logs)}
           />
         ))}

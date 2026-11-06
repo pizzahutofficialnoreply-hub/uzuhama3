@@ -84,7 +84,7 @@ export function AdminSuggestionsTab({
     const unFeed = onSnapshot(qFeed, (snapshot) => {
       const items: FeedbackItem[] = [];
       // 검색 신고·만족도는 관리자 > 시스템 > 자동화 '검색 조정'에서 따로 봄
-      snapshot.forEach(docSnap => { const d = docSnap.data(); if (!String(d.type || '').startsWith('search_')) items.push({ id: docSnap.id, ...d } as FeedbackItem); });
+      snapshot.forEach(docSnap => { const d = docSnap.data(); if (!String(d.type || '').startsWith('search_') && d.type !== 'client_error') items.push({ id: docSnap.id, ...d } as FeedbackItem); });
       setFeedbacks(items);
       setLoading(false);
     }, (err) => {

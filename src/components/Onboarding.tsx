@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { DEFAULT_PRIVACY, DEFAULT_TERMS } from '../content/legal';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -74,8 +75,8 @@ const withSetup = (c: OnboardingConfig): OnboardingConfig => c;
 
 const fillPlaceholders = (text: string, system: any) =>
   String(text || '')
-    .replace(/\{\{\s*termsOfService\s*\}\}/g, system?.termsOfService || '이용약관 내용이 아직 등록되지 않았어요.')
-    .replace(/\{\{\s*privacyPolicy\s*\}\}/g, system?.privacyPolicy || '개인정보처리방침 내용이 아직 등록되지 않았어요.');
+    .replace(/\{\{\s*termsOfService\s*\}\}/g, system?.termsOfService || DEFAULT_TERMS)
+    .replace(/\{\{\s*privacyPolicy\s*\}\}/g, system?.privacyPolicy || DEFAULT_PRIVACY);
 
 const krDate = (d?: string) => {
   const m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -123,7 +124,7 @@ function FluidBackdrop() {
 }
 
 /** 약관 본문: 마크다운 전체(제목·목록·표·인용·코드·구분선·링크)를 문서처럼 */
-const TERMS_PROSE = [
+export const TERMS_PROSE = [
   'text-[13px] leading-[1.75] text-zinc-700 dark:text-zinc-300 break-keep select-text',
   '[&>*:first-child]:mt-0',
   '[&_h1]:text-lg [&_h1]:font-black [&_h1]:text-zinc-900 dark:[&_h1]:text-white [&_h1]:mt-6 [&_h1]:mb-2',
@@ -136,7 +137,7 @@ const TERMS_PROSE = [
   '[&_blockquote]:my-3 [&_blockquote]:border-l-[3px] [&_blockquote]:border-purple-300 dark:[&_blockquote]:border-purple-500/50 [&_blockquote]:pl-3 [&_blockquote]:text-zinc-500 dark:[&_blockquote]:text-zinc-400',
   '[&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-zinc-100 dark:[&_code]:bg-white/10 [&_code]:text-[12px] [&_pre]:my-3 [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:bg-zinc-100 dark:[&_pre]:bg-white/10 [&_pre]:overflow-x-auto',
   '[&_hr]:my-5 [&_hr]:border-zinc-200 dark:[&_hr]:border-white/10',
-  '[&_table]:my-3 [&_table]:w-full [&_table]:text-[12px] [&_table]:border-collapse [&_th]:border [&_td]:border [&_th]:border-zinc-200 [&_td]:border-zinc-200 dark:[&_th]:border-white/10 dark:[&_td]:border-white/10 [&_th]:bg-zinc-50 dark:[&_th]:bg-white/5 [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5 [&_th]:text-left [&_th]:font-bold',
+  '[&_table]:block [&_table]:overflow-x-auto [&_table]:my-3 [&_table]:w-full [&_table]:text-[12px] [&_table]:border-collapse [&_th]:border [&_td]:border [&_th]:border-zinc-200 [&_td]:border-zinc-200 dark:[&_th]:border-white/10 dark:[&_td]:border-white/10 [&_th]:bg-zinc-50 dark:[&_th]:bg-white/5 [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5 [&_th]:text-left [&_th]:font-bold',
 ].join(' ');
 
 const IOS_SPRING = { type: 'spring' as const, stiffness: 320, damping: 34 };

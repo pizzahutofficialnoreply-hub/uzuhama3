@@ -81,7 +81,7 @@ export async function sendPush(db: any, messaging: any, targets: PushTarget[], p
 /** push_subscriptions 전체를 읽어 설정과 함께 반환 */
 export async function loadSubscriptions(db: any) {
   const snap = await db.collection('push_subscriptions').get();
-  const subs: { token: string; docId: string; notifyLive: boolean; notifyPeakProb: boolean; leadTimeMinutes: number }[] = [];
+  const subs: { token: string; docId: string; notifyLive: boolean; notifyPeakProb: boolean; leadTimeMinutes: number; liveKeywords: string[] }[] = [];
   snap.docs.forEach((d: any) => {
     const data = d.data() || {};
     let token = data.token || data.fcmToken;
@@ -96,7 +96,16 @@ export async function loadSubscriptions(db: any) {
       notifyLive: data.notifyLive !== false,
       notifyPeakProb: data.notifyPeakProb !== false,
       leadTimeMinutes: Number.isFinite(lead) ? Math.max(0, Math.min(180, Math.round(lead))) : 30,
+      liveKeywords: Array.isArray(data.liveKeywords) ? data.liveKeywords.map(String) : [],
     });
   });
   return subs;
+}
+
+/** 게임·장르 알림: 방송 제목·카테고리에 고른 말이 하나라도 있으면 (띄어쓰기·대소문자 무시) */
+export function matchesLiveKeywords(keywords: string[] | undefined, title: string, category: string): boolean {
+  if (!keywords?.length) return true;
+  const norm = (s: string) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+  const hay = norm(`${title} ${category}`);
+  return keywords.some((k) => { const n = norm(k); return n.length > 0 && hay.includes(n); });
 }

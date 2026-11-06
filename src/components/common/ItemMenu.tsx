@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bookmark, Flag, MoreVertical } from 'lucide-react';
+import { Bookmark, Flag, Link2, MoreVertical } from 'lucide-react';
 import { cn } from '../../utils';
 import { requestSave, useMyPlaylists, type MyItemKind } from '../../utils/myPlaylists';
 import { shareTextOrClipboard } from '../../utils/shareUtils';
@@ -17,15 +17,23 @@ export const SearchContext = createContext<SearchInfo>({ query: '', concepts: []
 
 export const REPORT_EVENT = 'uzuhama-open-report';
 export type ReportTarget = { id: string; kind: MyItemKind; title: string; search: SearchInfo };
+/** 짧은 알림 (저장 알림과 같은 자리) */
+export const TOAST_EVENT = 'uzuhama-toast';
+export const toast = (text: string) => window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: text }));
+
 export function requestReport(t: ReportTarget) {
   window.dispatchEvent(new CustomEvent(REPORT_EVENT, { detail: t }));
 }
 
-export function ItemMenu({ id, kind, title, className, compact = false, onSave, shareText, onShare }: {
+export function ItemMenu({ id, kind, title, className, compact = false, onSave, shareText, onShare, extraItems = [], noReport = false }: {
   id: string; kind: MyItemKind; title: string; className?: string; compact?: boolean; onSave?: () => void;
   /** 공유할 글 (있으면 메뉴에 '공유') */
   shareText?: () => string;
   onShare?: () => void;
+  /** 메뉴 맨 위에 더 넣을 항목 (예: 기록에서 삭제) */
+  extraItems?: { label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean }[];
+  /** 신고 항목 숨기기 */
+  noReport?: boolean;
 }) {
   const search = useContext(SearchContext);
   const { lists } = useMyPlaylists();
@@ -38,7 +46,7 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
   useLayoutEffect(() => {
     if (!open || !btn.current) return;
     const r = btn.current.getBoundingClientRect();
-    const up = r.bottom + 170 > window.innerHeight - 80; // 아래 공간이 없으면 위로
+    const up = r.bottom + 220 + extraItems.length * 44 > window.innerHeight - 80; // 아래 공간이 없으면 위로
     const left = Math.max(8, Math.min(window.innerWidth - 188, r.right - 180));
     setPos(up ? { bottom: window.innerHeight - r.top + 6, left, up } : { top: r.bottom + 6, left, up });
   }, [open]);
@@ -85,7 +93,12 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
               className={cn('z-[380] w-[180px]', POPOVER_CLS)}
             >
               <div>
-                <button type="button" role="menuitem" className={item} onClick={(e) => { e.stopPropagation(); setOpen(false); onSave?.(); requestSave({ id, kind, title }); }}>
+                {extraItems.map((x, i) => (
+                  <button key={i} type="button" role="menuitem" className={cn(item, i > 0 && 'border-t border-zinc-100 dark:border-zinc-700', x.danger && 'text-red-600')} onClick={(e) => { e.stopPropagation(); setOpen(false); x.onClick(); }}>
+                    {x.icon}{x.label}
+                  </button>
+                ))}
+                <button type="button" role="menuitem" className={cn(item, extraItems.length > 0 && 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); onSave?.(); requestSave({ id, kind, title }); }}>
                   <Bookmark className={cn('w-4 h-4', saved ? 'text-purple-600' : 'text-zinc-500')} fill={saved ? 'currentColor' : 'none'} />
                   {saved ? '저장됨 · 바꾸기' : '저장'}
                 </button>
@@ -101,10 +114,21 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
                     공유
                   </button>
                 )}
-                <button type="button" role="menuitem" className={cn(item, 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); requestReport({ id, kind, title, search }); }}>
+                <button type="button" role="menuitem" className={cn(item, 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                  // 카톡 등에 붙이면 제목·썸네일 카드가 뜨고, 누르면 이 사이트의 그 영상으로
+                  const link = `https://uzuhama.vercel.app/${kind === 'short' ? 's' : 'v'}/${id}`;
+                  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(link).then(() => toast('사이트 링크를 복사했어요')).catch(() => window.prompt('사이트 링크', link));
+                  else window.prompt('사이트 링크', link);
+                }}>
+                  <Link2 className="w-4 h-4 text-zinc-500" />
+                  사이트 링크 복사
+                </button>
+                {!noReport && <button type="button" role="menuitem" className={cn(item, 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); requestReport({ id, kind, title, search }); }}>
                   <Flag className="w-4 h-4 text-zinc-500" />
                   {search.query ? '이 결과 신고' : '신고'}
-                </button>
+                </button>}
               </div>
             </motion.div>
           )}

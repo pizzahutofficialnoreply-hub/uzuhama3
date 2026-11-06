@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { embedSrc } from '../../../utils/watchHistory';
 import { extractYoutubeId } from '../../../utils/urlUtils';
 import { CollectionPanel } from '../../common/CollectionPanel';
 import { VideoListRow } from '../../common/VideoListRow';
@@ -68,7 +69,7 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
       thumbnail={ytId ? `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg` : ''}
       title={video?.videoTitle || '몰아보기'}
       metaLine={isCompilation ? `몰아보기 · 게임 ${gameCount}개 · 생방송 ${dates.length}개` : `영상 연동 · 생방송 ${dates.length}개`}
-      embedSrc={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`}
+      embedSrc={embedSrc(ytId)}
       playLabel="재생"
       showPublisher={false}
       listOnly={listOnly}

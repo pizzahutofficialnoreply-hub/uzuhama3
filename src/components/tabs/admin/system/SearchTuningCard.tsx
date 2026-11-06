@@ -12,7 +12,7 @@ import { loadSearchTuning } from '../../../../hooks/useSearchTuning';
  * - 유튜브 저장용 OAuth 클라이언트 ID 도 여기서
  */
 const mutateUrl = () => (/vercel\.app$|^localhost$|^127\./.test(window.location.hostname) ? '/api/admin/mutate' : 'https://uzuhama.vercel.app/api/admin/mutate');
-async function mutate(action: string) {
+export async function mutate(action: string) {
   const token = await auth.currentUser?.getIdToken();
   const r = await fetch(mutateUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action }) });
   const j = await r.json().catch(() => ({}));

@@ -16,10 +16,46 @@ function parseIsoDuration(iso: string): number | null {
   return d * 86400 + h * 3600 + mi * 60 + s;
 }
 
+const esc = (s: string) => String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+
+/**
+ * 공유 링크 미리보기 (GET /v/:id → /api/videos/meta?share=:id, /s/:id 는 쇼츠)
+ * 카톡·디스코드 등이 읽는 제목·썸네일 카드(og 태그)를 만들고, 사람이 열면 사이트의 그 영상으로 바로 이동
+ */
+async function sharePage(req: any, res: any) {
+  const id = String(req.query?.share || '');
+  const kind = req.query?.kind === 'short' ? 'short' : 'video';
+  const site = `https://${req.headers['x-forwarded-host'] || req.headers.host || 'uzuhama.vercel.app'}`;
+  if (!ID_RE.test(id)) { res.setHeader('Location', site); return res.status(302).end(); }
+  let title = '우주하마 영상';
+  let author = '';
+  try {
+    const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`, { signal: AbortSignal.timeout(4000) });
+    if (r.ok) { const j: any = await r.json(); title = j.title || title; author = j.author_name || ''; }
+  } catch { /* 제목 없이 */ }
+  const target = `${site}/?v=${id}${kind === 'short' ? '&kind=short' : ''}`;
+  const img = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+  const desc = `${author ? `${author} · ` : ''}우주하마 방송 예측에서 방송 날짜·게임·생방송 다시보기와 함께 보기`;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+  return res.status(200).send(`<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(title)} · 우주하마 방송 예측</title>
+<meta property="og:type" content="video.other"><meta property="og:site_name" content="우주하마 방송 예측">
+<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
+<meta property="og:image" content="${img}"><meta property="og:image:width" content="480"><meta property="og:image:height" content="360">
+<meta property="og:url" content="${site}/${kind === 'short' ? 's' : 'v'}/${id}">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(title)}"><meta name="twitter:image" content="${img}">
+<meta http-equiv="refresh" content="0;url=${esc(target)}">
+<link rel="canonical" href="${esc(target)}">
+</head><body><script>location.replace(${JSON.stringify(target)})</script><a href="${esc(target)}">${esc(title)} 보러 가기</a></body></html>`);
+}
+
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.query?.share) return sharePage(req, res);
 
   const raw = String(req.query?.ids || '');
   const ids = [...new Set(raw.split(',').map((s) => s.trim()).filter((s) => ID_RE.test(s)))].slice(0, 50);

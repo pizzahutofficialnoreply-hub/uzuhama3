@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { X } from 'lucide-react';
 import { cn } from '../../utils';
 import { extractYoutubeId } from '../../utils/urlUtils';
@@ -45,7 +46,8 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
         {playing && ytId ? (
           <>
             <iframe
-              src={`https://www.youtube.com/embed/${ytId}?autoplay=1&playsinline=1&rel=0`}
+              ref={trackYoutubeFrame}
+              src={embedSrc(ytId)}
               title={label}
               className="absolute inset-0 w-full h-full border-0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

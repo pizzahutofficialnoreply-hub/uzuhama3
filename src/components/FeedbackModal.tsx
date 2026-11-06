@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { checkSubmit, noteSubmit, visitorId } from '../utils/submitGuard';
 import { 
   X, 
   Loader2, 
@@ -526,6 +527,10 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
       return;
     }
 
+    // 짧은 시간에 여러 번 보내지 않게 (같은 제목·내용은 하루 한 번)
+    const guardKey = `${tab}|${title.trim().slice(0, 40)}|${content.trim().slice(0, 80)}|${selectedItemsList.length}`;
+    const blocked = checkSubmit('feedback', guardKey);
+    if (blocked) { alert(blocked); return; }
     setIsSubmitting(true);
     try {
       const area = problemArea === '직접 입력' ? customProblemArea : problemArea;
@@ -560,8 +565,10 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
         problemArea: tab === 'bug' ? area : null,
         uid: user?.uid || null,
         email: user?.email || null,
+        vid: visitorId(),
         createdAt: serverTimestamp()
       });
+      noteSubmit('feedback', guardKey);
 
       setIsSubmitted(true);
       setTimeout(() => {

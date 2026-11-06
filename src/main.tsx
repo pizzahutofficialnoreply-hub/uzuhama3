@@ -5,10 +5,13 @@ import App from './App.tsx';
 import './index.css';
 import { initThemeListener } from './utils/theme';
 import { setupGlobalHaptics } from './utils/haptics';
+import { installErrorReporting } from './utils/errorReport';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Initialize global theme listener (system/light/dark)
 initThemeListener();
 setupGlobalHaptics();
+installErrorReporting();
 
 // Register Service Worker for PWA and Push Notifications
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -21,8 +24,10 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>,
 );

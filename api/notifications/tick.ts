@@ -1,5 +1,5 @@
 import { setCorsHeaders } from '../_cors.js';
-import { sendPush, loadSubscriptions } from '../_push.js';
+import { sendPush, loadSubscriptions, matchesLiveKeywords } from '../_push.js';
 import {
   computeBroadcastProbability,
   formatClockMinute,
@@ -169,7 +169,8 @@ export default async function handler(req: any, res: any) {
       const ageMin = (now.getTime() - kstDateTimeToMs(content.openDate)) / 60000;
       await stateRef.set({ lastLiveOpenDate: content.openDate }, { merge: true });
       if (ageMin <= LIVE_NOTIFY_MAX_AGE_MIN) {
-        const subs = (await loadSubscriptions(db)).filter((s) => s.notifyLive);
+        // 게임·장르를 골라 둔 사람은 그 게임·장르 방송일 때만
+        const subs = (await loadSubscriptions(db)).filter((s) => s.notifyLive && matchesLiveKeywords(s.liveKeywords, content?.liveTitle || '', content?.liveCategoryValue || ''));
         const category = content?.liveCategoryValue ? ` · ${content.liveCategoryValue}` : '';
         result.liveNotification = await sendPush(db, messaging, subs, {
           title: '우주하마 방송 시작!',
@@ -261,6 +262,14 @@ export default async function handler(req: any, res: any) {
         if (!(t as any).skipped) result.searchTune = t;
       } catch (e: any) {
         result.searchTuneError = String(e?.message || e).slice(0, 200);
+      }
+      // 사라진(삭제·비공개) 영상 찾기
+      try {
+        const { checkDeadVideos } = await import('../_deadVideos.js');
+        const d = await checkDeadVideos(db);
+        if (!(d as any).skipped) result.deadVideos = d;
+      } catch (e: any) {
+        result.deadVideosError = String(e?.message || e).slice(0, 200);
       }
     }
 

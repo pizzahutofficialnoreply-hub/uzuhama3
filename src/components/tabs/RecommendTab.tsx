@@ -1,4 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { embedSrc, progressOf, trackYoutubeFrame, useProgress, useWatchHistory, withResume } from '../../utils/watchHistory';
+import { openWatchHistory } from '../WatchHistoryPage';
+import { formatDuration as formatDurationSec } from '../../hooks/useVideoDuration';
+import { ProgressBar } from '../common/ProgressBar';
+import { History as HistoryIcon } from 'lucide-react';
 import { LazyInput } from '../common/LazyInput';
 import { ItemMenu, SearchContext } from '../common/ItemMenu';
 import { useSearchTuning } from '../../hooks/useSearchTuning';
@@ -57,7 +62,7 @@ const RECOMMEND_SUB_TABS: { id: RecommendSubTab; label: string }[] = [
 export function videoInterestItem(video: any): InterestItem {
   const games = [...(Array.isArray(video?.games) ? video.games : []), ...(Array.isArray(video?.parentLog?.games) ? video.parentLog.games : [])];
   if (!games.length && video?.parentLog?.game) games.push({ name: video.parentLog.game, category: video.parentLog.category });
-  return { id: String(video?.id || ''), kind: video?.isLive ? 'live' : 'video', tokens: tokensOf(games, [video?.category]) };
+  return { id: String(video?.id || ''), kind: video?.isLive ? 'live' : 'video', tokens: tokensOf(games, [video?.category]), title: video?.videoTitle || (video?.parentLog?.date ? `${video.parentLog.date} 생방송` : '') };
 }
 
 /** 연결된 쇼츠 + 방송 기록의 쇼츠를 하나로 (같은 쇼츠는 한 번만) */
@@ -179,6 +184,7 @@ export const VideoCard = ({
   const isMultiBroadcastOrCompilation = hasMultipleDates || video.isCompilation || (Array.isArray(video.allBroadcastDates) && video.allBroadcastDates.length > 1);
   // 생방이 여러 개(몰아보기 제외)면 펼치지 않고 '생방송' 버튼에서 골라 보기
   const liveLinks = useMemo(() => liveLinksFor(video, allLogs, broadcastDates), [broadcastDates, allLogs, video]);
+  const progress = useProgress(String(video.id || ''));
 
   // 게임 목록 추출 (게임 링크가 누락되지 않도록 parentLog 및 allLogs와 완벽 연동)
   const gamesList: { name: string; link?: string; category?: string }[] = useMemo(() => {
@@ -274,7 +280,8 @@ export const VideoCard = ({
         {isPlayingInline ? (
           <div className="relative w-full h-full bg-black z-20">
             <iframe
-              src={`https://www.youtube.com/embed/${video.id}?autoplay=1&enablejsapi=1&rel=0`}
+              ref={trackYoutubeFrame}
+              src={embedSrc(video.id)}
               title={video.videoTitle}
               className="w-full h-full border-0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -317,6 +324,7 @@ export const VideoCard = ({
           </button>
         )}
 
+        {!isPlayingInline && progress > 0.02 && <ProgressBar value={progress} />}
         {/* 썸네일 배지: 우하단 재생 시간 / 좌하단 생방일·몰아보기 (재생 중에는 숨김) */}
         {!isPlayingInline && typeof durationSec === 'number' && durationSec > 0 && (
           <span className={cn(
@@ -383,7 +391,7 @@ export const VideoCard = ({
       
       <div className={cn("p-4 flex-1 flex flex-col", isCompact && "p-2.5 sm:p-4")}>
         <div className="flex items-start justify-between gap-1.5 sm:gap-2">
-          <a href={video.videoUrl} target="_blank" rel="noreferrer" className={cn("font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex-1", isCompact ? "text-xs sm:text-base" : "text-sm sm:text-base")}>
+          <a href={withResume(video.videoUrl || '', video.id)} target="_blank" rel="noreferrer" onClick={() => noteInterest(interestItem, 'play')} className={cn("font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex-1", isCompact ? "text-xs sm:text-base" : "text-sm sm:text-base")}>
             {video.videoTitle}
           </a>
           <ItemMenu
@@ -508,7 +516,7 @@ export const VideoCard = ({
         
         <div className="mt-auto pt-4 flex flex-col gap-2 relative">
           <a 
-            href={video.videoUrl || '#'} 
+            href={video.videoUrl ? withResume(video.videoUrl, video.id) : '#'} 
             target="_blank"
             rel="noreferrer"
             onClick={(e) => {
@@ -1214,7 +1222,7 @@ export function RecommendTab({
       const url = typeof s === 'string' ? s : s?.url;
       const id = extractYoutubeId(url || '');
       if (!id || byId.has(id)) return;
-      byId.set(id, { id, interest: { id, kind: 'short', tokens: tokensOf(Array.isArray(log?.games) && log.games.length ? log.games : log?.game ? [{ name: log.game, category: log.category }] : [], [log?.category]) },
+      byId.set(id, { id, interest: { id, kind: 'short', title: cleanShortsTitle(s.title || ''), tokens: tokensOf(Array.isArray(log?.games) && log.games.length ? log.games : log?.game ? [{ name: log.game, category: log.category }] : [], [log?.category]) },
         url, title: (typeof s === 'string' ? '' : s?.title) || '', caption: log?.date ? `${log.date} 방송` : undefined,
         liveUrl: (Array.isArray(log?.vods) ? log.vods : []).find((v: any) => v?.url)?.url });
     }));
@@ -1236,7 +1244,7 @@ export function RecommendTab({
       // 맞춤 추천용: 기록에 없는 쇼츠는 연결된 본영상의 게임·장르로
       if (!s.interest || !s.interest.tokens.length) {
         const v = rel ? videoById.get(rel) : null;
-        s.interest = { id, kind: 'short', tokens: v ? videoInterestItem(v).tokens : [] };
+        s.interest = { id, kind: 'short', title: cleanShortsTitle(s.title || ''), tokens: v ? videoInterestItem(v).tokens : [] };
       }
     });
     return [...byId.values()].filter((s) => s.title).map((s) => ({ ...s, title: cleanShortsTitle(s.title) }));
@@ -2006,6 +2014,10 @@ export function RecommendTab({
     return scoredVids;
   }, [allVideos, categoryIndex, categories, selectedCategories, literalTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos, planBundle, docOf, chos, useRelated, sOpts, intent, excludedIds]); // Removed ratings and history to prevent jumping on watch
 
+  // 보던 영상 (3~95% 본 영상, 최근 5개)
+  const watchHistory = useWatchHistory();
+  const continueItems = useMemo(() => watchHistory.filter((e) => e.kind !== 'short' && progressOf(e) > 0.03 && progressOf(e) < 0.95).slice(0, 5), [watchHistory]);
+
   // 명절 특집: 설·추석·크리스마스 무렵 홈 위쪽에 '이동하면서 보기 좋은 긴 영상' (예전 그 명절 방송 먼저, 그다음 긴 몰아보기·생방송)
   const season = useMemo<Season | null>(() => {
     try {
@@ -2462,6 +2474,21 @@ export function RecommendTab({
           )}
           <h3 className="px-1 -mb-3 text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5"><YoutubeLogo className="w-4 h-4 text-zinc-500" /> 추천 영상</h3>
         </div>
+      )}
+      {/* 보던 영상: 중간까지 본 영상 (이어 보기) */}
+      {continueItems.length > 0 && subTab === 'home' && currentPage === 1 && !searchTerm.trim() && (
+        <section className="mb-6">
+          <div className="px-1 mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5"><HistoryIcon className="w-4 h-4 text-purple-500" /> 보던 영상 <span className="text-xs font-semibold text-zinc-400">보던 곳부터 이어서</span></h3>
+            <button type="button" onClick={openWatchHistory} className="text-xs font-bold text-purple-600 dark:text-purple-400 cursor-pointer">기록 전체 보기</button>
+          </div>
+          <div className="flex flex-col gap-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-1.5 sm:p-2">
+            {continueItems.map((e) => (
+              <VideoListRow key={`cont-${e.id}`} dense videoId={e.id} title={e.title || '제목 없음'} href={`https://www.youtube.com/watch?v=${e.id}`} saveKind={e.kind}
+                badge={`${e.kind === 'live' ? '생방송' : '동영상'} · ${formatDurationSec(e.pos || 0)}까지 봄`} />
+            ))}
+          </div>
+        </section>
       )}
       {season && seasonItems.length > 0 && (subTab === 'home' || subTab === 'recommend') && currentPage === 1 && !searchTerm.trim() && (
         <section className="mb-6">

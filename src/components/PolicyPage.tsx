@@ -1,4 +1,7 @@
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { DEFAULT_PRIVACY, DEFAULT_TERMS } from '../content/legal';
+import { TERMS_PROSE } from './Onboarding';
 import React from 'react';
 import { ArrowLeft, Home, FileText, Shield } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,7 +10,8 @@ import { useFirebaseData } from '../hooks/useFirebaseData';
 export function PolicyPage({ type }: { type: 'terms' | 'privacy' }) {
   const navigate = useNavigate();
   const { data, loading } = useFirebaseData();
-  let content = type === 'terms' ? data?.system?.termsOfService : data?.system?.privacyPolicy;
+  // 관리자가 저장한 문서가 없으면 기본 문서
+  let content = (type === 'terms' ? data?.system?.termsOfService : data?.system?.privacyPolicy) || (type === 'terms' ? DEFAULT_TERMS : DEFAULT_PRIVACY);
   const title = type === 'terms' ? '서비스 이용약관' : '개인정보처리방침';
   const Icon = type === 'terms' ? FileText : Shield;
 
@@ -85,8 +89,8 @@ export function PolicyPage({ type }: { type: 'terms' | 'privacy' }) {
             </div>
           </div>
 
-          <div className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap font-sans leading-relaxed prose dark:prose-invert max-w-none">
-            <Markdown>{content || '등록된 내용이 없습니다.'}</Markdown>
+          <div className={TERMS_PROSE + ' text-sm'}>
+            <Markdown remarkPlugins={[remarkGfm]}>{content || '등록된 내용이 없습니다.'}</Markdown>
           </div>
         </div>
       </main>

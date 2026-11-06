@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { currentOf, trackYoutubeFrame, trackableEmbed, watchUrl } from '../../utils/watchHistory';
 import { X } from 'lucide-react';
 import { GlassPlayButton } from './MediaIcons';
 import { ViewStyleToggle } from './ViewStyleToggle';
@@ -34,6 +35,24 @@ export function CollectionPanel({
   listOnly?: boolean;
 }) {
   const [playing, setPlaying] = useState(false);
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+  // 사이트에서 보던 영상·시간 그대로 유튜브에서 이어 보기
+  const openOnYoutube = () => {
+    const cur = frameRef.current ? currentOf.get(frameRef.current) : undefined;
+    const list = /[?&]list=([\w-]+)/.exec(embedSrc || '')?.[1];
+    const firstId = /\/embed\/([\w-]{11})/.exec(embedSrc || '')?.[1];
+    const queue = /[?&]playlist=([\w,-]+)/.exec(embedSrc || '')?.[1];
+    const id = cur?.id || firstId;
+    let url = id ? watchUrl(id, { list, t: cur ? Math.floor(cur.t) : undefined }) : list ? `https://www.youtube.com/playlist?list=${list}` : '';
+    // 내 재생목록처럼 여러 영상을 이어 붙인 경우: 지금 영상부터 남은 것들을 임시 재생목록으로
+    if (queue && id) {
+      const ids = [firstId, ...queue.split(',')].filter(Boolean) as string[];
+      const rest = ids.slice(Math.max(0, ids.indexOf(id)));
+      url = `https://www.youtube.com/watch_videos?video_ids=${rest.slice(0, 50).join(',')}`;
+      if (cur?.t) url = watchUrl(id, { t: Math.floor(cur.t) });
+    }
+    if (url) window.open(url, '_blank', 'noopener');
+  };
   if (listOnly) {
     return (
       <section aria-label={ariaLabel} className="px-1.5 sm:px-3 py-2">
@@ -63,7 +82,8 @@ export function CollectionPanel({
             <div className="relative aspect-video rounded-2xl overflow-hidden bg-black/40 shadow-xl">
               {playing ? (
                 <iframe
-                  src={embedSrc}
+                  ref={(f) => { frameRef.current = f; trackYoutubeFrame(f); }}
+                  src={trackableEmbed(embedSrc)}
                   title={title}
                   className="absolute inset-0 w-full h-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -94,6 +114,13 @@ export function CollectionPanel({
             >
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden="true"><path d="M9.6 5.9c-.7-.42-1.6.08-1.6.9v10.4c0 .82.9 1.32 1.6.9l8.66-5.2a1.05 1.05 0 0 0 0-1.8L9.6 5.9z" /></svg>
               {playLabel}
+            </button>
+            <button
+              type="button"
+              onClick={openOnYoutube}
+              className="mt-2 w-full h-10 rounded-full bg-white/15 hover:bg-white/25 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+            >
+              {playing ? '보던 곳부터 유튜브에서 이어 보기' : '유튜브에서 보기'}
             </button>
           </div>
         </div>

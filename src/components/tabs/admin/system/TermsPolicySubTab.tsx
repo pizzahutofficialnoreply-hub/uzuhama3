@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { DEFAULT_PRIVACY, DEFAULT_TERMS, LEGAL_VERSION_DATE } from '../../../../content/legal';
 import { SystemConfig, TermsRevision } from '../../../../types';
 import { Shield, Plus, Check, Eye, Calendar, AlertTriangle, FileText } from 'lucide-react';
 import { format, addDays, differenceInCalendarDays } from 'date-fns';
@@ -269,7 +270,21 @@ export const TermsPolicySubTab: React.FC<TermsPolicySubTabProps> = ({
 
       {/* 2. 이용약관 및 개인정보처리방침 원문 전문 */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
-        <h3 className="text-base font-bold text-zinc-900 dark:text-white">이용약관 및 개인정보처리방침 원문 편집</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base font-bold text-zinc-900 dark:text-white">이용약관 및 개인정보처리방침 원문 편집</h3>
+          <button
+            type="button"
+            onClick={() => {
+              if (!window.confirm(`${LEGAL_VERSION_DATE} 기준 새 기본 문서로 편집 칸을 바꿀까요?\n[대괄호] 부분(운영자 이메일·이름)은 직접 고쳐 주세요. 저장 전까지는 반영되지 않아요.\n이미 공개된 문서를 바꾸는 거라면 위 '개정 공지'로 7일(불리하면 30일) 전에 알리세요.`)) return;
+              handleChange('termsOfService', DEFAULT_TERMS);
+              handleChange('privacyPolicy', DEFAULT_PRIVACY);
+            }}
+            className="px-3 py-1.5 rounded-xl bg-purple-600 text-white text-xs font-bold cursor-pointer"
+          >
+            새 기본 문서 불러오기 ({LEGAL_VERSION_DATE})
+          </button>
+        </div>
+        <p className="text-[11px] text-zinc-500">개인정보 보호법·작성지침(2025)과 약관규제법을 바탕으로, 이 사이트가 실제로 모으는 정보(알림 토큰, 제보·신고·만족도, 오류 기록, 구글 로그인, 유튜브 저장)에 맞춰 쓴 문서예요. [대괄호]는 꼭 실제 정보로 바꿔 주세요.</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">서비스 이용약관</label>

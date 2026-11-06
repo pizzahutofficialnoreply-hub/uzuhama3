@@ -24,6 +24,7 @@ export type ShortsPlayerItem = {
 const SWIPE_PX = 60;
 
 export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: ShortsPlayerItem[]; startIndex: number; onClose: () => void; allLogs?: any }) {
+
   const [index, setIndex] = useState(Math.min(Math.max(0, startIndex), items.length - 1));
   const [drag, setDrag] = useState(0);
   const [animating, setAnimating] = useState(false);

@@ -10,8 +10,10 @@
  * 점수는 하루에 3%씩 옅어져서 요즘 관심이 더 크게 반영됨
  */
 
+import { clearWatchEntries, recordWatch } from './watchHistory';
+
 export type InterestKind = 'video' | 'short' | 'live';
-export type InterestItem = { id: string; kind: InterestKind; tokens: string[] };
+export type InterestItem = { id: string; kind: InterestKind; tokens: string[]; /** 시청 기록에 보일 제목 */ title?: string };
 export type InterestSignal = 'dwell' | 'dwell-long' | 'hover' | 'engage' | 'play';
 
 type Store = {
@@ -84,7 +86,7 @@ export function recordInterest(item: InterestItem, signal: InterestSignal) {
     if (label) (s.labels ||= {})[t] = label;
   });
   s.kinds[item.kind] = (s.kinds[item.kind] || 0) + w;
-  if (signal === 'play') s.watched[item.id] = Date.now();
+  if (signal === 'play') { s.watched[item.id] = Date.now(); recordWatch({ id: item.id, kind: item.kind, title: item.title }); }
   save();
 }
 
@@ -179,6 +181,7 @@ export function clearWatchHistory() {
   const s = loadInterest();
   s.watched = {};
   persistNow();
+  clearWatchEntries();
   try { localStorage.removeItem('userVideoHistory'); } catch { /* 무시 */ }
 }
 
@@ -186,6 +189,7 @@ export function clearWatchHistory() {
 export function clearInterest() {
   cache = empty();
   persistNow();
+  clearWatchEntries();
   try { localStorage.removeItem('userVideoHistory'); } catch { /* 무시 */ }
 }
 

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { History, PauseCircle, RotateCcw } from 'lucide-react';
 import { cn } from '../../utils';
+import { useWatchHistory } from '../../utils/watchHistory';
+import { openWatchHistory } from '../WatchHistoryPage';
 import { clearInterest, clearWatchHistory, interestSummary, isInterestPaused, setInterestPaused } from '../../utils/interest';
 
 export const INTEREST_CLEARED_EVENT = 'uzuhama-interest-cleared';
@@ -14,6 +16,7 @@ export const INTEREST_CLEARED_EVENT = 'uzuhama-interest-cleared';
  */
 export function RecommendPrefsPanel() {
   const [paused, setPaused] = useState(isInterestPaused);
+  const history = useWatchHistory();
   const [summary, setSummary] = useState(() => interestSummary());
   const [done, setDone] = useState('');
   const refresh = (msg: string) => {
@@ -32,7 +35,10 @@ export function RecommendPrefsPanel() {
       </p>
 
       <div className="mt-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 px-3.5 py-3 text-xs text-zinc-600 dark:text-zinc-300 space-y-1">
-        <p>본 영상 <b className="text-zinc-900 dark:text-white">{summary.watched}</b>개</p>
+        <div className="flex items-center justify-between gap-2">
+          <p>본 영상 <b className="text-zinc-900 dark:text-white">{Math.max(summary.watched, history.length)}</b>개</p>
+          <button type="button" onClick={openWatchHistory} className="px-2.5 py-1 rounded-lg bg-purple-600 text-white text-[11px] font-bold cursor-pointer">기록 전체 보기</button>
+        </div>
         <p>관심 장르: {summary.genres.length ? summary.genres.join(', ') : <span className="text-zinc-400">아직 없음</span>}</p>
         <p className="truncate">관심 게임: {summary.games.length ? summary.games.join(', ') : <span className="text-zinc-400">아직 없음</span>}</p>
       </div>

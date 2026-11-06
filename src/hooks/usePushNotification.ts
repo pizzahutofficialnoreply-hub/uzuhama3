@@ -12,6 +12,8 @@ export interface PushSettings {
   notifyPeakProb?: boolean;
   leadTimeMinutes?: number;
   notifyReports?: boolean;
+  /** 생방송 알림을 이 게임·장르일 때만 (비우면 모든 방송) */
+  liveKeywords?: string[];
 }
 
 const STORAGE_KEY = 'uzuhama_push_settings';
@@ -238,6 +240,7 @@ export function usePushNotification() {
         notifyPeakProb: initialSettings?.notifyPeakProb ?? settings.notifyPeakProb ?? true,
         leadTimeMinutes: initialSettings?.leadTimeMinutes ?? settings.leadTimeMinutes ?? 30,
         notifyReports: initialSettings?.notifyReports ?? settings.notifyReports ?? true,
+        liveKeywords: initialSettings?.liveKeywords ?? settings.liveKeywords ?? [],
       };
 
       const idToken = user?.uid ? await firebaseAuth.currentUser?.getIdToken() : null;

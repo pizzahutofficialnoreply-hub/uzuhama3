@@ -4,6 +4,10 @@
  */
 
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Suspense, lazy, startTransition } from 'react';
+import { importList, parseImport } from './utils/myPlaylists';
+import { toast } from './components/common/ItemMenu';
+import { OPEN_HISTORY_EVENT, WatchHistoryPage } from './components/WatchHistoryPage';
+import { layerHandledPop } from './hooks/useBackToClose';
 import { setYoutubeClientId } from './utils/youtubeAccount';
 import { SaveHost } from './components/common/SaveHost';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
@@ -150,6 +154,13 @@ function MainApp() {
     }
   }, []);
 
+  // 시청 기록 전체 보기 (설정 > 맞춤 추천·시청 기록, 홈 '보던 영상')
+  const [historyOpen, setHistoryOpen] = useState(false);
+  useEffect(() => {
+    const on = () => setHistoryOpen(true);
+    window.addEventListener(OPEN_HISTORY_EVENT, on);
+    return () => window.removeEventListener(OPEN_HISTORY_EVENT, on);
+  }, []);
   // 설정 > 공지사항: 지난 공지까지 카드 목록으로
   const [showNoticesPage, setShowNoticesPage] = useState(false);
   // 앱 설치 · 알림 · 캘린더 안내 (어디서든 openSetupGuide() 로 열림)
@@ -165,6 +176,8 @@ function MainApp() {
 
   useEffect(() => {
     const handlePopState = () => {
+      // 시청 기록·저장 창·쇼츠 화면처럼 따로 뒤로 가기를 처리한 창이면 건너뜀
+      if (layerHandledPop()) return;
       // 기기 뒤로가기 버튼 또는 브라우저 뒤로가기
       // 0. 공지사항 화면이 열려 있으면: 공지사항만 닫고 설정창은 유지
       if (setupGuide) return; // 안내 화면이 스스로 닫힘
@@ -251,6 +264,31 @@ function MainApp() {
     }
     handleTabChange('recommend', false, true);
   };
+
+  // 링크로 들어온 경우: ?v=영상ID (공유 미리보기 링크) / ?q=검색어 → 검색 탭에서 바로
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (deepLinkDone.current || loading) return;
+    deepLinkDone.current = true;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get('v');
+      const q = params.get('q');
+      // ?pl=... : 다른 기기·친구가 보낸 내 재생목록 가져오기
+      const pl = params.get('pl');
+      if (pl) {
+        const parsed = parseImport(pl);
+        if (parsed && window.confirm(`'${parsed.name}' 재생목록(${parsed.items.length}개)을 이 기기의 내 재생목록으로 가져올까요?`)) {
+          importList(parsed);
+          window.setTimeout(() => toast(`'${parsed.name}'을 가져왔어요 · 검색 › 재생목록에서 볼 수 있어요`), 300);
+        }
+        window.history.replaceState(window.history.state, '', window.location.pathname);
+      }
+      if (v && /^[\w-]{11}$/.test(v)) handleNavigateToRecommend(undefined, params.get('kind') === 'short' ? v : undefined, params.get('kind') === 'short' ? undefined : v);
+      else if (q && q.trim()) handleNavigateToRecommend(undefined, q.trim().slice(0, 60));
+      if (v || q) window.history.replaceState(window.history.state, '', window.location.pathname);
+    } catch { /* 무시 */ }
+  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const probContainerRef = useRef<HTMLDivElement>(null);
   const tabContentRef = useRef<HTMLDivElement>(null);
@@ -1351,6 +1389,8 @@ function MainApp() {
       </AnimatePresence>
       {/* 저장 버튼 → 저장할 곳 고르기 창·알림 */}
       <SaveHost />
+      {/* 시청 기록 전체 보기 */}
+      <AnimatePresence>{historyOpen && <WatchHistoryPage key="history" onClose={() => setHistoryOpen(false)} />}</AnimatePresence>
       {afterInstall && (
         <Suspense fallback={null}>
           <AfterInstallPrompt onOpen={(k) => setSetupGuide({ kind: k })} />

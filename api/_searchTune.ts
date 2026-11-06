@@ -44,8 +44,13 @@ export async function tuneSearch(db: any, opts: { force?: boolean } = {}) {
   const since = new Date(Number(meta.lastAt || 0) || Date.now() - 7 * 86400000);
   const snap = await db.collection('feedbacks').where('createdAt', '>', since).orderBy('createdAt', 'asc').limit(800).get();
   const docs = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
-  const reports = docs.filter((d: any) => d.type === 'search_report');
-  const ratings = docs.filter((d: any) => d.type === 'search_rating');
+  // 남발 막기: 같은 기기(vid)의 같은 신고는 한 번, 하루에 너무 많이 보낸 기기는 통째로 빼기
+  const perVid = new Map<string, number>();
+  docs.forEach((d: any) => { if (String(d.type || '').startsWith('search_') && d.vid) perVid.set(d.vid, (perVid.get(d.vid) || 0) + 1); });
+  const spammy = new Set([...perVid].filter(([, n]) => n > 30).map(([v]) => v));
+  const once = (arr: any[], keyOf: (d: any) => string) => { const seen = new Set<string>(); return arr.filter((d) => { if (d.vid && spammy.has(d.vid)) return false; const k = keyOf(d); if (seen.has(k)) return false; seen.add(k); return true; }); };
+  const reports = once(docs.filter((d: any) => d.type === 'search_report'), (d) => `${d.vid || d.id}|${d.videoId}|${d.reason}|${sq(d.query || '')}`);
+  const ratings = once(docs.filter((d: any) => d.type === 'search_rating'), (d) => `${d.vid || d.id}|${sq(d.query || '')}`);
   const general = docs.filter((d: any) => (d.type === 'suggestion' || d.type === 'bug') && /검색|추천/.test(`${d.title || ''} ${d.content || ''}`));
   // 피드백 탭 제보 중 '연결이 틀렸다'·'게임 이름/링크가 다르다' 류는 관리자 '연동' 탭으로 (먼저 낱말로, AI 가 있으면 다시 분류)
   const toRoute = docs.filter((d: any) => (d.type === 'data_request' || d.type === 'bug') && !d.route).slice(0, 40);
@@ -59,12 +64,17 @@ export async function tuneSearch(db: any, opts: { force?: boolean } = {}) {
 
   // 1) 규칙: '이 검색어에 안 맞아요'
   const conceptCount = new Map<string, number>();
+  const seenConcept = new Set<string>();
   reports.forEach((r: any) => {
     if (r.reason !== 'not_match' || !r.videoId) return;
     const q = sq(r.query || '');
     if (q) cur.demote[q] = pushUnique(cur.demote[q], [r.videoId], 200);
     (Array.isArray(r.concepts) ? r.concepts : []).forEach((c: string) => {
       const k = `${c}|${r.videoId}`;
+      // 같은 기기가 여러 검색어로 같은 영상을 신고해도 한 번
+      const vk = `${k}|${r.vid || r.id}`;
+      if (seenConcept.has(vk)) return;
+      seenConcept.add(vk);
       conceptCount.set(k, (conceptCount.get(k) || 0) + 1);
     });
   });
@@ -79,7 +89,7 @@ export async function tuneSearch(db: any, opts: { force?: boolean } = {}) {
 
   // 2) AI: 불만족 검색과 의견 → 비슷한 말·느낌 단어 보강
   const bad = ratings.filter((r: any) => r.good === false);
-  let summary = `신고 ${reports.length} · 평가 ${ratings.length}(불만족 ${bad.length})`;
+  let summary = `신고 ${reports.length} · 평가 ${ratings.length}(불만족 ${bad.length})${spammy.size ? ` · 남발 기기 ${spammy.size}개 제외` : ''}`;
   let model: string | undefined;
   const apiKey = process.env.GEMINI_API_KEY;
   const worthAsking = bad.length + reports.filter((r: any) => r.note).length + general.length + toRoute.length > 0;
@@ -134,6 +144,22 @@ JSON 으로만: {"synonyms":{},"conceptAdd":{},"routes":{},"summary":""}`;
   await Promise.all(Object.entries(routes).map(([id, route]) => db.collection('feedbacks').doc(id).set({ route, routedAt: new Date().toISOString() }, { merge: true }).catch(() => {})));
   const routed = Object.values(routes).filter((r) => r !== 'other').length;
   if (routed) summary = `${summary} · 연동 탭으로 ${routed}건`;
+
+  // 개인정보처리방침의 보관 기간대로 지우기: 오류 기록 90일, 검색 신고·만족도 1년
+  let purged = 0;
+  try {
+    const old = async (type: string, days: number) => {
+      const snap2 = await db.collection('feedbacks').where('type', '==', type).limit(400).get();
+      const cut = Date.now() - days * 86400000;
+      const dels = snap2.docs.filter((d: any) => (d.data()?.createdAt?.toMillis?.() || Date.now()) < cut);
+      await Promise.all(dels.map((d: any) => d.ref.delete().catch(() => {})));
+      purged += dels.length;
+    };
+    await old('client_error', 90);
+    await old('search_report', 365);
+    await old('search_rating', 365);
+  } catch { /* 다음에 */ }
+  if (purged) summary = `${summary} · 오래된 기록 ${purged}건 삭제`;
 
   cur.updatedAt = new Date().toISOString();
   cur.log = [{ day, reports: reports.length, ratings: ratings.length, bad: bad.length, summary, ...(model ? { model } : {}) }, ...(cur.log || [])].slice(0, 30);

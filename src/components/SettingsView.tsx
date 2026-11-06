@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { interestSummary } from '../utils/interest';
 import { setDefaultList, setDefaultYoutube, useMyPlaylists } from '../utils/myPlaylists';
 import { 
   MessageSquare, User, Bell, Palette, Database, Megaphone, 
@@ -63,6 +64,8 @@ export function SettingsView({
     triggerLocalNotification
   } = usePushNotification();
 
+  // 게임 알림 추천: 이 기기에서 관심 많은 게임 + 자주 찾는 장르
+  const gameSuggestions = useMemo(() => [...new Set([...interestSummary(6).games, '공포', '퍼즐', '시뮬레이션', '노가리'])], []);
   // 하위 설정 모달/아코디언 상태
   const navigate = useNavigate();
   // 실제 관리자 계정으로 로그인한 경우만 (기기에 저장된 표시는 믿지 않음)
@@ -428,6 +431,8 @@ export function SettingsView({
                         <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", isSubscribed && settings.notifyLive ? "translate-x-4" : "translate-x-0")} />
                       </button>
                     </div>
+
+                    {isSubscribed && settings.notifyLive && <LiveKeywordsRow value={settings.liveKeywords || []} onChange={(v) => updateSettings({ liveKeywords: v })} suggestions={gameSuggestions} />}
 
                     <div className="flex items-center justify-between py-1">
                       <div>
@@ -1236,6 +1241,36 @@ export function SettingsView({
         />
       )}
 
+    </div>
+  );
+}
+
+/** 생방송 알림을 이 게임·장르일 때만 */
+function LiveKeywordsRow({ value, onChange, suggestions }: { value: string[]; onChange: (v: string[]) => void; suggestions: string[] }) {
+  const [draft, setDraft] = useState('');
+  const add = (k: string) => { const t = k.trim(); if (!t || value.includes(t) || value.length >= 10) return; onChange([...value, t]); setDraft(''); };
+  const remove = (k: string) => onChange(value.filter((x) => x !== k));
+  const left = suggestions.filter((g) => !value.includes(g)).slice(0, 8);
+  return (
+    <div className="-mt-1 mb-1 ml-1 pl-3 border-l-2 border-purple-200 dark:border-purple-900/60 space-y-1.5">
+      <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">{value.length ? '이 게임·장르 방송일 때만 알려 줘요' : '모든 방송을 알려 줘요 · 게임·장르를 고르면 그때만'}</p>
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {value.map((k) => (
+            <button key={k} type="button" onClick={() => remove(k)} className="px-2 py-1 rounded-lg bg-purple-600 text-white text-[11px] font-bold cursor-pointer" aria-label={`${k} 빼기`}>{k} ✕</button>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-1.5">
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(draft); }} placeholder="게임 이름이나 장르 (예: 마인크래프트, 공포)" className="flex-1 min-w-0 px-2.5 py-1.5 text-xs rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" />
+        <button type="button" onClick={() => add(draft)} disabled={!draft.trim()} className="shrink-0 px-2.5 py-1.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[11px] font-bold cursor-pointer disabled:opacity-40">추가</button>
+      </div>
+      {left.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {left.map((g) => <button key={g} type="button" onClick={() => add(g)} className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-[11px] text-zinc-600 dark:text-zinc-300 cursor-pointer">+ {g}</button>)}
+        </div>
+      )}
+      <p className="text-[10px] text-zinc-400">방송 제목이나 치지직 카테고리에 이 말이 있으면 알려 줘요.</p>
     </div>
   );
 }

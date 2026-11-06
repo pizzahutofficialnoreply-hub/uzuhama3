@@ -95,3 +95,38 @@ export const SAVE_EVENT = 'uzuhama-open-save';
 export function requestSave(item: Omit<MyItem, 'addedAt'>, forceAsk = false) {
   window.dispatchEvent(new CustomEvent(SAVE_EVENT, { detail: { item, forceAsk } }));
 }
+
+// ── 재생목록 옮기기·나눠 주기 (로그인 없이 링크 하나로) ──
+const b64url = (s: string) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64url = (s: string) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
+const KIND_CH: Record<MyItemKind, string> = { video: 'v', short: 's', live: 'l' };
+
+/** 재생목록 → 가져오기 코드 (제목은 40자까지) */
+export function exportCode(list: MyList): string {
+  return b64url(JSON.stringify({ n: list.name, i: list.items.slice(0, 200).map((x) => [x.id, KIND_CH[x.kind], x.title.slice(0, 40)]) }));
+}
+export const exportLink = (list: MyList) => `https://uzuhama.vercel.app/?pl=${exportCode(list)}`;
+
+/** 가져오기 코드(또는 링크) 읽기 */
+export function parseImport(codeOrLink: string): { name: string; items: Omit<MyItem, 'addedAt'>[] } | null {
+  try {
+    const raw = String(codeOrLink || '').trim();
+    const code = /[?&]pl=([\w-]+)/.exec(raw)?.[1] || raw;
+    const d = JSON.parse(unb64url(code));
+    const back: Record<string, MyItemKind> = { v: 'video', s: 'short', l: 'live' };
+    const items = (Array.isArray(d?.i) ? d.i : [])
+      .filter((x: any) => Array.isArray(x) && /^[\w-]{11}$/.test(x[0]))
+      .map((x: any) => ({ id: x[0], kind: back[x[1]] || 'video', title: String(x[2] || '').slice(0, 100) }));
+    if (!items.length) return null;
+    return { name: String(d?.n || '가져온 재생목록').slice(0, 60), items };
+  } catch { return null; }
+}
+/** 가져와서 새 목록으로 */
+export function importList(p: { name: string; items: Omit<MyItem, 'addedAt'>[] }): MyList {
+  const exists = new Set(cache.lists.map((l) => l.name));
+  let name = p.name;
+  for (let n = 2; exists.has(name); n++) name = `${p.name} (${n})`;
+  const list: MyList = { id: uid(), name, items: p.items.map((x, i) => ({ ...x, addedAt: Date.now() + i })), createdAt: Date.now(), updatedAt: Date.now() };
+  write({ ...cache, lists: [...cache.lists, list] });
+  return list;
+}

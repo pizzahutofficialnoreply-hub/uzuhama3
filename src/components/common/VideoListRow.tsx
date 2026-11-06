@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useProgress, withResume } from '../../utils/watchHistory';
+import { ProgressBar } from './ProgressBar';
 import { Layers } from 'lucide-react';
 import { cn } from '../../utils';
 import { useVideoMeta, formatDuration, toKstDate, formatRelativeTime } from '../../hooks/useVideoDuration';
@@ -60,7 +62,9 @@ export function VideoListRow({
     return () => document.removeEventListener('mousedown', close);
   }, [menuOpen]);
 
-  const link = href || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : '#');
+  // 사이트에서 보던 곳이 있으면 거기부터
+  const link = withResume(href || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : '#'), videoId);
+  const progress = useProgress(videoId || '');
   const upload = meta?.publishedAt ? `${toKstDate(meta.publishedAt)} · ${formatRelativeTime(meta.publishedAt)}` : '';
   const validShorts = shorts.filter((s) => s?.url);
   const iconBtn = 'w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 cursor-pointer';
@@ -85,6 +89,7 @@ export function VideoListRow({
             {formatDuration(meta.durationSec)}
           </span>
         )}
+        {progress > 0.02 && <ProgressBar value={progress} />}
       </div>
 
       <div className="min-w-0 flex-1 pointer-events-none">

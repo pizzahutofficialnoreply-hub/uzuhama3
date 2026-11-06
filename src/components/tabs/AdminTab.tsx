@@ -5,7 +5,8 @@ import {
   Settings, 
   MessageSquare,
   FileCode2,
-  Link2
+  Link2,
+  History
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { AppData, BroadcastLog, SystemConfig } from '../../types';
@@ -15,6 +16,8 @@ import { AdminSystemTab } from './admin/AdminSystemTab';
 import { AdminSuggestionsTab } from './admin/AdminSuggestionsTab';
 import { AdminPatchesTab } from './admin/AdminPatchesTab';
 import { AdminUnlinkedTab } from './admin/AdminUnlinkedTab';
+import { AdminAuditTab } from './admin/AdminAuditTab';
+import { AdminHealthBanner } from './admin/AdminHealthBanner';
 import { cn } from '../../utils';
 
 interface AdminTabProps {
@@ -26,7 +29,7 @@ interface AdminTabProps {
   onUpdateSystemConfig?: (sys: Partial<SystemConfig>) => Promise<void>;
 }
 
-type AdminViewMode = 'add' | 'edit' | 'link' | 'system' | 'suggestions' | 'patches';
+type AdminViewMode = 'add' | 'edit' | 'link' | 'system' | 'suggestions' | 'patches' | 'audit';
 
 export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAllLogs, onUpdateSystemConfig }: AdminTabProps) {
   const [viewMode, setViewMode] = useState<AdminViewMode>('add');
@@ -38,10 +41,12 @@ export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAll
     { id: 'system', label: '시스템', fullLabel: '시스템/공지사항 관리', icon: Settings },
     { id: 'suggestions', label: '피드백', fullLabel: '피드백 (제안/버그)', icon: MessageSquare },
     { id: 'patches', label: '패치', fullLabel: '패치노트 등록/관리', icon: FileCode2 },
+    { id: 'audit', label: '이력', fullLabel: '수정 이력·되돌리기', icon: History },
   ];
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <AdminHealthBanner onGo={(m) => setViewMode(m as AdminViewMode)} />
       
       {/* Desktop Tab Navigation (sm 이상에서만 표시) */}
       <div className="hidden sm:flex overflow-x-auto no-scrollbar sm:flex-wrap gap-1.5 sm:gap-2 p-1 bg-zinc-100 dark:bg-zinc-800/50 rounded-xl w-full sm:w-fit">
@@ -96,6 +101,9 @@ export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAll
 
         {viewMode === 'patches' && (
           <AdminPatchesTab />
+        )}
+        {viewMode === 'audit' && (
+          <AdminAuditTab onAddLog={onAddLog} onUpdateLog={onUpdateLog} onDeleteLog={onDeleteLog} onUpdateSystemConfig={onUpdateSystemConfig} />
         )}
       </div>
 
