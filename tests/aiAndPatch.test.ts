@@ -50,3 +50,11 @@ describe('서비스 이용 전 안내', () => {
     expect(DEFAULT_SERVICE_GUIDE).toContain('### 1. 공식 서비스가 아닙니다');
   });
 });
+
+import { readFileSync } from 'node:fs';
+import { FIRESTORE_RULES } from '../api/_firestoreRules';
+describe('보안 규칙', () => {
+  it('서버가 적용하는 규칙 = firestore.rules', () => {
+    expect(FIRESTORE_RULES).toBe(readFileSync('firestore.rules', 'utf8'));
+  });
+});

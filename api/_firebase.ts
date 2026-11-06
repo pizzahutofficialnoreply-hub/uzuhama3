@@ -54,6 +54,7 @@ export const hasAdminCredentials = Boolean(
   (process.env.FIREBASE_PRIVATE_KEY && serviceAccount?.private_key)
 );
 
+export { app as adminApp };
 export const db = getFirestore(app);
 export const messaging = getMessaging(app);
 export const auth = getAuth(app);

@@ -100,6 +100,24 @@ export default async function handler(req: any, res: any) {
         await ref.update({ [`pins.${p.key}`]: pins[p.key] || (await import('firebase-admin/firestore')).FieldValue.delete() }).catch(() => {});
         return res.status(200).json({ success: true, summary: '뺐어요' });
       }
+      case 'rulesStatus':
+      case 'deployRules': {
+        // Firestore 보안 규칙: 지금 적용된 것과 저장소의 firestore.rules 비교 / 적용
+        const { getSecurityRules } = await import('firebase-admin/security-rules');
+        const { adminApp } = await import('../_firebase.js');
+        const { FIRESTORE_RULES } = await import('../_firestoreRules.js');
+        const sr = getSecurityRules(adminApp);
+        let deployed = '';
+        let deployedAt = '';
+        try { const rs = await sr.getFirestoreRuleset(); deployed = rs.source?.[0]?.content || ''; deployedAt = rs.createTime || ''; } catch (e: any) { deployed = ''; deployedAt = `읽기 실패: ${String(e?.message || e).slice(0, 120)}`; }
+        const norm = (x: string) => x.replace(/\s+/g, ' ').trim();
+        const same = Boolean(deployed) && norm(deployed) === norm(FIRESTORE_RULES);
+        if (action === 'rulesStatus') return res.status(200).json({ success: true, same, deployedAt, deployedPreview: deployed.slice(0, 4000) });
+        if (same) return res.status(200).json({ success: true, summary: '이미 최신 보안 규칙이에요' });
+        const rs = await sr.releaseFirestoreRulesetFromSource(FIRESTORE_RULES);
+        await audit({ action, ruleset: rs.name });
+        return res.status(200).json({ success: true, summary: `보안 규칙을 적용했어요 (${rs.createTime})` });
+      }
       case 'weeklyReports': {
         // 주간 점검 보고서 (최근 8개)
         const snap = await db.collection('weekly_reports').orderBy('at', 'desc').limit(9).get();

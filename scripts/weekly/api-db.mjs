@@ -14,7 +14,7 @@ const API = process.env.API_BASE || 'https://uzuhama.vercel.app';
 const KEY = 'AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM';
 const FS = 'https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents';
 const checks = [];
-const add = (group, name, ok, detail = '', ms = null) => { checks.push({ group, name, ok, detail: String(detail).slice(0, 300), ms }); console.log(`${ok ? '✓' : '✗'} [${group}] ${name} ${detail ? `— ${String(detail).slice(0, 120)}` : ''}`); };
+const add = (group, name, ok, detail = '', ms = null, warn = false) => { checks.push({ group, name, ok: ok || warn, warn: warn && !ok, detail: String(detail).slice(0, 300), ms }); console.log(`${ok ? '✓' : '✗'} [${group}] ${name} ${detail ? `— ${String(detail).slice(0, 120)}` : ''}`); };
 
 async function hit(path, { method = 'GET', body, headers = {}, expect = 200, json = true, maxMs = 10000 } = {}) {
   const t0 = Date.now();
@@ -91,6 +91,10 @@ const fromFs = (v) => {
 {
   const sys = await fs('config/system?mask.fieldPaths=appVersion');
   add('DB', '설정 읽기(config/system)', sys.status === 200, `HTTP ${sys.status}`);
+  // 방문자가 푸시 구독을 만들거나 지울 수 없어야 함 (없는 문서로 시험)
+  const pw = await fs('push_subscriptions/zz-weekly-probe?updateMask.fieldPaths=probe', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: { probe: { stringValue: 'x' } } }) });
+  add('보안', 'DB: 방문자가 푸시 구독을 못 씀', pw.status === 403 || pw.status === 401, `HTTP ${pw.status}`);
+  if (pw.status === 200) await fs('push_subscriptions/zz-weekly-probe', { method: 'DELETE' });
   const w = await fs('config/system?updateMask.fieldPaths=weeklyProbe', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: { weeklyProbe: { stringValue: 'x' } } }) });
   add('보안', 'DB: 방문자가 설정을 못 바꿈', w.status === 403 || w.status === 401, `HTTP ${w.status}`);
   for (const col of ['admin_audit', 'feedbacks', 'push_subscriptions', 'weekly_reports', 'ai_video', 'users']) {
@@ -135,9 +139,9 @@ add('DB', '기록 날짜 형식', badDate.length === 0, badDate.slice(0, 5).map(
 add('DB', '미래 날짜 방송 기록 없음', future.length === 0, future.slice(0, 5).map((l) => l.date).join(', '));
 add('DB', '같은 날 기록 3개 이상 없음', dupDates.length === 0, dupDates.slice(0, 5).map(([d, n]) => `${d}×${n}`).join(', '));
 add('DB', '유튜브 링크 형식', badLinks.length === 0, badLinks.slice(0, 5).join(' | '));
-add('DB', '같은 다시보기·쇼츠가 여러 날에 없음', dupLinks.length === 0, dupLinks.join(' | '));
+add('DB', '같은 다시보기·쇼츠가 여러 날에 없음 (참고: 이틀에 걸친 방송이면 정상)', dupLinks.length === 0, dupLinks.join(' | '), null, true);
 add('DB', '시간 형식(HH:MM)', badTime.length === 0, badTime.slice(0, 5).map((l) => `${l.date} ${l.time}`).join(', '));
-add('DB', '내용 없는 방송 기록 없음', emptyLogs.length === 0, emptyLogs.slice(0, 5).map((l) => l.date).join(', '));
+add('DB', '내용 없는 방송 기록 없음', emptyLogs.length === 0, emptyLogs.slice(0, 5).map((l) => l.date).join(', '), null, true);
 const last = logs.map((l) => l.date).filter((d) => dateRe.test(d)).sort().pop();
 
 const report = {

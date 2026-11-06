@@ -57,6 +57,7 @@ const md = [
   fails.length ? `### 고칠 것\n${fails.map((f) => `- ${f}`).join('\n')}` : '### 문제 없음 🎉',
   '',
   ...(results.api?.checks || []).filter((c) => !c.ok).map((c) => `- ❌ [${c.group}] ${c.name}: ${c.detail}`),
+  ...(results.api?.checks || []).filter((c) => c.warn).map((c) => `- ⚠️ [${c.group}] ${c.name}: ${c.detail}`),
   ...(results.e2e?.results || []).filter((r) => !r.ok).map((r) => `- ❌ [e2e] ${r.name}: ${r.err}`),
   ...(results.static.vitest.failedNames || []).map((n) => `- ❌ [테스트] ${n}`),
   ...(results.live?.runs || []).filter((r) => !r.ok || r.pageerror?.length || r.console?.length || r.overflow > 2 || r.broken?.length).slice(0, 15)

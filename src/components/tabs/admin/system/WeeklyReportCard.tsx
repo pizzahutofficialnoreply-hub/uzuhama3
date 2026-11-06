@@ -92,6 +92,28 @@ function Report({ r }: { r: any }) {
   );
 }
 
+/** Firestore 보안 규칙: 지금 적용된 것 = 저장소 firestore.rules 인지 */
+function RulesRow() {
+  const [st, setSt] = useState<any>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const load = useCallback(async () => { try { setSt(await mutate('rulesStatus')); } catch (e: any) { setSt({ error: String(e?.message || e) }); } }, []);
+  useEffect(() => { load(); }, [load]);
+  if (!st) return null;
+  return (
+    <div className={`rounded-xl p-3 text-xs space-y-1.5 ${st.same ? 'bg-emerald-50 dark:bg-emerald-950/30' : 'bg-red-50 dark:bg-red-950/30'}`}>
+      <p className="font-bold">{st.error ? `보안 규칙 확인 실패: ${st.error}` : st.same ? '✅ DB 보안 규칙: 최신이에요' : '❌ DB 보안 규칙: 지금 적용된 규칙이 예전 것이라 방문자가 푸시 알림 구독 목록을 읽고 지울 수 있어요'}</p>
+      {st.deployedAt && <p className="text-[11px] text-zinc-500">지금 적용된 규칙: {String(st.deployedAt).slice(0, 19).replace('T', ' ')}</p>}
+      {!st.same && !st.error && (
+        <button type="button" disabled={busy} onClick={async () => { if (!window.confirm('저장소의 최신 보안 규칙(firestore.rules)을 바로 적용할까요?')) return; setBusy(true); try { const r = await mutate('deployRules'); setMsg(r.summary || '적용했어요'); await load(); } catch (e: any) { setMsg('오류: ' + (e?.message || e)); } finally { setBusy(false); } }}
+          className="px-3 py-1.5 rounded-xl bg-red-600 text-white font-bold cursor-pointer disabled:opacity-60">{busy ? '적용 중…' : '최신 보안 규칙 적용'}</button>
+      )}
+      {msg && <p className="font-bold">{msg}</p>}
+      {st.deployedPreview && !st.same && <details><summary className="cursor-pointer text-[11px] text-zinc-500">지금 적용된 규칙 보기</summary><pre className="mt-1 text-[10px] whitespace-pre-wrap max-h-60 overflow-y-auto">{st.deployedPreview}</pre></details>}
+    </div>
+  );
+}
+
 export function WeeklyReportCard() {
   const [reports, setReports] = useState<any[] | null>(null);
   const [open, setOpen] = useState(0);
@@ -111,6 +133,7 @@ export function WeeklyReportCard() {
       <p className="text-[11px] text-zinc-500 leading-relaxed break-keep">
         정기 점검 시간마다 자동으로 타입 검사·로직 테스트·빌드·보안 취약점·e2e·실제 사이트 화면(휴대폰·PC, 밝게·어둡게)·개발자 콘솔·UI/UX·API·DB·보안을 돌리고, 지난 7일 피드백을 AI로 총정리해요. 고칠 게 있으면 GitHub 이슈 '주간 점검'에도 남겨서 정기 버그 수정 때 고쳐요.
       </p>
+      <RulesRow />
       {reports === null && <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />}
       {err && <p className="text-xs text-red-500">{err}</p>}
       {reports && reports.length === 0 && !err && <p className="text-xs text-zinc-500">아직 보고서가 없어요. 다음 정기 점검 때 처음 만들어져요.</p>}

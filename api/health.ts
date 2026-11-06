@@ -146,7 +146,7 @@ export default async function handler(req: any, res: any) {
         },
         server,
       };
-      await db.collection('weekly_reports').doc(id).set(doc);
+      await db.collection('weekly_reports').doc(id).set(JSON.parse(JSON.stringify(doc))); // undefined 빼기
       await meta.set({ lastAt: at, lastId: id, lastOk: doc.ok }, { merge: true });
       // 응답(공개 로그에 남음)에는 숫자만
       return res.status(200).json({
