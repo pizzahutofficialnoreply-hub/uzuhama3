@@ -1,7 +1,0 @@
-name: probe
-on: workflow_dispatch
-jobs:
-  p:
-    runs-on: ubuntu-latest
-    steps:
-      - run: sleep 20; curl -s "https://uzuhama.vercel.app/api/patch-notes?t=$(date +%s)" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d.get('counts'),d.get('notion'));[print(n['source'],n['version'],n['category'],n.get('kind'),n['date'],n['title'][:40],'COVER' if n.get('cover') else '-',len(n['content'])) for n in d.get('notes',[])]"
