@@ -188,7 +188,7 @@ function AiVideoPanel() {
     <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
       <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">AI 영상 상세 분석 (AI 검색)</p>
       <p className="text-[11px] text-zinc-500 leading-relaxed break-keep">
-        최신 영상부터 일반 영상·생방송 다시보기·쇼츠를 AI가 직접 보고 장면마다 정리해요. 긴 영상은 15분씩 나눠 보고, 다 보면 나온 게임을 구글 검색(공식 소개·다른 유튜버 플레이 반응)으로 알아봐요.
+        최신 영상부터 일반 영상·생방송 다시보기·쇼츠를 AI가 직접 보고 장면마다 정리해요. 긴 영상은 10분씩 나눠 보고, 다 보면 나온 게임을 구글 검색(공식 소개·다른 유튜버 플레이 반응)으로 알아봐요.
         무료 한도(유튜브 영상 하루 약 8시간) 안에서 하루 {Math.round((st?.dailySec || 25200) / 3600)}시간까지만 보고 쉬어요. 검색할 때는 AI를 부르지 않아요.
       </p>
       {st && (

@@ -3,7 +3,7 @@
  *
  * 분석 (runAiVideoStep): 점검(tick)이 몇 분마다 한 번 부르면 '한 구간'씩 분석
  *  - 대상: 채널 전체 (일반 영상·생방송 다시보기·쇼츠, 유튜브 'UU' 재생목록), 최신 영상부터
- *  - Gemini 가 유튜브 주소를 직접 봄 (영상을 내려받지 않음). 긴 영상은 15분씩 나눠서
+ *  - Gemini 가 유튜브 주소를 직접 봄 (영상을 내려받지 않음). 긴 영상은 10분씩 나눠서 (시간 초과면 그 영상은 더 잘게)
  *  - 무료 한도: 유튜브 영상은 하루 8시간까지 → 기본 7시간(AI_VIDEO_DAILY_SEC)까지만, 한도에 걸리면 다음 날까지 쉼
  *  - 영상을 다 보면: 전체 요약 + 나온 게임을 구글 검색으로 찾아 어떤 게임인지 정리 (다른 유튜버 플레이 반응 포함)
  *  - 모델: GEMINI_VIDEO_MODEL → gemini-flash-latest → gemini-2.5-flash (최신 Flash 계열)
@@ -18,8 +18,8 @@
  *  - 검색할 때 AI 를 부르지 않음
  */
 
-const SEG_SEC = 15 * 60;
-const MIN_SEG_SEC = 5 * 60;
+const SEG_SEC = 10 * 60;
+const MIN_SEG_SEC = 3 * 60;
 const DAILY_SEC = Number(process.env.AI_VIDEO_DAILY_SEC || 7 * 3600);
 const DAILY_CALLS = Number(process.env.AI_VIDEO_DAILY_CALLS || 180);
 const QUEUE_TTL = 12 * 3600 * 1000;
@@ -30,7 +30,10 @@ type QItem = { id: string; title: string; publishedAt: string; kind?: 'video' | 
 export type Scene = { t: number; d: string; k: string[] };
 
 const kstDay = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
-const isRate = (m: string) => /429|quota|RESOURCE_EXHAUSTED|rate limit|exceeded/i.test(m);
+const isRate = (m: string) => /429|quota|RESOURCE_EXHAUSTED|rate limit|Too Many Requests/i.test(m);
+const isTimeout = (m: string) => /timeout|timed out|aborted|deadline|DEADLINE_EXCEEDED|504/i.test(m);
+/** 한 번 분석에 기다릴 시간 (이 함수는 최대 300초) */
+const AI_TIMEOUT = Number(process.env.AI_VIDEO_TIMEOUT_MS || 230000);
 const ytKey = () => process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY || '';
 const aiKey = () => process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
 
@@ -146,7 +149,7 @@ async function gen(parts: any[], json: boolean, timeoutMs: number, models = MODE
     } catch (e: any) {
       lastErr = e;
       const msg = String(e?.message || e);
-      if (/timeout|aborted|deadline/i.test(msg)) throw e; // 시간 초과는 다른 모델로 바꿔도 같음
+      if (isTimeout(msg)) throw e; // 시간 초과는 다른 모델로 바꿔도 같음
       if (!/not found|404|unsupported|invalid model/i.test(msg) && !isRate(msg)) throw e;
     }
   }
@@ -183,7 +186,7 @@ ${desc ? `설명: ${desc.slice(0, 600)}\n` : ''}${whole ? '' : `지금 보는 �
 scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'}), 시간 순서로.`;
   const part: any = { fileData: { fileUri: `https://www.youtube.com/watch?v=${item.id}`, mimeType: 'video/*' } };
   if (!whole) part.videoMetadata = { startOffset: `${start}s`, endOffset: `${end}s` };
-  const { text, model } = await gen([part, { text: prompt }], true, 52000, MODELS, { mediaResolution: 'MEDIA_RESOLUTION_LOW' });
+  const { text, model } = await gen([part, { text: prompt }], true, AI_TIMEOUT, MODELS, { mediaResolution: 'MEDIA_RESOLUTION_LOW' });
   const out = parseJson(text);
   let scenes: Scene[] = (Array.isArray(out.scenes) ? out.scenes : []).map((s: any) => ({ t: toSec(s?.t), d: String(s?.d || '').slice(0, 160), k: words(s?.k, 8) }))
     .filter((s: Scene) => Number.isFinite(s.t) && s.d);
@@ -238,7 +241,7 @@ export async function runAiVideoStep(db: any): Promise<any> {
   const usedSec = st.day === day ? Number(st.usedSec || 0) : 0;
   const calls = st.day === day ? Number(st.calls || 0) : 0;
   if (usedSec >= DAILY_SEC || calls >= DAILY_CALLS) return { skipped: `오늘 한도 다 씀 (${Math.round(usedSec / 60)}분 · ${calls}번)` };
-  await stRef.set({ lockUntil: now + 70000, day, usedSec, calls }, { merge: true });
+  await stRef.set({ lockUntil: now + AI_TIMEOUT + 60000, day, usedSec, calls }, { merge: true });
 
   const release = (patch: any = {}) => stRef.set({ lockUntil: 0, lastRunAt: new Date().toISOString(), ...patch }, { merge: true });
   try {
@@ -288,7 +291,7 @@ export async function runAiVideoStep(db: any): Promise<any> {
           await release({ coolUntil: cool, lastError: msg });
           return { error: msg, cool: new Date(cool).toISOString() };
         }
-        const timeout = /timeout|aborted|deadline/i.test(msg);
+        const timeout = isTimeout(msg);
         const tries = Number(cur?.tries || 0) + 1;
         await ref.set({
           id: item.id, title: item.title, kind: item.kind, publishedAt: item.publishedAt, duration: dur, desc,

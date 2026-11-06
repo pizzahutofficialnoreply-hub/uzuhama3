@@ -1,7 +1,19 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/**/*.ts": {
+    "api/videos/search-index.ts": {
+      "includeFiles": "api/**",
+      "maxDuration": 300
+    },
+    "api/{admin,notifications}/*.ts": {
+      "includeFiles": "api/**",
+      "maxDuration": 60
+    },
+    "api/*.ts": {
+      "includeFiles": "api/**",
+      "maxDuration": 60
+    },
+    "api/videos/{meta,playlists,shorts}.ts": {
       "includeFiles": "api/**",
       "maxDuration": 60
     }

@@ -114,9 +114,11 @@ export default async function handler(req: any, res: any) {
         }
         const ai = await import('../_aiVideo.js');
         if (op === 'run') {
+          // 분석은 최대 몇 분 걸려서 분석 함수(최대 300초)를 따로 띄우고 바로 돌아옴
           await stRef.set({ coolUntil: 0 }, { merge: true });
-          const r = await ai.runAiVideoStep(db);
-          return res.status(200).json({ success: true, result: r, summary: r?.error ? `오류: ${r.error}` : r?.skipped ? `건너뜀: ${r.skipped}` : r?.title ? `${r.title} ${r.finished ? '분석 끝' : r.game ? `게임 '${r.game}' 정리` : `${r.seg}/${r.segTotal} 구간`}` : JSON.stringify(r).slice(0, 120) });
+          const host = `https://${req.headers['x-forwarded-host'] || req.headers.host || 'uzuhama.vercel.app'}`;
+          await fetch(`${host}/api/videos/search-index?ai=run`, { signal: AbortSignal.timeout(1500) }).catch(() => {});
+          return res.status(200).json({ success: true, summary: '분석을 시작했어요. 1~4분 뒤 새로 고침해 보세요.' });
         }
         return res.status(200).json({ success: true, ...(await ai.aiVideoStatus(db)) });
       }
