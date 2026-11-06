@@ -84,10 +84,11 @@ await check('시청 기록 전체 보기 → 뒤로 가기로 닫힘', async () 
   expect(await page.locator('[aria-label="시청 기록"]').count() === 0, '뒤로 가기로 안 닫혀요');
 });
 
-await check('약관 페이지에 표가 보인다', async () => {
+await check('개인정보처리방침 페이지가 열린다', async () => {
   await page.goto(`${BASE}/privacy`);
   await page.waitForTimeout(3000);
-  expect(await page.locator('table').count() > 0, '표가 없어요');
+  const text = await page.evaluate(() => document.querySelector('main')?.innerText || '');
+  expect(text.includes('개인정보') && text.length > 300, '내용이 비어 있어요');
 });
 
 await check('화면 오류 없음', async () => {
