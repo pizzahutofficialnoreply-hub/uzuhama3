@@ -1,8 +1,0 @@
-name: probe
-on: workflow_dispatch
-jobs:
-  p:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          curl -s "https://uzuhama.vercel.app/api/videos/search-index?ai=status" | python3 -c "import json,sys;d=json.load(sys.stdin);print('K',d.get('total'),d.get('kinds'),d.get('fetchedAt'),d.get('usedSec'),d.get('done'),d.get('partial'));print('E',d.get('lastError'))"
