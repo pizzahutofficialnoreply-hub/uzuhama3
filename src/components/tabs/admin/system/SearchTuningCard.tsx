@@ -204,10 +204,35 @@ function AiVideoPanel() {
         </div>
       )}
       {st && (
-        <p className="text-[11px] text-zinc-500 break-all">
-          모델 {st.model || st.models?.[0] || '-'}{st.paused ? ' · 멈춤' : ''}{st.coolUntil && st.coolUntil > Date.now() ? ` · 한도로 ${new Date(st.coolUntil).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}까지 쉼` : ''}{st.lastRunAt ? ` · 마지막 ${new Date(st.lastRunAt).toLocaleString('ko-KR')}` : ''}
-          {st.lastError ? <span className="block text-red-500">최근 오류: {st.lastError}</span> : null}
-        </p>
+        <div className="text-[11px] text-zinc-500 space-y-1">
+          <p>
+            영상 목록 {st.total ?? 0}개{st.kinds ? ` (영상 ${st.kinds.video || 0} · 생방송 ${st.kinds.live || 0} · 쇼츠 ${st.kinds.short || 0})` : ''}
+            {st.channelCount ? ` · 유튜브 채널 표시 ${st.channelCount}개` : ''}{st.paused ? ' · 멈춤' : ''}
+          </p>
+          {st.lastRunAt && <p>마지막 실행 {new Date(st.lastRunAt).toLocaleString('ko-KR')} · 마지막 모델 {st.model || '-'}</p>}
+          <ul className="space-y-0.5">
+            {(st.models || []).map((m: string) => {
+              const until = Number(st.modelCool?.[m] || 0);
+              const why = st.modelWhy?.[m];
+              const waiting = until > Date.now();
+              const at = new Date(until).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+              return (
+                <li key={m} className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${waiting ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                  <span className="font-mono">{m}</span>
+                  <span>{!waiting ? '쓸 수 있음' : why === 'day' ? `오늘 무료 한도 다 씀 → ${at}에 다시` : why === 'busy' ? `구글 쪽이 붐빔 → ${at}에 다시` : `잠깐 한도 → ${at}에 다시`}</span>
+                </li>
+              );
+            })}
+          </ul>
+          {st.coolUntil && st.coolUntil > Date.now() ? <p className="font-bold text-amber-600">모든 모델이 쉬는 중이라 {new Date(st.coolUntil).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}에 자동으로 이어서 해요. 고장이 아니에요.</p> : null}
+          {st.lastError ? (
+            <details>
+              <summary className="cursor-pointer">{/429|quota|RESOURCE_EXHAUSTED/i.test(st.lastError) ? '최근: 무료 한도에 걸림 (원문 보기)' : /503|UNAVAILABLE|high demand/i.test(st.lastError) ? '최근: 구글 쪽이 붐빔 (원문 보기)' : /DEADLINE|timeout/i.test(st.lastError) ? '최근: 시간 초과 → 더 잘게 나눠 보는 중 (원문 보기)' : '최근 오류 (원문 보기)'}</summary>
+              <p className="mt-1 text-red-500 break-all">{st.lastError}</p>
+            </details>
+          ) : null}
+        </div>
       )}
       <div className="flex flex-wrap gap-2">
         <button type="button" disabled={!!busy} onClick={() => act('run')} className={`${btn} bg-purple-600 text-white`}>{busy === 'run' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} 지금 한 구간 분석</button>

@@ -132,16 +132,46 @@ async function loadQueue(db: any): Promise<{ items: QItem[]; fresh: boolean }> {
   }
   items.forEach((x) => { if (!x.kind) x.kind = shorts.has(x.id) ? 'short' : 'video'; });
   items.sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''));
-  await ref.set({ items, fetchedAt: new Date().toISOString(), count: items.length });
+  let channelCount = 0;
+  try { channelCount = Number((await yt(`channels?part=statistics&id=${cid}`))?.items?.[0]?.statistics?.videoCount || 0); } catch { /* 없어도 됨 */ }
+  await ref.set({ items, fetchedAt: new Date().toISOString(), count: items.length, channelCount });
   return { items, fresh: true };
 }
 
 /* ── Gemini ── */
+// 모델별 쉬는 시간 (하루 한도면 다음 한도 초기화까지, 분당 한도면 알려 준 시간만큼, 붐비면 5분)
+let modelCool: Record<string, number> = {};
+let modelWhy: Record<string, string> = {};
+/** 무료 한도 초기화: 미국 태평양 자정 (한국 오후 4~5시) */
+const nextQuotaReset = () => {
+  const d = new Date();
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 8, 5));
+  if (t.getTime() <= Date.now()) t.setUTCDate(t.getUTCDate() + 1);
+  return t.getTime();
+};
+const retryMs = (msg: string) => {
+  const m = msg.match(/retry in ([\d.]+)s/i) || msg.match(/"retryDelay":\s*"(\d+)s"/);
+  return m ? Math.ceil(parseFloat(m[1])) * 1000 : 0;
+};
+function coolModel(model: string, msg: string) {
+  if (isRate(msg)) {
+    const daily = /PerDay|per day|daily/i.test(msg);
+    modelCool[model] = daily ? nextQuotaReset() : Date.now() + Math.max(60000, retryMs(msg) || 10 * 60000);
+    modelWhy[model] = daily ? 'day' : 'minute';
+  } else if (isBusy(msg)) {
+    modelCool[model] = Date.now() + 5 * 60000;
+    modelWhy[model] = 'busy';
+  }
+}
+
 async function gen(parts: any[], json: boolean, timeoutMs: number, models = MODELS, extra: any = {}) {
   const { GoogleGenAI } = await import('@google/genai');
   const ai = new GoogleGenAI({ apiKey: aiKey() });
   let lastErr: any;
+  let tried = 0;
   for (const model of models) {
+    if ((modelCool[model] || 0) > Date.now()) continue;
+    tried++;
     try {
       const r = await ai.models.generateContent({
         model,
@@ -154,8 +184,10 @@ async function gen(parts: any[], json: boolean, timeoutMs: number, models = MODE
       const msg = String(e?.message || e);
       if (isTimeout(msg)) throw e; // 시간 초과는 다른 모델로 바꿔도 같음
       if (!/not found|404|unsupported|invalid model/i.test(msg) && !isRate(msg) && !isBusy(msg)) throw e;
+      coolModel(model, msg);
     }
   }
+  if (!tried) throw new Error('RESOURCE_EXHAUSTED: 모든 모델이 한도·붐빔으로 쉬는 중');
   throw lastErr || new Error('AI 응답 없음');
 }
 const parseJson = (t: string) => {
@@ -238,6 +270,8 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
   const stRef = db.collection('youtube_cache').doc('ai_state');
   const now = Date.now();
   const st = (await stRef.get()).data() || {};
+  modelCool = Object.fromEntries(Object.entries(st.modelCool || {}).filter(([, v]) => Number(v) > now)) as Record<string, number>;
+  modelWhy = { ...(st.modelWhy || {}) };
   if (st.paused) return { skipped: '관리자가 멈춤' };
   if (Number(st.lockUntil || 0) > now) return { skipped: '다른 요청이 분석 중' };
   if (Number(st.coolUntil || 0) > now) return { skipped: `한도 · ${new Date(st.coolUntil).toISOString()} 까지 쉼` };
@@ -247,7 +281,7 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
   if (usedSec >= DAILY_SEC || calls >= DAILY_CALLS) return { skipped: `오늘 한도 다 씀 (${Math.round(usedSec / 60)}분 · ${calls}번)` };
   await stRef.set({ lockUntil: now + AI_TIMEOUT + 60000, day, usedSec, calls }, { merge: true });
 
-  const release = (patch: any = {}) => stRef.set({ lockUntil: 0, lastRunAt: new Date().toISOString(), ...patch }, { merge: true });
+  const release = (patch: any = {}) => stRef.set({ lockUntil: 0, lastRunAt: new Date().toISOString(), modelCool, modelWhy, ...patch }, { mergeFields: ['lockUntil', 'lastRunAt', 'modelCool', 'modelWhy', ...Object.keys(patch)] });
   try {
     const { items: queue, fresh } = await loadQueue(db);
     // 목록을 방금 새로 받았으면 시간이 빠듯하니 분석은 다음 차례에
@@ -291,11 +325,11 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
         r = await analyzeSegment(item, start, end, desc);
       } catch (e: any) {
         const msg = String(e?.message || e).slice(0, 300);
-        if (isRate(msg)) {
-          // 하루 한도(유튜브 8시간 등) → 6시간 뒤, 분당 한도 → 10분 뒤
-          const daily = /per day|daily|PerDay/i.test(msg);
-          const cool = Date.now() + (daily ? 6 * 3600000 : 10 * 60000);
-          await release({ coolUntil: cool, lastError: msg });
+        if (isRate(msg) || isBusy(msg)) {
+          // 쓸 수 있는 모델이 다 쉬는 중이면 가장 먼저 풀리는 때까지 쉼
+          const waits = MODELS.map((m) => modelCool[m] || 0);
+          const cool = waits.every((w) => w > Date.now()) ? Math.min(...waits) : Date.now() + 5 * 60000;
+          await release({ coolUntil: cool, lastError: msg, calls: calls + 1 });
           return { error: msg, cool: new Date(cool).toISOString() };
         }
         if (isBusy(msg) && !isTimeout(msg)) {
@@ -377,7 +411,9 @@ export async function aiVideoStatus(db: any) {
     done = (await db.collection('ai_video').where('status', '==', 'done').count().get()).data().count;
     partial = (await db.collection('ai_video').where('status', 'in', ['partial', 'finishing']).count().get()).data().count;
   } catch { /* count 미지원 */ }
-  return { ...st, lockUntil: undefined, total: q?.count || 0, done, partial, dailySec: DAILY_SEC, models: MODELS };
+  const kinds: Record<string, number> = {};
+  (q?.items || []).forEach((x: QItem) => { kinds[x.kind || 'video'] = (kinds[x.kind || 'video'] || 0) + 1; });
+  return { ...st, lockUntil: undefined, total: q?.count || 0, channelCount: q?.channelCount || 0, fetchedAt: q?.fetchedAt, kinds, done, partial, dailySec: DAILY_SEC, models: MODELS };
 }
 
 /** AI 검색: 키워드로 1단계 거르고 장면 단위로 점수 */
