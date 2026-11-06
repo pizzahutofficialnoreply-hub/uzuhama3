@@ -110,14 +110,14 @@ export default async function handler(req: any, res: any) {
         }
         if (op === 'refreshQueue') {
           await db.collection('youtube_cache').doc('ai_queue').set({ fetchedAt: '1970-01-01T00:00:00Z' }, { merge: true });
-          return res.status(200).json({ success: true, summary: '다음 분석 때 영상 목록을 새로 받아요' });
+          return res.status(200).json({ success: true, summary: '다음 분석 때 영상 목록을 새로 받아요 (방송 기록의 생방송 다시보기 포함)' });
         }
         const ai = await import('../_aiVideo.js');
         if (op === 'run') {
-          // 분석은 최대 몇 분 걸려서 분석 함수(최대 300초)를 따로 띄우고 바로 돌아옴
+          // 분석은 최대 몇 분 걸려서 바로 돌아오고, 이 함수가 뒤에서 이어서 (최대 300초)
           await stRef.set({ coolUntil: 0 }, { merge: true });
-          const host = `https://${req.headers['x-forwarded-host'] || req.headers.host || 'uzuhama.vercel.app'}`;
-          await fetch(`${host}/api/videos/search-index?ai=run`, { signal: AbortSignal.timeout(1500) }).catch(() => {});
+          const { waitUntil } = await import('@vercel/functions');
+          waitUntil(ai.runAiVideoLoop(db, 120000).catch(() => {}));
           return res.status(200).json({ success: true, summary: '분석을 시작했어요. 1~4분 뒤 새로 고침해 보세요.' });
         }
         return res.status(200).json({ success: true, ...(await ai.aiVideoStatus(db)) });

@@ -91,6 +91,13 @@ export default async function handler(req: any, res: any) {
     const now = new Date();
     const stateRef = db.collection('notification_state').doc('main');
 
+    // ── AI 영상 분석: 점검이 불릴 때마다 (간격 제한과 상관없이) 응답 뒤에서 이어서 ──
+    // 이 함수는 최대 300초. 분석 쪽 잠금으로 한 번에 하나만 돌고, 나머지는 바로 끝남
+    try {
+      const { waitUntil } = await import('@vercel/functions');
+      waitUntil(import('../_aiVideo.js').then((ai) => ai.runAiVideoLoop(db, 170000)).catch((e) => console.warn('[tick] ai video', e)));
+    } catch { /* 로컬 */ }
+
     // ── 0. 호출 간격 제한 (트랜잭션으로 동시 호출도 한 번만 통과) ──
     const proceed = await db.runTransaction(async (tx: any) => {
       const snap = await tx.get(stateRef);
@@ -273,12 +280,6 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // ── 몇 분마다: AI 영상 분석 + 새 패치노트 자동 공지 ──
-    // 응답은 바로 보내고, 분석은 이 함수가 끝나기 전까지(최대 300초) 뒤에서 이어서 (waitUntil). 잠금으로 한 번에 하나만
-    try {
-      const { waitUntil } = await import('@vercel/functions');
-      waitUntil(import('../_aiVideo.js').then((ai) => ai.runAiVideoLoop(db, 180000)).catch((e) => console.warn('[tick] ai video', e)));
-    } catch { /* 로컬 */ }
     if (now.getUTCMinutes() % 30 < 5) {
       const host = `https://${req.headers['x-forwarded-host'] || req.headers.host || 'uzuhama.vercel.app'}`;
       await fetch(`${host}/api/patch-notes?announce=1`, { signal: AbortSignal.timeout(8000) }).catch(() => {});

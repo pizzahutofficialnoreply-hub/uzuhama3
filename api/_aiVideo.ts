@@ -27,7 +27,8 @@ const QUEUE_TTL = 12 * 3600 * 1000;
 const MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean) as string[];
 const TEXT_MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean) as string[];
 
-type QItem = { id: string; title: string; publishedAt: string; kind?: 'video' | 'short' | 'live'; duration?: number; live?: string };
+type QItem = { id: string; title: string; publishedAt: string; kind?: 'video' | 'short' | 'live'; duration?: number; live?: string; logDate?: string; games?: string[]; gameLinks?: Record<string, string> };
+const QUEUE_VER = 2; // 2: 방송 기록의 생방송 다시보기 포함
 export type Scene = { t: number; d: string; k: string[] };
 
 const kstDay = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
@@ -108,7 +109,7 @@ async function playlistIds(pl: string): Promise<{ id: string; title: string; pub
 async function loadQueue(db: any): Promise<{ items: QItem[]; fresh: boolean }> {
   const ref = db.collection('youtube_cache').doc('ai_queue');
   const cur = (await ref.get()).data();
-  if (cur?.items?.length && Date.now() - Date.parse(cur.fetchedAt || '0') < QUEUE_TTL) return { items: cur.items, fresh: false };
+  if (cur?.items?.length && cur.v === QUEUE_VER && Date.now() - Date.parse(cur.fetchedAt || '0') < QUEUE_TTL) return { items: cur.items, fresh: false };
   const cid = await channelId(db);
   if (!cid) throw new Error('채널을 찾지 못했어요');
   const all = await playlistIds(`UU${cid.slice(2)}`);
@@ -116,6 +117,33 @@ async function loadQueue(db: any): Promise<{ items: QItem[]; fresh: boolean }> {
   try { shorts = new Set((await playlistIds(`UUSH${cid.slice(2)}`)).map((x) => x.id)); } catch { /* 길이로 판단 */ }
   const prev = new Map<string, QItem>((cur?.items || []).map((x: QItem) => [x.id, x]));
   const items: QItem[] = all.map((x) => ({ ...prev.get(x.id), ...x }));
+  // 방송 기록의 '생방송' 다시보기 링크 (사이트 라이브 탭과 같은 것) → 생방송으로 분석. 다른 채널에 올라간 것도 포함
+  const byId = new Map<string, QItem>(items.map((x) => [x.id, x]));
+  try {
+    const logs = await db.collection('logs').get();
+    logs.docs.forEach((d: any) => {
+      const log = d.data() || {};
+      if (log.isAbsence || !log.date) return;
+      const gl: Record<string, string> = {};
+      const games = (Array.isArray(log.games) && log.games.length ? log.games : log.game ? [{ name: log.game }] : []).map((g: any) => {
+        const name = String(typeof g === 'string' ? g : g?.name || '').trim();
+        if (name && g?.link) gl[name] = String(g.link).slice(0, 300);
+        return name;
+      }).filter(Boolean).slice(0, 6);
+      (Array.isArray(log.vods) ? log.vods : []).forEach((v: any) => {
+        const url = typeof v === 'string' ? v : v?.url;
+        const m = String(url || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/);
+        if (!m) return;
+        const id = m[1];
+        const t = String((typeof v === 'string' ? '' : v?.title) || '').trim();
+        const ex = byId.get(id);
+        if (ex) { ex.kind = 'live'; ex.logDate = log.date; ex.games = games; ex.gameLinks = gl; return; }
+        const it: QItem = { ...prev.get(id), id, title: t && !/^우주하마\s*생방송!?$/.test(t) ? t : `${String(log.date).replace(/-/g, '.')} 생방송`, publishedAt: `${log.date}T12:00:00Z`, kind: 'live', logDate: log.date, games, gameLinks: gl };
+        byId.set(id, it);
+        items.push(it);
+      });
+    });
+  } catch { /* 기록 없이 */ }
   // 길이·생방송 여부 (50개당 1단위)
   const need = items.filter((x) => !x.duration || x.live === 'upcoming' || x.live === 'live');
   for (let i = 0; i < need.length; i += 50) {
@@ -127,14 +155,17 @@ async function loadQueue(db: any): Promise<{ items: QItem[]; fresh: boolean }> {
       if (!v) return;
       x.duration = parseDur(v.contentDetails?.duration);
       x.live = v.snippet?.liveBroadcastContent || 'none';
-      x.kind = shorts.has(x.id) ? 'short' : v.liveStreamingDetails ? 'live' : 'video';
+      x.kind = x.logDate ? 'live' : shorts.has(x.id) ? 'short' : v.liveStreamingDetails ? 'live' : 'video';
+      if (x.logDate && v.snippet?.title && /생방송$/.test(x.title)) x.title = v.snippet.title;
     });
   }
   items.forEach((x) => { if (!x.kind) x.kind = shorts.has(x.id) ? 'short' : 'video'; });
+  // 비공개·삭제된 다시보기(유튜브가 정보를 안 줌)는 빼기
+  for (let i = items.length - 1; i >= 0; i--) if (items[i].logDate && !items[i].duration) items.splice(i, 1);
   items.sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''));
   let channelCount = 0;
   try { channelCount = Number((await yt(`channels?part=statistics&id=${cid}`))?.items?.[0]?.statistics?.videoCount || 0); } catch { /* 없어도 됨 */ }
-  await ref.set({ items, fetchedAt: new Date().toISOString(), count: items.length, channelCount });
+  await ref.set({ items, fetchedAt: new Date().toISOString(), count: items.length, channelCount, v: QUEUE_VER });
   return { items, fresh: true };
 }
 
@@ -209,7 +240,7 @@ async function analyzeSegment(item: QItem, start: number, end: number, desc: str
   const prompt = `너는 스트리머 "우주하마"의 영상을 검색용으로 꼼꼼히 정리하는 사람이야. 시청자가 나중에 "귀신 점프스케어 나오는 장면", "노래 부르는 부분", "엔딩 보고 우는 장면"처럼 찾을 수 있게 정리해.
 영상 제목: ${item.title}
 종류: ${item.kind === 'short' ? '쇼츠' : item.kind === 'live' ? '생방송 다시보기' : '편집 영상'}${item.duration ? ` / 전체 길이 ${fmt(item.duration)}` : ''}
-${desc ? `설명: ${desc.slice(0, 600)}\n` : ''}${whole ? '' : `지금 보는 건 원본 영상의 ${fmt(start)} ~ ${fmt(end)} 구간이야.\n`}
+${item.logDate ? `방송 날짜: ${item.logDate}\n` : ''}${item.games?.length ? `방송 기록에 적힌 게임: ${item.games.join(', ')}\n` : ''}${desc ? `설명: ${desc.slice(0, 600)}\n` : ''}${whole ? '' : `지금 보는 건 원본 영상의 ${fmt(start)} ~ ${fmt(end)} 구간이야.\n`}
 화면·자막·말소리를 모두 보고 아래 JSON 으로만 답해. 모르는 건 지어내지 마.
 {
  "summary": "이 ${whole ? '영상' : '구간'}에서 일어난 일 2~3문장 (한국어)",
@@ -244,11 +275,11 @@ scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'
 const slug = (s: string) => normWord(s).slice(0, 80) || 'x';
 
 /** 게임이 어떤 게임인지: 구글 검색(공식 소개·스토어·다른 유튜버 플레이 영상 반응)으로 */
-async function analyzeGame(db: any, name: string, ko: string) {
+async function analyzeGame(db: any, name: string, ko: string, link = '') {
   const ref = db.collection('ai_games').doc(slug(name));
   const cur = (await ref.get()).data();
   if (cur?.about) return cur;
-  const prompt = `게임 "${name}"${ko ? ` (한국어로 "${ko}")` : ''}이 어떤 게임인지 구글 검색으로 확인해 줘. 공식 소개·스토어 페이지·리뷰, 그리고 이 게임을 플레이한 다른 유튜버·스트리머 영상의 제목과 반응을 참고해.
+  const prompt = `게임 "${name}"${ko ? ` (한국어로 "${ko}")` : ''}이 어떤 게임인지 구글 검색으로 확인해 줘.${link ? ` 방송 기록에 적힌 게임 링크: ${link} (이 페이지의 소개도 참고)` : ''} 공식 소개·스토어 페이지·리뷰, 그리고 이 게임을 플레이한 다른 유튜버·스트리머 영상의 제목과 반응을 참고해.
 아래 JSON 으로만 답해 (한국어). 확인 안 되는 건 비워 둬.
 {"name":"정식 이름","aliases":["한국어 이름·줄임말"],"genre":"장르","about":"어떤 게임인지 2~3문장","tags":["검색 키워드 5~12개: 분위기·소재·특징 (예: 점프스케어, 생존, 퍼즐, 협동, 귀여움)"],"horror":true/false,"players":"혼자/협동/대전 등","reactions":"다른 유튜버 플레이 영상에서 흔히 나오는 반응 한두 문장"}`;
   const { text, model } = await gen([{ text: prompt }], false, 30000, TEXT_MODELS, { tools: [{ googleSearch: {} }] });
@@ -353,7 +384,7 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
       }
       const scenes = [...(cur?.scenes || []), ...r.scenes].sort((a: Scene, b: Scene) => a.t - b.t).slice(0, 1200);
       const games = [...(cur?.games || [])];
-      r.games.forEach((g: any) => { if (!games.some((x: any) => slug(x.name) === slug(g.name))) games.push(g); });
+      [...(item.games || []).map((n) => ({ name: n, ko: n })), ...r.games].forEach((g: any) => { if (!games.some((x: any) => slug(x.name) === slug(g.name) || slug(x.ko || '') === slug(g.name))) games.push(g); });
       const next = {
         id: item.id, title: item.title, kind: item.kind, publishedAt: item.publishedAt, duration: dur, desc,
         segSec, pos: whole ? dur : end, seg: (cur?.parts?.length || 0) + 1, segTotal: (cur?.parts?.length || 0) + 1 + (whole ? 0 : Math.ceil(Math.max(0, dur - end) / segSec)),
@@ -373,7 +404,8 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
     const unknown = games.find((g: any) => !g.about && !g.checked);
     if (unknown) {
       try {
-        const info = await analyzeGame(db, unknown.name, unknown.ko || '');
+        const link = item.gameLinks?.[unknown.name] || Object.entries(item.gameLinks || {}).find(([k]) => normWord(k) === normWord(unknown.name) || normWord(k) === normWord(unknown.ko || ''))?.[1] || '';
+        const info = await analyzeGame(db, unknown.name, unknown.ko || '', link);
         Object.assign(unknown, { genre: info.genre, about: info.about, tags: info.tags, aliases: info.aliases, horror: info.horror, checked: true });
       } catch (e: any) {
         unknown.checked = true;
