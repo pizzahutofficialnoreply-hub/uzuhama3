@@ -31,6 +31,8 @@ export type Scene = { t: number; d: string; k: string[] };
 
 const kstDay = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
 const isRate = (m: string) => /429|quota|RESOURCE_EXHAUSTED|rate limit|Too Many Requests/i.test(m);
+/** 잠깐 붐빔 (다른 모델로 바꾸거나 조금 뒤에) */
+const isBusy = (m: string) => /503|UNAVAILABLE|overloaded|high demand|try again later|500|INTERNAL/i.test(m);
 const isTimeout = (m: string) => /timeout|timed out|aborted|deadline|DEADLINE_EXCEEDED|504/i.test(m);
 /** 한 번 분석에 기다릴 시간 (이 함수는 최대 300초) */
 const AI_TIMEOUT = Number(process.env.AI_VIDEO_TIMEOUT_MS || 230000);
@@ -150,7 +152,7 @@ async function gen(parts: any[], json: boolean, timeoutMs: number, models = MODE
       lastErr = e;
       const msg = String(e?.message || e);
       if (isTimeout(msg)) throw e; // 시간 초과는 다른 모델로 바꿔도 같음
-      if (!/not found|404|unsupported|invalid model/i.test(msg) && !isRate(msg)) throw e;
+      if (!/not found|404|unsupported|invalid model/i.test(msg) && !isRate(msg) && !isBusy(msg)) throw e;
     }
   }
   throw lastErr || new Error('AI 응답 없음');
@@ -258,7 +260,8 @@ export async function runAiVideoStep(db: any): Promise<any> {
       const snaps = await db.getAll(...part.map((q) => col.doc(q.id)));
       for (let j = 0; j < part.length; j++) {
         const d = snaps[j].exists ? snaps[j].data() : null;
-        if (!d || (d.status !== 'done' && d.status !== 'skip' && !(d.status === 'error' && (d.tries || 0) >= 3))) { item = part[j]; cur = d; break; }
+        const busySkip = d?.status === 'skip' && /high demand|UNAVAILABLE/i.test(d?.error || ''); // 예전 규칙으로 잘못 건너뛴 것
+        if (!d || busySkip || (d.status !== 'done' && d.status !== 'skip' && !(d.status === 'error' && (d.tries || 0) >= 3))) { item = part[j]; cur = d; break; }
       }
     }
     if (!item) { await release({ lastError: '', idle: true }); return { done: true, message: '모든 영상을 분석했어요' }; }
@@ -291,12 +294,17 @@ export async function runAiVideoStep(db: any): Promise<any> {
           await release({ coolUntil: cool, lastError: msg });
           return { error: msg, cool: new Date(cool).toISOString() };
         }
+        if (isBusy(msg) && !isTimeout(msg)) {
+          // 모델이 붐빔: 이 영상 실패로 치지 않고 5분 쉬기
+          await release({ coolUntil: Date.now() + 5 * 60000, lastError: msg, calls: calls + 1 });
+          return { error: msg, busy: true };
+        }
         const timeout = isTimeout(msg);
         const tries = Number(cur?.tries || 0) + 1;
         await ref.set({
           id: item.id, title: item.title, kind: item.kind, publishedAt: item.publishedAt, duration: dur, desc,
           ...(timeout && segSec > MIN_SEG_SEC ? { segSec: Math.max(MIN_SEG_SEC, Math.floor(segSec / 2)), seg: 0, parts: [], scenes: [] } : {}),
-          status: /private|unavailable|not found|permission|400/i.test(msg) && tries >= 2 ? 'skip' : 'error', tries, error: msg, updatedAt: new Date().toISOString(),
+          status: /Video unavailable|private video|INVALID_ARGUMENT|PERMISSION_DENIED|not supported/i.test(msg) && tries >= 2 ? 'skip' : 'error', tries, error: msg, updatedAt: new Date().toISOString(),
         }, { merge: true });
         await release({ lastError: msg, calls: calls + 1 });
         return { error: msg, id: item.id };
