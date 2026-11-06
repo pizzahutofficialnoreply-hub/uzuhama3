@@ -1,0 +1,10 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -s "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/config/system?key=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM&mask.fieldPaths=recurringMaintenance&mask.fieldPaths=maintenance&mask.fieldPaths=maintenanceStart&mask.fieldPaths=maintenanceEnd" | tr -d '\n ' ; echo
+          echo W; curl -s -o /dev/null -w '%{http_code}' -X PATCH "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/probe_test/x?key=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM" -d '{"fields":{"a":{"stringValue":"b"}}}'; echo
+          echo L; curl -s "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs?key=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM&pageSize=1" | head -c 200; echo
