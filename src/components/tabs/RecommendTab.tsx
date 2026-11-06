@@ -8,6 +8,7 @@ import { LazyInput } from '../common/LazyInput';
 import { ItemMenu, SearchContext } from '../common/ItemMenu';
 import { useSearchTuning } from '../../hooks/useSearchTuning';
 import { SearchRating } from '../common/SearchRating';
+import { SearchExtras } from '../common/SearchExtras';
 import { type Intent, CONCEPTS, GAME_ALIASES, autoAliases, groupWeights, hasTerm, isHit, isNaturalQuery, makeDoc, planQuery, scoreDoc, textHits, type SearchDoc } from '../../utils/searchPlan';
 import { RefreshCw, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Star, CheckCircle, Search, Filter, Cloud, CloudDownload, X, Loader2, AlertCircle, AlertTriangle, Calendar, Layers, Play, Sparkles, Clock } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -2436,6 +2437,10 @@ export function RecommendTab({
           genresOfLog={genresOfLog}
         />
       ) : (<>
+      {/* 검색 결과 맨 위: 추가된 검색 결과 + AI 검색 (장면 시간까지) */}
+      {searchTerm.trim() && currentPage === 1 && subTab !== 'recommend' && (
+        <SearchExtras query={searchTerm} aiEnabled={prefs.searchAI !== false} />
+      )}
       {/* 검색 결과 영상 카드 영역 (카드가 아래로/사각형으로 펼쳐지는 인라인 확장 UX) */}
       {/* 추천 탭 첫 페이지: 맞춤 쇼츠 · 맞춤 라이브 · 그리고 아래에 맞춤 영상 */}
       {subTab === 'recommend' && currentPage === 1 && (recShorts.length > 0 || recLives.length > 0) && (

@@ -68,6 +68,7 @@ const PatchNotesPage = lazy(() => import('./components/PatchNotesPage').then((m)
 const PolicyPage = lazy(() => import('./components/PolicyPage').then((m) => ({ default: m.PolicyPage })));
 const LicensePage = lazy(() => import('./components/LicensePage').then((m) => ({ default: m.LicensePage })));
 import { useAuth } from './hooks/useAuth';
+import { RELOAD_LINK, reloadToNewVersion, useNewBuildAvailable } from './utils/appVersion';
 
 function MainApp() {
   const navigate = useNavigate();
@@ -613,9 +614,11 @@ function MainApp() {
   };
 
   // 내부 리다이렉트 핸들러 (예: redirect://설정/일러두기, redirect://패치노트, redirect://기록 등)
+  const newBuild = useNewBuildAvailable();
   const handleInternalRedirect = useCallback((url: string): boolean => {
     if (!url) return false;
     const trimmed = url.trim();
+    if (trimmed === RELOAD_LINK) { reloadToNewVersion(); return true; }
 
     if (trimmed.startsWith('redirect://') || trimmed.startsWith('app://')) {
       const rawPath = decodeURIComponent(trimmed.replace(/^(redirect|app):\/\//, '')).trim();
@@ -698,8 +701,9 @@ function MainApp() {
     }
 
     if (trimmed.startsWith('/')) {
-      if (trimmed === '/patch') {
-        navigate('/patch');
+      if (trimmed === '/patch' || /^\/patch-v?[\d.]+$/.test(trimmed)) {
+        setIsSettingsOpen(false);
+        navigate(trimmed);
         return true;
       }
       if (trimmed === '/terms') {
@@ -936,7 +940,9 @@ function MainApp() {
       {(() => {
         if (dismissedSystemNotice) return null;
         
-        const activeModalNotices = (data.system?.noticeList || []).filter(n => {
+        const activeModalNotices = (data.system?.noticeList || []).map(n => (newBuild && String(n.id).startsWith('auto-patch')
+          ? { ...n, links: [{ title: '새로고침해서 새 버전 쓰기', url: RELOAD_LINK }, ...(n.links || [])] }
+          : n)).filter(n => {
           if (!n.active) return false;
           // 개별 공지 타입이 'big' 또는 'both'이거나, 타입이 지정되지 않은 기존 공지(!n.type)는 기본 팝업에 표시
           if (n.type === 'big' || n.type === 'both' || !n.type) return true;
@@ -1091,7 +1097,10 @@ function MainApp() {
       {(() => {
         const bannerNotices = (data.system?.noticeList || []).filter(
           n => n.active && (n.type === 'small' || n.type === 'both' || !n.type || (n.type !== 'big' && (data.system?.noticeType === 'small' || data.system?.noticeType === 'both')))
-        );
+        ).map(n => (newBuild && String(n.id).startsWith('auto-patch')
+          // 새 버전이 나왔는데 아직 예전 화면이면: 공지에 새로고침 버튼
+          ? { ...n, links: [{ title: '새로고침해서 새 버전 쓰기', url: RELOAD_LINK }, ...(n.links || [])] }
+          : n));
         const fallback = ((data.system?.noticeType === 'small' || data.system?.noticeType === 'both') && bannerNotices.length === 0)
           ? data.system.noticeContent
           : undefined;

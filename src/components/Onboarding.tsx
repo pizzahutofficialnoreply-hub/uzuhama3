@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_PRIVACY, DEFAULT_TERMS } from '../content/legal';
+import { serviceGuideFrom } from '../content/serviceGuide';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -317,7 +318,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
                 step.type === 'terms' || step.type === 'keyboard' ? 'h-[22vh] min-h-[150px] pt-2' : 'h-[34vh] min-h-[210px] pt-4',
                 step.type === 'keyboard' && 'max-md:hidden',
                 step.type === 'setup' && 'hidden md:flex',
-                step.type === 'terms' && expanded && 'max-md:hidden'
+                (step.type === 'terms' || step.type === 'notice') && expanded && 'max-md:hidden'
               )}>
                 <OnboardingArt type={step.type} image={step.image} keyboard={keyboard} />
               </div>
@@ -326,6 +327,27 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
               {step.body && (
                 <div className={cn('mt-3 text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-300 break-keep prose-sm [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mt-2 [&_p]:mt-2 [&_strong]:text-zinc-900 dark:[&_strong]:text-white', step.type === 'welcome' && 'whitespace-pre-line')}>
                   {step.type === 'welcome' ? step.body : <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{fillPlaceholders(step.body, system)}</Markdown>}
+                </div>
+              )}
+
+              {/* 팬 사이트 안내: 자세히 보기 → 공지 '서비스 이용 전 안내' 내용 그대로 */}
+              {step.type === 'notice' && (step.id === 'fanmade' || /팬이 만든|비공식/.test(step.title + step.body)) && (
+                <div className="mt-5 rounded-2xl bg-white/70 dark:bg-white/[0.06] backdrop-blur-md border border-zinc-200/70 dark:border-white/10 overflow-hidden">
+                  <button type="button" onClick={() => setExpanded(expanded === 'guide' ? null : 'guide')} className="w-full flex items-center justify-between gap-2 px-4 py-3.5 text-left text-sm font-semibold cursor-pointer" aria-expanded={expanded === 'guide'}>
+                    <span>자세히 보기 <span className="text-xs font-medium text-zinc-400 ml-1">서비스 이용 전 안내</span></span>
+                    <ChevronDown className={cn('w-4 h-4 text-zinc-400 transition-transform duration-200', expanded === 'guide' && 'rotate-180')} />
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {expanded === 'guide' && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }} className="overflow-hidden">
+                        <div className="mx-3 mb-3 h-[min(50dvh,520px)] overflow-y-auto overscroll-contain rounded-xl bg-white dark:bg-zinc-950/70 border border-zinc-200/80 dark:border-white/10 px-4 py-4 sm:px-5">
+                          <div className={TERMS_PROSE}>
+                            <Markdown remarkPlugins={[remarkGfm, remarkBreaks]} components={{ a: ({ node, ...p }) => <a {...p} target="_blank" rel="noreferrer" /> }}>{serviceGuideFrom(system)}</Markdown>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
 

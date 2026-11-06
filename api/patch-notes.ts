@@ -297,6 +297,82 @@ async function loadNotionNotes(db: any): Promise<{ notes: Note[]; error?: string
   }
 }
 
+
+/* ── 새 패치노트가 나오면 자동 공지 (config/system.noticeList) ── */
+const kstToday = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+const verCmp = (a: string, b: string) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true });
+
+async function aiSummary(note: Note): Promise<string[]> {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!apiKey) return [];
+  const prompt = `아래는 팬 사이트 "우주하마 방송 예측"의 v${note.version} 패치노트야. 방문자에게 띠 공지로 보여 줄 주요 변경점을 3~5개, 각 25자 안팎의 짧은 한국어 문장(해요체, 이모지 없이)으로 뽑아 줘. 본문에 없는 내용은 지어내지 마.
+JSON 으로만: {"points":["..."]}
+
+제목: ${note.title}
+${note.highlights.length ? `하이라이트: ${note.highlights.join(' / ')}\n` : ''}본문:
+${String(note.content || '').slice(0, 9000)}`;
+  try {
+    const { GoogleGenAI } = await import('@google/genai');
+    const ai = new GoogleGenAI({ apiKey });
+    for (const m of [process.env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest'].filter(Boolean) as string[]) {
+      try {
+        const r = await ai.models.generateContent({ model: m, contents: prompt, config: { responseMimeType: 'application/json', temperature: 0.2, httpOptions: { timeout: 20000 } } });
+        const pts = (JSON.parse(r.text || '{}').points || []).map((x: any) => String(x || '').trim()).filter(Boolean).slice(0, 5);
+        if (pts.length) return pts;
+      } catch { /* 다음 모델 */ }
+    }
+  } catch { /* AI 없이 */ }
+  return [];
+}
+
+async function maybeAnnounce(db: any, notes: Note[]) {
+  const today = kstToday();
+  const latest = notes
+    .filter((n) => n.category !== 'dev' && /^\d+(\.\d+)+$/.test(n.version) && n.version !== '0.0.0' && (!n.date || n.date <= today))
+    .sort((a, b) => verCmp(b.version, a.version))[0];
+  if (!latest) return;
+  const ref = db.collection('config').doc('system');
+  const sys = (await ref.get()).data() || {};
+  const prev = sys.autoPatchNotice || {};
+  if (prev.version && verCmp(latest.version, prev.version) <= 0) return;
+  if (prev.pending && Date.now() - Date.parse(prev.at || '0') < 2 * 60 * 1000) return; // 다른 요청이 만드는 중
+  // 처음 켤 때 오래된 패치노트는 공지하지 않음 (2주 이내만)
+  if (!prev.version && latest.date && Date.now() - Date.parse(latest.date) > 14 * 86400000) {
+    await ref.set({ autoPatchNotice: { version: latest.version, at: new Date().toISOString(), skipped: true } }, { merge: true });
+    return;
+  }
+  await ref.set({ autoPatchNotice: { version: latest.version, at: new Date().toISOString(), pending: true } }, { merge: true });
+
+  let points = await aiSummary(latest);
+  const ai = points.length > 0;
+  if (!points.length) points = latest.highlights.slice(0, 5);
+  const titleHasVer = new RegExp(`v?\\s*${latest.version.replace(/\./g, '\\.')}`).test(latest.title);
+  const title = titleHasVer ? latest.title : `v${latest.version} ${latest.title || '패치노트'}`;
+  const content = [
+    `우주하마 방송 예측이 **v${latest.version}**(으)로 업데이트됐어요.`,
+    points.length ? `**주요 업데이트${ai ? ' (AI 요약)' : ''}**\n\n${points.map((p) => `- ${p}`).join('\n')}` : '',
+    '지금 바로 사용해 보세요!',
+  ].filter(Boolean).join('\n\n');
+  const notice = {
+    id: `auto-patch-${latest.version}`,
+    title,
+    content,
+    type: 'small',
+    prefix: '[업데이트]',
+    date: today,
+    active: true,
+    links: [{ title: '패치노트 보기', url: `/patch-v${latest.version}` }],
+    dismissMode: 'permanent',
+  };
+  const fresh = (await ref.get()).data() || {};
+  const list = (Array.isArray(fresh.noticeList) ? fresh.noticeList : []).filter((n: any) => !String(n?.id || '').startsWith('auto-patch'));
+  await ref.set({
+    noticeList: [notice, ...list],
+    appVersion: latest.version,
+    autoPatchNotice: { version: latest.version, at: new Date().toISOString(), ai },
+  }, { merge: true });
+}
+
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -326,6 +402,9 @@ export default async function handler(req: any, res: any) {
     const notionVersions = new Set(notion.notes.map((n) => n.version).filter((v) => v && v !== '0.0.0'));
     const merged = [...fsNotes.filter((n) => !notionVersions.has(n.version)), ...notion.notes]
       .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.version || '').localeCompare(a.version || '', undefined, { numeric: true }));
+
+    // 새 패치노트 → 자동 공지 (실패해도 목록은 그대로)
+    try { await maybeAnnounce(db, merged); } catch (e) { console.warn('[patch-notes] announce failed:', e); }
 
     res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
     return res.status(200).json({

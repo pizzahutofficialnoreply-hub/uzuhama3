@@ -59,9 +59,66 @@ export default async function handler(req: any, res: any) {
         return res.status(200).json({ success: true, ...r });
       }
       case 'resetSearchTuning': {
-        await db.collection('config').doc('searchTuning').set({ updatedAt: new Date().toISOString(), demote: {}, conceptDemote: {}, synonyms: {}, conceptAdd: {}, log: [] });
+        // 직접 추가한 검색 결과(pins)는 남김
+        await db.collection('config').doc('searchTuning').set({ updatedAt: new Date().toISOString(), demote: {}, conceptDemote: {}, synonyms: {}, conceptAdd: {}, log: [] }, { mergeFields: ['updatedAt', 'demote', 'conceptDemote', 'synonyms', 'conceptAdd', 'log'] });
         await db.collection('notification_state').doc('searchTune').set({ conceptCounts: {} }, { merge: true });
         return res.status(200).json({ success: true });
+      }
+      case 'pinSearch': {
+        // 검색 결과 추가하기: 이 검색어에 이 영상(장면)을 맨 위에
+        const sq = (x: string) => String(x || '').toLowerCase().normalize('NFC').replace(/[^0-9a-z가-힣ㄱ-ㅎㅏ-ㅣ]/g, '');
+        const p = payload || {};
+        const key = sq(p.query);
+        const vid = String(p.videoId || '');
+        if (!key || !/^[\w-]{11}$/.test(vid)) return res.status(400).json({ error: '검색어와 유튜브 영상이 필요해요' });
+        let title = String(p.title || '').slice(0, 200);
+        if (!title) {
+          try {
+            const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${vid}`)}`, { signal: AbortSignal.timeout(4000) });
+            if (r.ok) title = String(((await r.json()) as any).title || '');
+          } catch { /* 제목 없이 */ }
+        }
+        const ref = db.collection('config').doc('searchTuning');
+        const cur = (await ref.get()).data() || {};
+        const pins = { ...(cur.pins || {}) };
+        const t = Number.isFinite(Number(p.t)) && Number(p.t) > 0 ? Math.round(Number(p.t)) : null;
+        const entry = { id: vid, t, title, note: String(p.note || '').slice(0, 200), source: String(p.sourceUrl || '').slice(0, 300), query: String(p.query).slice(0, 60), at: new Date().toISOString() };
+        pins[key] = [entry, ...(pins[key] || []).filter((x: any) => !(x.id === vid && (x.t || null) === t))].slice(0, 10);
+        await ref.set({ pins, updatedAt: new Date().toISOString() }, { merge: true });
+        if (p.feedbackId) await db.collection('feedbacks').doc(String(p.feedbackId)).set({ status: 'applied', appliedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+        await audit({ action, query: entry.query, videoId: vid });
+        return res.status(200).json({ success: true, summary: `'${entry.query}' 검색에 추가했어요${title ? `: ${title}` : ''}` });
+      }
+      case 'unpinSearch': {
+        const p = payload || {};
+        const ref = db.collection('config').doc('searchTuning');
+        const cur = (await ref.get()).data() || {};
+        const pins = { ...(cur.pins || {}) };
+        pins[p.key] = (pins[p.key] || []).filter((x: any) => !(x.id === p.videoId && (x.t || null) === (p.t ?? null)));
+        if (!pins[p.key].length) delete pins[p.key];
+        await ref.set({ pins }, { merge: true });
+        await ref.update({ [`pins.${p.key}`]: pins[p.key] || (await import('firebase-admin/firestore')).FieldValue.delete() }).catch(() => {});
+        return res.status(200).json({ success: true, summary: '뺐어요' });
+      }
+      case 'aiVideo': {
+        // AI 영상 분석: 멈춤 / 다시 / 지금 한 구간
+        const op = String(payload?.op || '');
+        const stRef = db.collection('youtube_cache').doc('ai_state');
+        if (op === 'pause' || op === 'resume') {
+          await stRef.set({ paused: op === 'pause' }, { merge: true });
+          return res.status(200).json({ success: true, summary: op === 'pause' ? '멈췄어요' : '다시 시작해요' });
+        }
+        if (op === 'refreshQueue') {
+          await db.collection('youtube_cache').doc('ai_queue').set({ fetchedAt: '1970-01-01T00:00:00Z' }, { merge: true });
+          return res.status(200).json({ success: true, summary: '다음 분석 때 영상 목록을 새로 받아요' });
+        }
+        const ai = await import('../_aiVideo.js');
+        if (op === 'run') {
+          await stRef.set({ coolUntil: 0 }, { merge: true });
+          const r = await ai.runAiVideoStep(db);
+          return res.status(200).json({ success: true, result: r, summary: r?.error ? `오류: ${r.error}` : r?.skipped ? `건너뜀: ${r.skipped}` : r?.title ? `${r.title} ${r.finished ? '분석 끝' : r.game ? `게임 '${r.game}' 정리` : `${r.seg}/${r.segTotal} 구간`}` : JSON.stringify(r).slice(0, 120) });
+        }
+        return res.status(200).json({ success: true, ...(await ai.aiVideoStatus(db)) });
       }
       case 'addLog': {
         if (!log || !log.id || !log.date) {

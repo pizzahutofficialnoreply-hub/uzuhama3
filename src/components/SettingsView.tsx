@@ -21,6 +21,7 @@ import { RichTextRenderer } from './common/RichTextRenderer';
 import { DEFAULT_PREFACE_TEMPLATE } from './tabs/admin/system/NoticesSubTab';
 import { isAdminUser } from '../utils/adminAuth';
 import { usePrefs, setPref, PAGE_SIZE_OPTIONS, KEYBOARD_OPTIONS, type UserPrefs } from '../utils/userPrefs';
+import { useAppVersion } from '../utils/appVersion';
 
 interface SettingsViewProps {
   user: any;
@@ -53,6 +54,7 @@ export function SettingsView({
   onOpenPatchNotes,
   initialSection
 }: SettingsViewProps) {
+  const appVersion = useAppVersion(system?.appVersion);
   const { 
     isSupported, 
     isSubscribed, 
@@ -1146,8 +1148,7 @@ export function SettingsView({
 
       {/* 최하단 버전 정보 (클릭 시 관리자 진입 제거, v0.0.0+00 형식 정밀 지원) */}
       {(() => {
-        const rawVer = system?.appVersion?.trim() || '1.0.0';
-        const displayVer = rawVer.startsWith('v') ? rawVer : `v${rawVer}`;
+        const displayVer = appVersion;
         return (
           <div className="pt-4 text-center">
             <span 
@@ -1356,6 +1357,7 @@ function ViewPrefsPanel() {
           ['searchAlias', '게임 줄임말', '배그 → 배틀그라운드, 콜옵 → 콜 오브 듀티, 옵치 → 오버워치'],
           ['searchNatural', '말하듯 검색', "'겨울 특집 추천해줘', '무서운 거 보여줘' 처럼 써도 계절·분위기에 맞춰 찾아요"],
           ['searchRelated', '썸네일·태그에서도 찾기', '제목에 없어도 썸네일 글자·유튜브 태그·설명에 있으면 아래쪽에 보여 줘요'],
+          ['searchAI', 'AI 검색', "AI가 영상을 미리 보고 정리해 둔 장면에서 찾아요. '귀신 나오는 장면'처럼 쓰면 그 장면 시간까지 알려 줘요"],
         ] as [keyof UserPrefs, string, string][]).map(([k, title, desc]) => {
           const on = prefs[k] !== false;
           return (

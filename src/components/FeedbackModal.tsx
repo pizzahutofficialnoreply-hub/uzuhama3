@@ -33,6 +33,7 @@ import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useBodyScrollLock } from '../utils';
 import { extractYoutubeId } from '../utils/urlUtils';
+import { SearchAddForm } from './SearchAddForm';
 import { motion, AnimatePresence } from 'motion/react';
 import { SystemConfig, AppData, BroadcastLog, GameItem, LinkItem } from '../types';
 
@@ -69,7 +70,7 @@ export interface SelectableItem {
 
 export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
   useBodyScrollLock(true);
-  const [tab, setTab] = useState<'suggestion' | 'bug' | 'data_request'>('suggestion');
+  const [tab, setTab] = useState<'suggestion' | 'bug' | 'data_request' | 'search_add'>('suggestion');
   
   // 기능 제안 & 버그 제보 공통 필드
   const [title, setTitle] = useState('');
@@ -644,7 +645,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
           ) : (
             <div className="space-y-5 max-w-xl mx-auto">
               {/* 3-Way Type Switcher Tab: 기능 제안 / 버그 제보 / 데이터 요청 */}
-              <div className="grid grid-cols-3 p-1 bg-zinc-200/70 dark:bg-zinc-800/80 rounded-2xl shrink-0 gap-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 p-1 bg-zinc-200/70 dark:bg-zinc-800/80 rounded-2xl shrink-0 gap-1">
                 <button 
                   type="button"
                   onClick={() => setTab('suggestion')} 
@@ -681,7 +682,25 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                   <Database className="w-3.5 h-3.5 shrink-0" />
                   <span>데이터 요청</span>
                 </button>
+                <button 
+                  type="button"
+                  onClick={() => setTab('search_add')} 
+                  className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    tab === 'search_add' 
+                      ? 'bg-white dark:bg-zinc-900 shadow-sm text-purple-600 dark:text-purple-400' 
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  <Search className="w-3.5 h-3.5 shrink-0" />
+                  <span>검색 결과 추가</span>
+                </button>
               </div>
+
+              {tab === 'search_add' ? (
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] p-5 sm:p-6 shadow-xs">
+                  <SearchAddForm mode="user" />
+                </div>
+              ) : (<>
 
               {/* Form Cards */}
               <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] p-5 sm:p-6 shadow-xs space-y-4">
@@ -1475,6 +1494,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                   )}
                 </button>
               </div>
+              </>)}
             </div>
           )}
         </div>

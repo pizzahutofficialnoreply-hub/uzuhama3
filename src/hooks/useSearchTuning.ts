@@ -14,6 +14,8 @@ export type SearchTuning = {
   conceptDemote: Record<string, string[]>;
   synonyms: Record<string, string[]>;
   conceptAdd: Record<string, { expand?: string[]; avoid?: string[] }>;
+  /** 검색 결과 추가하기: 검색어(공백·기호 뺀 것) → 맨 위에 보일 영상 */
+  pins?: Record<string, { id: string; t?: number | null; title?: string; note?: string; query?: string }[]>;
   log?: { day: string; reports: number; ratings: number; bad: number; summary: string; model?: string }[];
 };
 export const EMPTY_TUNING: SearchTuning = { demote: {}, conceptDemote: {}, synonyms: {}, conceptAdd: {} };

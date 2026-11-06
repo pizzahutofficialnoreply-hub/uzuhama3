@@ -273,6 +273,15 @@ export default async function handler(req: any, res: any) {
       }
     }
 
+    // ── 몇 분마다: AI 영상 분석 한 구간 + 새 패치노트 자동 공지 ──
+    // 분석은 오래 걸려서 다른 함수로 따로 띄우고 기다리지 않음 (그 함수가 끝까지 돌고, 잠금으로 한 번에 하나만)
+    const host = `https://${req.headers['x-forwarded-host'] || req.headers.host || 'uzuhama.vercel.app'}`;
+    const kick = (path: string) => fetch(`${host}${path}`, { signal: AbortSignal.timeout(1500) }).catch(() => {});
+    await Promise.all([
+      kick('/api/videos/search-index?ai=run'),
+      ...(now.getUTCMinutes() % 30 < 5 ? [kick('/api/patch-notes?announce=1')] : []),
+    ]);
+
     return res.status(200).json(result);
   } catch (error: any) {
     console.error('[notifications/tick] failed:', error);

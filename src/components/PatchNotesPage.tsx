@@ -65,6 +65,22 @@ const PATCH_PROSE = [
   '[&_table]:my-4 [&_table]:w-full [&_table]:text-sm [&_th]:border [&_td]:border [&_th]:border-zinc-200 [&_td]:border-zinc-200 dark:[&_th]:border-white/10 dark:[&_td]:border-white/10 [&_th]:px-2 [&_td]:px-2 [&_th]:py-1.5 [&_td]:py-1.5 [&_th]:bg-zinc-50 dark:[&_th]:bg-white/5',
 ].join(' ');
 
+type SortMode = 'new' | 'old' | 'version';
+const SORT_LABEL: Record<SortMode, string> = { new: '최신순', old: '과거순', version: '버전순' };
+const cmpVer = (a: string, b: string) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true });
+const sortNotes = (list: PatchNote[], mode: SortMode) => [...list].sort((a, b) => {
+  if (mode === 'version') return cmpVer(b.version, a.version) || (b.date || '').localeCompare(a.date || '');
+  const d = (b.date || '').localeCompare(a.date || '') || cmpVer(b.version, a.version);
+  return mode === 'old' ? -d : d;
+});
+/** 버전별로 묶기 (개발자 노트) — 묶음 순서는 정렬 방식을 따름 */
+const groupByVersion = (list: PatchNote[], mode: SortMode) => {
+  const map = new Map<string, PatchNote[]>();
+  list.forEach((n) => { const v = n.version && n.version !== '0.0.0' ? n.version : '기타'; map.set(v, [...(map.get(v) || []), n]); });
+  const keys = [...map.keys()].sort((a, b) => (a === '기타' ? 1 : b === '기타' ? -1 : mode === 'old' ? cmpVer(a, b) : cmpVer(b, a)));
+  return keys.map((k) => ({ version: k, notes: map.get(k)! }));
+};
+
 const SECTION_ORDER: PatchCategory[] = ['update', 'patch', 'hotfix', 'dev'];
 const SECTION_LABEL: Record<PatchCategory, string> = { update: '업데이트', patch: '패치노트', hotfix: '핫픽스', dev: '개발자 노트' };
 
@@ -115,6 +131,11 @@ export function PatchNotesPage() {
 
   const [selectedCategory, setSelectedCategory] = useState<PatchCategory | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    try { const v = localStorage.getItem('uzuhama_patch_sort'); if (v === 'new' || v === 'old' || v === 'version') return v; } catch {}
+    return 'new';
+  });
+  useEffect(() => { try { localStorage.setItem('uzuhama_patch_sort', sortMode); } catch {} }, [sortMode]);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
 
   const targetVersion = useMemo(() => {
@@ -133,7 +154,7 @@ export function PatchNotesPage() {
   }, [targetVersion, patchNotes]);
 
   const filteredNotes = useMemo(() => {
-    return patchNotes.filter(note => {
+    return sortNotes(patchNotes, sortMode).filter(note => {
       if (selectedCategory !== 'all' && note.category !== selectedCategory) {
         return false;
       }
@@ -147,7 +168,7 @@ export function PatchNotesPage() {
       }
       return true;
     });
-  }, [patchNotes, selectedCategory, searchQuery]);
+  }, [patchNotes, selectedCategory, searchQuery, sortMode]);
 
   const activeNote = useMemo(() => {
     if (!activeNoteId) return null;
@@ -189,6 +210,27 @@ export function PatchNotesPage() {
       navigate('/', { replace: true });
     }
   };
+
+  const grid = (list: PatchNote[], cols: string) => (
+    <div className={cn('grid grid-cols-2 gap-3', cols)}>
+      {list.map((note) => (
+        <NoteCard key={note.id} note={note} highlight={targetVersion === note.version} onOpen={() => handleOpenBlog(note)} />
+      ))}
+    </div>
+  );
+  /** 개발자 노트는 버전별로 묶어서, 나머지는 그대로 */
+  const renderCards = (list: PatchNote[], cat: PatchCategory | null, cols: string) => (cat === 'dev'
+    ? (
+      <div className="space-y-4">
+        {groupByVersion(list, sortMode).map((g) => (
+          <div key={g.version} className="space-y-2">
+            <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 font-mono">{g.version === '기타' ? '기타' : `v${g.version}`}</p>
+            {grid(g.notes, cols)}
+          </div>
+        ))}
+      </div>
+    )
+    : grid(list, cols));
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 selection:bg-purple-500 selection:text-white pb-24">
@@ -377,6 +419,14 @@ export function PatchNotesPage() {
                     />
                   </div>
                 </div>
+                <div className="flex items-center gap-1" role="radiogroup" aria-label="정렬">
+                  {(['new', 'old', 'version'] as SortMode[]).map((m) => (
+                    <button key={m} type="button" role="radio" aria-checked={sortMode === m} onClick={() => setSortMode(m)}
+                      className={cn('px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer transition-colors', sortMode === m ? 'bg-purple-600 text-white' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800')}>
+                      {SORT_LABEL[m]}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {loading ? (
@@ -413,21 +463,19 @@ export function PatchNotesPage() {
                               <button type="button" onClick={() => setSelectedCategory(cat)} className="text-xs font-bold text-purple-600 dark:text-purple-400 cursor-pointer">전체 보기</button>
                             )}
                           </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            {list.slice(0, 4).map((note) => (
-                              <NoteCard key={note.id} note={note} highlight={targetVersion === note.version} onOpen={() => handleOpenBlog(note)} />
-                            ))}
-                          </div>
+                          {renderCards(list.slice(0, 4), cat, 'sm:grid-cols-4')}
+                          {list.length > 4 && (
+                            <button type="button" onClick={() => { setSelectedCategory(cat); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                              className="w-full py-3 rounded-2xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800/80 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-sm font-bold cursor-pointer transition-colors">
+                              {SECTION_LABEL[cat]} 전체 보기 <span className="text-zinc-400 font-semibold">({list.length})</span>
+                            </button>
+                          )}
                         </section>
                       );
                     })}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {filteredNotes.map((note) => (
-                      <NoteCard key={note.id} note={note} highlight={targetVersion === note.version} onOpen={() => handleOpenBlog(note)} />
-                    ))}
-                  </div>
+                  renderCards(filteredNotes, selectedCategory === 'dev' && !searchQuery.trim() ? 'dev' : null, 'sm:grid-cols-3')
                 )
               )}
             </motion.div>

@@ -164,6 +164,27 @@ export default async function handler(req: any, res: any) {
     const metaRef = db.collection('youtube_cache').doc('search_index');
     const gamesRef = db.collection('youtube_cache').doc('game_keywords');
 
+    // ── AI 영상 분석 · AI 검색 (api/_aiVideo.ts) ──
+    const aiMode = String(req.query?.ai || '');
+    if (aiMode) {
+      const ai = await import('../_aiVideo.js');
+      if (aiMode === 'search') {
+        const q = String(req.query?.q || '').slice(0, 80);
+        const out = await ai.aiSearch(db, q);
+        res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
+        return res.status(200).json(out);
+      }
+      if (aiMode === 'status') {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json(await ai.aiVideoStatus(db));
+      }
+      if (aiMode === 'run') {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json(await ai.runAiVideoStep(db));
+      }
+      return res.status(400).json({ error: 'unknown ai mode' });
+    }
+
     if (req.method === 'GET' && req.query?.status) {
       const m = (await metaRef.get()).data() || {};
       const today = todayKst();

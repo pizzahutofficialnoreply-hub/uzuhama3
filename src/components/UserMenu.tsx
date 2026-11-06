@@ -7,6 +7,7 @@ import { SystemConfig } from '../types';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import { usePushNotification, PushSettings } from '../hooks/usePushNotification';
 import { cn } from '../utils';
+import { useAppVersion } from '../utils/appVersion';
 
 interface UserMenuProps {
   user: any;
@@ -18,6 +19,7 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial }: UserMenuProps) {
+  const appVersion = useAppVersion(system?.appVersion);
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { isInstallable, showInstallGuide, setShowInstallGuide, promptInstall } = useInstallPrompt();
@@ -316,7 +318,7 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
                 <div className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300">
                   <span className="font-bold">버전 정보</span>
                   <span className="ml-auto text-zinc-500 font-mono text-xs font-semibold">
-                    {system?.appVersion ? (system.appVersion.startsWith('v') ? system.appVersion : `v${system.appVersion}`) : 'v1.0.0'}
+                    {appVersion}
                   </span>
                 </div>
                 <button onClick={handleRefresh} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-left">

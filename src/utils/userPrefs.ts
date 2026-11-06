@@ -26,6 +26,7 @@ export interface UserPrefs {
   searchAlias: boolean; // 게임 줄임말 (배그 → 배틀그라운드)
   searchNatural: boolean; // 말하듯 검색 (겨울 특집 추천해줘)
   searchRelated: boolean; // 썸네일 글자·태그·설명에서도 찾기
+  searchAI: boolean; // AI 검색 (AI가 영상을 미리 보고 정리해 둔 장면에서 찾기)
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -42,6 +43,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   searchAlias: true,
   searchNatural: true,
   searchRelated: true,
+  searchAI: true,
 };
 
 export const PAGE_SIZE_OPTIONS = [8, 12, 20, 30];
