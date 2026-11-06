@@ -13,12 +13,8 @@ export default async function handler(req: any, res: any) {
 
   try {
     // 실제 POST 요청에서 Firebase Admin 모듈 안전 로드
-    const { verifyAdmin, db } = await import('../_firebase.js');
+    const { verifyAdmin, db, auth: adminAuth } = await import('../_firebase.js');
     const { FieldValue } = await import('firebase-admin/firestore');
-
-    // 관리자 토큰 검증 (보안 필수)
-    const adminUser = await verifyAdmin(req);
-    console.log(`[Admin Mutate] Authorized request by ${adminUser.email}`);
 
     let payload = req.body;
     if (typeof payload === 'string') {
@@ -35,6 +31,27 @@ export default async function handler(req: any, res: any) {
     if (!action) {
       return res.status(400).json({ error: 'Missing action parameter' });
     }
+
+    // ── 2단계 인증 (구글 로그인만 된 상태에서 쓰는 것) ──
+    if (String(action).startsWith('mfa')) {
+      const u = await verifyAdmin(req, { require2fa: false });
+      const m = await import('../_adminAuth.js');
+      const logA = (entry: any) => db.collection('admin_audit').add({ ...entry, by: u.email || null, at: new Date().toISOString() }).catch(() => {});
+      if (action === 'mfaStatus') return res.status(200).json({ success: true, ...(await m.mfaStatus(db, u)) });
+      if (action === 'mfaBeginSetup') return res.status(200).json({ success: true, ...(await m.mfaBeginSetup(db, u)) });
+      if (action === 'mfaConfirmSetup') { const r = await m.mfaConfirmSetup(db, adminAuth, u, String(payload.code || ''), req); await logA({ action: 'mfa_setup' }); return res.status(200).json({ success: true, ...r }); }
+      if (action === 'mfaVerify') {
+        try { const r = await m.mfaVerify(db, adminAuth, u, String(payload.code || ''), req); await logA({ action: 'mfa_login' }); return res.status(200).json({ success: true, ...r }); }
+        catch (e: any) { await logA({ action: 'mfa_fail', reason: String(e?.message || e).slice(0, 80) }); throw e; }
+      }
+      if (action === 'mfaLogoutAll') { await m.mfaLogoutAll(db, adminAuth, u); await logA({ action: 'mfa_logout_all' }); return res.status(200).json({ success: true, summary: '모든 기기에서 관리자 로그아웃했어요' }); }
+      if (action === 'mfaReset') { await m.mfaReset(db, adminAuth, u); await logA({ action: 'mfa_reset' }); return res.status(200).json({ success: true }); }
+      return res.status(400).json({ error: 'unknown mfa action' });
+    }
+
+    // 관리자 토큰 검증 (보안 필수): 구글 + 2단계 인증
+    const adminUser = await verifyAdmin(req);
+    console.log(`[Admin Mutate] Authorized request by ${adminUser.email}`);
 
     // 수정 기록: 방송 기록·시스템 설정을 바꾸기 전 모습을 남겨 두어 되돌릴 수 있게 (최근 것만 보관)
     const audit = async (entry: Record<string, any>) => {
@@ -269,7 +286,8 @@ export default async function handler(req: any, res: any) {
       message: error?.message || error
     });
     return res.status(error?.status || 500).json({
-      error: error?.status ? error.message : 'Server error occurred during data mutation'
+      error: error?.status ? error.message : 'Server error occurred during data mutation',
+      ...(error?.code === 'mfa_required' ? { code: 'mfa_required' } : {}),
     });
   }
 }

@@ -89,10 +89,24 @@ export async function verifyUserTokenOptional(req: any) {
   }
 }
 
-export async function verifyAdmin(req: any) {
-  const decodedToken = await verifyUserToken(req);
-  if (decodedToken.email?.toLowerCase() !== 'saramoriyo@gmail.com' || decodedToken.email_verified !== true) {
+/**
+ * 관리자 확인: 관리자 구글 계정 + 이메일 인증 + 구글로 로그인 + (기본) 2단계 인증 통과(adm2fa 가 아직 유효)
+ * 토큰이 무효화됐는지(모든 기기 로그아웃)도 확인
+ */
+export async function verifyAdmin(req: any, opts: { require2fa?: boolean } = {}) {
+  const authHeader = req.headers?.authorization;
+  if (!authHeader?.startsWith('Bearer ')) throw Object.assign(new Error('Authentication required'), { status: 401 });
+  let decodedToken: any;
+  try {
+    decodedToken = await auth.verifyIdToken(authHeader.substring('Bearer '.length), true); // true: 무효화된 토큰도 거부
+  } catch {
+    throw Object.assign(new Error('Invalid or expired authentication token'), { status: 401 });
+  }
+  if (decodedToken.email?.toLowerCase() !== 'saramoriyo@gmail.com' || decodedToken.email_verified !== true || decodedToken.firebase?.sign_in_provider !== 'google.com') {
     throw Object.assign(new Error('Administrator access required'), { status: 403 });
+  }
+  if (opts.require2fa !== false && !(Number(decodedToken.adm2fa || 0) > Date.now())) {
+    throw Object.assign(new Error('2단계 인증이 필요해요'), { status: 403, code: 'mfa_required' });
   }
   return decodedToken;
 }

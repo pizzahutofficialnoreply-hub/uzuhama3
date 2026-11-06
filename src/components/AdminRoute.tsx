@@ -7,6 +7,7 @@ import { useFirebaseData } from '../hooks/useFirebaseData';
 import { Tv, LogOut, ShieldCheck, Lock, AlertTriangle } from 'lucide-react';
 import { AdminVerificationModal } from './AdminVerificationModal';
 import { isAdminUser, adminSessionValid, clearAdminSession } from '../utils/adminAuth';
+import { AdminMfaGate, adminLogoutAll } from './AdminMfaGate';
 
 export function AdminRoute() {
   const [user, setUser] = useState<User | null>(null);
@@ -106,6 +107,7 @@ export function AdminRoute() {
   if (!data) return null;
 
   return (
+    <AdminMfaGate onCancel={handleLogout}>
     <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans selection:bg-purple-500/30">
       <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-50 pt-[calc(env(safe-area-inset-top,0px)+8px)] pb-1 sm:pt-2.5 sm:pb-0">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between gap-3">
@@ -159,6 +161,13 @@ export function AdminRoute() {
                 로그아웃
               </button>
             </div>
+            <button
+              type="button"
+              onClick={async () => { try { await adminLogoutAll(); } catch {} await handleLogout(); }}
+              className="mt-2 w-full py-2.5 px-4 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-red-600 dark:text-red-400 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+            >
+              모든 기기에서 로그아웃 (다른 곳에 켜진 관리자도 끊기)
+            </button>
           </div>
         </div>
       )}
@@ -174,5 +183,6 @@ export function AdminRoute() {
         />
       </main>
     </div>
+    </AdminMfaGate>
   );
 }

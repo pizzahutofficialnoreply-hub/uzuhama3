@@ -58,3 +58,19 @@ describe('보안 규칙', () => {
     expect(FIRESTORE_RULES).toBe(readFileSync('firestore.rules', 'utf8'));
   });
 });
+
+import { totpAt, verifyTotp } from '../api/_adminAuth';
+describe('관리자 2단계 인증 (TOTP)', () => {
+  const secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'; // RFC 6238 시험용 '12345678901234567890'
+  it('RFC 6238 시험값', () => {
+    expect(totpAt(secret, 1)).toBe('287082');
+    expect(totpAt(secret, Math.floor(1111111109 / 30))).toBe('081804');
+  });
+  it('앞뒤 30초까지만 맞음', () => {
+    const now = 1111111109 * 1000;
+    expect(verifyTotp(secret, '081804', now)).toBeGreaterThan(0);
+    expect(verifyTotp(secret, '081804', now + 20000)).toBeGreaterThan(0);
+    expect(verifyTotp(secret, '081804', now + 120000)).toBe(-1);
+    expect(verifyTotp(secret, '12345', now)).toBe(-1);
+  });
+});

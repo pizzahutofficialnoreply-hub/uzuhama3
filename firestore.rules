@@ -5,10 +5,15 @@ rules_version = '2';
 //  - 서버(Vercel, Admin SDK)는 규칙과 무관하게 동작하므로 서버 전용 데이터는 클라이언트에서 완전히 막음
 service cloud.firestore {
   match /databases/{database}/documents {
+    // 관리자: 관리자 구글 계정 + 이메일 인증 + 구글로 로그인 + 2단계 인증(인증 앱 코드) 통과 후 4시간 안
+    //   adm2fa 는 서버(api/_adminAuth.ts)가 코드를 확인한 뒤에만 붙임
     function isAdmin() {
       return request.auth != null
         && request.auth.token.email == 'saramoriyo@gmail.com'
-        && request.auth.token.email_verified == true;
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.adm2fa is int
+        && request.auth.token.adm2fa > request.time.toMillis();
     }
 
     function isAuthenticated() {

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { WeeklyReportCard } from './WeeklyReportCard';
+import { AdminSecurityCard } from './AdminSecurityCard';
 import { SearchTuningCard } from './SearchTuningCard';
 import { ClientErrorsCard } from './ClientErrorsCard';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -91,6 +92,7 @@ export function AutomationSubTab() {
       <div className="flex justify-end">
         <button type="button" onClick={load} className={`${btn} bg-zinc-100 dark:bg-zinc-800`}><RefreshCw className="w-3.5 h-3.5" /> 새로 보기</button>
       </div>
+      <AdminSecurityCard />
       <WeeklyReportCard />
       <SearchTuningCard />
       <ClientErrorsCard />
