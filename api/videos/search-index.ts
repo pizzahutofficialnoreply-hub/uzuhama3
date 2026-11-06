@@ -174,17 +174,23 @@ export default async function handler(req: any, res: any) {
         res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
         return res.status(200).json(out);
       }
-      if (aiMode === 'diag') {
-        res.setHeader('Cache-Control', 'no-store');
-        return res.status(200).json(await ai.aiDiag(String(req.query?.id || 'jNQXAC9IVRw'), String(req.query?.model || 'gemini-3.8-flash'), String(req.query?.v || 'plain')));
-      }
       if (aiMode === 'status') {
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(await ai.aiVideoStatus(db));
       }
       if (aiMode === 'run') {
         res.setHeader('Cache-Control', 'no-store');
-        return res.status(200).json(await ai.runAiVideoStep(db, { kind: ['short', 'video', 'live'].includes(String(req.query?.kind)) ? String(req.query.kind) : undefined }));
+        // 한 번 불렸을 때 시간이 남으면 여러 구간 (최대 약 3분, 이 함수는 최대 300초)
+        const kind = ['short', 'video', 'live'].includes(String(req.query?.kind)) ? String(req.query.kind) : undefined;
+        const t0 = Date.now();
+        const steps: any[] = [];
+        while (steps.length < 12) {
+          const r = await ai.runAiVideoStep(db, { kind });
+          steps.push(r);
+          if (r?.error || r?.skipped || r?.done || r?.queue) break;
+          if (Date.now() - t0 > 150000) break;
+        }
+        return res.status(200).json({ steps, ms: Date.now() - t0 });
       }
       return res.status(400).json({ error: 'unknown ai mode' });
     }
