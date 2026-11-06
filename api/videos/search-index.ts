@@ -180,7 +180,7 @@ export default async function handler(req: any, res: any) {
       }
       if (aiMode === 'run') {
         res.setHeader('Cache-Control', 'no-store');
-        return res.status(200).json(await ai.runAiVideoStep(db));
+        return res.status(200).json(await ai.runAiVideoStep(db, { kind: ['short', 'video', 'live'].includes(String(req.query?.kind)) ? String(req.query.kind) : undefined }));
       }
       return res.status(400).json({ error: 'unknown ai mode' });
     }

@@ -230,7 +230,7 @@ async function analyzeGame(db: any, name: string, ko: string) {
 }
 
 /** 한 번 부를 때 한 구간 (또는 마무리 한 단계). 결과를 짧게 돌려줌 */
-export async function runAiVideoStep(db: any): Promise<any> {
+export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Promise<any> {
   if (!aiKey()) return { skipped: 'GEMINI_API_KEY 없음' };
   if (!ytKey()) return { skipped: 'YOUTUBE_API_KEY 없음' };
   const stRef = db.collection('youtube_cache').doc('ai_state');
@@ -255,7 +255,7 @@ export async function runAiVideoStep(db: any): Promise<any> {
     let cur: any;
     const col = db.collection('ai_video');
     for (let i = 0; i < queue.length && !item; i += 30) {
-      const part = queue.slice(i, i + 30).filter((q) => q.live !== 'live' && q.live !== 'upcoming');
+      const part = queue.slice(i, i + 30).filter((q) => q.live !== 'live' && q.live !== 'upcoming' && (!opts.kind || q.kind === opts.kind));
       if (!part.length) continue;
       const snaps = await db.getAll(...part.map((q) => col.doc(q.id)));
       for (let j = 0; j < part.length; j++) {
