@@ -4,7 +4,8 @@ import { SystemConfig, TermsRevision } from '../../../../types';
 import { Shield, Plus, Check, Eye, Calendar, AlertTriangle, FileText } from 'lucide-react';
 import { format, addDays, differenceInCalendarDays } from 'date-fns';
 import { TermsRevisionModal } from '../../../TermsRevisionModal';
-import { deleteField } from 'firebase/firestore';
+import { deleteField, doc, setDoc } from 'firebase/firestore';
+import { db } from '../../../../lib/firebase';
 
 interface TermsPolicySubTabProps {
   systemEdit: Partial<SystemConfig>;
@@ -275,7 +276,7 @@ export const TermsPolicySubTab: React.FC<TermsPolicySubTabProps> = ({
           <button
             type="button"
             onClick={() => {
-              if (!window.confirm(`${LEGAL_VERSION_DATE} 기준 새 기본 문서로 편집 칸을 바꿀까요?\n[대괄호] 부분(운영자 이메일·이름)은 직접 고쳐 주세요. 저장 전까지는 반영되지 않아요.\n이미 공개된 문서를 바꾸는 거라면 위 '개정 공지'로 7일(불리하면 30일) 전에 알리세요.`)) return;
+              if (!window.confirm(`${LEGAL_VERSION_DATE} 기준 새 기본 문서로 편집 칸을 바꿀까요?\n저장 전까지는 반영되지 않아요.\n이미 공개된 문서를 바꾸는 거라면 위 '개정 공지'로 7일(불리하면 30일) 전에 알리세요.`)) return;
               handleChange('termsOfService', DEFAULT_TERMS);
               handleChange('privacyPolicy', DEFAULT_PRIVACY);
             }}
@@ -284,7 +285,8 @@ export const TermsPolicySubTab: React.FC<TermsPolicySubTabProps> = ({
             새 기본 문서 불러오기 ({LEGAL_VERSION_DATE})
           </button>
         </div>
-        <p className="text-[11px] text-zinc-500">개인정보 보호법·작성지침(2025)과 약관규제법을 바탕으로, 이 사이트가 실제로 모으는 정보(알림 토큰, 제보·신고·만족도, 오류 기록, 구글 로그인, 유튜브 저장)에 맞춰 쓴 문서예요. [대괄호]는 꼭 실제 정보로 바꿔 주세요.</p>
+        <p className="text-[11px] text-zinc-500">개인정보 보호법·작성지침(2025)과 약관규제법을 바탕으로, 이 사이트가 실제로 모으는 정보(알림 토큰, 제보·신고·만족도, 오류 기록, 구글 로그인, 유튜브 저장)에 맞춰 쓴 문서예요. 운영자 개인 연락처는 싣지 않고, 모든 문의는 사이트 '문의하기'로만 받는다고 적었어요.</p>
+        <PublishLegalButton systemEdit={systemEdit} handleChange={handleChange} onUpdateSystemConfig={onUpdateSystemConfig} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">서비스 이용약관</label>
@@ -334,3 +336,50 @@ export const TermsPolicySubTab: React.FC<TermsPolicySubTabProps> = ({
     </div>
   );
 };
+
+/**
+ * 한 번에: 새 기본 문서를 저장하고, 이미 들어온 사람에게 '약관이 바뀌었어요' 안내(7일 뒤 적용)를 띄움
+ * (처음 오는 사람은 새 문서로 바로 동의)
+ */
+function PublishLegalButton({ systemEdit, handleChange, onUpdateSystemConfig }: {
+  systemEdit: Partial<SystemConfig>;
+  handleChange: (field: keyof SystemConfig, val: any) => void;
+  onUpdateSystemConfig?: (sys: Partial<SystemConfig>) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [days, setDays] = useState(7);
+  const same = systemEdit.termsOfService === DEFAULT_TERMS && systemEdit.privacyPolicy === DEFAULT_PRIVACY;
+  const publish = async () => {
+    const effective = format(addDays(new Date(), days), 'yyyy-MM-dd');
+    if (!window.confirm(`새 이용약관·개인정보처리방침을 지금 저장하고, 이미 사이트를 쓰던 사람에게 '약관이 바뀌었어요' 안내를 띄울까요?\n적용일: ${effective} (${days}일 뒤)`)) return;
+    setBusy(true);
+    try {
+      const version = (Number(systemEdit.onboardingVersion) || 1) + 1;
+      const termsUpdate = {
+        version,
+        noticeDate: format(new Date(), 'yyyy-MM-dd'),
+        effectiveDate: effective,
+        summary: '- 사이트가 실제로 처리하는 정보(알림, 제보·신고·검색 만족도, 오류 기록, 구글 로그인·유튜브 저장)를 항목별로 자세히 적었어요\n- 보관 기간, 처리 위탁·국외 이전, 이용자 권리와 행사 방법, 쿠키·기기 저장 정보를 법에 맞게 정리했어요\n- 문의는 사이트 \'문의하기\'로만 받아요',
+      };
+      await onUpdateSystemConfig?.({ termsOfService: DEFAULT_TERMS, privacyPolicy: DEFAULT_PRIVACY, onboardingVersion: version, termsUpdate } as any);
+      await setDoc(doc(db, 'config', 'onboarding'), { version, updatedAt: new Date().toISOString() }, { merge: true });
+      handleChange('termsOfService', DEFAULT_TERMS);
+      handleChange('privacyPolicy', DEFAULT_PRIVACY);
+      handleChange('onboardingVersion', version);
+      handleChange('termsUpdate' as any, termsUpdate);
+      alert(`저장했어요. 다음 방문부터 '약관이 바뀌었어요' 안내가 떠요 (적용일 ${effective}).`);
+    } catch (e: any) {
+      alert('저장하지 못했어요: ' + (e?.message || e));
+    } finally { setBusy(false); }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50">
+      <span className="text-xs font-bold text-purple-900 dark:text-purple-200">{same ? '사이트에 새 문서가 저장돼 있어요.' : '새 문서를 한 번에 저장하고 변경 안내까지'}</span>
+      <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="px-2 py-1 rounded-lg text-xs bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-900/50">
+        <option value={7}>7일 뒤 적용</option>
+        <option value={30}>30일 뒤 적용 (중요 변경)</option>
+      </select>
+      <button type="button" disabled={busy || same} onClick={publish} className="ml-auto px-3 py-1.5 rounded-xl bg-purple-600 text-white text-xs font-bold cursor-pointer disabled:opacity-50">{busy ? '저장 중…' : '저장하고 안내 띄우기'}</button>
+    </div>
+  );
+}

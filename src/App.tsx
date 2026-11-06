@@ -37,7 +37,7 @@ import { TermsRevisionModal } from './components/TermsRevisionModal';
 import { FloatingBottomNav } from './components/FloatingBottomNav';
 import { CurrentProbability } from './components/CurrentProbability';
 import { LoadingScreen } from './components/LoadingScreen';
-import { AFTER_INSTALL_KEY, OPEN_SETUP_EVENT, isStandaloneMode, type GuideKind, type SetupMode } from './utils/setupStatus';
+import { AFTER_INSTALL_KEY, OPEN_SETUP_EVENT, isStandaloneMode, isIOSDevice, type GuideKind, type SetupMode } from './utils/setupStatus';
 import { cn, useBodyScrollLock, resetBodyScrollLock } from './utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -85,6 +85,8 @@ function MainApp() {
     return saved;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  // 아이폰 쓸어서 뒤로 가기로 설정을 닫을 때는 효과 없이 바로
+  const settingsInstantExitRef = useRef(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<'notification' | 'theme' | 'share' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
@@ -191,7 +193,9 @@ function MainApp() {
         return;
       }
       // 2. 설정창이 열려있으면: 한 번 더 나가면 설정창 닫고 메인으로
+      // 아이폰은 쓸어서 뒤로 가기 할 때 사파리가 이미 화면을 밀어 주므로, 우리 쪽 밀려 나가는 효과는 끔
       if (isSettingsOpen) {
+        if (isIOSDevice()) settingsInstantExitRef.current = true;
         setIsSettingsOpen(false);
       }
     };
@@ -1312,14 +1316,17 @@ function MainApp() {
       </main>
 
       {/* 모바일 설정창 (열고 닫을 때 모두 iOS 화면 전환처럼 옆으로 밀림) */}
-      <AnimatePresence>
+      <AnimatePresence custom={settingsInstantExitRef.current} onExitComplete={() => { settingsInstantExitRef.current = false; }}>
         {isSettingsOpen && (
           <motion.div
             key="settings-mobile-drawer"
             initial={{ x: '100%', boxShadow: '-12px 0 40px rgba(0,0,0,0)' }}
             animate={{ x: 0, boxShadow: '-12px 0 40px rgba(0,0,0,0.18)' }}
-            // iOS 뒤로가기처럼 오른쪽으로 밀려 나감 (모든 기기)
-            exit={{ x: '100%', boxShadow: '-12px 0 40px rgba(0,0,0,0)', transition: { type: 'spring', damping: 36, stiffness: 360, mass: 0.9 } }}
+            // 오른쪽으로 밀려 나감, 단 아이폰에서 쓸어서 뒤로 가기면 바로 사라짐 (사파리 효과와 겹치지 않게)
+            variants={{ gone: (instant: boolean) => (instant
+              ? { opacity: 0, transition: { duration: 0 } }
+              : { x: '100%', boxShadow: '-12px 0 40px rgba(0,0,0,0)', transition: { type: 'spring', damping: 36, stiffness: 360, mass: 0.9 } }) }}
+            exit="gone"
             transition={{ type: 'spring', damping: 32, stiffness: 320, mass: 0.9 }}
             className="lg:hidden fixed inset-0 z-50 bg-zinc-50 dark:bg-zinc-950 overflow-y-auto"
           >

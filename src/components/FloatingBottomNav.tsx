@@ -83,15 +83,26 @@ export function FloatingBottomNav({
 
   // 실시간 탭바 글래스모피즘 스타일 (설정 슬라이더 값에 따라 실시간 블러 및 투명도 반응)
   // 검색창 쪽 버튼·입력칸: 뒤 화면이 어둡든 밝든 글씨가 읽히도록 탭바보다 진한 유리
+  // 아이폰 사파리: 설정에서 뒤로 가기로 나오면 유리(블러)가 옛 화면을 그대로 비추는 문제
+  // → 다시 나타난 뒤 몇 번 블러 값을 아주 조금 바꿔서 새로 그리게 함
+  const [glassNudge, setGlassNudge] = useState(0);
+  useEffect(() => {
+    const nudge = () => [60, 250, 600, 1100].forEach((ms) => window.setTimeout(() => setGlassNudge((n) => n + 1), ms));
+    nudge();
+    window.addEventListener('popstate', nudge);
+    window.addEventListener('pageshow', nudge);
+    return () => { window.removeEventListener('popstate', nudge); window.removeEventListener('pageshow', nudge); };
+  }, [isSettingsOpen]);
+  const nudgePx = (glassNudge % 2) * 0.01;
   const searchGlassStyle: React.CSSProperties = {
-    WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-    backdropFilter: 'blur(24px) saturate(180%)',
+    WebkitBackdropFilter: `blur(${24 + nudgePx}px) saturate(180%)`,
+    backdropFilter: `blur(${24 + nudgePx}px) saturate(180%)`,
     backgroundColor: isDark ? 'rgba(39, 39, 42, 0.78)' : 'rgba(255, 255, 255, 0.86)',
     borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(0, 0, 0, 0.06)',
   };
   const glassStyle: React.CSSProperties = {
-    WebkitBackdropFilter: `blur(${Math.max(20, tabGlass.config.blurPx)}px) saturate(180%)`,
-    backdropFilter: `blur(${Math.max(20, tabGlass.config.blurPx)}px) saturate(180%)`,
+    WebkitBackdropFilter: `blur(${Math.max(20, tabGlass.config.blurPx) + nudgePx}px) saturate(180%)`,
+    backdropFilter: `blur(${Math.max(20, tabGlass.config.blurPx) + nudgePx}px) saturate(180%)`,
     backgroundColor: isDark ? tabGlass.config.darkBg : tabGlass.config.lightBg,
     borderColor: isDark ? tabGlass.config.darkBorder : tabGlass.config.lightBorder,
   };
@@ -399,8 +410,8 @@ export function FloatingBottomNav({
             style={{
               top: -40,
               height: '130vh',
-              WebkitBackdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx)}px)`,
-              backdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx)}px)`,
+              WebkitBackdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx) + nudgePx}px)`,
+              backdropFilter: `blur(${Math.max(16, tabGlass.config.blurPx) + nudgePx}px)`,
               WebkitMaskImage: DOCK_BLUR_MASK,
               maskImage: DOCK_BLUR_MASK,
               background: `linear-gradient(to bottom, transparent 0px, ${isDark ? tabGlass.config.bottomFadeDark : tabGlass.config.bottomFadeLight} 140px)`,
