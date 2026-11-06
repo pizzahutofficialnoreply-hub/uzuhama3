@@ -9,7 +9,7 @@
  *  - 모델: GEMINI_VIDEO_MODEL → gemini-3.8-flash → gemini-flash-latest (최신 Flash 계열, 2.5 는 새 사용자에게 막힘)
  *
  * 저장
- *  - ai_video/{videoId}: { title, kind, publishedAt, duration, status, seg, segTotal, segSec, summary, parts[], scenes[{t,d,k}], keywords, games, mood, kw[] }
+ *  - ai_video/{videoId}: { title, kind, publishedAt, duration, status, pos(여기까지 봄), seg, segTotal, segSec, summary, parts[], scenes[{t,d,k}], keywords, games, mood, kw[] }
  *  - ai_games/{slug}: { name, genre, about, tags[], horror, aliases[] }
  *  - youtube_cache/ai_queue: { items: [{ id, title, publishedAt, kind, duration, live }], fetchedAt }
  *  - youtube_cache/ai_state: { lockUntil, day, usedSec, calls, coolUntil, lastError, lastRunAt, lastId }
@@ -36,7 +36,7 @@ const isRate = (m: string) => /429|quota|RESOURCE_EXHAUSTED|rate limit|Too Many 
 const isBusy = (m: string) => /503|UNAVAILABLE|overloaded|high demand|try again later|500|INTERNAL/i.test(m);
 const isTimeout = (m: string) => /timeout|timed out|aborted|deadline|DEADLINE_EXCEEDED|504/i.test(m);
 /** 한 번 분석에 기다릴 시간 (이 함수는 최대 300초) */
-const AI_TIMEOUT = Number(process.env.AI_VIDEO_TIMEOUT_MS || 230000);
+const AI_TIMEOUT = Number(process.env.AI_VIDEO_TIMEOUT_MS || 120000); // 잘 되는 구간은 20초 안팎
 const ytKey = () => process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY || '';
 const aiKey = () => process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
 
@@ -271,13 +271,15 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
     const ref = col.doc(item.id);
     const dur = Number(item.duration || 0);
     const segSec = Number(cur?.segSec || (item.kind === 'live' ? 5 * 60 : SEG_SEC)); // 생방송은 처음부터 5분씩
-    const segTotal = item.kind === 'short' || !dur ? 1 : Math.max(1, Math.ceil(dur / segSec));
-    const seg = Number(cur?.seg || 0);
+    const whole = item.kind === 'short' || !dur;
+    // 여기까지 봤음 (예전 문서는 seg × segSec)
+    const pos = Number(cur?.pos ?? Number(cur?.seg || 0) * segSec);
+    const remaining = whole ? !(cur?.parts?.length) : pos < dur;
 
     // 1) 구간 분석
-    if (seg < segTotal) {
-      const start = segTotal === 1 ? 0 : seg * segSec;
-      const end = segTotal === 1 ? dur : Math.min(dur, start + segSec);
+    if (remaining) {
+      const start = whole ? 0 : pos;
+      const end = whole ? dur : Math.min(dur, start + segSec);
       const lenSec = Math.max(1, (end || 60) - start);
       if (usedSec + lenSec > DAILY_SEC + 600) { await release(); return { skipped: '오늘 남은 한도로는 다음 구간이 안 돼요' }; }
       let desc = cur?.desc;
@@ -303,29 +305,33 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
         }
         const timeout = isTimeout(msg);
         const tries = Number(cur?.tries || 0) + 1;
-        await ref.set({
-          id: item.id, title: item.title, kind: item.kind, publishedAt: item.publishedAt, duration: dur, desc,
-          ...(timeout && segSec > MIN_SEG_SEC ? { segSec: Math.max(MIN_SEG_SEC, Math.floor(segSec / 2)), seg: 0, parts: [], scenes: [] } : {}),
-          status: /Video unavailable|private video|INVALID_ARGUMENT|PERMISSION_DENIED|not supported/i.test(msg) && tries >= 2 ? 'skip' : 'error', tries, error: msg, updatedAt: new Date().toISOString(),
-        }, { merge: true });
+        const base = { id: item.id, title: item.title, kind: item.kind, publishedAt: item.publishedAt, duration: dur, desc, error: msg, updatedAt: new Date().toISOString() };
+        if (timeout && !whole) {
+          // 오래 걸림: 본 데까지는 그대로 두고, 다음부터 더 잘게. 가장 작은 구간도 두 번 넘으면 그 구간은 건너뜀
+          const smaller = segSec > MIN_SEG_SEC;
+          const skipChunk = !smaller && tries >= 2;
+          await ref.set({ ...base, pos: skipChunk ? end : pos, segSec: smaller ? Math.max(MIN_SEG_SEC, Math.floor(segSec / 2)) : segSec, tries: skipChunk || smaller ? 0 : tries, status: 'partial', ...(skipChunk ? { skipped: [...(cur?.skipped || []), [start, end]].slice(-50) } : {}) }, { merge: true });
+        } else {
+          await ref.set({ ...base, tries, status: /Video unavailable|private video|INVALID_ARGUMENT|PERMISSION_DENIED|not supported/i.test(msg) && tries >= 2 ? 'skip' : 'error' }, { merge: true });
+        }
         await release({ lastError: msg, calls: calls + 1 });
         return { error: msg, id: item.id };
       }
-      const scenes = [...(cur?.scenes || []), ...r.scenes].sort((a: Scene, b: Scene) => a.t - b.t).slice(0, 400);
+      const scenes = [...(cur?.scenes || []), ...r.scenes].sort((a: Scene, b: Scene) => a.t - b.t).slice(0, 1200);
       const games = [...(cur?.games || [])];
       r.games.forEach((g: any) => { if (!games.some((x: any) => slug(x.name) === slug(g.name))) games.push(g); });
       const next = {
         id: item.id, title: item.title, kind: item.kind, publishedAt: item.publishedAt, duration: dur, desc,
-        segSec, segTotal, seg: seg + 1,
-        parts: [...(cur?.parts || []), { from: start, to: end, summary: r.summary }].slice(0, 60),
+        segSec, pos: whole ? dur : end, seg: (cur?.parts?.length || 0) + 1, segTotal: (cur?.parts?.length || 0) + 1 + (whole ? 0 : Math.ceil(Math.max(0, dur - end) / segSec)),
+        parts: [...(cur?.parts || []), { from: start, to: end, summary: r.summary }].slice(0, 200),
         scenes, games,
         keywords: [...new Set([...(cur?.keywords || []), ...r.keywords])].slice(0, 60),
         mood: [...new Set([...(cur?.mood || []), ...r.mood])].slice(0, 8),
-        status: seg + 1 >= segTotal ? 'finishing' : 'partial', model: r.model, tries: 0, error: '', updatedAt: new Date().toISOString(),
+        status: whole || end >= dur ? 'finishing' : 'partial', model: r.model, tries: 0, error: '', updatedAt: new Date().toISOString(),
       };
       await ref.set({ ...next, kw: buildKw(next) }, { merge: true });
       await release({ usedSec: usedSec + lenSec, calls: calls + 1, lastError: '', lastId: item.id, model: r.model, idle: false });
-      return { id: item.id, title: item.title, seg: seg + 1, segTotal, scenes: r.scenes.length };
+      return { id: item.id, title: item.title, seg: next.seg, segTotal: next.segTotal, scenes: r.scenes.length, model: r.model };
     }
 
     // 2) 마무리: 게임 알아보기 (한 번에 하나) → 전체 요약
