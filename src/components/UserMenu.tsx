@@ -63,7 +63,7 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
   };
 
   const handleClearCache = () => {
-    if (window.confirm('캐시 데이터를 삭제하시겠어요? 로그인 정보 및 설정이 초기화돼요.')) {
+    if (window.confirm('캐시 데이터를 삭제할까요? 로그인 정보 및 설정이 초기화돼요.')) {
       localStorage.clear();
       sessionStorage.clear();
       window.location.reload();
@@ -71,7 +71,7 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
   };
 
   const handleDeleteAccount = async () => {
-    if (!window.confirm('정말 회원탈퇴를 진행하시겠어요? 계정과 관련된 정보가 영구히 삭제돼요.')) {
+    if (!window.confirm('정말 회원탈퇴를 진행할까요? 계정과 관련된 정보가 영구히 삭제돼요.')) {
       return;
     }
 

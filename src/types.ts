@@ -333,6 +333,10 @@ export interface PatchNote {
   cover?: string;
   /** 노션 '종류' 원래 이름 (예: 대규모 업데이트) */
   kind?: string;
+  /** 노션 페이지 ID (하이픈 없이) */
+  notionId?: string;
+  /** 노션 원문 주소 */
+  url?: string;
   source?: 'firestore' | 'notion';
   createdAt?: string;
   updatedAt?: string;

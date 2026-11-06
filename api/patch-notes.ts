@@ -32,6 +32,8 @@ type Note = {
   cover?: string;
   /** 노션 '종류' 원래 이름 (예: 대규모 업데이트) */
   kind?: string;
+  notionId?: string;
+  url?: string;
   source?: 'firestore' | 'notion';
   updatedAt?: string;
 };
@@ -92,6 +94,12 @@ function blockToMarkdown(b: any, indent = ''): string {
       const url = v.type === 'external' ? v.external?.url : v.file?.url;
       return url ? `![${richText(v.caption) || '이미지'}](${url})` : '';
     }
+    // 다른 노션 글로 가는 링크 (예: '이 포스트도 함께 살펴보세요') — 사이트가 제목을 붙이고, 누르면 사이트 안, 길게 누르면 노션으로
+    case 'link_to_page': {
+      const id = String(v.page_id || v.database_id || '').replace(/-/g, '');
+      return id ? `${indent}- [노션 글](https://www.notion.so/${id})` : '';
+    }
+    case 'child_page': return b.id ? `${indent}- [${v.title || '노션 글'}](https://www.notion.so/${String(b.id).replace(/-/g, '')})` : '';
     case 'bookmark':
     case 'link_preview': return v.url ? `[${v.url}](${v.url})` : '';
     default: return text ? `${indent}${text}` : '';
@@ -265,14 +273,15 @@ async function loadNotionNotes(db: any): Promise<{ notes: Note[]; error?: string
       // 노션에 올린 이미지 주소는 1시간 뒤 만료 → 이미지가 있는 본문은 50분마다 새로 읽음
       const hasNotionFiles = /amazonaws\.com|notion-static|prod-files/.test(cache?.markdown || '');
       const stale = hasNotionFiles && Date.now() - Date.parse(cache?.updatedAt || '0') > 50 * 60 * 1000;
-      let content = cache?.lastEdited === page.last_edited_time && !stale ? cache?.markdown || '' : null;
+      const CACHE_V = 2; // 2: 노션 글 링크(link_to_page) 포함
+      let content = cache?.lastEdited === page.last_edited_time && !stale && cache?.v === CACHE_V ? cache?.markdown || '' : null;
       if (content === null) {
         if (fetched >= MAX_BLOCK_FETCH_PER_REQUEST) {
           content = cache?.markdown || '';
         } else {
           fetched++;
           content = await pageMarkdown(page.id, token);
-          await cacheRef.set({ lastEdited: page.last_edited_time, markdown: content, updatedAt: new Date().toISOString() });
+          await cacheRef.set({ lastEdited: page.last_edited_time, markdown: content, updatedAt: new Date().toISOString(), v: CACHE_V });
         }
       }
 
@@ -287,6 +296,9 @@ async function loadNotionNotes(db: any): Promise<{ notes: Note[]; error?: string
         author,
         cover: coverOf(page) || undefined,
         kind: kinds[0] || undefined,
+        notionId: page.id.replace(/-/g, ''),
+        // 원문 보기: 웹에 공개된 주소가 있으면 그걸로
+        url: page.public_url || page.url || undefined,
         source: 'notion',
         updatedAt: page.last_edited_time,
       });
@@ -361,7 +373,7 @@ async function maybeAnnounce(db: any, notes: Note[]) {
     prefix: '[업데이트]',
     date: today,
     active: true,
-    links: [{ title: '패치노트 보기', url: `/patch-v${latest.version}` }],
+    links: [{ title: '패치노트 읽기', url: `/patch-v${latest.version}` }],
     dismissMode: 'permanent',
   };
   const fresh = (await ref.get()).data() || {};

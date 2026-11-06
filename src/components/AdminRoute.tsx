@@ -140,7 +140,7 @@ export function AdminRoute() {
             </div>
             <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-2">관리자 모드 로그아웃</h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed">
-              정말로 관리자 세션에서 로그아웃하시겠어요?<br />
+              정말로 관리자 세션에서 로그아웃할까요?<br />
               저장되지 않은 설정이나 추가/수정 내역이 있다면 확인 후 로그아웃해주세요.
             </p>
             <div className="flex gap-2">

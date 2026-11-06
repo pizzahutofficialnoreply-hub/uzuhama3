@@ -639,7 +639,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
               </div>
               <h3 className="text-xl font-bold text-zinc-900 dark:text-white">소중한 의견이 접수되었어요!</h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xs">
-                보내주신 피드백을 신속히 검토하여 더 쾌적한 트래커를 만들겠어요. 감사해요.
+                보내주신 피드백을 신속히 검토하여 더 쾌적한 트래커를 만들 거예요. 감사해요.
               </p>
             </div>
           ) : (

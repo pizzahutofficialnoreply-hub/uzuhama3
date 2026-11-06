@@ -180,7 +180,7 @@ export function AdminPatchesTab() {
   };
 
   const handleDelete = async (id: string, ver: string) => {
-    if (window.confirm(`v${ver} 패치노트를 정말 삭제하시겠어요?`)) {
+    if (window.confirm(`v${ver} 패치노트를 정말 삭제할까요?`)) {
       await deletePatchNote(id);
       if (editingId === id) resetForm();
     }

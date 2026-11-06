@@ -2079,7 +2079,7 @@ export function DetailedStatsTab({
               <h3 className="text-xl font-bold text-zinc-900 dark:text-white">이용 동의</h3>
               <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">
                 본 데이터 및 리포트의 <strong className="text-red-500 font-bold">상업적 이용을 엄격히 금지</strong>해요.<br />
-                이에 동의하고 다운로드하시겠어요?
+                이에 동의하고 다운로드할까요?
               </p>
             </div>
             <div className="flex border-t border-zinc-200 dark:border-zinc-800">

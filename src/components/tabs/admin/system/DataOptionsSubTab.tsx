@@ -21,7 +21,7 @@ export const DataOptionsSubTab: React.FC<DataOptionsSubTabProps> = ({
   const [isMigrating, setIsMigrating] = useState(false);
 
   const handleStartMigration = async () => {
-    if (!window.confirm('기존 logs 컬렉션의 모든 데이터를 읽어 월별 묶음 문서(logs_by_month)로 이관하시겠어요?\n\n이관 후에도 기존 logs 데이터는 보존되며 새 컬렉션에 동기화돼요.')) {
+    if (!window.confirm('기존 logs 컬렉션의 모든 데이터를 읽어 월별 묶음 문서(logs_by_month)로 옮길까요?\n\n이관 후에도 기존 logs 데이터는 보존되며 새 컬렉션에 동기화돼요.')) {
       return;
     }
     setIsMigrating(true);

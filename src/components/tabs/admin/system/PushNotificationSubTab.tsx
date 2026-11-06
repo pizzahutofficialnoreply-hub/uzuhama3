@@ -19,7 +19,7 @@ export const PushNotificationSubTab: React.FC = () => {
       return;
     }
 
-    if (!window.confirm(isTest ? '모든 웹 푸시 구독 기기에 테스트 알림을 발송하시겠어요?' : `모든 구독 기기에 다음 알림을 발송하시겠어요?\n\n제목: ${titleToSend}\n내용: ${bodyToSend}`)) {
+    if (!window.confirm(isTest ? '모든 웹 푸시 구독 기기에 테스트 알림을 보낼까요?' : `모든 구독 기기에 다음 알림을 보낼까요?\n\n제목: ${titleToSend}\n내용: ${bodyToSend}`)) {
       return;
     }
 

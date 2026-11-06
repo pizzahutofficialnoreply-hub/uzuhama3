@@ -244,7 +244,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
 
   // Clear all drafts
   const handleClearAllDrafts = () => {
-    if (!window.confirm('임시 저장된 모든 목록을 삭제하시겠어요?')) return;
+    if (!window.confirm('임시 저장된 모든 목록을 삭제할까요?')) return;
     setSavedDrafts([]);
     localStorage.removeItem(`uzuhama_contribute_saved_drafts_${type}`);
   };

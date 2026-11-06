@@ -11,7 +11,7 @@ import { layerHandledPop } from './hooks/useBackToClose';
 import { setYoutubeClientId } from './utils/youtubeAccount';
 import { SaveHost } from './components/common/SaveHost';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink, AlertTriangle, CheckCircle2, Check } from 'lucide-react';
+import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink, AlertTriangle, CheckCircle2, Check, ChevronDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { checkMaintenanceStatus, effectiveMaintenanceSystem, generateMaintenanceNoticeMarkdown, formatMaintenanceRange, parseDateSafe } from './utils/maintenanceUtils';
 import { useFirebaseData } from './hooks/useFirebaseData';
@@ -798,75 +798,102 @@ function MainApp() {
       ? data.system.maintenanceLinks.filter(l => Boolean(l.url))
       : (data.system?.maintenanceLinkUrl ? [{ url: data.system.maintenanceLinkUrl, title: data.system.maintenanceLinkText || '관련 링크 바로가기' }] : []);
 
-    return (
-      <div className="min-h-screen w-full bg-zinc-50 dark:bg-black py-8 sm:py-12 px-3 sm:px-6 overflow-y-auto flex flex-col items-center justify-start text-center select-text">
-        <div className="w-full max-w-2xl mx-auto space-y-5 my-2 sm:my-6 pb-20 text-left">
-          
-          {/* 상단 락 아이콘 & 헤더 */}
-          <div className="text-center space-y-2.5 pb-2">
-            <div className="inline-flex p-3 sm:p-3.5 rounded-2xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 shadow-sm">
-              <Lock className="w-8 h-8 sm:w-10 sm:h-10" />
-            </div>
-            {(() => {
-              const statusText = data.system?.maintenanceStatusText?.trim();
-              if (statusText && statusText.includes('완료')) {
-                return (
-                  <div className="inline-block px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold border border-purple-200 dark:border-purple-800/50">
-                    시스템 점검 진행 중
-                  </div>
-                );
-              }
-              return (
-                <div className="inline-block px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold border border-purple-200 dark:border-purple-800/50">
-                  {statusText || "시스템 점검 진행 중"}
-                </div>
-              );
-            })()}
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
-              {data.system?.maintenanceTitle?.trim() || "서비스 안정화를 위한 정기 점검 안내"}
-            </h1>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-              점검 시간 동안 서비스에 접속 불가해요. 이용에 불편을 드려 죄송해요.
-            </p>
-          </div>
+    // 점검 중에는 '예정' 문구 대신 진행 중으로
+    const inProgressText = (md: string) => md.replace(/점검 예정/g, '점검 진행 중').replace(/시작 예정/g, '시작').replace(/하겠어요\./g, '할 거예요.').replace(/하시겠어요\?/g, '할까요?');
+    const history = data.system?.maintenanceHistory || [];
+    const extended = history.some((h) => /연장/.test(h.event || ''));
+    const originalEnd = history.find((h) => /종료 예정/.test(h.event || ''))?.time || '';
+    const fmtDay = (v: string) => {
+      const ms = parseDateSafe(v);
+      if (!ms) return '';
+      const d = new Date(ms + 9 * 3600000);
+      const days = ['일', '월', '화', '수', '목', '금', '토'];
+      return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 (${days[d.getUTCDay()]})`;
+    };
+    const fmtHm = (v: string) => {
+      const ms = parseDateSafe(v);
+      if (!ms) return '';
+      const d = new Date(ms + 9 * 3600000);
+      return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+    };
+    const sameDay = fmtDay(startStr) === fmtDay(endStr);
+    const mdComponents = {
+      h2: ({ node, ...props }: any) => <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 mt-3 mb-1.5" {...props} />,
+      h3: ({ node, ...props }: any) => <h3 className="text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-400 mt-2.5 mb-1" {...props} />,
+      p: ({ node, ...props }: any) => <p className="mb-2 text-zinc-600 dark:text-zinc-300 leading-relaxed" {...props} />,
+      ul: ({ node, ...props }: any) => <ul className="list-disc pl-4 space-y-1 mb-2 text-zinc-600 dark:text-zinc-300" {...props} />,
+      li: ({ node, ...props }: any) => <li className="leading-relaxed" {...props} />,
+      strong: ({ node, ...props }: any) => <strong className="font-bold text-zinc-900 dark:text-white" {...props} />,
+      hr: () => <hr className="my-3 border-zinc-200 dark:border-zinc-800" />,
+    };
 
-          {/* 1. 공지사항 카드 (관리자 모드 실시간 미리보기 형태 그대로 렌더링) */}
+    return (
+      <div className="min-h-[100dvh] w-full bg-zinc-50 dark:bg-black overflow-y-auto select-text">
+        {/* 첫 화면: 자물쇠 + 점검 중 + 날짜·시간만 */}
+        <section className="relative min-h-[100dvh] flex flex-col items-center justify-center px-6 text-center">
+          <div className="inline-flex p-5 rounded-[28px] bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 shadow-sm">
+            <Lock className="w-12 h-12 sm:w-14 sm:h-14" />
+          </div>
+          <h1 className="mt-6 text-3xl sm:text-4xl font-black text-zinc-900 dark:text-white tracking-tight">
+            {extended ? '점검이 연장됐어요' : '점검 중이에요'}
+          </h1>
+          {(startStr || endStr) && (
+            <div className="mt-4 space-y-1">
+              <p className="text-base sm:text-lg font-bold text-zinc-700 dark:text-zinc-200">
+                {fmtDay(startStr || endStr)}{!sameDay && endStr ? ` ~ ${fmtDay(endStr)}` : ''}
+              </p>
+              <p className="text-2xl sm:text-3xl font-black text-purple-600 dark:text-purple-400 tabular-nums">
+                {startStr ? fmtHm(startStr) : ''}{endStr ? ` ~ ${fmtHm(endStr)}` : ''}
+              </p>
+              {remainingSeconds !== null && remainingSeconds > 0 && (
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{formatRemaining(remainingSeconds)} 남았어요</p>
+              )}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => document.getElementById('maint-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-zinc-500 dark:text-zinc-400 text-sm font-bold cursor-pointer"
+          >
+            자세히 보기
+            <ChevronDown className="w-6 h-6 animate-bounce" />
+          </button>
+        </section>
+
+        {/* 아래로 내리면: 연장 공지 · 점검 공지 · 바뀌는 것 · 링크 */}
+        <section id="maint-detail" className="w-full max-w-2xl mx-auto px-3 sm:px-6 pt-6 pb-20 space-y-5 text-left">
+          {extended && (
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 space-y-1.5">
+              <h2 className="text-base font-extrabold text-amber-800 dark:text-amber-200">⏰ 점검 연장 안내</h2>
+              <p className="text-sm text-amber-800 dark:text-amber-200 break-keep">
+                점검이 예정보다 길어지고 있어요. 끝나는 시간이 {originalEnd ? <b>{fmtHm(originalEnd.replace(' ', 'T'))}</b> : '예정 시간'}에서 <b>{fmtHm(endStr)}</b>(으)로 바뀌었어요. 기다리게 해서 미안해요.
+              </p>
+              <ul className="text-xs text-amber-700 dark:text-amber-300 space-y-0.5 pt-1">
+                {history.filter((h) => /연장/.test(h.event || '')).map((h, i) => <li key={i}>• {h.time} {h.event}</li>)}
+              </ul>
+            </div>
+          )}
+
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
             <h2 className="text-base sm:text-lg font-extrabold text-zinc-900 dark:text-white border-b border-zinc-100 dark:border-zinc-800 pb-2.5 flex items-center justify-between gap-2">
               <span>{data.system?.maintenanceTitle?.trim() || '서비스 안정화를 위한 정기 점검 안내'}</span>
-              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2.5 py-1 rounded-lg shrink-0">
-                점검 공지
-              </span>
+              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2.5 py-1 rounded-lg shrink-0">점검 공지</span>
             </h2>
-
             <div className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-xs sm:text-sm">
-              <ReactMarkdown
-                components={{
-                  h2: ({node, ...props}) => <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 mt-3 mb-1.5" {...props} />,
-                  h3: ({node, ...props}) => <h3 className="text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-400 mt-2.5 mb-1" {...props} />,
-                  p: ({node, ...props}) => <p className="mb-2 text-zinc-600 dark:text-zinc-300 leading-relaxed" {...props} />,
-                  ul: ({node, ...props}) => <ul className="list-disc pl-4 space-y-1 mb-2 text-zinc-600 dark:text-zinc-300" {...props} />,
-                  li: ({node, ...props}) => <li className="leading-relaxed" {...props} />,
-                  strong: ({node, ...props}) => <strong className="font-bold text-zinc-900 dark:text-white" {...props} />,
-                  hr: () => <hr className="my-3 border-zinc-200 dark:border-zinc-800" />
-                }}
-              >
-                {data.system?.maintenanceContent?.trim() || fallbackNoticeMarkdown}
+              <ReactMarkdown components={mdComponents}>
+                {inProgressText(data.system?.maintenanceContent?.trim() || fallbackNoticeMarkdown)}
               </ReactMarkdown>
             </div>
           </div>
 
-          {/* 2. 패치노트 (작업 및 주요 변경 사항 카드) */}
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 shadow-sm space-y-3">
             <div className="flex items-center gap-2">
               <span className="p-1.5 sm:p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
                 <CheckCircle2 className="w-5 h-5" />
               </span>
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">패치노트 (작업 및 주요 변경 사항)</h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  이번 점검을 통해 반영되는 개선 사항 및 패치 항목이에요.
-                </p>
+                <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white">이번 점검에서 하는 것</h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">점검이 끝나면 바로 반영돼요.</p>
               </div>
             </div>
             <div className="space-y-2 pt-1">
@@ -879,58 +906,22 @@ function MainApp() {
             </div>
           </div>
 
-          {/* 3. 점검 시간 안내 및 남은 시간 카운트다운 */}
-          {(startStr || endStr) && (
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-2.5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">점검 시간 안내</h3>
-                {scheduleFullText && (
-                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">{scheduleFullText}</span>
-                )}
-              </div>
-              <div className="space-y-1.5 pt-1 text-xs sm:text-sm">
-                {startStr && (
-                  <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
-                    <span>시작 일시:</span>
-                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">{startStr.replace('T', ' ')}</span>
-                  </div>
-                )}
-                {endStr && (
-                  <div className="flex justify-between items-center text-zinc-600 dark:text-zinc-400">
-                    <span>종료 예정:</span>
-                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">{endStr.replace('T', ' ')}</span>
-                  </div>
-                )}
-              </div>
-              {remainingSeconds !== null && remainingSeconds > 0 && (
-                <div className="mt-2.5 pt-2.5 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center text-xs sm:text-sm">
-                  <span className="text-purple-600 dark:text-purple-400 font-bold">남은 점검 시간:</span>
-                  <span className="font-extrabold text-purple-600 dark:text-purple-400">
-                    {formatRemaining(remainingSeconds)}
-                  </span>
-                </div>
-              )}
-            </div>
+          {scheduleFullText && (
+            <p className="text-center text-[11px] text-zinc-500 dark:text-zinc-400">점검 시간: {scheduleFullText}</p>
           )}
 
-          {/* 4. 점검 공지 관련 링크 버튼 목록 */}
           {links.length > 0 && (
             <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
               {links.map((link, idx) => (
-                <a
-                  key={idx}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer"
-                >
+                <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer">
                   <span>{link.title || link.url}</span>
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                 </a>
               ))}
             </div>
           )}
-        </div>
+        </section>
       </div>
     );
   }
@@ -1102,6 +1093,8 @@ function MainApp() {
         ).map(n => (newBuild && String(n.id).startsWith('auto-patch')
           // 새 버전이 나왔는데 아직 예전 화면이면: 공지에 새로고침 버튼
           ? { ...n, links: [{ title: '새로고침해서 새 버전 쓰기', url: RELOAD_LINK }, ...(n.links || [])] }
+          : n)).map(n => (String(n.id).startsWith('auto-patch')
+          ? { ...n, links: (n.links || []).map(l => (l.title === '패치노트 보기' ? { ...l, title: '패치노트 읽기' } : l)) }
           : n));
         const fallback = ((data.system?.noticeType === 'small' || data.system?.noticeType === 'both') && bannerNotices.length === 0)
           ? data.system.noticeContent
@@ -1122,7 +1115,7 @@ function MainApp() {
             } : null}
             maintenanceCompleted={hasCompleted ? {
               title: '시스템 점검 완료 및 업데이트 안내',
-              markdown: maintenanceStatus.completedNoticeMarkdown
+              markdown: maintenanceStatus.completedNoticeMarkdown.replace(/하겠어요\./g, '할 거예요.')
             } : null}
             onNavigateInternal={handleInternalRedirect}
             activeTab={activeTab}

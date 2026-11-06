@@ -4,7 +4,7 @@ import {
   ArrowLeft, 
   Search, 
   PlusCircle
-} from 'lucide-react';
+, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -64,6 +64,40 @@ const PATCH_PROSE = [
   '[&_img]:my-4 [&_img]:rounded-xl [&_img]:w-full [&_img]:h-auto',
   '[&_table]:my-4 [&_table]:w-full [&_table]:text-sm [&_th]:border [&_td]:border [&_th]:border-zinc-200 [&_td]:border-zinc-200 dark:[&_th]:border-white/10 dark:[&_td]:border-white/10 [&_th]:px-2 [&_td]:px-2 [&_th]:py-1.5 [&_td]:py-1.5 [&_th]:bg-zinc-50 dark:[&_th]:bg-white/5',
 ].join(' ');
+
+/**
+ * 본문 링크: 노션의 다른 글(예: '이 포스트도 함께 살펴보세요')이면
+ *  - 누르면 사이트 안의 그 패치노트로, 길게 누르면 노션 원문으로
+ *  - 제목이 '노션 글' 이면 사이트에 있는 그 글 제목으로 바꿔서 보여 줌
+ */
+const notionIdOf = (href: string) => (href.match(/notion\.(?:so|site)\/(?:[^?#]*?-)?([0-9a-f]{32})(?:[?#]|$)/i) || href.match(/notion\.(?:so|site)\/([0-9a-f]{32})/i))?.[1]?.toLowerCase() || '';
+function NotionAwareLink({ href, notes, onOpen, children }: { href: string; notes: PatchNote[]; onOpen: (n: PatchNote) => void; children: React.ReactNode }) {
+  const id = notionIdOf(href);
+  const target = id ? notes.find((n) => n.notionId === id) : undefined;
+  const timer = React.useRef<number | null>(null);
+  const long = React.useRef(false);
+  if (!target) return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+  const notionUrl = target.url || href;
+  const label = (() => { const t = React.Children.toArray(children).join(''); return !t || t === '노션 글' ? `${target.version && target.version !== '0.0.0' ? `v${target.version} ` : ''}${target.title}` : children; })();
+  const start = () => { long.current = false; timer.current = window.setTimeout(() => { long.current = true; try { navigator.vibrate?.(15); } catch {} window.open(notionUrl, '_blank', 'noopener,noreferrer'); }, 550); };
+  const stop = () => { if (timer.current) { window.clearTimeout(timer.current); timer.current = null; } };
+  return (
+    <a
+      href={notionUrl}
+      title="누르면 사이트에서, 길게 누르면 노션에서 열어요"
+      onClick={(e) => { e.preventDefault(); if (long.current) return; onOpen(target); }}
+      onPointerDown={start}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      onPointerCancel={stop}
+      onContextMenu={(e) => e.preventDefault()}
+      style={{ WebkitTouchCallout: 'none' } as React.CSSProperties}
+      className="select-none"
+    >
+      {label}
+    </a>
+  );
+}
 
 type SortMode = 'new' | 'old' | 'version';
 const SORT_LABEL: Record<SortMode, string> = { new: '최신순', old: '과거순', version: '버전순' };
@@ -349,8 +383,19 @@ export function PatchNotesPage() {
 
               {/* 블로그 본문 (Markdown Content) */}
               <div className={PATCH_PROSE}>
-                <Markdown remarkPlugins={[remarkGfm]} components={{ img: ({ node: _n, ...p }) => <img {...p} loading="lazy" alt={p.alt === '이미지' ? '' : p.alt} />, a: ({ node: _n, ...p }) => <a {...p} target="_blank" rel="noopener noreferrer" /> }}>{activeNote.content || '등록된 상세 내용이 없어요.'}</Markdown>
+                <Markdown remarkPlugins={[remarkGfm]} components={{
+                  img: ({ node: _n, ...p }) => <img {...p} loading="lazy" alt={p.alt === '이미지' ? '' : p.alt} />,
+                  a: ({ node: _n, href, children }) => <NotionAwareLink href={String(href || '')} notes={patchNotes} onOpen={handleOpenBlog}>{children}</NotionAwareLink>,
+                }}>{activeNote.content || '등록된 상세 내용이 없어요.'}</Markdown>
               </div>
+
+              {/* 원문 보기 (노션) */}
+              {activeNote.url && (
+                <a href={activeNote.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 w-full py-3 rounded-2xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800/80 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-sm font-bold transition-colors">
+                  원문 보기 <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
 
               <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
                 <button

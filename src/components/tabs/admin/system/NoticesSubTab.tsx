@@ -150,7 +150,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
   };
 
   const handleDeleteNotice = (id: string) => {
-    if (!confirm('삭제하시겠어요?')) return;
+    if (!confirm('삭제할까요?')) return;
     const currentList = systemEdit.noticeList || [];
     handleChange('noticeList', currentList.filter(n => n.id !== id));
     if (editingNoticeId === id) {
@@ -586,7 +586,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
           <button
             type="button"
             onClick={() => {
-              if (window.confirm('기본 일러두기 템플릿 문구를 불러오시겠어요? 현재 작성 중인 내용이 대체돼요.')) {
+              if (window.confirm('기본 일러두기 템플릿 문구를 불러올까요? 현재 작성 중인 내용이 대체돼요.')) {
                 handleChange('preface', DEFAULT_PREFACE_TEMPLATE);
               }
             }}

@@ -96,14 +96,14 @@ export function AdminSuggestionsTab({
   }, []);
 
   const handleDeleteFeedback = async (id: string) => {
-    if (confirm('이 피드백을 삭제하시겠어요?')) {
+    if (confirm('이 피드백을 삭제할까요?')) {
       await deleteDoc(doc(db, 'feedbacks', id));
     }
   };
 
   const handleBulkDeleteFeedbacks = async () => {
     if (selectedFeedbacks.size === 0) return;
-    if (confirm(`선택한 ${selectedFeedbacks.size}개의 피드백을 삭제하시겠어요?`)) {
+    if (confirm(`선택한 ${selectedFeedbacks.size}개의 피드백을 삭제할까요?`)) {
       const batch = writeBatch(db);
       selectedFeedbacks.forEach(id => {
         batch.delete(doc(db, 'feedbacks', id));

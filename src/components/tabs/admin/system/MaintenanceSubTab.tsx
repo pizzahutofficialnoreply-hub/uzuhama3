@@ -55,7 +55,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
   // 점검 공지 상세 사전 설정 항목들
   const scope = systemEdit.maintenanceScope || '사이트 전체';
   const impact = systemEdit.maintenanceImpact || '점검 시간 동안 **서비스에 접속 불가해요.**';
-  const noticeGuide = systemEdit.maintenanceNoticeGuide || '점검 완료 및 변경사항 발생 시 본 공지에 업데이트하겠어요.';
+  const noticeGuide = systemEdit.maintenanceNoticeGuide || '점검 완료 및 변경사항 발생 시 본 공지에 업데이트할 거예요.';
   const durationNote = systemEdit.maintenanceDurationNote || '(상황에 따라 변동/연장될 수 있어요)';
   const statusText = systemEdit.maintenanceStatusText || (systemEdit.maintenance ? '점검 진행 중' : '점검 예정');
   const noteText = systemEdit.maintenanceNote || '없음';
@@ -101,7 +101,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
   };
 
   // 2. 점검 시작 이력 자동 기록
-  const handleRecordEvent = (eventName: string) => {
+  const handleRecordEvent = (eventName: string, range?: { start: string; end: string }) => {
     const nowKst = formatKSTDateTime(new Date(), false);
     const updated = [...history, { time: nowKst, event: eventName }];
     handleChange('maintenanceHistory', updated);
@@ -109,13 +109,13 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
     // 본문에도 변경 이력 반영
     if (systemEdit.maintenanceContent) {
       const template = generateMaintenanceNoticeMarkdown({
-        startStr: startStr || new Date().toISOString(),
-        endStr: endStr || new Date().toISOString(),
+        startStr: range?.start || startStr || new Date().toISOString(),
+        endStr: range?.end || endStr || new Date().toISOString(),
         scope,
         impact,
         noticeGuide,
         durationNote,
-        status: eventName === '점검 완료' ? '점검 완료' : (eventName === '점검 연장' ? '점검 연장' : '점검 진행 중'),
+        status: /완료|종료/.test(eventName) ? '점검 완료' : (/연장/.test(eventName) ? '점검 연장' : '점검 진행 중'),
         note: noteText,
         history: updated
       });
@@ -136,10 +136,37 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
   };
 
   // 4. 점검 완료 처리
+  // 예정보다 일찍 끝내도: 끝 시간을 '지금'으로 바꿔서 점검 화면이 바로 풀리고 완료 공지가 떠요
   const handleCompleteMaintenance = () => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const k = new Date(Date.now() + 9 * 3600000);
+    const nowLocal = `${k.getUTCFullYear()}-${pad(k.getUTCMonth() + 1)}-${pad(k.getUTCDate())}T${pad(k.getUTCHours())}:${pad(k.getUTCMinutes())}`;
+    // 정기 점검(반복 예약)으로 켜진 회차면 그 회차 시작 시간을 남겨 둬야 완료 공지가 그 회차로 떠요
+    const w = recurring.enabled ? recurringMaintenanceWindow(recurring as any, Date.now()) : null;
+    const curStart = startStr || (w && new Date(w.start).getTime() <= Date.now() ? w.start.slice(0, 16) : nowLocal);
+    const early = endStr && new Date(endStr).getTime() > Date.now();
+    handleChange('maintenanceStart', curStart);
+    handleChange('maintenanceEnd', nowLocal);
     handleChange('maintenanceStatusText', '점검 완료');
-    handleRecordEvent('점검 종료');
+    handleRecordEvent(early ? '점검 조기 종료' : '점검 종료', { start: curStart, end: nowLocal });
     handleChange('maintenance', false);
+  };
+
+  // 5-1. 한 번만 하는 점검: 날짜·시간 직접 (또는 지금부터 N시간)
+  const handleApplyOneTime = (start: string, end: string) => {
+    handleChange('maintenanceStart', start);
+    handleChange('maintenanceEnd', end);
+    const now = Date.now();
+    const started = new Date(start).getTime() <= now;
+    handleChange('maintenanceStatusText', started ? '점검 진행 중' : '점검 예정');
+    handleChange('maintenance', true);
+    const h = [
+      { time: formatKSTDateTime(start, false), event: started ? '점검 시작' : '점검 시작 예정' },
+      { time: formatKSTDateTime(end, false), event: '점검 종료 예정' },
+    ];
+    handleChange('maintenanceHistory', h);
+    handleChange('maintenanceContent', generateMaintenanceNoticeMarkdown({ startStr: start, endStr: end, scope, impact, noticeGuide, durationNote, status: started ? '점검 진행 중' : '점검 예정', note: noteText, history: h }));
+    if (!systemEdit.maintenanceTitle) handleChange('maintenanceTitle', '서비스 안정화를 위한 점검 안내');
   };
 
   // 5. 정기 점검 다음 일정 자동 산출 및 적용
@@ -225,7 +252,11 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
             <input 
               type="checkbox" 
               checked={systemEdit.maintenance || false}
-              onChange={e => handleChange('maintenance', e.target.checked)}
+              onChange={e => {
+                // 점검 중에 끄면 '점검 종료'와 같게 (완료 공지까지)
+                if (!e.target.checked && isStartPassed && !isEndPassed) handleCompleteMaintenance();
+                else handleChange('maintenance', e.target.checked);
+              }}
               className="sr-only peer"
             />
             <div className="w-13 h-7 bg-zinc-300 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[3px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-zinc-600 peer-checked:bg-purple-600"></div>
@@ -253,7 +284,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-400" />
                   <div>
-                    <strong>점검 종료 시간이 경과되었어요.</strong> 점검을 정식 완료 처리하시겠어요?
+                    <strong>점검 종료 시간이 경과되었어요.</strong> 점검을 정식 완료 처리할까요?
                     <div className="text-blue-600 dark:text-blue-400 mt-0.5">
                       완료 시 익일 0시(KST)까지 점검 완료 요약 공지가 사이트에 자동 표시돼요.
                     </div>
@@ -308,9 +339,9 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               <Calendar className="w-5 h-5" />
             </span>
             <div>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white">정기 점검 스케줄러 (알람 예약)</h3>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">점검 일정</h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                매주 또는 격주 등 지정한 요일과 시간에 맞춰 정기점검을 반복 예약해요.
+                {recurring.enabled ? '반복 예약: 매주·격주 등 정한 요일과 시간에 자동으로 점검해요. 끄면 날짜를 직접 넣어요.' : '날짜와 시간을 직접 넣어 한 번만 점검해요. 오른쪽을 켜면 매주·격주 반복 예약이에요.'}
               </p>
             </div>
           </div>
@@ -328,9 +359,12 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               className="sr-only peer"
             />
             <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-purple-600"></div>
+            <span className="ml-2 text-xs font-bold text-zinc-700 dark:text-zinc-300">반복 예약</span>
           </label>
         </div>
 
+        {recurring.enabled ? (
+        <>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
             <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">반복 주기</label>
@@ -421,6 +455,10 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
             <span>다음 정기점검 일정으로 즉시 예약 반영</span>
           </button>
         </div>
+        </>
+        ) : (
+          <OneTimeSchedule startStr={startStr} endStr={endStr} onApply={handleApplyOneTime} />
+        )}
       </div>
 
       {/* 3. [핵심] 점검 중 공지 상세 항목 사전 설정 (미리 설정) */}
@@ -541,7 +579,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               type="text"
               value={noticeGuide}
               onChange={e => handleChange('maintenanceNoticeGuide', e.target.value)}
-              placeholder="예: 점검 완료 및 변경사항 발생 시 본 공지에 업데이트하겠어요."
+              placeholder="예: 점검 완료 및 변경사항 발생 시 본 공지에 업데이트할 거예요."
               className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white font-medium"
             />
           </div>
@@ -901,3 +939,39 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
     </div>
   );
 };
+
+/** 한 번만 하는 점검: 시작·끝 날짜시간 + '지금부터 N시간' */
+function OneTimeSchedule({ startStr, endStr, onApply }: { startStr: string; endStr: string; onApply: (s: string, e: string) => void }) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const local = (ms: number) => { const d = new Date(ms + 9 * 3600000); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; };
+  const [s, setS] = useState(startStr || local(Date.now() + 3600000));
+  const [e, setE] = useState(endStr || local(Date.now() + 3 * 3600000));
+  const bad = !s || !e || new Date(e).getTime() <= new Date(s).getTime();
+  const input = 'w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white font-medium';
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">시작 (한국 시간)</label>
+          <input type="datetime-local" value={s} onChange={(x) => setS(x.target.value)} className={input} />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">끝 (한국 시간)</label>
+          <input type="datetime-local" value={e} onChange={(x) => setE(x.target.value)} className={input} />
+        </div>
+      </div>
+      {bad && <p className="text-[11px] text-red-500">끝나는 시간이 시작보다 뒤여야 해요.</p>}
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" disabled={bad} onClick={() => onApply(s, e)} className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs cursor-pointer disabled:opacity-50">
+          {new Date(s).getTime() <= Date.now() ? '이 시간으로 바로 점검 시작' : '이 일정으로 예약'}
+        </button>
+        <span className="text-[11px] text-zinc-500">지금부터:</span>
+        {[1, 2, 3, 6].map((h) => (
+          <button key={h} type="button" onClick={() => { const a = local(Date.now()); const b = local(Date.now() + h * 3600000); setS(a); setE(b); onApply(a, b); }}
+            className="px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 font-bold text-xs cursor-pointer">{h}시간</button>
+        ))}
+      </div>
+      <p className="text-[11px] text-zinc-500 leading-relaxed">예약하면 당일 0시부터 사용자 화면 위쪽에 미리 알려 줘요. 누른 뒤 아래 <b>저장</b>을 눌러야 적용돼요.</p>
+    </div>
+  );
+}

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { interestSummary } from '../utils/interest';
 import { setDefaultList, setDefaultYoutube, useMyPlaylists } from '../utils/myPlaylists';
 import { 
@@ -74,6 +74,30 @@ export function SettingsView({
   const isAdmin = isAdminUser(user);
   const [showAdminVerifyModal, setShowAdminVerifyModal] = useState(false);
   const [activeSection, setActiveSection] = useState<'notification' | 'viewPrefs' | 'recommend' | 'theme' | 'share' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(() => initialSection || null);
+  // 긴 항목을 접었을 때(다른 항목을 열어서 닫힌 경우 포함): 다음 항목(또는 연 항목)이 화면 가운데 살짝 위에 오게 스크롤 (끝까지 가서 더 못 가면 거기까지)
+  const prevSectionRef = useRef<string | null>(activeSection);
+  useEffect(() => {
+    const prev = prevSectionRef.current;
+    prevSectionRef.current = activeSection;
+    if (!prev || prev === activeSection) return;
+    const headers = Array.from(document.querySelectorAll<HTMLElement>('[data-settings-section]'));
+    const prevIdx = headers.findIndex((h) => h.dataset.settingsSection === prev);
+    const target = activeSection
+      ? headers.find((h) => h.dataset.settingsSection === activeSection)
+      : headers[prevIdx + 1] || headers[prevIdx];
+    if (!target) return;
+    const t = window.setTimeout(() => {
+      // 스크롤되는 부모 찾기 (설정 창 안쪽)
+      let sc: HTMLElement | null = target.parentElement;
+      while (sc && !(sc.scrollHeight > sc.clientHeight + 2 && /(auto|scroll)/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+      const view = sc ? sc.getBoundingClientRect() : { top: 0, height: window.innerHeight } as DOMRect;
+      const r = target.getBoundingClientRect();
+      const rel = r.top - view.top;
+      const delta = rel - view.height * 0.38;
+      if (sc) sc.scrollBy({ top: delta, behavior: 'smooth' }); else window.scrollBy({ top: delta, behavior: 'smooth' });
+    }, 320); // 접히는 애니메이션(0.28초) 뒤
+    return () => window.clearTimeout(t);
+  }, [activeSection]);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getThemeMode());
@@ -337,6 +361,7 @@ export function SettingsView({
             <button
               type="button"
               onClick={() => setActiveSection(activeSection === 'viewPrefs' ? null : 'viewPrefs')}
+              data-settings-section="viewPrefs"
               className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -366,6 +391,7 @@ export function SettingsView({
             <button
               type="button"
               onClick={() => setActiveSection(activeSection === 'recommend' ? null : 'recommend')}
+              data-settings-section="recommend"
               className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -395,6 +421,7 @@ export function SettingsView({
             <button 
               type="button"
               onClick={() => setActiveSection(activeSection === 'notification' ? null : 'notification')}
+              data-settings-section="notification"
               className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -567,6 +594,7 @@ export function SettingsView({
             <button 
               type="button"
               onClick={() => setActiveSection(activeSection === 'theme' ? null : 'theme')}
+              data-settings-section="theme"
               className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -705,6 +733,7 @@ export function SettingsView({
             <button 
               type="button"
               onClick={() => setActiveSection(activeSection === 'share' ? null : 'share')}
+              data-settings-section="share"
               className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -900,6 +929,7 @@ export function SettingsView({
             <button 
               type="button"
               onClick={() => setActiveSection(activeSection === 'channels' ? null : 'channels')}
+              data-settings-section="channels"
               className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -984,6 +1014,7 @@ export function SettingsView({
             <button 
               type="button"
               onClick={() => setActiveSection(activeSection === 'disclaimer' ? null : 'disclaimer')}
+              data-settings-section="disclaimer"
               className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -1020,6 +1051,7 @@ export function SettingsView({
             <button 
               type="button"
               onClick={() => setActiveSection(activeSection === 'preface' ? null : 'preface')}
+              data-settings-section="preface"
               className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -1052,6 +1084,7 @@ export function SettingsView({
             <button
               type="button"
               onClick={() => setActiveSection(activeSection === 'fontLicense' ? null : 'fontLicense')}
+              data-settings-section="fontLicense"
               className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -1201,7 +1234,7 @@ export function SettingsView({
                 <div className="text-zinc-600 dark:text-zinc-300 leading-relaxed text-sm whitespace-pre-wrap py-2 select-text">
                   브라우저에 저장된 캐시 데이터(Cache Storage, Session Storage, 서비스 워커 및 PWA 캐시)를 완전히 정리하고 최신 상태로 새로고침해요.
                   {'\n\n'}
-                  ※ 기존에 설정하신 다크/라이트 화면 테마는 보존되며, 방송 통계 및 공지 데이터가 최신 서버 상태로 새로 동기화돼요. 계속 진행하시겠어요?
+                  ※ 기존에 설정하신 다크/라이트 화면 테마는 보존되며, 방송 통계 및 공지 데이터가 최신 서버 상태로 새로 동기화돼요. 계속 진행할까요?
                 </div>
               </div>
 

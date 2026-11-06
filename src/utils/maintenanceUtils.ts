@@ -159,7 +159,7 @@ export function generateMaintenanceNoticeMarkdown(options: {
     endStr, 
     scope = '사이트 전체', 
     impact = '점검 시간 동안 **서비스에 접속 불가해요.**',
-    noticeGuide = '점검 완료 및 변경사항 발생 시 본 공지에 업데이트하겠어요.',
+    noticeGuide = '점검 완료 및 변경사항 발생 시 본 공지에 업데이트할 거예요.',
     durationNote = '(상황에 따라 변동/연장될 수 있어요)',
     status = '점검 진행 중', 
     note = '없음', 
