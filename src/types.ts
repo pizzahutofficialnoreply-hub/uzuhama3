@@ -214,6 +214,8 @@ export interface SystemConfig {
     startTime: string;
     endTime: string;
     autoApply: boolean;
+    /** 점검 시간에 주간 자동 점검(전체 테스트·피드백 총정리) 돌리기 — 기본 켬 */
+    autoTests?: boolean;
     /** 격주 등 반복 기준이 되는 날짜 (이 날짜가 속한 주부터 셈) */
     anchorDate?: string;
   };

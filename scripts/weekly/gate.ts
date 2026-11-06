@@ -1,6 +1,7 @@
 /**
  * 주간 점검: 지금 돌릴 차례인지
- * - 정기 점검(관리자 › 시스템 › 점검 › 정기 점검 자동 켜기) 시간 안이면 돌림
+ * - 관리자 › 시스템 › 점검 의 정기 점검 요일·시간(또는 직접 넣은 점검 일정) 안이면 돌림
+ * - 같은 곳의 '점검 시간에 자동 점검·테스트 돌리기' 를 끄면 안 돌림
  * - 이번 점검 회차에 이미 보고서가 있으면 건너뜀
  * - 수동 실행(FORCE=1)은 항상
  * 결과: GITHUB_OUTPUT 에 run=true|false, window=시작~끝
@@ -41,8 +42,10 @@ async function main() {
   const already = start > 0 && last >= start;
   // 점검 시간 안 (또는 GitHub 예약이 늦게 와서 끝난 뒤 3시간 안)
   const inWindow = st.isInProgress || (start > 0 && now >= start && now < end + 3 * 3600000);
-  const run = force || (inWindow && !already);
-  console.log(JSON.stringify({ force, inWindow, already, isInProgress: st.isInProgress, lastReport: last ? new Date(last).toISOString() : null }));
+  // 관리자 › 시스템 › 점검 › '점검 시간에 자동 점검·테스트 돌리기' 를 끄면 안 돌림
+  const enabled = system?.recurringMaintenance?.autoTests !== false;
+  const run = force || (enabled && inWindow && !already);
+  console.log(JSON.stringify({ force, enabled, inWindow, already, isInProgress: st.isInProgress, lastReport: last ? new Date(last).toISOString() : null }));
   out('run', run ? 'true' : 'false');
 }
 main().catch((e) => { console.error(e); out('run', process.env.FORCE === '1' ? 'true' : 'false'); });

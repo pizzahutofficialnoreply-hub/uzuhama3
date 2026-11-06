@@ -390,6 +390,21 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               />
               매 회차 자동으로 점검 켜기 (버튼을 누르지 않아도 그 시간에 점검 화면, 당일 0시부터 예고)
             </label>
+            <label className="flex items-center gap-2 font-bold text-zinc-700 dark:text-zinc-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={(recurring as any).autoTests !== false}
+                onChange={e => handleChange('recurringMaintenance', { ...recurring, autoTests: e.target.checked })}
+              />
+              점검 시간에 자동 점검·테스트 돌리기
+            </label>
+            <details className="pl-6">
+              <summary className="cursor-pointer text-[11px]">무엇을 하나요?</summary>
+              <p className="mt-1 text-[11px] leading-relaxed break-keep">
+                위 요일·시간(점검 중)에 한 번: 타입 검사 · 로직 테스트 · 빌드 · 보안 취약점 · e2e · 실제 사이트 화면(휴대폰·PC, 밝게·어둡게) · 개발자 콘솔 · UI/UX(가로 넘침·깨진 이미지·작은 버튼·로딩 속도) · API(Vercel) · DB 데이터·보안 규칙 · 관리자 API 잠금 · 지난 7일 피드백 AI 총정리 · 방문자 화면 오류.
+                점검 화면이 켜져 있어도 자동 점검은 실제 화면을 시험해요. 결과는 <b>시스템 › 자동화 › 주간 점검 보고서</b>, 고칠 게 있으면 GitHub 이슈 '주간 점검'에도 남아요. 요일·시간을 바꾸면 다음 회차부터 그 시간에 돌아요 (저장 필요, 시작 후 1시간 안쪽으로 시작).
+              </p>
+            </details>
             {(() => {
               const w = recurring.enabled ? recurringMaintenanceWindow(recurring as any, Date.now()) : null;
               return w

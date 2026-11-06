@@ -131,7 +131,7 @@ export function WeeklyReportCard() {
         <button type="button" onClick={load} className="text-zinc-400 cursor-pointer" aria-label="새로 고침"><RotateCcw className="w-3.5 h-3.5" /></button>
       </div>
       <p className="text-[11px] text-zinc-500 leading-relaxed break-keep">
-        정기 점검 시간마다 자동으로 타입 검사·로직 테스트·빌드·보안 취약점·e2e·실제 사이트 화면(휴대폰·PC, 밝게·어둡게)·개발자 콘솔·UI/UX·API·DB·보안을 돌리고, 지난 7일 피드백을 AI로 총정리해요. 고칠 게 있으면 GitHub 이슈 '주간 점검'에도 남겨서 정기 버그 수정 때 고쳐요.
+        시스템 › 점검 탭에서 정한 요일·시간(점검 중)마다 자동으로 타입 검사·로직 테스트·빌드·보안 취약점·e2e·실제 사이트 화면(휴대폰·PC, 밝게·어둡게)·개발자 콘솔·UI/UX·API·DB·보안을 돌리고, 지난 7일 피드백을 AI로 총정리해요. 고칠 게 있으면 GitHub 이슈 '주간 점검'에도 남겨서 정기 버그 수정 때 고쳐요.
       </p>
       <RulesRow />
       {reports === null && <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />}
