@@ -28,6 +28,10 @@ type Note = {
   content: string;
   highlights: string[];
   author: string;
+  /** 카드 이미지 (노션 페이지 표지 또는 파일 속성) */
+  cover?: string;
+  /** 노션 '종류' 원래 이름 (예: 대규모 업데이트) */
+  kind?: string;
   source?: 'firestore' | 'notion';
   updatedAt?: string;
 };
@@ -94,32 +98,57 @@ function blockToMarkdown(b: any, indent = ''): string {
   }
 }
 
+const CONTAINER_TYPES = ['bulleted_list_item', 'numbered_list_item', 'to_do', 'toggle', 'callout', 'quote', 'column_list', 'column', 'synced_block', 'paragraph'];
+const LIST_LINE = /^\s*(-|\d+\.)\s/;
+
 async function pageMarkdown(pageId: string, token: string): Promise<string> {
-  const lines: string[] = [];
-  let cursor: string | undefined;
-  let guard = 0;
-  do {
-    const res = await notionFetch(`blocks/${pageId}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, token);
-    for (const b of res.results || []) {
-      lines.push(blockToMarkdown(b));
-      // 목록·토글의 하위 항목 한 단계까지
-      if (b.has_children && ['bulleted_list_item', 'numbered_list_item', 'to_do', 'toggle'].includes(b.type)) {
-        try {
-          const kids = await notionFetch(`blocks/${b.id}/children?page_size=100`, token);
-          (kids.results || []).forEach((k: any) => lines.push(blockToMarkdown(k, '  ')));
-        } catch {}
+  let calls = 0;
+  const walk = async (blockId: string, indent: string, depth: number): Promise<string[]> => {
+    const lines: string[] = [];
+    let cursor: string | undefined;
+    let guard = 0;
+    let num = 0;
+    do {
+      if (++calls > 40) break; // 너무 긴 페이지 보호
+      const res = await notionFetch(`blocks/${blockId}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, token);
+      for (const b of res.results || []) {
+        num = b.type === 'numbered_list_item' ? num + 1 : 0;
+        let line = blockToMarkdown(b, indent);
+        if (b.type === 'numbered_list_item') line = line.replace(/^(\s*)1\./, `$1${num}.`);
+        // 열(column)·동기화 블록은 자기 줄 없이 안쪽만
+        if (!['column_list', 'column', 'synced_block'].includes(b.type)) lines.push(line);
+        if (b.has_children && depth < 3 && CONTAINER_TYPES.includes(b.type)) {
+          const isList = ['bulleted_list_item', 'numbered_list_item', 'to_do', 'toggle'].includes(b.type);
+          try { lines.push(...(await walk(b.id, isList ? indent + '  ' : indent, depth + 1))); } catch {}
+        }
       }
-    }
-    cursor = res.has_more ? res.next_cursor : undefined;
-  } while (cursor && ++guard < 5);
+      cursor = res.has_more ? res.next_cursor : undefined;
+    } while (cursor && ++guard < 5);
+    return lines;
+  };
+  const lines = await walk(pageId, '', 0);
   // 목록끼리는 붙이고 나머지 블록 사이엔 빈 줄
   return lines
     .filter((l) => l !== '')
     .reduce((acc, line, i, arr) => {
-      const isList = /^\s*(-|1\.)\s/.test(line);
-      const prevList = i > 0 && /^\s*(-|1\.)\s/.test(arr[i - 1]);
+      const isList = LIST_LINE.test(line);
+      const prevList = i > 0 && LIST_LINE.test(arr[i - 1]);
       return acc + (i === 0 ? '' : isList && prevList ? '\n' : '\n\n') + line;
     }, '');
+}
+
+/** 노션 페이지 표지 → 없으면 파일 속성의 첫 이미지 */
+function coverOf(page: any): string {
+  const fileUrl = (f: any) => (f?.type === 'external' ? f.external?.url : f?.file?.url) || '';
+  const c = fileUrl(page.cover);
+  if (c) return c;
+  for (const p of Object.values(page.properties || {}) as any[]) {
+    if (p?.type === 'files' && p.files?.length) {
+      const u = fileUrl(p.files[0]);
+      if (u) return u;
+    }
+  }
+  return '';
 }
 
 function findProp(props: Record<string, any>, types: string[], names: RegExp) {
@@ -233,7 +262,10 @@ async function loadNotionNotes(db: any): Promise<{ notes: Note[]; error?: string
       // 본문은 마지막 수정 시각이 바뀐 페이지만 다시 읽음 (Firestore 캐시)
       const cacheRef = db.collection('notion_cache').doc(page.id);
       const cache = (await cacheRef.get()).data();
-      let content = cache?.lastEdited === page.last_edited_time ? cache?.markdown || '' : null;
+      // 노션에 올린 이미지 주소는 1시간 뒤 만료 → 이미지가 있는 본문은 50분마다 새로 읽음
+      const hasNotionFiles = /amazonaws\.com|notion-static|prod-files/.test(cache?.markdown || '');
+      const stale = hasNotionFiles && Date.now() - Date.parse(cache?.updatedAt || '0') > 50 * 60 * 1000;
+      let content = cache?.lastEdited === page.last_edited_time && !stale ? cache?.markdown || '' : null;
       if (content === null) {
         if (fetched >= MAX_BLOCK_FETCH_PER_REQUEST) {
           content = cache?.markdown || '';
@@ -253,6 +285,8 @@ async function loadNotionNotes(db: any): Promise<{ notes: Note[]; error?: string
         content: content || '',
         highlights,
         author,
+        cover: coverOf(page) || undefined,
+        kind: kinds[0] || undefined,
         source: 'notion',
         updatedAt: page.last_edited_time,
       });

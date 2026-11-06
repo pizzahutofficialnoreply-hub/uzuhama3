@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { usePatchNotes } from '../hooks/usePatchNotes';
 import { useAuth } from '../hooks/useAuth';
 import { PatchCategory, PatchNote } from '../types';
@@ -44,6 +45,65 @@ const CATEGORY_MAP: Record<PatchCategory | 'all', { label: string; color: string
     border: 'border-emerald-200 dark:border-emerald-800/60'
   }
 };
+
+// 노션처럼 읽히는 본문: 문단 사이 여백, 목록 점, 제목 크기, 구분선, 이미지 (typography 플러그인 없이 직접)
+const PATCH_PROSE = [
+  'text-[15px] leading-[1.8] tracking-[-0.01em] text-zinc-800 dark:text-zinc-200 break-keep select-text',
+  '[&>*:first-child]:mt-0',
+  '[&_h1]:text-2xl [&_h1]:font-black [&_h1]:text-zinc-900 dark:[&_h1]:text-white [&_h1]:mt-10 [&_h1]:mb-3 [&_h1]:leading-snug',
+  '[&_h2]:text-[22px] [&_h2]:font-black [&_h2]:text-zinc-900 dark:[&_h2]:text-white [&_h2]:mt-10 [&_h2]:mb-3 [&_h2]:leading-snug',
+  '[&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-zinc-900 dark:[&_h3]:text-white [&_h3]:mt-7 [&_h3]:mb-2',
+  '[&_h4]:text-base [&_h4]:font-bold [&_h4]:mt-5 [&_h4]:mb-1.5',
+  '[&_p]:my-3 [&_strong]:font-bold [&_strong]:text-zinc-900 dark:[&_strong]:text-white [&_em]:italic [&_del]:opacity-60',
+  '[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_ul]:my-3 [&_ol]:my-3 [&_li]:my-1.5 [&_li]:pl-0.5 [&_li>ul]:my-1 [&_li>ol]:my-1 [&_li]:marker:text-zinc-400',
+  '[&_a]:text-purple-600 dark:[&_a]:text-purple-300 [&_a]:underline [&_a]:underline-offset-2 [&_a]:break-all',
+  '[&_blockquote]:my-4 [&_blockquote]:border-l-[3px] [&_blockquote]:border-zinc-300 dark:[&_blockquote]:border-zinc-600 [&_blockquote]:pl-4 [&_blockquote]:text-zinc-600 dark:[&_blockquote]:text-zinc-300',
+  '[&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-zinc-100 dark:[&_code]:bg-white/10 [&_code]:text-[13px] [&_code]:text-rose-600 dark:[&_code]:text-rose-300',
+  '[&_pre]:my-4 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:bg-zinc-100 dark:[&_pre]:bg-white/[0.06] [&_pre]:overflow-x-auto [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit',
+  '[&_hr]:my-8 [&_hr]:border-zinc-200 dark:[&_hr]:border-white/10',
+  '[&_img]:my-4 [&_img]:rounded-xl [&_img]:w-full [&_img]:h-auto',
+  '[&_table]:my-4 [&_table]:w-full [&_table]:text-sm [&_th]:border [&_td]:border [&_th]:border-zinc-200 [&_td]:border-zinc-200 dark:[&_th]:border-white/10 dark:[&_td]:border-white/10 [&_th]:px-2 [&_td]:px-2 [&_th]:py-1.5 [&_td]:py-1.5 [&_th]:bg-zinc-50 dark:[&_th]:bg-white/5',
+].join(' ');
+
+const SECTION_ORDER: PatchCategory[] = ['update', 'patch', 'hotfix', 'dev'];
+const SECTION_LABEL: Record<PatchCategory, string> = { update: '업데이트', patch: '패치노트', hotfix: '핫픽스', dev: '개발자 노트' };
+
+/** 노션 갤러리처럼: 표지 이미지 + 종류·제목·날짜 */
+function NoteCard({ note, highlight, onOpen }: { note: PatchNote; highlight: boolean; onOpen: () => void }) {
+  const cat = CATEGORY_MAP[note.category] || CATEGORY_MAP.patch;
+  const [imgOk, setImgOk] = useState(true);
+  return (
+    <button
+      type="button"
+      id={`patch-card-${note.version}`}
+      onClick={onOpen}
+      className={cn(
+        'group text-left rounded-2xl overflow-hidden border bg-white dark:bg-zinc-900 transition-all duration-200 cursor-pointer hover:shadow-lg hover:-translate-y-0.5 flex flex-col',
+        highlight ? 'border-purple-500 ring-2 ring-purple-500/20' : 'border-zinc-200/90 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-700'
+      )}
+    >
+      <div className={cn('relative aspect-[16/10] w-full overflow-hidden', cat.bg)}>
+        {note.cover && imgOk ? (
+          <img src={note.cover} alt="" loading="lazy" onError={() => setImgOk(false)} className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" />
+        ) : (
+          <div className={cn('absolute inset-0 flex items-center justify-center font-black text-2xl sm:text-3xl opacity-70', cat.color)}>
+            {note.version && note.version !== '0.0.0' ? `v${note.version}` : cat.label}
+          </div>
+        )}
+      </div>
+      <div className="p-3 sm:p-3.5 flex-1 flex flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-1">
+          <span className={cn('px-1.5 py-0.5 rounded-md font-bold text-[10px]', cat.bg, cat.color)}>{note.kind || cat.label}</span>
+          {note.version && note.version !== '0.0.0' && (
+            <span className="px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono font-bold text-[10px]">v{note.version}</span>
+          )}
+        </div>
+        <h3 className="text-[13px] sm:text-sm font-bold text-zinc-900 dark:text-white leading-snug line-clamp-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{note.title}</h3>
+        <p className="mt-auto text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">{note.date}</p>
+      </div>
+    </button>
+  );
+}
 
 export function PatchNotesPage() {
   const { version: paramVersion } = useParams<{ version?: string }>();
@@ -184,7 +244,7 @@ export function PatchNotesPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.2 }}
-              className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-sm"
+              className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-8 space-y-6 shadow-sm"
             >
               <div>
                 <button
@@ -197,6 +257,10 @@ export function PatchNotesPage() {
                 </button>
               </div>
 
+              {activeNote.cover && (
+                <img src={activeNote.cover} alt="" className="w-full max-h-80 object-cover rounded-2xl -mt-2" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+              )}
+
               {/* 블로그 헤더 섹션 */}
               <div className="space-y-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -205,7 +269,7 @@ export function PatchNotesPage() {
                     CATEGORY_MAP[activeNote.category]?.bg || 'bg-zinc-100 dark:bg-zinc-800',
                     CATEGORY_MAP[activeNote.category]?.color || 'text-zinc-700 dark:text-zinc-300'
                   )}>
-                    {CATEGORY_MAP[activeNote.category]?.label || activeNote.category}
+                    {activeNote.kind || CATEGORY_MAP[activeNote.category]?.label || activeNote.category}
                   </span>
 
                   <span className="px-2.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-mono font-bold text-[11px]">
@@ -242,8 +306,8 @@ export function PatchNotesPage() {
               </div>
 
               {/* 블로그 본문 (Markdown Content) */}
-              <div className="prose prose-zinc dark:prose-invert max-w-none text-zinc-800 dark:text-zinc-200 leading-relaxed text-sm sm:text-base prose-headings:font-bold prose-headings:text-zinc-900 dark:prose-headings:text-white prose-h2:text-xl sm:prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-lg sm:prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-p:my-3 prose-ul:my-3 prose-li:my-1 prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800 prose-code:text-purple-600 dark:prose-code:text-purple-400 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-xs sm:prose-code:text-sm prose-pre:bg-zinc-900 dark:prose-pre:bg-zinc-950 prose-pre:border prose-pre:border-zinc-800 prose-pre:rounded-xl">
-                <Markdown>{activeNote.content || '등록된 상세 내용이 없어요.'}</Markdown>
+              <div className={PATCH_PROSE}>
+                <Markdown remarkPlugins={[remarkGfm]} components={{ img: ({ node: _n, ...p }) => <img {...p} loading="lazy" alt={p.alt === '이미지' ? '' : p.alt} />, a: ({ node: _n, ...p }) => <a {...p} target="_blank" rel="noopener noreferrer" /> }}>{activeNote.content || '등록된 상세 내용이 없어요.'}</Markdown>
               </div>
 
               <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
@@ -334,82 +398,37 @@ export function PatchNotesPage() {
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4">
-                  {filteredNotes.map(note => {
-                    const catInfo = CATEGORY_MAP[note.category] || CATEGORY_MAP.patch;
-                    const isTargetHighlight = targetVersion === note.version;
-
-                    return (
-                      <div
-                        key={note.id}
-                        id={`patch-card-${note.version}`}
-                        onClick={() => handleOpenBlog(note)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            handleOpenBlog(note);
-                          }
-                        }}
-                        className={cn(
-                          "group p-5 sm:p-6 rounded-2xl border transition-all duration-200 cursor-pointer text-left",
-                          "bg-white dark:bg-zinc-900 hover:shadow-lg hover:-translate-y-0.5",
-                          isTargetHighlight
-                            ? "border-purple-500 dark:border-purple-400 ring-2 ring-purple-500/20 shadow-xs"
-                            : "border-zinc-200/90 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-700"
-                        )}
-                      >
-                        <div className="space-y-3">
-                          {/* 메타 배지 라인 (아이콘 제외, 깔끔한 태그와 텍스트) */}
-                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                            <div className="flex items-center gap-2">
-                              <span className={cn(
-                                "px-2.5 py-0.5 rounded-md font-semibold text-[11px]",
-                                catInfo.bg,
-                                catInfo.color
-                              )}>
-                                {catInfo.label}
-                              </span>
-
-                              <span className="px-2.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-mono font-bold text-[11px]">
-                                v{note.version}
-                              </span>
-
-                              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                                {note.date}
-                              </span>
-                            </div>
-
-                            <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">
-                              상세 보기
-                            </span>
+                selectedCategory === 'all' && !searchQuery.trim() ? (
+                  <div className="space-y-8">
+                    {SECTION_ORDER.map((cat) => {
+                      const list = filteredNotes.filter((n) => n.category === cat);
+                      if (!list.length) return null;
+                      return (
+                        <section key={cat} className="space-y-3">
+                          <div className="flex items-baseline justify-between">
+                            <h3 className="text-base sm:text-lg font-black text-zinc-900 dark:text-white">
+                              {SECTION_LABEL[cat]} <span className="text-xs font-bold text-zinc-400 ml-0.5">{list.length}</span>
+                            </h3>
+                            {list.length > 4 && (
+                              <button type="button" onClick={() => setSelectedCategory(cat)} className="text-xs font-bold text-purple-600 dark:text-purple-400 cursor-pointer">전체 보기</button>
+                            )}
                           </div>
-
-                          {/* 카드 제목 */}
-                          <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-snug group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                            {note.title}
-                          </h3>
-
-                          {/* 주요 요약 (미리보기) */}
-                          {note.highlights && note.highlights.length > 0 && (
-                            <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-800/80 space-y-1">
-                              <ul className="space-y-1 pl-4 list-disc text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                                {note.highlights.slice(0, 3).map((h, i) => (
-                                  <li key={i}>{h}</li>
-                                ))}
-                                {note.highlights.length > 3 && (
-                                  <li className="text-zinc-400 dark:text-zinc-500 list-none -ml-4 pl-0 text-[11px] font-medium">
-                                    외 {note.highlights.length - 3}개 항목 더보기...
-                                  </li>
-                                )}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {list.slice(0, 4).map((note) => (
+                              <NoteCard key={note.id} note={note} highlight={targetVersion === note.version} onOpen={() => handleOpenBlog(note)} />
+                            ))}
+                          </div>
+                        </section>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {filteredNotes.map((note) => (
+                      <NoteCard key={note.id} note={note} highlight={targetVersion === note.version} onOpen={() => handleOpenBlog(note)} />
+                    ))}
+                  </div>
+                )
               )}
             </motion.div>
           )}

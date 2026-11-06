@@ -327,6 +327,11 @@ export interface PatchNote {
   content: string; // Markdown or formatted text
   highlights?: string[];
   author?: string;
+  /** 카드 이미지 (노션 표지) */
+  cover?: string;
+  /** 노션 '종류' 원래 이름 (예: 대규모 업데이트) */
+  kind?: string;
+  source?: 'firestore' | 'notion';
   createdAt?: string;
   updatedAt?: string;
 }
