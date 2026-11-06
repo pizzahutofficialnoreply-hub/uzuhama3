@@ -340,6 +340,15 @@ export function FloatingBottomNav({
   const pillVelocity = useVelocity(pillX);
   const pillStretch = useTransform(pillVelocity, [-2400, 0, 2400], [1.07, 1, 1.07], { clamp: true });
   const pillSquash = useTransform(pillVelocity, [-2400, 0, 2400], [0.95, 1, 0.95], { clamp: true });
+  // 빠르게 튕겨도 회색 원이 탭바 밖으로 나가지 않게: 위치는 양 끝에서 멈추고,
+  // 늘어나는 정도도 남은 여백(가장자리까지 거리 + 안쪽 여백 3px)만큼만 허용
+  const pillDisplayX = useTransform(pillX, (v) => Math.min(slotWidth * 2, Math.max(0, v)));
+  const pillScaleX = useTransform([pillX, pillStretch] as any, ([x, st]: any) => {
+    if (!slotWidth) return 1;
+    const cx = Math.min(slotWidth * 2, Math.max(0, x));
+    const room = Math.min(cx, slotWidth * 2 - cx) + 3;
+    return Math.min(st, 1 + (2 * room) / slotWidth);
+  });
   const selectTab = (i: number) => {
     setVisualIndex(i);
     animate(pillX, i * slotWidth, PILL_SPRING);
@@ -453,7 +462,7 @@ export function FloatingBottomNav({
                     {/* 회색 원 인디케이터 (살짝 흐린 유리) — 끌기는 nav 전체에서 처리 */}
                     <motion.div
                       aria-hidden="true"
-                      style={{ x: pillX, width: slotWidth, scaleX: pillStretch, scaleY: pillSquash }}
+                      style={{ x: pillDisplayX, width: slotWidth, scaleX: pillScaleX, scaleY: pillSquash }}
                       className="absolute top-1 bottom-1 left-1 rounded-full z-10 pointer-events-none bg-zinc-200/75 dark:bg-white/[0.16] backdrop-blur-md border border-white/50 dark:border-white/10 shadow-[0_2px_10px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     />
 
