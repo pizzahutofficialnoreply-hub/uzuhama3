@@ -1,9 +1,0 @@
-name: probe
-on: workflow_dispatch
-jobs:
-  p:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          curl -s -A "facebookexternalhit/1.1" https://uzuhama.vercel.app/v/KLxfLhoHX_4 | head -c 1500; echo
-          curl -s -o /dev/null -w "privacy %{http_code}\n" https://uzuhama.vercel.app/privacy
