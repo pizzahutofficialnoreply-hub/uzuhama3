@@ -1,0 +1,12 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          K=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM; B="https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents"
+          echo READ; curl -s "$B/push_subscriptions?key=$K&pageSize=2" | python3 -c "import json,sys;d=json.load(sys.stdin);docs=d.get('documents',[]);print(len(docs), [sorted(x.get('fields',{}).keys()) for x in docs][:1], d.get('error',{}).get('status'))"
+          echo WRITE; curl -s -o /dev/null -w '%{http_code}\n' -X PATCH "$B/push_subscriptions/zz-weekly-probe?key=$K" -H 'Content-Type: application/json' -d '{"fields":{"probe":{"stringValue":"x"}}}'
+          echo DEL; curl -s -o /dev/null -w '%{http_code}\n' -X DELETE "$B/push_subscriptions/zz-weekly-probe?key=$K"
+          for c in ai_video ai_games youtube_cache notion_cache video_meta status_messages notification_state compilations users contributions; do echo "C $c $(curl -s -o /tmp/o -w '%{http_code}' "$B/$c?key=$K&pageSize=1") $(python3 -c "import json;print(len(json.load(open('/tmp/o')).get('documents',[])))")"; done
