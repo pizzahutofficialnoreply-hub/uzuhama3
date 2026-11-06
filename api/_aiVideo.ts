@@ -6,7 +6,7 @@
  *  - Gemini 가 유튜브 주소를 직접 봄 (영상을 내려받지 않음). 긴 영상은 10분씩 나눠서 (시간 초과면 그 영상은 더 잘게)
  *  - 무료 한도: 유튜브 영상은 하루 8시간까지 → 기본 7시간(AI_VIDEO_DAILY_SEC)까지만, 한도에 걸리면 다음 날까지 쉼
  *  - 영상을 다 보면: 전체 요약 + 나온 게임을 구글 검색으로 찾아 어떤 게임인지 정리 (다른 유튜버 플레이 반응 포함)
- *  - 모델: GEMINI_VIDEO_MODEL → gemini-flash-latest → gemini-2.5-flash (최신 Flash 계열)
+ *  - 모델: GEMINI_VIDEO_MODEL → gemini-3.8-flash → gemini-flash-latest (최신 Flash 계열, 2.5 는 새 사용자에게 막힘)
  *
  * 저장
  *  - ai_video/{videoId}: { title, kind, publishedAt, duration, status, seg, segTotal, segSec, summary, parts[], scenes[{t,d,k}], keywords, games, mood, kw[] }
@@ -23,8 +23,8 @@ const MIN_SEG_SEC = 3 * 60;
 const DAILY_SEC = Number(process.env.AI_VIDEO_DAILY_SEC || 7 * 3600);
 const DAILY_CALLS = Number(process.env.AI_VIDEO_DAILY_CALLS || 180);
 const QUEUE_TTL = 12 * 3600 * 1000;
-const MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash'].filter(Boolean) as string[];
-const TEXT_MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest'].filter(Boolean) as string[];
+const MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest'].filter(Boolean) as string[];
+const TEXT_MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean) as string[];
 
 type QItem = { id: string; title: string; publishedAt: string; kind?: 'video' | 'short' | 'live'; duration?: number; live?: string };
 export type Scene = { t: number; d: string; k: string[] };
@@ -268,7 +268,7 @@ export async function runAiVideoStep(db: any): Promise<any> {
 
     const ref = col.doc(item.id);
     const dur = Number(item.duration || 0);
-    const segSec = Number(cur?.segSec || SEG_SEC);
+    const segSec = Number(cur?.segSec || (item.kind === 'live' ? 5 * 60 : SEG_SEC)); // 생방송은 처음부터 5분씩
     const segTotal = item.kind === 'short' || !dur ? 1 : Math.max(1, Math.ceil(dur / segSec));
     const seg = Number(cur?.seg || 0);
 

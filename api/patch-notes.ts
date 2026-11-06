@@ -314,7 +314,7 @@ ${String(note.content || '').slice(0, 9000)}`;
   try {
     const { GoogleGenAI } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey });
-    for (const m of [process.env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest'].filter(Boolean) as string[]) {
+    for (const m of [process.env.GEMINI_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean) as string[]) {
       try {
         const r = await ai.models.generateContent({ model: m, contents: prompt, config: { responseMimeType: 'application/json', temperature: 0.2, httpOptions: { timeout: 20000 } } });
         const pts = (JSON.parse(r.text || '{}').points || []).map((x: any) => String(x || '').trim()).filter(Boolean).slice(0, 5);
