@@ -4,7 +4,7 @@ import { Flag, Loader2, RotateCcw, Sparkles, ThumbsDown, ThumbsUp } from 'lucide
 import { auth, db } from '../../../../lib/firebase';
 import { loadSearchTuning } from '../../../../hooks/useSearchTuning';
 import { SearchAddForm } from '../../../SearchAddForm';
-import { fmtTime } from '../../../../utils/aiSearch';
+import { aiSearch, fmtTime, type AiResult } from '../../../../utils/aiSearch';
 
 /**
  * 관리자 > 자동화: 검색 조정
@@ -171,6 +171,8 @@ function AiVideoPanel() {
   const [st, setSt] = useState<any>(null);
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState('');
+  const [tq, setTq] = useState('');
+  const [tr, setTr] = useState<AiResult[] | null>(null);
   const load = useCallback(async () => {
     try { const r = await mutate('aiVideo', { op: 'status' }); setSt(r); } catch (e: any) { setMsg('오류: ' + (e?.message || e)); }
   }, []);
@@ -213,6 +215,21 @@ function AiVideoPanel() {
         <button type="button" disabled={!!busy} onClick={() => act('refreshQueue')} className={`${btn} bg-zinc-100 dark:bg-zinc-800`}><RotateCcw className="w-3.5 h-3.5" /> 영상 목록 새로 받기</button>
       </div>
       {msg && <p className="text-xs font-bold text-purple-700 dark:text-purple-300 break-all">{msg}</p>}
+      {/* AI 검색 시험: 사이트 검색과 같은 결과 */}
+      <form className="flex gap-1.5" onSubmit={async (e) => { e.preventDefault(); if (!tq.trim()) return; setTr(null); setTr(await aiSearch(tq)); }}>
+        <input value={tq} onChange={(e) => setTq(e.target.value)} placeholder="AI 검색 시험 (예: 비명 지르는 장면)" className="flex-1 min-w-0 px-3 py-2 text-xs rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" />
+        <button type="submit" className={`${btn} bg-zinc-900 dark:bg-white text-white dark:text-zinc-900`}>찾기</button>
+      </form>
+      {tr && (tr.length === 0 ? <p className="text-[11px] text-zinc-500">아직 분석된 영상 중엔 없어요.</p> : (
+        <ul className="space-y-1.5 text-[11px] text-zinc-600 dark:text-zinc-300">
+          {tr.map((r) => (
+            <li key={r.id} className="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 p-2">
+              <a className="font-bold underline" href={`https://youtu.be/${r.id}`} target="_blank" rel="noreferrer">{r.title}</a> <span className="text-zinc-400">점수 {r.score.toFixed(1)}{r.partial ? ' · 분석 중' : ''}</span>
+              {r.scenes.map((s, i) => <p key={i}>· <a className="text-purple-600 font-bold" href={`https://youtu.be/${r.id}?t=${Math.max(0, s.t - 10)}`} target="_blank" rel="noreferrer">{fmtTime(s.t)}</a> {s.d}</p>)}
+            </li>
+          ))}
+        </ul>
+      ))}
     </div>
   );
 }

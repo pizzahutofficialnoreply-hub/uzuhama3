@@ -413,3 +413,16 @@ export async function aiSearch(db: any, q: string) {
     .slice(0, 8);
   return { tokens, results };
 }
+
+/** 시간이 허락하는 만큼 여러 구간 (점검·예약 실행 공통) */
+export async function runAiVideoLoop(db: any, budgetMs = 150000, opts: { kind?: string } = {}) {
+  const t0 = Date.now();
+  const steps: any[] = [];
+  while (steps.length < 12) {
+    const r = await runAiVideoStep(db, opts);
+    steps.push(r);
+    if (r?.error || r?.skipped || r?.done || r?.queue) break;
+    if (Date.now() - t0 > budgetMs) break;
+  }
+  return { steps, ms: Date.now() - t0 };
+}

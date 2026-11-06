@@ -5,7 +5,15 @@
       "includeFiles": "api/**",
       "maxDuration": 300
     },
-    "api/{admin,notifications}/*.ts": {
+    "api/notifications/tick.ts": {
+      "includeFiles": "api/**",
+      "maxDuration": 300
+    },
+    "api/admin/*.ts": {
+      "includeFiles": "api/**",
+      "maxDuration": 60
+    },
+    "api/notifications/{send,subscribe}.ts": {
       "includeFiles": "api/**",
       "maxDuration": 60
     },
