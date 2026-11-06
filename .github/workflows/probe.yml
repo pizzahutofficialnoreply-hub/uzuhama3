@@ -1,0 +1,11 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          U=https://uzuhama.vercel.app/api/videos/search-index
+          sleep 30
+          for i in 1 2 3; do echo RUN$i; curl -s -w ' [%{time_total}s %{http_code}]' --max-time 300 "$U?ai=run"; echo; done
+          echo STATUS; curl -s "$U?ai=status"; echo
