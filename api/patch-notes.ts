@@ -7,13 +7,16 @@ import { setCorsHeaders } from './_cors.js';
  *
  * Notion 연동 (환경 변수 2개, 없으면 Notion 부분만 건너뜀)
  *   NOTION_TOKEN            Notion 내부 통합(Internal integration) 토큰
- *   NOTION_PATCH_NOTES_DB   패치노트 데이터베이스 ID (데이터베이스를 통합에 "연결" 해야 읽힘)
+ *   NOTION_PATCH_NOTES_DB   데이터베이스 ID 또는 그 데이터베이스들이 들어 있는 상위 페이지 ID (쉼표로 여러 개 가능)
+ *                           상위 페이지면 그 안의 '패치·업데이트·개발자' 이름이 들어간 데이터베이스를 모두 읽음
+ *                           (페이지/데이터베이스를 통합에 "연결" 해야 읽힘)
  * 데이터베이스 속성 (이름은 아래 중 하나면 자동 인식)
- *   제목(필수, 제목 속성) / 버전 / 분류(선택: 패치노트·핫픽스·업데이트·개발자 노트) / 날짜 / 하이라이트 / 작성자 / 공개(체크박스, 끄면 숨김)
+ *   제목 속성(필수: 이름이 '버전'이고 v1.2.0 처럼 쓰면 버전으로 사용) / 버전·Ver. / 분류·종류 / 날짜·릴리즈 날짜 / 하이라이트 / 작성자 / 공개(체크박스, 끄면 숨김)
+ *   종류: 버그 수정·보안·핫픽스 → 핫픽스, 마이너·소규모·일반 → 패치, 대규모·정식·베타 업데이트·런칭·이벤트 → 업데이트, '개발자 노트' 데이터베이스 → 개발자 노트
  *   본문: 페이지 내용 (제목·목록·인용·코드·구분선 등) → 마크다운으로 변환
  */
 
-const NOTION_VERSION = '2022-06-28';
+const NOTION_VERSION = '2025-09-03'; // 데이터 소스 API (한 데이터베이스에 여러 소스가 있어도 읽힘)
 const MAX_BLOCK_FETCH_PER_REQUEST = 12;
 
 type Note = {
@@ -138,40 +141,91 @@ function propText(p: any): string {
   }
 }
 
-function mapCategory(raw: string): Note['category'] {
+function mapCategory(raw: string, dbName = ''): Note['category'] {
+  if (/개발자|dev\s*note/i.test(dbName)) return 'dev';
   const s = raw.toLowerCase();
-  if (/핫픽스|hotfix/.test(s)) return 'hotfix';
-  if (/업데이트|update/.test(s)) return 'update';
+  if (/핫픽스|hotfix|버그|bug|보안|security|긴급/.test(s)) return 'hotfix';
+  if (/마이너|소규모|minor|일반|패치|patch/.test(s)) return 'patch';
+  if (/업데이트|update|런칭|launch|이벤트|event/.test(s)) return 'update';
   if (/개발|dev/.test(s)) return 'dev';
+  if (/업데이트|update/.test(dbName.toLowerCase())) return 'update';
   return 'patch';
+}
+
+const VERSION_RE = /^v?\s*(\d+(?:\.\d+){1,3})\b/i;
+const cleanId = (x: string) => {
+  const m = x.replace(/-/g, '').match(/[0-9a-f]{32}/i);
+  return m ? m[0] : '';
+};
+
+/** 데이터베이스 ID → [{ 데이터 소스 ID, 이름 }] */
+async function dataSourcesOf(dbId: string, token: string): Promise<{ id: string; name: string }[]> {
+  const d = await notionFetch(`databases/${dbId}`, token);
+  const dbTitle = richText(d.title).replace(/\*\*/g, '');
+  return (d.data_sources || []).map((x: any) => ({ id: x.id, name: `${dbTitle} ${x.name || ''}`.trim() }));
+}
+
+/** 설정한 ID 들(데이터베이스 또는 상위 페이지) → 읽을 데이터 소스 목록 */
+async function resolveSources(ids: string[], token: string) {
+  const out: { id: string; name: string }[] = [];
+  for (const id of ids) {
+    try {
+      out.push(...(await dataSourcesOf(id, token)));
+      continue;
+    } catch { /* 데이터베이스가 아니면 페이지로 보고 안의 데이터베이스를 찾음 */ }
+    const kids = await notionFetch(`blocks/${id}/children?page_size=100`, token);
+    for (const b of kids.results || []) {
+      if (b.type !== 'child_database') continue;
+      if (!/패치|업데이트|개발자|patch|update|release|릴리즈/i.test(b.child_database?.title || '')) continue;
+      try { out.push(...(await dataSourcesOf(b.id, token))); } catch { /* 연결 안 된 데이터베이스는 건너뜀 */ }
+    }
+  }
+  return out;
 }
 
 async function loadNotionNotes(db: any): Promise<{ notes: Note[]; error?: string; enabled: boolean }> {
   const token = process.env.NOTION_TOKEN;
-  const dbId = process.env.NOTION_PATCH_NOTES_DB;
-  if (!token || !dbId) return { notes: [], enabled: false };
+  const ids = String(process.env.NOTION_PATCH_NOTES_DB || '').split(/[\s,]+/).map(cleanId).filter(Boolean);
+  if (!token || !ids.length) return { notes: [], enabled: false };
   try {
-    const pages: any[] = [];
-    let cursor: string | undefined;
-    let guard = 0;
-    do {
-      const res = await notionFetch(`databases/${dbId}/query`, token, { page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) });
-      pages.push(...(res.results || []));
-      cursor = res.has_more ? res.next_cursor : undefined;
-    } while (cursor && ++guard < 5);
+    const sources = await resolveSources(ids, token);
+    if (!sources.length) throw new Error('읽을 수 있는 데이터베이스가 없어요 (통합 연결을 확인하세요)');
+    const pages: { page: any; src: string }[] = [];
+    for (const src of sources) {
+      let cursor: string | undefined;
+      let guard = 0;
+      do {
+        const res = await notionFetch(`data_sources/${src.id}/query`, token, { page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) });
+        (res.results || []).forEach((page: any) => pages.push({ page, src: src.name }));
+        cursor = res.has_more ? res.next_cursor : undefined;
+      } while (cursor && ++guard < 5);
+    }
 
     const notes: Note[] = [];
     let fetched = 0;
-    for (const page of pages) {
-      if (page.archived || page.in_trash) continue;
+    for (const { page, src } of pages) {
+      if (page.object !== 'page' || page.archived || page.in_trash) continue;
       const props = page.properties || {};
       const publish = findProp(props, ['checkbox'], /공개|게시|publish|visible/i);
       if (publish && publish.checkbox === false) continue;
-      const title = propText(Object.values(props).find((p: any) => p?.type === 'title'));
-      if (!title) continue;
-      const version = propText(findProp(props, ['rich_text', 'number', 'select'], /버전|version|ver/i)).replace(/^v/i, '');
-      const category = mapCategory(propText(findProp(props, ['select', 'status', 'multi_select'], /분류|카테고리|category|type|유형|종류/i)));
-      const date = (propText(findProp(props, ['date'], /날짜|date|배포|게시일/i)) || page.created_time || '').slice(0, 10);
+      const titleEntry = Object.entries(props).find(([, p]: [string, any]) => p?.type === 'title') as [string, any] | undefined;
+      const titleText = propText(titleEntry?.[1]).trim();
+      if (!titleText) continue;
+      const kindRaw = propText(findProp(props, ['select', 'status', 'multi_select'], /분류|카테고리|category|type|유형|종류/i));
+      const kinds = kindRaw.split(', ').filter(Boolean);
+      const category = mapCategory(kinds[0] || '', src);
+      // 버전: 버전 속성 → 제목이 'v1.2.0' 꼴이면 제목에서
+      let version = propText(findProp(props, ['rich_text', 'number', 'select', 'multi_select'], /버전|version|^ver/i)).split(', ')[0].trim();
+      const titleVer = titleText.match(VERSION_RE);
+      if (!version && titleVer) version = titleVer[1];
+      version = version.replace(/^v\s*/i, '');
+      // 제목이 버전뿐이면 종류(예: 대규모 업데이트)를 제목으로
+      const titleIsVersionOnly = !!titleVer && titleText.replace(VERSION_RE, '').trim().replace(/^[-–—:·|]\s*/, '') === '';
+      const titleRest = titleVer ? titleText.replace(VERSION_RE, '').trim().replace(/^[-–—:·|]\s*/, '') : titleText;
+      const title = titleIsVersionOnly
+        ? (kinds[0] || (category === 'dev' ? '개발자 노트' : category === 'hotfix' ? '핫픽스' : category === 'update' ? '업데이트' : '패치노트'))
+        : titleRest || titleText;
+      const date = (propText(findProp(props, ['date'], /날짜|date|배포|게시일|릴리즈|release/i)) || page.created_time || '').slice(0, 10);
       const highlightsRaw = propText(findProp(props, ['rich_text', 'multi_select'], /하이라이트|요약|highlight|주요/i));
       const highlights = highlightsRaw.split(/\n|,|·/).map((x) => x.trim()).filter(Boolean).slice(0, 8);
       const author = propText(findProp(props, ['rich_text', 'people', 'select'], /작성자|author|글쓴이/i)) || '운영진';
