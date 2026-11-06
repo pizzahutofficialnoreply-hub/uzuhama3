@@ -405,3 +405,20 @@ export async function aiSearch(db: any, q: string) {
     .slice(0, 8);
   return { tokens, results };
 }
+
+/** 진단: 모델·유튜브 주소 읽기가 되는지 짧게 시험 */
+export async function aiDiag(id: string, model: string, variant: string) {
+  const { GoogleGenAI } = await import('@google/genai');
+  const ai = new GoogleGenAI({ apiKey: aiKey() });
+  const t0 = Date.now();
+  try {
+    const parts: any[] = variant === 'text' ? [{ text: '안녕이라고만 답해' }] : [
+      { fileData: { fileUri: `https://www.youtube.com/watch?v=${id}`, ...(variant === 'mime' ? { mimeType: 'video/*' } : {}) } },
+      { text: '이 영상을 한 문장으로 요약해 줘' },
+    ];
+    const r = await ai.models.generateContent({ model, contents: [{ role: 'user', parts }], config: { httpOptions: { timeout: 100000 }, ...(variant === 'low' ? { mediaResolution: 'MEDIA_RESOLUTION_LOW' as any } : {}) } });
+    return { ok: true, ms: Date.now() - t0, text: (r.text || '').slice(0, 200), usage: r.usageMetadata };
+  } catch (e: any) {
+    return { ok: false, ms: Date.now() - t0, error: String(e?.message || e).slice(0, 300) };
+  }
+}

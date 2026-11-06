@@ -5,9 +5,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          U=https://uzuhama.vercel.app/api/videos/search-index
+          U="https://uzuhama.vercel.app/api/videos/search-index?ai=diag"
           sleep 20
-          echo RUN1; curl -s -w ' [%{time_total}s]' --max-time 300 "$U?ai=run&kind=short"; echo
-          echo RUN2; curl -s -w ' [%{time_total}s]' --max-time 300 "$U?ai=run&kind=video"; echo
-          echo STATUS; curl -s "$U?ai=status"; echo
-          echo SEARCH; curl -s "$U?ai=search&q=%EA%B3%B5%ED%8F%AC"; echo
+          for q in "v=text" "v=plain" "v=mime" "v=low" "v=plain&model=gemini-flash-latest" "v=plain&model=gemini-flash-lite-latest" "v=plain&id=maumXxWfOIc"; do echo "D $q"; curl -s --max-time 130 "$U&$q"; echo; done

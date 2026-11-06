@@ -174,6 +174,10 @@ export default async function handler(req: any, res: any) {
         res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
         return res.status(200).json(out);
       }
+      if (aiMode === 'diag') {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json(await ai.aiDiag(String(req.query?.id || 'jNQXAC9IVRw'), String(req.query?.model || 'gemini-3.8-flash'), String(req.query?.v || 'plain')));
+      }
       if (aiMode === 'status') {
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(await ai.aiVideoStatus(db));
