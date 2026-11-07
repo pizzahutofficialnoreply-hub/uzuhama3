@@ -206,7 +206,9 @@ function coolModel(model: string, msg: string) {
   }
 }
 
-async function gen(parts: any[], json: boolean, timeoutMs: number, models = MODELS, extra: any = {}) {
+async function gen(parts: any[], json: boolean, timeoutMs: number, models = MODELS, extraIn: any = {}) {
+  // _nextOnTimeout: 시간 초과면 다음 모델로 (검색할 때 확인처럼 기다리는 사람이 있을 때)
+  const { _nextOnTimeout, ...extra } = extraIn || {};
   const { GoogleGenAI } = await import('@google/genai');
   const ai = new GoogleGenAI({ apiKey: aiKey() });
   let lastErr: any;
@@ -224,7 +226,7 @@ async function gen(parts: any[], json: boolean, timeoutMs: number, models = MODE
     } catch (e: any) {
       lastErr = e;
       const msg = String(e?.message || e);
-      if (isTimeout(msg)) throw e; // 시간 초과는 다른 모델로 바꿔도 같음
+      if (isTimeout(msg)) { if (_nextOnTimeout) { modelCool[model] = Date.now() + 10 * 60000; modelWhy[model] = 'busy'; continue; } throw e; } // 시간 초과는 보통 다른 모델로 바꿔도 같음
       if (!/not found|404|unsupported|invalid model/i.test(msg) && !isRate(msg) && !isBusy(msg)) throw e;
       coolModel(model, msg);
     }
@@ -659,7 +661,7 @@ export async function aiVerify(db: any, q: string) {
 있으면 원본 영상 기준 정확한 시작 시각과 무슨 장면인지 한 문장. 없으면 found 를 false.
 JSON 으로만: {"found":true,"moments":[{"t":"MM:SS 또는 H:MM:SS","d":"한 문장"}]}`;
     try {
-      const { text, model } = await gen([...parts, { text: prompt }], true, 90000, MODELS);
+      const { text, model } = await gen([...parts, { text: prompt }], true, 45000, MODELS, { _nextOnTimeout: true });
       const out = parseJson(text);
       let moments = (Array.isArray(out.moments) ? out.moments : []).map((m: any) => ({ t: toSec(m?.t), d: String(m?.d || '').slice(0, 140) })).filter((m: any) => Number.isFinite(m.t) && m.d);
       // 클립 기준으로 답했으면 원본 기준으로
