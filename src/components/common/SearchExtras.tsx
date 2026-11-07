@@ -4,7 +4,7 @@ import { cn } from '../../utils';
 import { squash } from '../../utils/smartSearch';
 import { useSearchTuning } from '../../hooks/useSearchTuning';
 import { embedSrc, trackYoutubeFrame, watchUrl } from '../../utils/watchHistory';
-import { aiSearch, fmtTime, lastExpanded, type AiResult } from '../../utils/aiSearch';
+import { aiSearch, aiVerify, fmtTime, lastExpanded, type AiResult, type AiVerify } from '../../utils/aiSearch';
 
 /**
  * 검색 결과 맨 위에 붙는 두 가지
@@ -12,7 +12,7 @@ import { aiSearch, fmtTime, lastExpanded, type AiResult } from '../../utils/aiSe
  *  2) AI 검색 — AI가 영상을 미리 보고 정리해 둔 장면에서 찾은 것 (설정에서 끌 수 있음)
  * 장면 시간을 누르면 그 10초 전부터 재생
  */
-type Card = { id: string; title: string; kind?: string; summary?: string; scenes: { t: number; d?: string; vague?: boolean }[]; games?: string[]; from: 'pin' | 'ai'; partial?: boolean; note?: string };
+type Card = { id: string; title: string; kind?: string; summary?: string; scenes: { t: number; d?: string; vague?: boolean }[]; games?: string[]; from: 'pin' | 'ai'; partial?: boolean; note?: string; checked?: boolean };
 
 const KIND_LABEL: Record<string, string> = { short: '쇼츠', live: '생방송', video: '영상' };
 
@@ -33,7 +33,7 @@ function ExtraCard({ c }: { c: Card }) {
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-1">
             {c.from === 'ai' ? (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-purple-600 text-white text-[10px] font-black"><Sparkles className="w-3 h-3" /> AI 검색</span>
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-purple-600 text-white text-[10px] font-black"><Sparkles className="w-3 h-3" /> {c.checked ? 'AI가 영상에서 확인' : 'AI 검색'}</span>
             ) : (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[10px] font-black"><Pin className="w-3 h-3" /> 추천 결과</span>
             )}
@@ -82,13 +82,23 @@ export function SearchExtras({ query, aiEnabled }: { query: string; aiEnabled: b
   const q = query.trim();
   const [ai, setAi] = useState<{ q: string; results: AiResult[] } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [ver, setVer] = useState<{ q: string; v: AiVerify } | null>(null);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     if (!aiEnabled || q.length < 2 || q.startsWith('#') || /youtu|chzzk|https?:/.test(q)) { setAi(null); return; }
     let alive = true;
     const t = window.setTimeout(() => {
       setLoading(true);
-      aiSearch(q).then((r) => { if (alive) setAi({ q, results: r }); }).finally(() => { if (alive) setLoading(false); });
+      aiSearch(q).then((r) => {
+        if (!alive) return;
+        setAi({ q, results: r });
+        // 후보가 있으면 AI 가 그 장면을 영상에서 직접 확인 (처음 검색어만 10~40초, 다음부터는 저장된 결과)
+        if (r.length) {
+          setVerifying(true);
+          aiVerify(q).then((v) => { if (alive && v) setVer({ q, v }); }).finally(() => { if (alive) setVerifying(false); });
+        }
+      }).finally(() => { if (alive) setLoading(false); });
     }, 650);
     return () => { alive = false; window.clearTimeout(t); };
   }, [q, aiEnabled]);
@@ -103,21 +113,32 @@ export function SearchExtras({ query, aiEnabled }: { query: string; aiEnabled: b
       out.push({ id: p.id, title: p.title, scenes: p.t ? [{ t: p.t, d: '' }] : [], from: 'pin', note: p.note });
     });
     if (ai && ai.q === q) {
+      const v = ver && ver.q === q ? ver.v : null;
+      // 확인된 것 먼저 (정확한 시각), 아니라고 확인된 건 빼고, 아직 확인 안 된 건 뒤에
+      v?.verified.forEach((x) => {
+        if (out.some((c) => c.id === x.id)) return;
+        const r = ai.results.find((y) => y.id === x.id);
+        out.push({ id: x.id, title: x.title || r?.title || '', kind: x.kind || r?.kind, summary: r?.summary, scenes: x.moments, games: r?.games, from: 'ai', checked: true, partial: r?.partial });
+      });
       ai.results.forEach((r) => {
-        if (out.some((c) => c.id === r.id)) return;
+        if (out.some((c) => c.id === r.id) || v?.rejected.includes(r.id)) return;
+        if (v && !v.pending.includes(r.id) && v.verified.length) return; // 확인이 끝났는데 후보에 없던 건 빼기
         out.push({ id: r.id, title: r.title, kind: r.kind, summary: r.summary, scenes: r.scenes, games: r.games, from: 'ai', partial: r.partial });
       });
     }
     return out.slice(0, 6);
-  }, [tuning, q, ai]);
+  }, [tuning, q, ai, ver]);
 
-  if (!q || (!cards.length && !loading)) return null;
+  const allRejected = !verifying && ver?.q === q && ver.v.verified.length === 0 && ver.v.rejected.length > 0;
+  if (!q || (!cards.length && !loading && !verifying && !allRejected)) return null;
   return (
     <section className="mb-5 space-y-2" aria-label="AI 검색">
       <h3 className="px-1 text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5">
         <Sparkles className="w-4 h-4 text-purple-500" /> 콕 집어 찾은 결과
         {loading && !cards.length && <span className="text-[11px] font-semibold text-zinc-400 ml-1">AI가 정리해 둔 장면에서 찾는 중…</span>}
       </h3>
+      {verifying && <p className="px-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-ping" /> AI가 이 장면들을 영상에서 직접 보고 확인하는 중이에요 (처음 찾는 말은 10~40초)</p>}
+      {!verifying && ver?.q === q && ver.v.verified.length === 0 && ver.v.rejected.length > 0 && <p className="px-1 text-[11px] text-zinc-500">AI가 영상에서 확인해 보니 딱 맞는 장면은 아직 없었어요. 분석된 영상이 늘면 더 찾아요.</p>}
       {(lastExpanded.get(q.toLowerCase()) || []).length > 0 && ai?.q === q && (
         <p className="px-1 text-[11px] text-zinc-500">AI가 '{q}'를 <b>{(lastExpanded.get(q.toLowerCase()) || []).slice(0, 5).join(' · ')}</b>(으)로도 찾아봤어요</p>
       )}

@@ -260,7 +260,7 @@ ${item.logDate ? `방송 날짜: ${item.logDate}\n` : ''}${item.games?.length ? 
  "keywords": ["이 ${whole ? '영상' : '구간'} 전체를 대표하는 검색어 5~15개 (한국어)"],
  "mood": ["분위기 단어 1~5개 (공포, 웃김, 힐링, 긴장감, 감동, 혼돈 등)"]
 }
-k 에는 화면에 실제로 또렷이 나온 것만 넣어. 예: 귀신·괴물이 실제로 화면에 보이면 '귀신', 소리만 나거나 그림자·착각·"귀신인가?" 하는 말뿐이면 '귀신' 대신 '귀신 의심'·'소리'처럼 쓰고 sure 를 false 로. 확실하면 sure 는 true.
+k 에는 화면에 실제로 또렷이 나온 것·실제로 들린 것만 넣어. '비명'은 크게 놀라 지르는 소리만 (작은 감탄사·"음~"·웃음·혼잣말은 '비명' 아님). 예: 귀신·괴물이 실제로 화면에 보이면 '귀신', 소리만 나거나 그림자·착각·"귀신인가?" 하는 말뿐이면 '귀신' 대신 '귀신 의심'·'소리'처럼 쓰고 sure 를 false 로. 확실하면 sure 는 true.
 scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'}), 시간 순서로.`;
   // mimeType 을 붙이면 유튜브 주소를 느린 방식으로 읽어 시간 초과가 남 → 주소만
   const part: any = { fileData: { fileUri: `https://www.youtube.com/watch?v=${item.id}` } };
@@ -504,7 +504,7 @@ JSON 으로만: {"words":["..."]}` }], true, 12000, ['gemini-3.8-flash', 'gemini
 }
 
 /** AI 검색: 키워드로 1단계 거르고 장면 단위로 점수 (부족하면 검색어를 AI 로 한 번 넓힘 — 저장해 두고 재사용) */
-export async function aiSearch(db: any, q: string) {
+export async function aiSearch(db: any, q: string, sceneLimit = 3) {
   const tokens = queryTokens(q);
   if (!tokens.length) return { tokens, results: [] };
   const run = async (toks: string[], extra: string[]) => {
@@ -530,7 +530,7 @@ export async function aiSearch(db: any, q: string) {
         id: v.id || d.id, title: v.title, kind: v.kind, publishedAt: v.publishedAt, duration: v.duration,
         summary: String(v.summary || v.parts?.[0]?.summary || '').slice(0, 220),
         // 확실한 장면 먼저, 애매한 건 뒤로
-        scenes: [...scenes.filter((x: any) => !x.vague), ...scenes.filter((x: any) => x.vague)].slice(0, 3).map((x: any) => ({ t: x.t, d: x.d, ...(x.vague ? { vague: true } : {}) })),
+        scenes: [...scenes.filter((x: any) => !x.vague), ...scenes.filter((x: any) => x.vague)].slice(0, sceneLimit).map((x: any) => ({ t: x.t, d: x.d, ...(x.vague ? { vague: true } : {}) })),
         games: (v.games || []).map((g: any) => g.ko || g.name).slice(0, 3),
         partial: v.status !== 'done',
         score,
@@ -596,4 +596,86 @@ export async function runAiVideoLoop(db: any, budgetMs = 150000, opts: { kind?: 
     if (Date.now() - t0 > budgetMs) break;
   }
   return { steps, ms: Date.now() - t0 };
+}
+
+/* ── 검색할 때 영상에서 직접 확인 (유튜브 'Gemini 에게 물어보기'처럼) ──
+ * 저장된 장면으로 고른 후보 근처(앞뒤 1분)만 AI 에게 실제로 보여 주고, 정말 그 장면인지·정확히 몇 초인지 확인
+ * - 한 번 확인한 검색어는 저장해 두고 다시 AI 를 부르지 않음 (새 영상 분석이 늘면 30일 뒤 다시)
+ * - 무료 한도(유튜브 영상 하루 약 8시간)를 분석과 같이 쓰므로 하루 횟수 제한
+ */
+const VERIFY_DAILY = Number(process.env.AI_VERIFY_DAILY || 80);
+const CLIP_HALF = 60;
+
+export async function aiVerify(db: any, q: string) {
+  const key = normWord(q).slice(0, 60);
+  if (!key) return { verified: [] };
+  const ref = db.collection('ai_verify').doc(key);
+  // 영상마다 확인 결과를 저장 → 같은 검색어·같은 영상은 다시 AI 를 부르지 않음 (새로 분석된 영상만 확인)
+  const per: Record<string, any> = ((await ref.get()).data() || {}).per || {};
+
+  const { results } = await aiSearch(db, q, 6);
+  const cands = results.slice(0, 4).filter((r: any) => r.scenes?.length);
+  if (!cands.length) return { verified: [], none: true };
+  const todo = cands.filter((c: any) => !per[c.id]);
+  const pack = (fresh: boolean, extra: any = {}) => {
+    const list = cands.map((c: any) => per[c.id]).filter(Boolean);
+    return { verified: list.filter((x: any) => x.found), rejected: list.filter((x: any) => x.found === false).map((x: any) => x.id), pending: cands.filter((c: any) => !per[c.id]).map((c: any) => c.id), fresh, ...extra };
+  };
+  if (!todo.length) return pack(false);
+
+  // 하루 한도
+  const day = kstDay();
+  const cntRef = db.collection('youtube_cache').doc('ai_verify_count');
+  const cnt = (await cntRef.get()).data() || {};
+  const used = cnt.day === day ? Number(cnt.n || 0) : 0;
+  if (used >= VERIFY_DAILY || !aiKey()) return pack(false, { limited: true });
+  await cntRef.set({ day, n: used + 1 }, { merge: true });
+
+  const st = (await db.collection('youtube_cache').doc('ai_state').get()).data() || {};
+  modelCool = Object.fromEntries(Object.entries(st.modelCool || {}).filter(([, v]) => Number(v) > Date.now())) as Record<string, number>;
+
+  let videoSec = 0;
+  const checked = await Promise.all(todo.map(async (c: any) => {
+    // 이 영상의 후보 장면 최대 2곳 (겹치면 하나로)
+    const wins: [number, number][] = [];
+    // 가장 잘 맞는 영상은 4곳, 나머지는 2곳까지
+    for (const s of c.scenes.slice(0, c === cands[0] ? 4 : 2)) {
+      const a = Math.max(0, s.t - CLIP_HALF);
+      const b = c.duration ? Math.min(c.duration, s.t + CLIP_HALF) : s.t + CLIP_HALF;
+      const near = wins.find(([x, y]) => a <= y && b >= x);
+      if (near) { near[0] = Math.min(near[0], a); near[1] = Math.max(near[1], b); } else wins.push([a, b]);
+    }
+    const whole = c.kind === 'short' || (c.duration && c.duration <= 180);
+    const parts: any[] = whole
+      ? [{ fileData: { fileUri: `https://www.youtube.com/watch?v=${c.id}` } }]
+      : wins.map(([a, b]) => ({ fileData: { fileUri: `https://www.youtube.com/watch?v=${c.id}` }, videoMetadata: { startOffset: `${a}s`, endOffset: `${b}s` } }));
+    videoSec += whole ? (c.duration || 60) : wins.reduce((t, [a, b]) => t + (b - a), 0);
+    const where = whole ? '영상 전체' : wins.map(([a, b], i) => `클립${i + 1}: 원본 ${fmt(a)}~${fmt(b)}`).join(', ');
+    const prompt = `시청자가 스트리머 "우주하마"의 영상에서 이런 장면을 찾고 있어: "${q}"
+보내 준 영상(${where})을 직접 보고 듣고, 그 장면이 실제로 있는지 엄격하게 판단해.
+- 비명은 크게 놀라 지르는 소리만 (작은 감탄사·"음~"·웃음은 아님)
+- 귀신·괴물은 화면에 실제로 보여야 함 (소리·그림자·착각·"귀신인가?" 하는 말만으로는 아님)
+- 갑툭튀·점프스케어는 무언가 갑자기 튀어나와 놀라게 하는 순간
+있으면 원본 영상 기준 정확한 시작 시각과 무슨 장면인지 한 문장. 없으면 found 를 false.
+JSON 으로만: {"found":true,"moments":[{"t":"MM:SS 또는 H:MM:SS","d":"한 문장"}]}`;
+    try {
+      const { text, model } = await gen([...parts, { text: prompt }], true, 90000, MODELS);
+      const out = parseJson(text);
+      let moments = (Array.isArray(out.moments) ? out.moments : []).map((m: any) => ({ t: toSec(m?.t), d: String(m?.d || '').slice(0, 140) })).filter((m: any) => Number.isFinite(m.t) && m.d);
+      // 클립 기준으로 답했으면 원본 기준으로
+      if (!whole && wins.length && moments.length && moments.every((m: any) => m.t < wins[0][0])) moments = moments.map((m: any) => ({ ...m, t: m.t + wins[0][0] }));
+      return { id: c.id, title: c.title, kind: c.kind, found: out.found !== false && moments.length > 0, moments: moments.slice(0, 3).map((m: any) => ({ ...m, t: Math.round(m.t) })), model };
+    } catch (e: any) {
+      return { id: c.id, title: c.title, kind: c.kind, error: String(e?.message || e).slice(0, 120) };
+    }
+  }));
+  // 유튜브 영상 하루 한도를 분석과 함께 셈
+  try {
+    const sRef = db.collection('youtube_cache').doc('ai_state');
+    const s2 = (await sRef.get()).data() || {};
+    await sRef.set({ day, usedSec: (s2.day === day ? Number(s2.usedSec || 0) : 0) + videoSec, modelCool, modelWhy }, { merge: true });
+  } catch { /* */ }
+  checked.forEach((c: any) => { if (!c.error) per[c.id] = { ...c, at: new Date().toISOString() }; });
+  await ref.set({ q: q.slice(0, 80), per, at: new Date().toISOString() }, { merge: true });
+  return pack(true, { failed: checked.filter((c: any) => c.error).length });
 }
