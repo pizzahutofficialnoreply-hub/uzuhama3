@@ -850,8 +850,31 @@ export function DetailedStatsTab({
     };
   }, [logsArray]);
 
+  // 휴대폰: 화면을 옆으로 밀어 하위 탭 이동 (검색 탭과 같게, 차트·표·가로 스크롤 위에서는 안 함)
+  const swipeRef = useRef<{ x: number; y: number; t: number; ok: boolean } | null>(null);
+  const subTabs: ('trend' | 'day' | 'category')[] = isLegacyRange ? (showLegacyCategory ? ['trend', 'category'] : ['trend']) : ['trend', 'day', 'category'];
+  const onSwipeStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    const target = e.target as HTMLElement;
+    const blocked = window.innerWidth >= 640 || e.touches.length > 1 ||
+      Boolean(target.closest('.overflow-x-auto, .hide-scrollbar, .no-scrollbar, input, textarea, select, iframe, .recharts-wrapper, table, [data-no-swipe], [role="dialog"]'));
+    swipeRef.current = t ? { x: t.clientX, y: t.clientY, t: Date.now(), ok: !blocked } : null;
+  };
+  const onSwipeEnd = (e: React.TouchEvent) => {
+    const s0 = swipeRef.current;
+    swipeRef.current = null;
+    const t = e.changedTouches[0];
+    if (!s0?.ok || !t) return;
+    const dx = t.clientX - s0.x;
+    const dy = t.clientY - s0.y;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - s0.t > 700) return;
+    const cur = isLegacyRange && activeSubTab === 'day' ? 'trend' : activeSubTab;
+    const next = subTabs[subTabs.indexOf(cur) + (dx < 0 ? 1 : -1)];
+    if (next) setActiveSubTab(next);
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
       
       {/* Filters */}
       <div id="detailed-main-card" className="w-full max-w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4 xl:gap-6 box-border overflow-hidden relative">

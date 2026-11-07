@@ -155,8 +155,9 @@ function NoteCard({ note, highlight, onOpen }: { note: PatchNote; highlight: boo
   );
 }
 
-export function PatchNotesPage() {
-  const { version: paramVersion } = useParams<{ version?: string }>();
+export function PatchNotesPage({ version: propVersion }: { version?: string } = {}) {
+  const { version: routeVersion } = useParams<{ version?: string }>();
+  const paramVersion = propVersion ?? routeVersion;
   const location = useLocation();
   const navigate = useNavigate();
   const { patchNotes, loading } = usePatchNotes();

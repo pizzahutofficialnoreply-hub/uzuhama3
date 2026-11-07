@@ -10,7 +10,7 @@ import { OPEN_HISTORY_EVENT, WatchHistoryPage } from './components/WatchHistoryP
 import { layerHandledPop } from './hooks/useBackToClose';
 import { setYoutubeClientId } from './utils/youtubeAccount';
 import { SaveHost } from './components/common/SaveHost';
-import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
 import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink, AlertTriangle, CheckCircle2, Check, ChevronDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { checkMaintenanceStatus, effectiveMaintenanceSystem, generateMaintenanceNoticeMarkdown, formatMaintenanceRange, parseDateSafe } from './utils/maintenanceUtils';
@@ -72,6 +72,13 @@ import { RELOAD_LINK, reloadToNewVersion, useNewBuildAvailable } from './utils/a
 import { MaintenancePager } from './components/MaintenancePager';
 import { AiSummaryHost } from './components/common/AiSummaryHost';
 import { FluidBackdrop } from './components/common/FluidBackdrop';
+
+function SlugRoute() {
+  const { slug = '' } = useParams<{ slug: string }>();
+  const m = slug.match(/^patch-v?(\d+(?:\.\d+){1,3})$/i);
+  if (m) return <PatchNotesPage version={m[1]} />;
+  return <Navigate to="/" replace />;
+}
 
 function MainApp() {
   const navigate = useNavigate();
@@ -1478,7 +1485,9 @@ export default function App() {
         <Route path="/" element={<MainApp />} />
         <Route path="/admin" element={<AdminRoute />} />
         <Route path="/patch" element={<PatchNotesPage />} />
-        <Route path="/patch-:version" element={<PatchNotesPage />} />
+        <Route path="/patch/:version" element={<PatchNotesPage />} />
+        {/* '/patch-1.1.0' · '/patch-v1.1.0' (라우터는 'patch-:version' 같은 반쪽 주소를 못 읽어서 직접 나눔) */}
+        <Route path="/:slug" element={<SlugRoute />} />
         <Route path="/terms" element={<PolicyPage type="terms" />} />
         <Route path="/privacy" element={<PolicyPage type="privacy" />} />
         <Route path="/licenses" element={<LicensePage />} />

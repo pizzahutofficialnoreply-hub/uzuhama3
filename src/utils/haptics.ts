@@ -27,33 +27,41 @@ export function triggerHaptic(duration: number | number[] = 12): void {
   }
 }
 
-// 전역 클릭/터치 이벤트 리스너를 통해 모든 버튼 및 인터랙티브 요소에 햅틱 피드백 자동 부여
+// 전역: 버튼·링크 등을 '톡' 눌렀을 때만 진동 (스크롤하려고 손가락을 댔다 끈 건 진동 안 함)
 export function setupGlobalHaptics(): () => void {
   if (typeof window === 'undefined') return () => {};
 
-  const handleInteraction = (e: Event) => {
-    // 마우스 클릭은 햅틱 제외 (터치/펜 인터랙션만)
-    if ('pointerType' in e && (e as PointerEvent).pointerType === 'mouse') return;
-
+  let down: { x: number; y: number; t: number; el: Element } | null = null;
+  const findTarget = (e: Event) => {
     const target = e.target as HTMLElement | null;
-    if (!target) return;
-
-    // opt-out 요소
-    if (target.closest('[data-no-haptic="true"]')) return;
-
-    // button, a, [role="button"], input[type="submit"] 등 인터랙티브 요소 확인
-    const interactive = target.closest('button, [role="button"], a, input[type="button"], input[type="submit"], [data-haptic="true"]');
-    if (interactive) {
-      triggerHaptic(12);
-    }
+    if (!target || target.closest('[data-no-haptic="true"]')) return null;
+    return target.closest('button, [role="button"], a, input[type="button"], input[type="submit"], [data-haptic="true"]');
   };
+  const onDown = (e: PointerEvent) => {
+    if (e.pointerType === 'mouse') return; // 마우스는 진동 없음
+    const el = findTarget(e);
+    down = el ? { x: e.clientX, y: e.clientY, t: Date.now(), el } : null;
+  };
+  const onUp = (e: PointerEvent) => {
+    const d = down;
+    down = null;
+    if (!d || e.pointerType === 'mouse') return;
+    const moved = Math.hypot(e.clientX - d.x, e.clientY - d.y);
+    if (moved > 10 || Date.now() - d.t > 700) return; // 끌었거나 오래 누름 → 스크롤·길게 누르기
+    if (!d.el.isConnected) return;
+    triggerHaptic(12);
+  };
+  const cancel = () => { down = null; };
 
-  const usePointer = typeof window.PointerEvent !== 'undefined';
-  const eventName = usePointer ? 'pointerdown' : 'touchstart';
-
-  window.addEventListener(eventName, handleInteraction, { passive: true });
+  window.addEventListener('pointerdown', onDown, { passive: true });
+  window.addEventListener('pointerup', onUp, { passive: true });
+  window.addEventListener('pointercancel', cancel, { passive: true }); // 브라우저가 스크롤로 넘기면 옴
+  window.addEventListener('scroll', cancel, { passive: true, capture: true });
 
   return () => {
-    window.removeEventListener(eventName, handleInteraction);
+    window.removeEventListener('pointerdown', onDown);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', cancel);
+    window.removeEventListener('scroll', cancel, { capture: true } as any);
   };
 }

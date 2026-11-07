@@ -848,27 +848,26 @@ export function CategoryStatsTab({
                         </span>
                       </td>
 
-                      {/* 대표 플레이 게임 목록 (클릭 시 해당 방송일 달력으로 이동!) */}
+                      {/* 대표 플레이 게임 목록: 여러 번 한 게임은 검색으로 그 게임 영상 전체, 한 번만 한 게임은 그 방송일 달력으로 */}
                       <td className="px-3 sm:px-5 lg:px-6 py-3.5 sm:py-4">
                         <div className="flex flex-wrap items-center gap-1.5 max-w-xs sm:max-w-md lg:max-w-none">
                           {visibleGames.map((g, gIdx) => (
                             <button
                               key={gIdx}
                               onClick={() => {
-                                if (g.latestDate && onNavigateToCalendar) {
-                                  onNavigateToCalendar(g.latestDate);
-                                }
+                                if (g.count > 1 && onNavigateToRecommend) onNavigateToRecommend(undefined, g.name);
+                                else if (g.latestDate && onNavigateToCalendar) onNavigateToCalendar(g.latestDate);
                               }}
                               className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700 truncate max-w-[140px] sm:max-w-[180px] transition-colors cursor-pointer group/btn"
-                              title={g.latestDate ? `${g.name} (${g.count}회) - 클릭 시 ${g.latestDate} 방송 기록 달력으로 이동` : `${g.name} (${g.count}회)`}
+                              title={g.count > 1 ? `${g.name} (${g.count}회) - 누르면 이 게임 영상 전체를 검색` : g.latestDate ? `${g.name} - 누르면 ${g.latestDate} 방송 기록 달력으로` : g.name}
                             >
                               <span className="truncate">{g.name}</span>
                               <span className="text-[9px] sm:text-[10px] font-bold text-zinc-900 dark:text-white">
                                 {g.count}
                               </span>
-                              {g.latestDate && (
-                                <Calendar className="w-2.5 h-2.5 opacity-40 group-hover/btn:opacity-100 shrink-0" />
-                              )}
+                              {g.count > 1
+                                ? <Search className="w-2.5 h-2.5 opacity-40 group-hover/btn:opacity-100 shrink-0" />
+                                : g.latestDate && <Calendar className="w-2.5 h-2.5 opacity-40 group-hover/btn:opacity-100 shrink-0" />}
                             </button>
                           ))}
                           

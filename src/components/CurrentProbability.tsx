@@ -314,7 +314,16 @@ export function CurrentProbability({
       </span>
     );
   };
-  const pickAi = (list: string[] | undefined, withRecommend = false): React.ReactNode | null => {
+  // 지금 시간과 안 맞는 말은 빼기 (예: 낮 2시에 '~밤', 밤에 '좋은 아침')
+  const fitsNow = (t: string) => {
+    if (/밤|새벽|자정|잘\s*자|굿밤|꿀잠|잠\s*들|자기\s*전/.test(t) && currentHour >= 7 && currentHour < 19) return false;
+    if (/아침|모닝|출근/.test(t) && (currentHour < 5 || currentHour >= 12)) return false;
+    if (/점심/.test(t) && (currentHour < 10 || currentHour >= 15)) return false;
+    if (/저녁/.test(t) && (currentHour < 16 || currentHour >= 23)) return false;
+    return true;
+  };
+  const pickAi = (listIn: string[] | undefined, withRecommend = false): React.ReactNode | null => {
+    const list = (listIn || []).filter(fitsNow);
     if (!list || list.length === 0) return null;
     const options: React.ReactNode[] = withRecommend ? [...list.map(linkVideoWord), renderRecommendSpan()] : list;
     return options[timeSlotSeed % options.length];
@@ -324,19 +333,19 @@ export function CurrentProbability({
     messageContent = "방송 기록이 없어 확률을 분석 중이에요.";
   } else if (hasStreamedToday) {
     messageContent = pickAi(aiMessages?.streamedToday, true) ?? renderRecommendSpan();
-  } else if (isAbsencePeriod && aiMessages?.absence?.length) {
+  } else if (isAbsencePeriod && aiMessages?.absence?.filter(fitsNow).length) {
     messageContent = pickAi(aiMessages.absence, true);
   } else if (waitDays >= 7 && probabilityLevel !== "high") {
     // 방송이 오래 없을 때: 들뜬 말 대신 그리움·안부
     const LONG_WAIT: React.ReactNode[] = aiMessages?.longWait?.length
-      ? [...aiMessages.longWait.map(linkVideoWord), renderRecommendSpan()]
+      ? [...aiMessages.longWait.filter(fitsNow).map(linkVideoWord), renderRecommendSpan()]
       : ["많이 보고 싶어요", "언제 오셔도 반가울 거예요", "건강하게만 지내 주세요", "심심하지만 기다려요", renderRecommendSpan()];
     messageContent = LONG_WAIT[timeSlotSeed % LONG_WAIT.length];
-  } else if (probabilityLevel === "high" && aiMessages?.high?.length) {
+  } else if (probabilityLevel === "high" && aiMessages?.high?.filter(fitsNow).length) {
     messageContent = pickAi(aiMessages.high);
-  } else if (probabilityLevel === "medium" && aiMessages?.medium?.length) {
+  } else if (probabilityLevel === "medium" && aiMessages?.medium?.filter(fitsNow).length) {
     messageContent = pickAi(aiMessages.medium, true);
-  } else if (probabilityLevel === "low" && (isLateNight ? aiMessages?.lowNight?.length : aiMessages?.lowDay?.length)) {
+  } else if (probabilityLevel === "low" && (isLateNight ? aiMessages?.lowNight : aiMessages?.lowDay)?.filter(fitsNow).length) {
     messageContent = pickAi(isLateNight ? aiMessages?.lowNight : aiMessages?.lowDay, true);
   } else if (isAbsencePeriod) {
     // AI 문구가 아직 없을 때도 휴방 상황에 맞는 기본 문구 (팬 입장의 안부)
