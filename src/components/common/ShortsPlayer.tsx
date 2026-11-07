@@ -11,7 +11,7 @@ import { PlaySquare, YoutubeLogo } from './MediaIcons';
  * 유튜브 앱처럼 전체 화면으로 보는 쇼츠
  * - 위아래로 밀면(데스크톱은 휠·방향키) 목록 순서대로 이전·다음 쇼츠
  * - 화면을 톡 누르면 일시정지/재생, 끝나면 처음부터 반복
- * - 플레이어 3개를 돌려 씀: 지금 쇼츠 + 위·아래 쇼츠를 미리 불러 둠 → 넘기면 바로 재생 (소리 켠 상태도 이어서)
+ * - 플레이어 하나를 계속 쓰면서 영상만 바꿈 (한 번 소리를 켜면 다음 쇼츠도 소리 나게, 휴대폰 자동재생 제한 때문)
  */
 export type ShortsPlayerItem = {
   url: string; title?: string; caption?: string; liveUrl?: string; editUrl?: string;
@@ -36,7 +36,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: S
   const [switching, setSwitching] = useState(true);
   const pausedRef = useRef(false);
   pausedRef.current = paused;
-  const frames = useRef<(HTMLIFrameElement | null)[]>([null, null, null]);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   // 화면 비율이 9:16 보다 길쭉한 휴대폰(아이폰 등)에서도 위아래 검은 여백 없이 꽉 차게 (양옆을 조금 잘라 채움)
   const [cover, setCover] = useState<{ w: number; h: number } | null>(null);
@@ -56,117 +56,48 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: S
   }, []);
   const touchRef = useRef<{ y: number; x: number; t: number; moved: boolean } | null>(null);
   const wheelLock = useRef(0);
+  const firstId = useRef(extractYoutubeId(items[index]?.url || '') || '');
+  const loadedId = useRef(firstId.current);
+
   const idOf = (i: number) => extractYoutubeId(items[i]?.url || '') || '';
   const cur = items[index];
-  const slotOf = (i: number) => ((i % 3) + 3) % 3;
-  const active = slotOf(index);
-  const activeRef = useRef(active);
-  activeRef.current = active;
-  const mutedRef = useRef(true);
-  mutedRef.current = muted;
-  // 플레이어마다: 처음 주소(바꾸지 않음), 지금 들어 있는 영상, 준비됨, 미리 불러 두는 중, 미리 불러 둠
-  const init = useRef<string[]>([0, 1, 2].map((k) => {
-    for (const i of [index - 1, index, index + 1]) if (i >= 0 && i < items.length && slotOf(i) === k) return idOf(i);
-    return '';
-  }));
-  const activatedAt = useRef(0);
-  const userPausedAt = useRef(0);
-  const slots = useRef(init.current.map((id) => ({ id, ready: false, priming: false, primed: false, pending: '' })));
 
-  const post = useCallback((k: number, func: string, args: any[] = []) => {
-    frames.current[k]?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
+  const command = useCallback((func: string, args: any[] = []) => {
+    iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
   }, []);
-  const command = useCallback((func: string, args: any[] = []) => post(activeRef.current, func, args), [post]);
 
-  // 자막 끄기: 주소 옵션(cc_load_policy=0)만으로는 채널이 자막을 기본으로 켜 둔 영상은 계속 나와서, 자막 모듈을 직접 내림
-  const hideCaptions = useCallback((k: number) => {
-    post(k, 'unloadModule', ['captions']);
-    post(k, 'unloadModule', ['cc']);
-    post(k, 'setOption', ['captions', 'track', {}]);
-  }, [post]);
-
-  /** 옆 플레이어에 영상을 넣고 소리 없이 잠깐 틀었다 멈춰서 앞부분을 받아 둠 */
-  const prime = useCallback((k: number, id: string) => {
-    const sl = slots.current[k];
-    if (!id) return;
-    if (sl.id === id && (sl.primed || sl.priming)) return;
-    // 방금 보던 쇼츠(이미 받아 둠): 처음으로 돌려 두기만
-    if (sl.id === id && sl.ready) { post(k, 'pauseVideo'); post(k, 'seekTo', [0, true]); sl.primed = true; return; }
-    sl.id = id; sl.primed = false;
-    if (!sl.ready) { sl.pending = id; return; }
-    sl.priming = true;
-    post(k, 'mute');
-    post(k, 'loadVideoById', [id, 0]);
-  }, [post]);
-
-  /** 지금 쇼츠 틀기 (미리 받아 둔 플레이어면 바로) */
-  const activate = useCallback((k: number, id: string) => {
-    const sl = slots.current[k];
-    sl.priming = false;
-    const warm = sl.id === id && sl.ready && sl.primed;
-    setSwitching(!warm);
-    if (!sl.ready) { sl.id = id; sl.pending = id; return; }
-    if (sl.id !== id) { sl.id = id; sl.primed = false; post(k, 'loadVideoById', [id, 0]); }
-    else { post(k, 'seekTo', [0, true]); post(k, 'playVideo'); }
-    if (mutedRef.current) post(k, 'mute'); else { post(k, 'unMute'); post(k, 'setVolume', [100]); }
-    activatedAt.current = Date.now();
-    setPaused(false);
-  }, [post]);
-
-  // 플레이어 소식 받기 (어느 플레이어인지 가려서)
+  // 플레이어 이벤트 받기 (끝나면 처음부터 다시)
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       if (typeof e.origin !== 'string' || !e.origin.includes('youtube')) return;
-      const k = frames.current.findIndex((f) => f && f.contentWindow === e.source);
-      if (k < 0) return;
       let d: any;
       try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
-      const sl = slots.current[k];
-      const isActive = k === activeRef.current;
-      if (d?.event === 'onReady') {
-        sl.ready = true;
-        hideCaptions(k);
-        const want = sl.pending; sl.pending = '';
-        if (isActive) {
-          if (want && want !== init.current[k]) post(k, 'loadVideoById', [want, 0]);
-          if (!mutedRef.current) { post(k, 'unMute'); post(k, 'setVolume', [100]); }
-          setReady(true);
-        } else {
-          // 처음 주소의 영상이든 바뀐 영상이든 미리 받아 두기
-          sl.priming = true; post(k, 'mute');
-          if (want && want !== init.current[k]) post(k, 'loadVideoById', [want, 0]); else post(k, 'playVideo');
-        }
-      }
+      if (d?.event === 'onReady') { setReady(true); hideCaptions(); }
       const state = d?.event === 'onStateChange' ? d.info : d?.event === 'infoDelivery' ? d.info?.playerState : undefined;
-      if (state === undefined) return;
-      if (!isActive) {
-        // 옆 플레이어: 재생이 시작되면(앞부분 받음) 처음으로 돌려 멈춤
-        if (state === 1) { post(k, 'pauseVideo'); post(k, 'seekTo', [0, true]); if (sl.priming) { sl.priming = false; sl.primed = true; } }
-        return;
-      }
-      if (state === 0) { post(k, 'seekTo', [0, true]); post(k, 'playVideo'); }
-      if (state === 1) { setPaused(false); setSwitching(false); hideCaptions(k); }
-      if (state === 2) {
-        // 소리 켠 채로 넘겼는데 휴대폰이 소리 있는 재생을 막으면: 소리 없이라도 이어서 틀고 '소리 켜기'를 다시 보여 줌
-        if (!mutedRef.current && Date.now() - activatedAt.current < 1500 && Date.now() - userPausedAt.current > 1500) {
-          post(k, 'mute'); post(k, 'playVideo'); setMuted(true); return;
-        }
-        setPaused(true);
-      }
+      if (state === 0) { command('seekTo', [0, true]); command('playVideo'); }
+      if (state === 1) { setPaused(false); setSwitching(false); hideCaptions(); }
+      if (state === 2) setPaused(true);
     };
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
-  }, [post, hideCaptions]);
+  }, [command]);
 
-  // 넘길 때: 지금 플레이어는 틀고, 다른 플레이어는 멈추고, 위·아래 쇼츠는 미리 받아 둠
-  const firstRun = useRef(true);
+  // 자막 끄기: 주소 옵션(cc_load_policy=0)만으로는 채널이 자막을 기본으로 켜 둔 영상은 계속 나와서, 자막 모듈을 직접 내림
+  const hideCaptions = useCallback(() => {
+    command('unloadModule', ['captions']);
+    command('unloadModule', ['cc']);
+    command('setOption', ['captions', 'track', {}]);
+  }, [command]);
+
+  // 바뀐 쇼츠 불러오기
   useEffect(() => {
+    const id = idOf(index);
     setSheetOpen(false);
-    const k = slotOf(index);
-    [0, 1, 2].forEach((j) => { if (j !== k) post(j, 'pauseVideo'); });
-    if (firstRun.current) firstRun.current = false;
-    else activate(k, idOf(index));
-    [index + 1, index - 1].forEach((i) => { if (i >= 0 && i < items.length) prime(slotOf(i), idOf(i)); });
+    if (!id || id === loadedId.current) return;
+    loadedId.current = id;
+    setSwitching(true);
+    command('loadVideoById', [id, 0]);
+    setPaused(false);
     const t = window.setTimeout(() => setSwitching(false), 2500);
     return () => window.clearTimeout(t);
   }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -205,7 +136,6 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: S
   const close = () => window.history.back(); // popstate 에서 onClose
 
   const togglePlay = () => {
-    userPausedAt.current = Date.now();
     if (pausedRef.current) command('playVideo'); else command('pauseVideo');
     setPaused((p) => !p);
   };
@@ -250,6 +180,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: S
 
   if (!cur) return null;
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const src = `https://www.youtube.com/embed/${firstId.current}?autoplay=1&playsinline=1&mute=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&cc_lang_pref=xx&enablejsapi=1&origin=${encodeURIComponent(origin)}`;
   const translate = `translateY(calc(${-index * 100}% + ${drag}px))`;
 
   return createPortal(
@@ -280,35 +211,25 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: S
             })}
           </div>
 
-          {/* 플레이어 3개: 지금 것만 보이고(끌면 같이 움직임), 나머지는 위·아래 쇼츠를 미리 받아 두는 중 */}
-          {[0, 1, 2].map((k) => {
-            const id0 = init.current[k];
-            if (!id0) return null;
-            const on = k === active;
-            const src = `https://www.youtube.com/embed/${id0}?autoplay=1&playsinline=1&mute=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&cc_lang_pref=xx&enablejsapi=1&origin=${encodeURIComponent(origin)}`;
-            return (
-              <div
-                key={k}
-                aria-hidden={!on}
-                className="absolute inset-0 pointer-events-none"
-                style={{ transform: on ? `translateY(${drag}px)` : undefined, transition: 'opacity 120ms', opacity: on && !(switching || animating) ? 1 : 0, zIndex: on ? 1 : 0 }}
-              >
-                <iframe
-                  ref={(el) => { frames.current[k] = el; }}
-                  src={src}
-                  title={on ? cur.title || '쇼츠' : '다음 쇼츠 미리 불러오기'}
-                  tabIndex={on ? 0 : -1}
-                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border-0"
-                  style={cover ? { width: cover.w, height: cover.h } : { width: '100%', height: '100%' }}
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  onLoad={() => {
-                    frames.current[k]?.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: `uzuhama-shorts-${k}` }), '*');
-                    if (k === activeRef.current) { setReady(true); window.setTimeout(() => setSwitching(false), 1200); }
-                  }}
-                />
-              </div>
-            );
-          })}
+          {/* 실제 재생은 플레이어 하나 (현재 쇼츠 자리에, 끌면 같이 움직임) */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ transform: `translateY(${drag}px)`, transition: 'opacity 150ms', opacity: switching || animating ? 0 : 1 }}
+          >
+            <iframe
+              ref={iframeRef}
+              src={src}
+              title={cur.title || '쇼츠'}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border-0"
+              style={cover ? { width: cover.w, height: cover.h } : { width: '100%', height: '100%' }}
+              allow="autoplay; encrypted-media; picture-in-picture"
+              onLoad={() => {
+                iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 'uzuhama-shorts' }), '*');
+                setReady(true);
+                window.setTimeout(() => setSwitching(false), 1200);
+              }}
+            />
+          </div>
 
           {/* 밀기·누르기를 받는 투명 막 (플레이어가 손가락을 가로채지 않게) */}
           <div
