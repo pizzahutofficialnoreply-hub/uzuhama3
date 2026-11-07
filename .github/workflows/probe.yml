@@ -1,0 +1,19 @@
+name: probe
+on: { workflow_dispatch: {} }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          B="https://uzuhama.vercel.app/api/health"
+          K=$(openssl rand -hex 20)
+          P=$(curl -sS -X POST "$B?sync=pair" -H 'Content-Type: application/json' -d "{\"key\":\"$K\"}"); echo "PAIR $P"
+          C=$(echo "$P" | sed -E 's/.*"code":"([A-Z0-9]+)".*/\1/')
+          echo "JOIN $(curl -sS -X POST "$B?sync=join" -H 'Content-Type: application/json' -d "{\"code\":\"$C\"}" | sed -E 's/[a-f0-9]{40}/<key>/')"
+          echo "JOIN2 $(curl -sS -X POST "$B?sync=join" -H 'Content-Type: application/json' -d "{\"code\":\"$C\"}")"
+          echo "PULL $(curl -sS -X POST "$B?sync=pull" -H 'Content-Type: application/json' -d "{\"key\":\"$K\"}")"
+          echo "PUSH $(curl -sS -X POST "$B?sync=push" -H 'Content-Type: application/json' -d "{\"key\":\"$K\",\"rev\":0,\"data\":\"{}\"}")"
+          echo "PUSHOLD $(curl -sS -X POST "$B?sync=push" -H 'Content-Type: application/json' -d "{\"key\":\"$K\",\"rev\":0,\"data\":\"{}\"}")"
+          echo "PULL2 $(curl -sS -X POST "$B?sync=pull" -H 'Content-Type: application/json' -d "{\"key\":\"$K\"}")"
+          echo "DEL $(curl -sS -X POST "$B?sync=delete" -H 'Content-Type: application/json' -d "{\"key\":\"$K\"}")"
+          echo "PULL3 $(curl -sS -X POST "$B?sync=pull" -H 'Content-Type: application/json' -d "{\"key\":\"$K\"}")"
