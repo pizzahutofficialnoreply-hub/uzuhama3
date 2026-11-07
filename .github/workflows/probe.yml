@@ -1,8 +1,0 @@
-name: probe
-on: { workflow_dispatch: {} }
-jobs:
-  p:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          for i in 1 2 3 4; do curl -sS --max-time 30 "https://uzuhama.vercel.app/api/videos/search-index?ai=status" | head -c 700; echo; sleep 150; done

@@ -195,9 +195,22 @@ export default async function handler(req: any, res: any) {
         res.setHeader('Cache-Control', 'no-store');
         // 한 번 불렸을 때 시간이 남으면 여러 구간 (이 함수는 최대 300초)
         const kind = ['short', 'video', 'live'].includes(String(req.query?.kind)) ? String(req.query.kind) : undefined;
-        const out: any = await ai.runAiVideoLoop(db, 150000, { kind });
-        // 백그라운드로 계속: 시간이 다 돼도 할 게 남았으면 스스로 다음 실행을 부름 (한 줄에 최대 80번, 한도·쉬는 중이면 멈춤)
         const chain = Math.max(0, Number(req.query?.chain || 0));
+        const stRef = db.collection('youtube_cache').doc('ai_state');
+        const SHORT_COOL = 15 * 60000;
+        // 이어 달리기 중인데 AI 가 잠깐 붐벼서 쉬는 중이면(15분 이내): 여기서 기다렸다가 이어서
+        if (chain > 0) {
+          const cu = Number(((await stRef.get()).data() || {}).coolUntil || 0) - Date.now();
+          if (cu > 0 && cu < SHORT_COOL) await new Promise((r) => setTimeout(r, Math.min(cu + 2000, 240000)));
+        }
+        const out: any = await ai.runAiVideoLoop(db, chain > 0 ? 100000 : 150000, { kind });
+        if (!out.more) {
+          // 잠깐 붐빔(짧게 쉼)이면 계속 이어 감 — 기다리는 건 다음 실행이 함
+          const last = out.steps?.[out.steps.length - 1] || {};
+          const cu = Number(((await stRef.get()).data() || {}).coolUntil || 0) - Date.now();
+          if ((last.cool || last.busy || (last.skipped && /쉼|쉬는/.test(String(last.skipped)))) && cu > 0 && cu < SHORT_COOL) out.more = true;
+        }
+        // 백그라운드로 계속: 시간이 다 돼도 할 게 남았으면 스스로 다음 실행을 부름 (한 줄에 최대 80번, 한도·다른 실행 중이면 멈춤)
         if (out.more && chain < 80) {
           const host = String(req.headers?.host || 'uzuhama.vercel.app');
           const url = `https://${host}/api/videos/search-index?ai=run&chain=${chain + 1}${kind ? `&kind=${kind}` : ''}`;
