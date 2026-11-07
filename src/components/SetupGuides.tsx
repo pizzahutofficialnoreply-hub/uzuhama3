@@ -296,6 +296,75 @@ function Dialog({ os, title, body, buttons, hot }: { os: 'ios' | 'android' | 'de
   );
 }
 
+/** iOS 26 알림 권한 창 (녹화 화면 기준): 세로로 쌓인 캡슐 버튼 3개 */
+function IOSAlert26({ title, body, buttons, hot, accent }: { title: string; body?: string; buttons: string[]; hot: number; accent?: number }) {
+  return (
+    <>
+      <motion.div className="absolute inset-0 z-20 bg-black/35" initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
+      <motion.div initial={{ opacity: 0, scale: 1.06 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25, delay: 0.1 }}
+        className="absolute z-30 left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-[78cqw] rounded-[8cqw] bg-white/90 dark:bg-zinc-800/90 backdrop-blur shadow-xl px-[5cqw] pt-[5.5cqw] pb-[4.5cqw] text-left">
+        <div className="text-[4.2cqw] font-bold text-zinc-900 dark:text-white leading-snug">{title}</div>
+        {body && <div className="mt-[1.5cqw] text-[3.2cqw] text-zinc-500 dark:text-zinc-400 leading-snug">{body}</div>}
+        <div className="mt-[4cqw] space-y-[2cqw]">
+          {buttons.map((b, i) => (
+            <Hot key={b} on={i === hot} round className="w-full">
+              <span className={cn('block w-full py-[2.6cqw] rounded-full text-center text-[3.8cqw] font-semibold', i === (accent ?? -1) ? 'bg-sky-500 text-white' : 'bg-zinc-200/80 dark:bg-zinc-700 text-zinc-900 dark:text-white')}>{b}</span>
+            </Hot>
+          ))}
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
+/** iOS 26 캘린더 '구독 캘린더 추가' (녹화 화면 기준) — step: url(주소·찾기) → detail(제목·색·✓) → list(목록) */
+function IOSCalendar26({ step }: { step: 'url' | 'detail' | 'list' }) {
+  const top = (title: string, right?: React.ReactNode) => (
+    <div className="flex items-center justify-between px-[4cqw] pt-[3cqw] pb-[3cqw]">
+      <span className="w-[8cqw] h-[8cqw] rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-[4cqw] text-zinc-600 dark:text-zinc-300">✕</span>
+      <span className="text-[4cqw] font-bold text-zinc-900 dark:text-white">{title}</span>
+      <span className="w-[8cqw] h-[8cqw] flex items-center justify-center">{right}</span>
+    </div>
+  );
+  const box = 'mx-[4cqw] rounded-[4cqw] bg-white dark:bg-zinc-800 px-[3.5cqw] py-[2.6cqw] text-[3.4cqw]';
+  const label = (t: string) => <div className="px-[6cqw] pt-[3cqw] pb-[1.2cqw] text-[3cqw] text-zinc-500">{t}</div>;
+  return (
+    <motion.div key={step} initial={{ y: step === 'url' ? '100%' : 0, opacity: step === 'url' ? 1 : 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 30 }} className="absolute inset-0 bg-zinc-100 dark:bg-zinc-950">
+      {step === 'url' && (<>
+        {top('구독 캘린더 추가')}
+        <p className="px-[5cqw] text-[2.8cqw] text-zinc-500 leading-snug">구독 캘린더는 외부 소스에서 가져온 데이터의 읽기 전용 피드입니다.</p>
+        {label('구독 URL')}
+        <div className={cn(box, 'text-zinc-500 truncate')}>uzuhama.vercel.app/api/calendar.ics…</div>
+        <div className="mt-[4cqw] mx-[4cqw]"><Hot className="w-full"><span className="block w-full py-[2.6cqw] rounded-[4cqw] bg-white dark:bg-zinc-800 text-center text-[3.6cqw] font-bold text-zinc-900 dark:text-white">찾기</span></Hot></div>
+      </>)}
+      {step === 'detail' && (<>
+        {top('구독 캘린더 추가', <Hot round><span className="w-[8cqw] h-[8cqw] rounded-full bg-red-500 text-white flex items-center justify-center text-[4cqw] font-black">✓</span></Hot>)}
+        {label('제목')}
+        <div className={cn(box, 'text-zinc-900 dark:text-white')}>{CAL_NAME}</div>
+        {label('미리보기')}
+        <div className={cn(box, 'space-y-[1.2cqw] border-l-[1cqw] border-red-500')}>
+          <div className="text-zinc-800 dark:text-zinc-100 truncate">[우주하마] 방송 기록 …</div>
+          <div className="text-zinc-800 dark:text-zinc-100 truncate">[우주하마] 방송 기록 …</div>
+        </div>
+        {label('계정')}
+        <div className={cn(box, 'flex justify-between')}><span className="text-zinc-800 dark:text-zinc-100">계정</span><span className="text-zinc-400">나의 iPhone</span></div>
+        {label('색상')}
+        <div className={cn(box, 'flex items-center gap-[2cqw] text-zinc-800 dark:text-zinc-100')}><span className="w-[2.6cqw] h-[2.6cqw] rounded-full bg-sky-500" /> 파란색 <span className="ml-auto text-zinc-400">›</span></div>
+      </>)}
+      {step === 'list' && (<>
+        {top('캘린더')}
+        {label('나의 iPhone')}
+        <div className={cn(box, 'space-y-[2.2cqw]')}>{['집', '학교'].map((n) => <div key={n} className="flex items-center gap-[2cqw] text-zinc-800 dark:text-zinc-100"><span className="w-[3.4cqw] h-[3.4cqw] rounded-full bg-zinc-400" />{n}</div>)}</div>
+        {label('구독')}
+        <div className={cn(box, 'space-y-[2.2cqw]')}>
+          <div className="flex items-center gap-[2cqw] text-zinc-800 dark:text-zinc-100"><span className="w-[3.4cqw] h-[3.4cqw] rounded-full bg-zinc-400" />대한민국 공휴일</div>
+          <Hot className="w-full"><div className="flex items-center gap-[2cqw] text-zinc-900 dark:text-white font-bold"><span className="w-[3.4cqw] h-[3.4cqw] rounded-full bg-sky-500 flex items-center justify-center text-white text-[2.2cqw]">✓</span>{CAL_NAME}</div></Hot>
+        </div>
+      </>)}
+    </motion.div>
+  );
+}
+
 /** iOS 26 사파리 공유 시트 (녹화 화면 기준): 위 앱 줄 → 복사·읽기 목록·북마크·더 보기 → 펼치면 목록 */
 function IOSShareSheet26({ expanded }: { expanded: boolean }) {
   const apps = ['AirDrop', '메시지', 'Mail', '메모'];
@@ -701,6 +770,10 @@ function InstallGuide({ onDone, onNotify, must }: { onDone: () => void; onNotify
 // ───────────────────────── 안내 2: 방송 알림 ─────────────────────────
 
 function permissionDialog(d: DeviceKey): React.ReactNode {
+  if (d === 'ios-safari') {
+    // iOS 26: 허용 / 시간 지정 요약에서 허용 / 허용 안 함 (녹화 화면 기준)
+    return <Phone os="ios"><SitePage /><IOSAlert26 title={"'우주하마 방송 예측'에서 알림을 보내고자 합니다."} body="경고, 사운드 및 아이콘 배지가 알림에 포함될 수 있습니다. 설정에서 이를 구성할 수 있습니다." buttons={['허용', '시간 지정 요약에서 허용', '허용 안 함']} hot={0} accent={2} /></Phone>;
+  }
   if (d.startsWith('ios')) {
     return <Phone os="ios"><SitePage /><Dialog os="ios" title={'"우주하마 방송 예측"에서 알림을 보내려고 합니다'} body="알림에는 텍스트, 사운드, 아이콘 배지가 포함될 수 있습니다." buttons={['허용 안 함', '허용']} hot={1} /></Phone>;
   }
@@ -869,7 +942,7 @@ function NotifyGuide({ onInstall, onDone }: { onInstall: () => void; onDone: () 
         slides={[{
           title: "아래 버튼 → 뜨는 창에서 '허용'",
           body: '방송이 켜질 때, 휴방 공지가 올라올 때, 오늘 유력한 시간 전에 알려 드려요. 로그인은 필요 없어요.',
-          note: ios ? '앱(홈 화면 아이콘)으로 연 상태라 바로 켤 수 있어요.' : undefined,
+          note: device === 'ios-safari' ? "꼭 맨 위 '허용'을 눌러요. '시간 지정 요약에서 허용'을 누르면 방송 알림이 바로 안 오고 정해진 시간에 모아서 와요. 켜지면 테스트 알림이 하나 와요." : ios ? '앱(홈 화면 아이콘)으로 연 상태라 바로 켤 수 있어요.' : undefined,
           mock: permissionDialog(device),
         }]}
       />
@@ -905,22 +978,11 @@ function calendarSlides(k: CalKind): Slide[] {
   );
   switch (k) {
     case 'apple':
+      // iOS 26 캘린더 (녹화 화면 기준)
       return [
-        { title: "'구독'을 눌러요", body: "아래 '캘린더 앱 열기'를 누르면 이런 창이 떠요.", mock: ios(<><SitePage /><Dialog os="ios" title={`'${CAL_NAME}'을(를) 구독하겠습니까?`} buttons={['취소', '구독']} hot={1} /></>) },
-        {
-          title: "오른쪽 위 '추가'",
-          body: "캘린더 앱이 열리면 이름·색을 확인하고 '추가'를 눌러요. 계정을 iCloud 로 두면 아이패드·맥에서도 보여요.\n추가했으면 이 화면으로 돌아오세요.",
-          mock: ios(
-            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 30 }} className="absolute inset-0 bg-zinc-100 dark:bg-zinc-900">
-              <div className="flex items-center justify-between px-[4cqw] py-[3.5cqw] text-[3.8cqw]"><span className="text-red-500">취소</span><span className="font-bold text-zinc-800 dark:text-zinc-100">구독</span><Hot><span className="text-red-500 font-bold px-[1cqw]">추가</span></Hot></div>
-              <div className="mx-[4cqw] rounded-[3cqw] bg-white dark:bg-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-700 text-[3.5cqw]">
-                {[['이름', CAL_NAME], ['색상', '● 보라'], ['계정', 'iCloud'], ['자동 새로 고침', '켬']].map(([a, b]) => (
-                  <div key={a} className="px-[3cqw] py-[2.4cqw] flex justify-between gap-[2cqw]"><span className="text-zinc-700 dark:text-zinc-200">{a}</span><span className="text-zinc-400 truncate">{b}</span></div>
-                ))}
-              </div>
-            </motion.div>,
-          ),
-        },
+        { title: "주소가 들어간 창에서 '찾기'", body: "아래 '캘린더 앱 열기'를 누르면 캘린더 앱에 '구독 캘린더 추가' 창이 떠요. 주소는 이미 들어가 있어요.", note: "iOS 18 이하는 '구독하겠습니까?' 창이 먼저 떠요. '구독'을 누르면 돼요.", mock: ios(<IOSCalendar26 step="url" />) },
+        { title: '이름·색 확인하고 오른쪽 위 ✓', body: "제목은 '우주하마 방송 일정'이에요. 색상을 눌러 원하는 색으로 바꿔도 돼요. 확인했으면 오른쪽 위 빨간 ✓ 를 눌러요.", note: "계정을 iCloud 로 바꾸면 아이패드·맥에서도 보여요. (iOS 18 이하는 오른쪽 위 '추가')", mock: ios(<IOSCalendar26 step="detail" />) },
+        { title: "'구독' 아래에 있으면 끝", body: "캘린더 목록의 '구독' 아래에 '우주하마 방송 일정'이 보이면 성공이에요. 이 화면으로 돌아오세요.", mock: ios(<IOSCalendar26 step="list" />) },
       ];
     case 'google':
     case 'samsung':
@@ -1056,7 +1118,7 @@ function CalendarGuide({ onDone }: { onDone: () => void }) {
       )}
       <div className="mt-4 space-y-2">
         <div className="flex gap-2">
-          {slides.length > 1 && <button type="button" className={ghostBtn} onClick={() => setIndex(index === 0 ? 1 : 0)}>{index === 0 ? '다음 단계' : '이전 단계'}</button>}
+          {slides.length > 1 && <button type="button" className={ghostBtn} onClick={() => setIndex(index < slides.length - 1 ? index + 1 : 0)}>{index < slides.length - 1 ? '다음 단계' : '처음 단계'}</button>}
           <button type="button" className={cn(ghostBtn, 'inline-flex items-center gap-1.5', !actionLabel && 'flex-1 justify-center')} onClick={copy}>
             {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />} {copied ? '복사했어요' : '주소 복사'}
           </button>

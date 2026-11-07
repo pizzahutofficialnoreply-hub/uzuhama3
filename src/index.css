@@ -96,22 +96,22 @@
   --font-hanna: 'BMHANNAPro', '배달의민족 한나체 Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
   --font-pro: 'BMHANNAPro', '배달의민족 한나체 Pro', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
 
-  /* 사이트 강조색: '하마 블루' (#7994C2 기준). 예전 보라(purple) 이름을 그대로 써서 모든 화면이 한 번에 바뀜
-     600 = 흰 글씨 버튼 (대비 4.7), 400 = 어두운 화면 글씨 (대비 7.2) */
-  --color-purple-50: #f3f6fb;
-  --color-purple-100: #e6ecf6;
-  --color-purple-200: #cfdaec;
-  --color-purple-300: #a9bcdc;
-  --color-purple-400: #8ea6cf;
-  --color-purple-500: #7994c2;
-  --color-purple-600: #5873a8;
-  --color-purple-700: #485f8e;
-  --color-purple-800: #3c4f74;
-  --color-purple-900: #32415e;
-  --color-purple-950: #1e283b;
-  --color-violet-500: #7994c2;
-  --color-violet-600: #5873a8;
-  --color-violet-700: #485f8e;
+  /* 사이트 강조색: 앱 아이콘 하마 색 (#7791C1). 예전 보라(purple) 이름을 그대로 써서 모든 화면이 한 번에 바뀜
+     500·600 = 하마 색 그대로 (버튼·강조), 700 = 밝은 화면의 작은 글씨, 300·400 = 어두운 화면 글씨 */
+  --color-purple-50: #f2f5fa;
+  --color-purple-100: #e4eaf5;
+  --color-purple-200: #ccd7eb;
+  --color-purple-300: #aebfdf;
+  --color-purple-400: #93a9d2;
+  --color-purple-500: #7791c1;
+  --color-purple-600: #7791c1;
+  --color-purple-700: #5d76a6;
+  --color-purple-800: #4a5f88;
+  --color-purple-900: #3a4a69;
+  --color-purple-950: #222c40;
+  --color-violet-500: #7791c1;
+  --color-violet-600: #7791c1;
+  --color-violet-700: #5d76a6;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));

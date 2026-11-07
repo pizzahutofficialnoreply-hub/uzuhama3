@@ -65,8 +65,8 @@ import { WidgetShareButton } from '../common/WidgetShareButton';
 import { HEATMAP_LEVEL_COLORS, getBroadcastHeatmapLevel } from '../../utils/heatmapUtils';
 
 const PDF_CATEGORY_PALETTE = [
-  '#8ea6cf', '#93c5fd', '#6ee7b7', '#fcd34d', '#f472b6',
-  '#818cf8', '#5eead4', '#fdba74', '#a9bcdc', '#67e8f9'
+  '#93a9d2', '#93c5fd', '#6ee7b7', '#fcd34d', '#f472b6',
+  '#818cf8', '#5eead4', '#fdba74', '#aebfdf', '#67e8f9'
 ];
 
 interface DetailedStatsTabProps {
@@ -1052,15 +1052,15 @@ export function DetailedStatsTab({
                           <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                           <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                           <Tooltip content={<TrendTooltip />} cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} />
-                          <Line type="monotone" dataKey="count" stroke="#7994c2" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7994c2' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
+                          <Line type="monotone" dataKey="count" stroke="#7791c1" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7791c1' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
                             <LabelList 
                               dataKey="count" 
                               content={(props: any) => (
                                 <SmartTrendLabel 
                                   {...props} 
                                   totalPoints={stats.trendStatsArray.length} 
-                                  strokeColor="#7994c2" 
-                                  textColor="#485f8e"
+                                  strokeColor="#7791c1" 
+                                  textColor="#5d76a6"
                                   className="chart-capture-only-label"
                                 />
                               )} 
@@ -1101,7 +1101,7 @@ export function DetailedStatsTab({
                               <ReferenceLine y={stats.avgDaily} stroke="#f43f5e" strokeDasharray="3 3" label={{ position: 'top', value: `평균(${stats.avgDaily.toFixed(1)}%)`, fill: '#f43f5e', fontSize: 10 }} />
                               <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
                                 {stats.dailyStatsArray.map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7994c2' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
+                                  <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
                                 ))}
                               </Bar>
                             </BarChart>
@@ -1169,15 +1169,15 @@ export function DetailedStatsTab({
                         <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                         <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                         <Tooltip content={<TrendTooltip />} cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} />
-                        <Line type="monotone" dataKey="count" stroke="#7994c2" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7994c2' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
+                        <Line type="monotone" dataKey="count" stroke="#7791c1" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7791c1' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
                           <LabelList 
                             dataKey="count" 
                             content={(props: any) => (
                               <SmartTrendLabel 
                                 {...props} 
                                 totalPoints={stats.trendStatsArray.length} 
-                                strokeColor="#7994c2" 
-                                textColor="#485f8e"
+                                strokeColor="#7791c1" 
+                                textColor="#5d76a6"
                                 className="chart-capture-only-label"
                               />
                             )} 
@@ -1233,8 +1233,8 @@ export function DetailedStatsTab({
                             allowEscapeViewBox={{ x: false, y: true }}
                             content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} 
                           />
-                          <Bar dataKey="probability" radius={[4, 4, 0, 0]} fill="#3b82f6" animationDuration={300} animationEasing="ease-out">
-                            <LabelList dataKey="probability" position="top" fill="#2563eb" fontSize={10} offset={4} fontWeight="bold" className="chart-capture-only-label" formatter={(val: number) => val > 0 ? `${val.toFixed(1)}%` : ''} />
+                          <Bar dataKey="probability" radius={[4, 4, 0, 0]} fill="#7791c1" animationDuration={300} animationEasing="ease-out">
+                            <LabelList dataKey="probability" position="top" fill="#5d76a6" fontSize={10} offset={4} fontWeight="bold" className="chart-capture-only-label" formatter={(val: number) => val > 0 ? `${val.toFixed(1)}%` : ''} />
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>)}
@@ -1335,7 +1335,7 @@ export function DetailedStatsTab({
                             <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
                               <LabelList dataKey="probability" position="top" fill="#4b5563" fontSize={11} offset={4} fontWeight="bold" className="chart-capture-only-label" formatter={(val: number) => `${val.toFixed(1)}%`} />
                               {stats.dailyStatsArray.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7994c2' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
+                                <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
                               ))}
                             </Bar>
                           </BarChart>
@@ -1413,8 +1413,8 @@ export function DetailedStatsTab({
                       <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
                       <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
-                      <Line type="monotone" dataKey="count" stroke="#7994c2" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7994c2' }} isAnimationActive={false}>
-                        <LabelList dataKey="count" position="top" fill="#7994c2" fontSize={12} offset={10} formatter={(val: number) => `${val}회`} />
+                      <Line type="monotone" dataKey="count" stroke="#7791c1" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7791c1' }} isAnimationActive={false}>
+                        <LabelList dataKey="count" position="top" fill="#7791c1" fontSize={12} offset={10} formatter={(val: number) => `${val}회`} />
                       </Line>
                     </LineChart>
                   )}
@@ -1435,7 +1435,7 @@ export function DetailedStatsTab({
                         <Bar dataKey="probability" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                           <LabelList dataKey="probability" position="top" fill="#6b7280" fontSize={11} formatter={(val: number) => `${val.toFixed(1)}%`} />
                           {stats.dailyStatsArray.map((entry, index) => (
-                            <Cell key={`legacy-pdf-cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7994c2' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
+                            <Cell key={`legacy-pdf-cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
                           ))}
                         </Bar>
                       </BarChart>
@@ -1736,15 +1736,15 @@ export function DetailedStatsTab({
                     <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
                     <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
-                    <Line type="monotone" dataKey="count" stroke="#7994c2" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7994c2' }} isAnimationActive={false}>
+                    <Line type="monotone" dataKey="count" stroke="#7791c1" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7791c1' }} isAnimationActive={false}>
                       <LabelList 
                         dataKey="count" 
                         content={(props: any) => (
                           <SmartTrendLabel 
                             {...props} 
                             totalPoints={stats.trendStatsArray.length} 
-                            strokeColor="#7994c2" 
-                            textColor="#485f8e"
+                            strokeColor="#7791c1" 
+                            textColor="#5d76a6"
                             className="pdf-smart-trend-label"
                           />
                         )} 
@@ -1764,7 +1764,7 @@ export function DetailedStatsTab({
                       <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
                       <XAxis dataKey="label" stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`} />
-                      <Bar dataKey="probability" radius={[4, 4, 0, 0]} fill="#3b82f6" isAnimationActive={false}>
+                      <Bar dataKey="probability" radius={[4, 4, 0, 0]} fill="#7791c1" isAnimationActive={false}>
                         <LabelList dataKey="probability" position="top" fill="#6b7280" fontSize={11} formatter={(val: number) => `${val.toFixed(1)}%`} />
                       </Bar>
                     </BarChart>
@@ -1848,7 +1848,7 @@ export function DetailedStatsTab({
                       <Bar dataKey="probability" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                         <LabelList dataKey="probability" position="top" fill="#6b7280" fontSize={11} formatter={(val: number) => `${val.toFixed(1)}%`} />
                         {stats.dailyStatsArray.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7994c2' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
+                          <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
                         ))}
                       </Bar>
                     </BarChart>

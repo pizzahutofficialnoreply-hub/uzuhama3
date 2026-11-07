@@ -338,15 +338,15 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
                   }}
                   cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} 
                 />
-                <Line type="monotone" dataKey="count" stroke="#7994c2" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7994c2' }} animationDuration={300} animationEasing="ease-out">
+                <Line type="monotone" dataKey="count" stroke="#7791c1" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7791c1' }} animationDuration={300} animationEasing="ease-out">
                   <LabelList 
                     dataKey="count" 
                     content={(props: any) => (
                       <SmartTrendLabel 
                         {...props} 
                         totalPoints={stats.trendStatsArray.length} 
-                        strokeColor="#7994c2" 
-                        textColor="#485f8e"
+                        strokeColor="#7791c1" 
+                        textColor="#5d76a6"
                         className="chart-capture-only-label"
                       />
                     )} 
@@ -378,8 +378,8 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
                   allowEscapeViewBox={{ x: false, y: true }}
                   content={<CustomTooltip formatter={(value: number) => [`${value}회`, '방송 횟수']} />} 
                 />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="#3b82f6" animationDuration={300} animationEasing="ease-out">
-                  <LabelList dataKey="count" position="top" fill="#2563eb" fontSize={11} offset={4} fontWeight="bold" className="chart-capture-only-label" formatter={(val: number) => `${val}회`} />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="#7791c1" animationDuration={300} animationEasing="ease-out">
+                  <LabelList dataKey="count" position="top" fill="#5d76a6" fontSize={11} offset={4} fontWeight="bold" className="chart-capture-only-label" formatter={(val: number) => `${val}회`} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>)}

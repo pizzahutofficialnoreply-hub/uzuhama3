@@ -11,7 +11,7 @@ export function DottedBarCursor(props: any) {
   const strokeColor = (props?.stroke && props.stroke !== 'none') ? props.stroke : '#a1a1aa';
 
   // 막대 색상에 맞춘 점 색상 추출 (SummaryTab은 #3b82f6, DetailedStatsTab은 막대 개별 색상)
-  const dotColor = payload?.[0]?.color || payload?.[0]?.fill || payload?.[0]?.payload?.fill || '#3b82f6';
+  const dotColor = payload?.[0]?.color || payload?.[0]?.fill || payload?.[0]?.payload?.fill || '#7791c1';
 
   // 막대그래프의 단일 막대는 항상 카테고리 슬롯(x ~ x+width)의 정중앙에 위치하므로
   // 가로 정렬(centerX)은 항상 슬롯의 정중앙으로 고정하여 흔들림이나 오차 없이 막대 가로 가운데에 일치시킵니다.

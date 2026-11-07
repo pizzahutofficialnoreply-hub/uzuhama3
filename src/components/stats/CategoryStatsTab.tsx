@@ -38,7 +38,7 @@ interface CategoryData {
 
 // 부드럽고 눈에 편한 파스텔톤 팔레트
 const PASTEL_PALETTE = [
-  '#8ea6cf', // pastel violet (메인 테마 보라)
+  '#93a9d2', // pastel violet (메인 테마 보라)
   '#93c5fd', // pastel blue
   '#6ee7b7', // pastel emerald
   '#fcd34d', // pastel amber
@@ -46,7 +46,7 @@ const PASTEL_PALETTE = [
   '#818cf8', // pastel indigo
   '#5eead4', // pastel teal
   '#fdba74', // pastel orange
-  '#a9bcdc', // pastel purple
+  '#aebfdf', // pastel purple
   '#67e8f9', // pastel cyan
   '#bef264', // pastel lime
   '#cbd5e1', // pastel slate
