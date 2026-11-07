@@ -1,8 +1,0 @@
-name: probe
-on: { workflow_dispatch: {} }
-jobs:
-  p:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          for i in 1 2 3 4 5 6 7 8; do curl -sS --max-time 30 "https://uzuhama.vercel.app/api/videos/search-index?ai=status" | grep -oE '"(usedSec|calls|lastRunAt|lastError|coolUntil|done|partial|lastId)":("[^"]{0,120}|[0-9]+)' | tr '\n' ' '; echo; sleep 120; done
