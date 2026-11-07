@@ -1,0 +1,17 @@
+{
+  "id": "/admin",
+  "name": "우주하마 관리자",
+  "short_name": "우주하마 관리자",
+  "description": "우주하마 방송 예측 관리자 (관리자 계정 + 2단계 인증 필요)",
+  "start_url": "/admin",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#7c3aed",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

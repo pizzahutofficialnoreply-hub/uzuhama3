@@ -9,7 +9,25 @@ import { AdminVerificationModal } from './AdminVerificationModal';
 import { isAdminUser, adminSessionValid, clearAdminSession } from '../utils/adminAuth';
 import { AdminMfaGate, adminLogoutAll } from './AdminMfaGate';
 
+/** /admin 에서 '홈 화면에 추가'하면 관리자 앱이 따로 생기게 (열면 바로 /admin) */
+function useAdminManifest() {
+  useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    const title = document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]');
+    const prev = { href: link?.getAttribute('href') || '/manifest.json', title: title?.content || '', doc: document.title };
+    link?.setAttribute('href', '/manifest-admin.json');
+    if (title) title.content = '우주하마 관리자';
+    document.title = '우주하마 관리자';
+    return () => {
+      link?.setAttribute('href', prev.href);
+      if (title) title.content = prev.title;
+      document.title = prev.doc;
+    };
+  }, []);
+}
+
 export function AdminRoute() {
+  useAdminManifest();
   const [user, setUser] = useState<User | null>(null);
   // 최근 12시간 안에 구글 계정으로 다시 확인했는지 (기기 표시만으로는 관리자가 아님: 아래에서 실제 로그인 계정도 함께 확인)
   const [isVerified, setIsVerified] = useState<boolean>(adminSessionValid);

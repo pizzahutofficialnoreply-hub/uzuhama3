@@ -30,7 +30,8 @@ import {
   Video,
   Zap,
   Gamepad2,
-  AlertCircle
+  AlertCircle,
+  Flag
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { AppData, BroadcastLog } from '../../../types';
@@ -83,8 +84,8 @@ export function AdminSuggestionsTab({
     const qFeed = query(collection(db, 'feedbacks'), orderBy('createdAt', 'desc'));
     const unFeed = onSnapshot(qFeed, (snapshot) => {
       const items: FeedbackItem[] = [];
-      // 검색 신고·만족도는 관리자 > 시스템 > 자동화 '검색 조정'에서 따로 봄
-      snapshot.forEach(docSnap => { const d = docSnap.data(); if (!String(d.type || '').startsWith('search_') && d.type !== 'client_error') items.push({ id: docSnap.id, ...d } as FeedbackItem); });
+      // ⋮ › 신고 · 검색 결과 추가도 여기 (검색 만족도 👍👎 와 화면 오류는 자동화 탭에서)
+      snapshot.forEach(docSnap => { const d = docSnap.data(); if (d.type !== 'search_rating' && d.type !== 'client_error') items.push({ id: docSnap.id, ...d } as FeedbackItem); });
       setFeedbacks(items);
       setLoading(false);
     }, (err) => {
@@ -205,6 +206,16 @@ export function AdminSuggestionsTab({
                       <span className="px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-300">
                         <Bug className="w-3 h-3" />
                         버그 제보
+                      </span>
+                    ) : (item.type as string) === 'search_report' ? (
+                      <span className="px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300">
+                        <Flag className="w-3 h-3" />
+                        {(item as any).reason === 'wrong_ai_summary' ? 'AI 요약 신고' : '신고'}
+                      </span>
+                    ) : (item.type as string) === 'search_add' ? (
+                      <span className="px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300">
+                        <PlusCircle className="w-3 h-3" />
+                        검색 결과 추가
                       </span>
                     ) : (
                       <span className={`px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 ${
