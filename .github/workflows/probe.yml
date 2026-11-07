@@ -1,0 +1,8 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "R $(curl -s --max-time 295 'https://uzuhama.vercel.app/api/videos/search-index?ai=run' | head -c 900)"
