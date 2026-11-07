@@ -195,7 +195,19 @@ export default async function handler(req: any, res: any) {
         res.setHeader('Cache-Control', 'no-store');
         // 한 번 불렸을 때 시간이 남으면 여러 구간 (이 함수는 최대 300초)
         const kind = ['short', 'video', 'live'].includes(String(req.query?.kind)) ? String(req.query.kind) : undefined;
-        return res.status(200).json(await ai.runAiVideoLoop(db, 150000, { kind }));
+        const out: any = await ai.runAiVideoLoop(db, 150000, { kind });
+        // 백그라운드로 계속: 시간이 다 돼도 할 게 남았으면 스스로 다음 실행을 부름 (한 줄에 최대 80번, 한도·쉬는 중이면 멈춤)
+        const chain = Math.max(0, Number(req.query?.chain || 0));
+        if (out.more && chain < 80) {
+          const host = String(req.headers?.host || 'uzuhama.vercel.app');
+          const url = `https://${host}/api/videos/search-index?ai=run&chain=${chain + 1}${kind ? `&kind=${kind}` : ''}`;
+          try {
+            const { waitUntil } = await import('@vercel/functions');
+            waitUntil(fetch(url, { signal: AbortSignal.timeout(5000) }).catch(() => {}));
+          } catch { /* */ }
+          out.chained = chain + 1;
+        }
+        return res.status(200).json(out);
       }
       return res.status(400).json({ error: 'unknown ai mode' });
     }

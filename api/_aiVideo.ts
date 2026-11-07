@@ -18,7 +18,7 @@
  *  - 검색할 때 AI 를 부르지 않음
  */
 
-const SEG_SEC = 10 * 60;
+const SEG_SEC = 6 * 60; // 10분은 AI 쪽 시간 초과(504)가 잦음
 const MIN_SEG_SEC = 3 * 60;
 const DAILY_SEC = Number(process.env.AI_VIDEO_DAILY_SEC || 7 * 3600);
 const DAILY_CALLS = Number(process.env.AI_VIDEO_DAILY_CALLS || 180);
@@ -697,10 +697,14 @@ export async function runAiVideoLoop(db: any, budgetMs = 150000, opts: { kind?: 
   while (steps.length < 12) {
     const r = await runAiVideoStep(db, opts);
     steps.push(r);
-    if (r?.error || r?.skipped || r?.done || r?.queue) break;
+    // 영상 하나의 실패(시간 초과 등)는 그 영상만 표시하고 다음으로 계속, 한도·쉬는 중·잠금이면 멈춤
+    if (r?.cool || r?.busy || r?.skipped || r?.done || r?.queue || (r?.error && !r?.id)) break;
     if (Date.now() - t0 > budgetMs) break;
   }
-  return { steps, ms: Date.now() - t0 };
+  const last = steps[steps.length - 1] || {};
+  // 이어서 더 돌려도 되는지 (한도·쉬는 중·다른 실행 중·다 끝남이 아니면)
+  const more = !(last.cool || last.busy || last.skipped || last.done || last.queue || (last.error && !last.id));
+  return { steps, ms: Date.now() - t0, more };
 }
 
 /* ── 검색할 때 영상에서 직접 확인 (유튜브 'Gemini 에게 물어보기'처럼) ──

@@ -1,8 +1,11 @@
-import React from 'react';
-import { ListChecks, ExternalLink } from 'lucide-react';
+import React, { Suspense, lazy, useState } from 'react';
+import { ListChecks, ExternalLink, Loader2, Play, X } from 'lucide-react';
 
-/** 관리자 > 자동화: 화면·기능 전체 점검 (손으로 돌리기) */
+const SelfTestRunner = lazy(() => import('../../../SelfTestPage').then((m) => ({ default: m.SelfTestRunner })));
+
+/** 관리자 > 자동화: 화면·기능 전체 점검 — 새 창 없이 여기서 바로 (홈 화면 앱에서도 로그인 그대로) */
 export function SelfTestCard() {
+  const [open, setOpen] = useState(false);
   return (
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3">
       <div className="flex items-center gap-2">
@@ -11,11 +14,21 @@ export function SelfTestCard() {
       </div>
       <p className="text-[11px] text-zinc-500 leading-relaxed break-keep">
         사이트를 안쪽 창에 띄우고 사람이 누르는 순서대로 눌러 봐요: 홈 → 아래 탭 이동 → 달력에서 방송한 날 칸 → 그날 기록·링크 → 달 넘기기 → 분석 하위 탭 → 카테고리 표 게임 → 검색 → ⋮ AI 요약·저장 창 → 설정 항목 → 시청 기록 → 패치노트 글·버전 주소 → 약관·개인정보 → 없는 주소 → 서버 API·DB 읽기·보안.
-        화면마다 가로 넘침·깨진 이미지·이름 없는 버튼·화면 오류도 봐요. 지금 쓰는 이 휴대폰·PC에서 그대로 돌아가서 실제 기기 점검이 돼요. 점검 중이어도 돌아가고, 이 기기의 설정·기록은 끝나면 그대로 돌려놔요. 같은 점검이 주간 자동 점검 때도 돌아요.
+        화면마다 가로 넘침·깨진 이미지·이름 없는 버튼·화면 오류도 봐요. 지금 쓰는 이 기기에서 그대로 돌아가고, 이 기기의 설정·기록은 끝나면 그대로 돌려놔요. 같은 점검이 주간 자동 점검 때도 돌아요.
       </p>
-      <a href="/selftest" target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">
-        전체 점검 열기 <ExternalLink className="w-3.5 h-3.5" />
-      </a>
+      {!open ? (
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer"><Play className="w-3.5 h-3.5" /> 여기서 점검 열기</button>
+          <a href="/selftest" target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-xs font-bold">새 창으로 (PC) <ExternalLink className="w-3.5 h-3.5" /></a>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <button type="button" onClick={() => setOpen(false)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer"><X className="w-3.5 h-3.5" /> 닫기</button>
+          <Suspense fallback={<div className="flex items-center gap-2 text-xs text-zinc-500"><Loader2 className="w-4 h-4 animate-spin" /> 불러오는 중…</div>}>
+            <SelfTestRunner embedded />
+          </Suspense>
+        </div>
+      )}
     </div>
   );
 }

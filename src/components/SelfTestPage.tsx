@@ -14,26 +14,39 @@ import { runSelfTests, type StepResult } from '../selftest/runner';
 import { SELFTEST_FLAG } from '../selftest/flag';
 
 export function SelfTestPage() {
-  const frameRef = useRef<HTMLIFrameElement>(null);
   const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [running, setRunning] = useState(false);
-  const [results, setResults] = useState<StepResult[]>([]);
-  const [done, setDone] = useState(false);
-  const [phone, setPhone] = useState(true);
-  const auto = /[?&]auto=1/.test(window.location.search);
-
   useEffect(() => {
     if ((navigator as any).webdriver) { setAllowed(true); return; }
     return onAuthStateChanged(auth, async (u) => setAllowed(isAdminUser(u) && (await adminMfaValid()) > 0));
   }, []);
+  if (allowed === null) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-purple-500" /></div>;
+  if (!allowed) return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3 p-6 text-center bg-zinc-50 dark:bg-black">
+      <p className="text-sm font-bold text-zinc-800 dark:text-zinc-100">관리자만 쓸 수 있어요.</p>
+      <p className="text-xs text-zinc-500">관리자 화면 › 시스템 › 자동화 › 화면·기능 전체 점검에서 바로 돌릴 수 있어요.</p>
+      <a href="/admin" className="px-4 py-2 rounded-xl bg-purple-600 text-white text-sm font-bold">관리자 화면으로</a>
+    </div>
+  );
+  return <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 p-3 sm:p-6"><SelfTestRunner auto={/[?&]auto=1/.test(window.location.search)} /></div>;
+}
+
+/** 점검 본체: /selftest 페이지와 관리자 화면 안에서 같이 씀 (관리자 화면에서는 새 창 없이 바로) */
+export function SelfTestRunner({ auto = false, embedded = false }: { auto?: boolean; embedded?: boolean }) {
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const [running, setRunning] = useState(false);
+  const [stage, setStage] = useState('');
+  const [results, setResults] = useState<StepResult[]>([]);
+  const [done, setDone] = useState(false);
+  const [phone, setPhone] = useState(true);
 
   const start = async () => {
     if (!frameRef.current || running) return;
-    setRunning(true); setDone(false); setResults([]);
+    setRunning(true); setDone(false); setResults([]); setStage('점검할 화면을 불러오는 중…');
     (window as any).__selftest = { done: false, results: [] };
     try { localStorage.setItem(SELFTEST_FLAG, String(Date.now() + 15 * 60 * 1000)); } catch { /* */ } // 점검 중 화면 건너뛰기 (15분)
     const out = await runSelfTests(frameRef.current, (r) => {
       setResults((p) => [...p, r]);
+      setStage(`${r.group} · ${r.name}`);
       (window as any).__selftest.results.push(r);
     });
     try { localStorage.removeItem(SELFTEST_FLAG); } catch { /* */ }
@@ -41,16 +54,7 @@ export function SelfTestPage() {
     setRunning(false); setDone(true);
     if (frameRef.current) frameRef.current.src = 'about:blank';
   };
-  useEffect(() => { if (allowed && auto) { const t = setTimeout(start, 800); return () => clearTimeout(t); } }, [allowed]); // eslint-disable-line
-
-  if (allowed === null) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-purple-500" /></div>;
-  if (!allowed) return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-3 p-6 text-center bg-zinc-50 dark:bg-black">
-      <p className="text-sm font-bold text-zinc-800 dark:text-zinc-100">관리자만 쓸 수 있어요.</p>
-      <p className="text-xs text-zinc-500">관리자 화면에서 2단계 인증을 마친 뒤 시스템 › 자동화 › 화면·기능 전체 점검에서 열어 주세요.</p>
-      <a href="/admin" className="px-4 py-2 rounded-xl bg-purple-600 text-white text-sm font-bold">관리자 화면으로</a>
-    </div>
-  );
+  useEffect(() => { if (auto) { const t = setTimeout(start, 800); return () => clearTimeout(t); } }, []); // eslint-disable-line
 
   const fail = results.filter((r) => !r.ok);
   const warn = results.filter((r) => r.warn);
@@ -61,8 +65,8 @@ export function SelfTestPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 p-3 sm:p-6">
-      <div className="max-w-6xl mx-auto grid gap-4 lg:grid-cols-[auto_1fr]">
+    <div>
+      <div className={embedded ? 'grid gap-4 xl:grid-cols-[auto_1fr]' : 'max-w-6xl mx-auto grid gap-4 lg:grid-cols-[auto_1fr]'}>
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <button type="button" onClick={start} disabled={running} className="px-4 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-bold flex items-center gap-2 disabled:opacity-60 cursor-pointer">
@@ -70,13 +74,14 @@ export function SelfTestPage() {
             </button>
             <label className="text-xs flex items-center gap-1.5"><input type="checkbox" checked={phone} onChange={(e) => setPhone(e.target.checked)} disabled={running} /> 휴대폰 크기</label>
           </div>
-          <div className="rounded-[28px] border-4 border-zinc-800 overflow-hidden bg-white shadow-xl" style={{ width: phone ? 390 : 'min(1024px, 92vw)', height: phone ? 760 : 700 }}>
+          <div className="rounded-[28px] border-4 border-zinc-800 overflow-hidden bg-white shadow-xl" style={{ width: phone ? 'min(390px, 100%)' : 'min(1024px, 100%)', height: phone ? 760 : 700 }}>
             <iframe ref={frameRef} title="점검할 화면" src="about:blank" className="w-full h-full border-0" />
           </div>
         </div>
         <div className="space-y-3">
-          <h1 className="text-lg font-black">화면·기능 전체 점검</h1>
+          {!embedded && <h1 className="text-lg font-black">화면·기능 전체 점검</h1>}
           <p className="text-xs text-zinc-500 leading-relaxed break-keep">사람이 누르는 순서대로 사이트를 눌러 보고(홈 → 탭 이동 → 달력 칸 → 그날 기록 → 링크 → 분석 하위 탭 → 카테고리 게임 → 검색 → ⋮ AI 요약·저장 → 설정 → 시청 기록 → 패치노트 → 버전 주소 → 약관·개인정보 → 없는 주소), 화면마다 가로 넘침·깨진 이미지·화면 오류를 보고, 서버 API와 DB(읽기·보안)도 확인해요. 이 기기의 설정·재생목록·기록은 점검 뒤 그대로 돌려놔요. 저장·삭제 같은 바꾸는 동작은 하지 않아요.</p>
+          {running && <p className="text-xs text-purple-600 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> <span className="break-keep">지금: {stage} <span className="text-zinc-400">(전체 1~3분)</span></span></p>}
           {results.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 text-sm font-bold">
               <span className="text-emerald-600">통과 {results.filter((r) => r.ok && !r.warn).length}</span>
@@ -100,7 +105,6 @@ export function SelfTestPage() {
               </ul>
             </div>
           ))}
-          {running && <p className="text-xs text-purple-600 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> 왼쪽 화면에서 차례로 누르는 중이에요 (1~3분)</p>}
         </div>
       </div>
     </div>
