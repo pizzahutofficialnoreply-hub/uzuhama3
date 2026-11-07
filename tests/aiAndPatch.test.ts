@@ -74,3 +74,11 @@ describe('관리자 2단계 인증 (TOTP)', () => {
     expect(verifyTotp(secret, '12345', now)).toBe(-1);
   });
 });
+
+describe('우주하마 다른 이름', () => {
+  it('검색어에서 빠짐', () => {
+    const t = queryTokens('좜마형 우잠마 하마님 왕관 가져온 장면');
+    expect(t).toContain('왕관');
+    ['좜마형', '우잠마', '하마님', '하마'].forEach((w) => expect(t).not.toContain(w));
+  });
+});
