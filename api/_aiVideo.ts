@@ -24,7 +24,10 @@ const DAILY_SEC = Number(process.env.AI_VIDEO_DAILY_SEC || 7 * 3600);
 const DAILY_CALLS = Number(process.env.AI_VIDEO_DAILY_CALLS || 180);
 const QUEUE_TTL = 12 * 3600 * 1000;
 // 최신 Flash 가 붐비거나 무료 한도가 차면 최신 Flash-Lite 로 이어서 (분석이 멈추지 않게)
-const MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean) as string[];
+// 영상 분석은 정확도 우선: 가벼운 Lite 모델로는 하지 않음 (붐비거나 한도면 기다렸다가 이어서)
+const MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest'].filter(Boolean) as string[];
+/** 분석 방식 버전: 바뀌면 예전 방식(가벼운 모델·낮은 화질)으로 본 영상을 다시 봄 */
+const PV = 2;
 const TEXT_MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean) as string[];
 
 type QItem = { id: string; title: string; publishedAt: string; kind?: 'video' | 'short' | 'live'; duration?: number; live?: string; logDate?: string; games?: string[]; gameLinks?: Record<string, string>; comp?: boolean };
@@ -267,7 +270,8 @@ scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'
   // mimeType 을 붙이면 유튜브 주소를 느린 방식으로 읽어 시간 초과가 남 → 주소만
   const part: any = { fileData: { fileUri: `https://www.youtube.com/watch?v=${item.id}` } };
   if (!whole) part.videoMetadata = { startOffset: `${start}s`, endOffset: `${end}s` };
-  const { text, model } = await gen([part, { text: prompt }], true, AI_TIMEOUT, MODELS, { mediaResolution: 'MEDIA_RESOLUTION_LOW' });
+  // 화질은 기본(중간): 낮은 화질보다 귀신·글자·표정 같은 화면 내용을 훨씬 잘 봄
+  const { text, model } = await gen([part, { text: prompt }], true, AI_TIMEOUT, MODELS);
   const out = parseJson(text);
   let scenes: Scene[] = (Array.isArray(out.scenes) ? out.scenes : []).map((s: any) => ({ t: toSec(s?.t), d: String(s?.d || '').slice(0, 160), k: words(s?.k, 8), ...(s?.sure === false ? { u: 1 } : {}) }))
     .filter((s: Scene) => Number.isFinite(s.t) && s.d);
@@ -340,8 +344,8 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
     for (const pid of pr) {
       if (opts.kind) break;
       const d = (await col.doc(pid).get()).data();
-      if (d?.status === 'done' || d?.status === 'skip' || (d?.status === 'error' && (d.tries || 0) >= 3)) continue;
-      item = queue.find((q) => q.id === pid); cur = d; break;
+      if (d?.pv === PV && (d?.status === 'done' || d?.status === 'skip' || (d?.status === 'error' && (d.tries || 0) >= 3))) continue;
+      item = queue.find((q) => q.id === pid); cur = d?.pv === PV ? d : null; break;
     }
 
     for (let i = 0; i < queue.length && !item; i += 30) {
@@ -351,7 +355,8 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
       for (let j = 0; j < part.length; j++) {
         const d = snaps[j].exists ? snaps[j].data() : null;
         const busySkip = d?.status === 'skip' && /high demand|UNAVAILABLE/i.test(d?.error || ''); // 예전 규칙으로 잘못 건너뛴 것
-        if (!d || busySkip || (d.status !== 'done' && d.status !== 'skip' && !(d.status === 'error' && (d.tries || 0) >= 3))) { item = part[j]; cur = d; break; }
+        const redo = d && d.pv !== PV && d.status !== 'skip'; // 예전 방식으로 본 영상 → 처음부터 다시
+        if (!d || busySkip || redo || (d.status !== 'done' && d.status !== 'skip' && !(d.status === 'error' && (d.tries || 0) >= 3))) { item = part[j]; cur = redo ? null : d; break; }
       }
     }
     if (!item) { await release({ lastError: '', idle: true }); return { done: true, message: '모든 영상을 분석했어요' }; }
@@ -415,7 +420,7 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
         scenes, games,
         keywords: [...new Set([...(cur?.keywords || []), ...r.keywords])].slice(0, 60),
         mood: [...new Set([...(cur?.mood || []), ...r.mood])].slice(0, 8),
-        status: whole || end >= dur ? 'finishing' : 'partial', model: r.model, tries: 0, error: '', updatedAt: new Date().toISOString(),
+        status: whole || end >= dur ? 'finishing' : 'partial', model: r.model, pv: PV, tries: 0, error: '', updatedAt: new Date().toISOString(),
       };
       await ref.set({ ...next, kw: buildKw(next) }, { merge: true });
       await release({ usedSec: usedSec + lenSec, calls: calls + 1, lastError: '', lastId: item.id, model: r.model, idle: false });
@@ -560,6 +565,9 @@ export async function aiVideoDetail(db: any, id: string) {
   if (!/^[\w-]{11}$/.test(id)) return { found: false };
   const d = (await db.collection('ai_video').doc(id).get()).data();
   if (!d || !(d.parts?.length || d.summary)) {
+    // 몰아보기: 따로 분석하지 않고, 들어 있는 방송(원본 영상)들의 분석을 모아서
+    const comp = await compilationSources(db, id);
+    if (comp) return comp;
     const st = (await db.collection('youtube_cache').doc('ai_state').get()).data() || {};
     return { found: false, requested: (st.priority || []).includes(id) };
   }
@@ -573,6 +581,48 @@ export async function aiVideoDetail(db: any, id: string) {
     scenes: (d.scenes || []).map((s: Scene) => ({ t: s.t, d: s.d, k: s.k, ...(s.u ? { vague: true } : {}) })),
     games: games.map((g: any) => ({ name: g.name, ko: g.ko, genre: g.genre, about: g.about, tags: g.tags, horror: g.horror })),
     keywords: d.keywords || [], mood: d.mood || [],
+  };
+}
+
+const ytIdOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
+
+/** 몰아보기 영상 → 들어 있는 방송들의 원본 영상(다시보기·편집본) 분석 모음 */
+async function compilationSources(db: any, id: string) {
+  let dates: string[] = [];
+  let title = '';
+  let games: string[] = [];
+  try {
+    const comps = await db.collection('compilations').get();
+    const c = comps.docs.map((x: any) => x.data()).find((x: any) => ytIdOf(x.url) === id);
+    if (c) { title = c.title || ''; dates = (c.broadcasts || []).map((b: any) => b.date).filter(Boolean); games = (c.broadcasts || []).flatMap((b: any) => b.games || []); }
+  } catch { /* */ }
+  const logs = (await db.collection('logs').get()).docs.map((x: any) => x.data());
+  if (!dates.length) {
+    for (const l of logs) for (const e of l.edited || []) {
+      if ((e?.isCompilation || e?.compilationId) && ytIdOf(e.url) === id) { title = e.title || title; dates = e.allBroadcastDates?.length ? e.allBroadcastDates : [l.date]; }
+    }
+  }
+  if (!dates.length) return null;
+  const ids: string[] = [];
+  logs.filter((l: any) => dates.includes(l.date)).sort((a: any, b: any) => a.date.localeCompare(b.date)).forEach((l: any) => {
+    [...(l.edited || []).filter((e: any) => !(e?.isCompilation || e?.compilationId)), ...(l.vods || [])].forEach((v: any) => {
+      const vid = ytIdOf(typeof v === 'string' ? v : v?.url);
+      if (vid && vid !== id && !ids.includes(vid)) ids.push(vid);
+    });
+  });
+  const snaps = ids.length ? await db.getAll(...ids.slice(0, 30).map((x) => db.collection('ai_video').doc(x))) : [];
+  const sources = snaps.map((sn: any, i: number) => ({ sn, id: ids[i] })).filter(({ sn }: any) => sn.exists && (sn.data().parts?.length || sn.data().summary)).map(({ sn, id: vid }: any) => {
+    const v = sn.data();
+    return {
+      id: vid, title: v.title, kind: v.kind, status: v.status,
+      summary: v.summary || v.parts?.[0]?.summary || '',
+      scenes: (v.scenes || []).filter((x: Scene) => !x.u).slice(0, 12).map((x: Scene) => ({ t: x.t, d: x.d })),
+      games: (v.games || []).map((g: any) => g.ko || g.name).slice(0, 4),
+    };
+  });
+  return {
+    found: sources.length > 0, compilation: true, id, title, dates, games: [...new Set(games)].map((g) => ({ name: g })),
+    sources, sourceCount: ids.length,
   };
 }
 
@@ -609,6 +659,8 @@ const VERIFY_DAILY = Number(process.env.AI_VERIFY_DAILY || 80);
 const CLIP_HALF = 60;
 
 export async function aiVerify(db: any, q: string) {
+  // 기본은 끔: 정확도 차이가 크지 않아 무료 한도를 영상 분석에 씀 (AI_VERIFY=1 이면 켬)
+  if (process.env.AI_VERIFY !== '1') return { verified: [], rejected: [], pending: [], disabled: true };
   const key = normWord(q).slice(0, 60);
   if (!key) return { verified: [] };
   const ref = db.collection('ai_verify').doc(key);

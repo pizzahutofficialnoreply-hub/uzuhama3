@@ -55,12 +55,15 @@ export function timeFromUrl(url: string): number | null {
 /** 후보 장면을 AI 가 영상에서 직접 확인 (서버가 검색어·영상별로 저장해 둬서 두 번째부터는 바로) */
 export type AiVerify = { verified: { id: string; title: string; kind?: string; moments: { t: number; d: string }[] }[]; rejected: string[]; pending: string[]; limited?: boolean };
 const vmem = new Map<string, AiVerify>();
+let verifyOff = false;
 export async function aiVerify(q: string): Promise<AiVerify | null> {
+  if (verifyOff) return null;
   const key = q.trim().toLowerCase();
   if (vmem.has(key)) return vmem.get(key)!;
   try {
     const r = await fetch(`${API_BASE}/api/videos/search-index?ai=verify&q=${encodeURIComponent(q.trim())}`, { signal: AbortSignal.timeout(150000) });
     const j = await r.json();
+    if (j.disabled) { verifyOff = true; return null; }
     const out: AiVerify = { verified: j.verified || [], rejected: j.rejected || [], pending: j.pending || [], limited: j.limited };
     if (!out.pending.length) vmem.set(key, out);
     return out;

@@ -20,13 +20,14 @@ const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
 export function AiSummaryHost() {
   const [target, setTarget] = useState<{ id: string; title: string; kind?: string } | null>(null);
   const [data, setData] = useState<any>(null);
-  const [playAt, setPlayAt] = useState<number | null>(null);
+  const [play, setPlay] = useState<{ id: string; t: number } | null>(null);
+  const setPlayAt = (t: number, vid?: string) => setPlay({ id: vid || target!.id, t });
   const [asked, setAsked] = useState('');
   const [showAll, setShowAll] = useState(false);
   useBackToClose(Boolean(target), () => setTarget(null));
 
   useEffect(() => {
-    const on = (e: any) => { setTarget(e.detail); setData(null); setPlayAt(null); setAsked(''); setShowAll(false); };
+    const on = (e: any) => { setTarget(e.detail); setData(null); setPlay(null); setAsked(''); setShowAll(false); };
     window.addEventListener(AI_SUMMARY_EVENT, on);
     return () => window.removeEventListener(AI_SUMMARY_EVENT, on);
   }, []);
@@ -64,16 +65,16 @@ export function AiSummaryHost() {
               <button type="button" onClick={() => setTarget(null)} className="p-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
             </div>
 
-            {playAt !== null && (
+            {play && (
               <div className="relative aspect-video bg-black">
-                <iframe key={playAt} ref={trackYoutubeFrame} src={embedSrc(target.id, { start: playAt })} title={target.title} className="absolute inset-0 w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                <iframe key={`${play.id}-${play.t}`} ref={trackYoutubeFrame} src={embedSrc(play.id, { start: play.t })} title={target.title} className="absolute inset-0 w-full h-full border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
               </div>
             )}
 
             <div className="px-5 py-4 space-y-4">
               {!data && <div className="flex items-center gap-2 text-sm text-zinc-500"><Loader2 className="w-4 h-4 animate-spin" /> 불러오는 중…</div>}
 
-              {data && !data.found && (
+              {data && !data.found && !data.compilation && (
                 <div className="space-y-3 text-sm text-zinc-600 dark:text-zinc-300 break-keep">
                   <p>아직 AI가 이 영상을 보지 않았어요. 최신 영상부터 차례로 보고 있어요.</p>
                   {data.requested || asked ? <p className="text-xs font-bold text-purple-600">{asked || '이미 먼저 봐 달라고 요청된 영상이에요.'}</p> : (
@@ -82,7 +83,25 @@ export function AiSummaryHost() {
                 </div>
               )}
 
-              {data?.found && (
+              {data?.compilation && (
+                <div className="space-y-3">
+                  <p className="text-xs text-zinc-600 dark:text-zinc-300 break-keep">몰아보기 영상이라 따로 분석하지 않고, 들어 있는 방송 {data.dates?.length || 0}개의 원본 영상 {data.sourceCount || 0}개 중 AI가 본 {data.sources?.length || 0}개를 모아 보여줘요. 시간은 원본 영상 기준이에요.</p>
+                  {!data.found && <p className="text-xs font-bold text-amber-600">아직 원본 영상을 AI가 보지 않았어요.</p>}
+                  {(data.sources || []).map((src: any) => (
+                    <div key={src.id} className="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 p-3 space-y-1.5">
+                      <button type="button" onClick={() => setPlayAt(0, src.id)} className="text-left text-xs font-bold text-zinc-900 dark:text-white line-clamp-2 cursor-pointer">{src.title}</button>
+                      {src.summary && <p className="text-xs text-zinc-600 dark:text-zinc-300 break-keep">{src.summary}</p>}
+                      <ul className="space-y-0.5">
+                        {(src.scenes || []).slice(0, 6).map((sc: any, i: number) => (
+                          <li key={i} className="flex gap-2 text-[11px]"><button type="button" onClick={() => setPlayAt(Math.max(0, sc.t - 10), src.id)} className="shrink-0 font-black text-purple-600 tabular-nums underline cursor-pointer">{fmtTime(sc.t)}</button><span className="text-zinc-600 dark:text-zinc-300 break-keep">{sc.d}</span></li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {data?.found && !data.compilation && (
                 <>
                   {data.status !== 'done' && <p className="text-[11px] font-bold text-amber-600">아직 보는 중이에요 ({data.seg || 0}/{data.segTotal || '?'} 구간). 본 데까지만 보여요.</p>}
                   {(data.summary || data.parts?.[0]?.summary) && <p className="text-sm text-zinc-800 dark:text-zinc-100 leading-relaxed break-keep">{data.summary || data.parts[0].summary}</p>}
