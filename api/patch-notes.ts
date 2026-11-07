@@ -353,7 +353,7 @@ function bulletsOf(md: string): string[] {
 }
 const noticeBody = (version: string, points: string[], ai: boolean) => [
   `우주하마 방송 예측이 **v${version}**(으)로 업데이트됐어요.`,
-  points.length ? `**주요 업데이트${ai ? ' (AI 요약)' : ''}**\n\n${points.map((p) => `- ${p}`).join('\n')}` : '',
+  points.length ? `**주요 업데이트**\n\n${points.map((p) => `- ${p}`).join('\n')}` : '',
   '지금 바로 사용해 보세요!',
 ].filter(Boolean).join('\n\n');
 
@@ -366,6 +366,11 @@ async function maybeAnnounce(db: any, notes: Note[]) {
   const ref = db.collection('config').doc('system');
   const sys = (await ref.get()).data() || {};
   const prev = sys.autoPatchNotice || {};
+  // 이미 띄운 자동 공지의 '(AI 요약)' 표시 빼기
+  if ((sys.noticeList || []).some((n: any) => String(n?.id || '').startsWith('auto-patch') && String(n?.content || '').includes(' (AI 요약)'))) {
+    await ref.set({ noticeList: sys.noticeList.map((n: any) => (String(n?.id || '').startsWith('auto-patch') ? { ...n, content: String(n.content || '').replace(' (AI 요약)', '') } : n)) }, { merge: true });
+    sys.noticeList = sys.noticeList.map((n: any) => (String(n?.id || '').startsWith('auto-patch') ? { ...n, content: String(n.content || '').replace(' (AI 요약)', '') } : n));
+  }
   // 같은 버전인데 AI 요약을 못 만들었으면 몇 번 더 시도 (그사이엔 본문의 하이라이트로)
   const hasNotice = (sys.noticeList || []).some((n: any) => n?.id === `auto-patch-${latest.version}`);
   const retry = hasNotice && prev.version === latest.version && prev.ai === false && Number(prev.retries || 0) < 6

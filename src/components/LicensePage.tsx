@@ -4,6 +4,15 @@ import { useState } from 'react';
 import licensesData from '../licenses.json';
 import { Link } from 'react-router-dom';
 
+const SERVICES = [
+  { name: 'Google Gemini API', use: 'AI 영상 요약 · AI 검색 · 패치노트 요약 (AI는 실수할 수 있어요)', terms: 'Gemini API 약관', url: 'https://ai.google.dev/gemini-api/terms' },
+  { name: 'YouTube (IFrame Player · Data API)', use: '영상·쇼츠 재생, 영상 정보', terms: 'YouTube 서비스 약관', url: 'https://www.youtube.com/t/terms' },
+  { name: 'CHZZK (치지직)', use: '방송 상태 · 방송 기록', terms: '치지직 이용약관', url: 'https://chzzk.naver.com' },
+  { name: 'Firebase (Google)', use: '데이터 저장 · 알림 · 사이트 호스팅', terms: 'Firebase 약관', url: 'https://firebase.google.com/terms' },
+  { name: 'Vercel', use: '서버 기능 · 사이트 호스팅', terms: 'Vercel 약관', url: 'https://vercel.com/legal/terms' },
+  { name: 'Notion API', use: '패치노트 · 개발자 노트', terms: 'Notion 약관', url: 'https://www.notion.so/notion/Terms-and-Privacy-28ffdd083dc3473e9c2da6ec011b58ac' },
+];
+
 export function LicensePage() {
   const [openPackage, setOpenPackage] = useState<string | null>('font-bm-hanna-pro');
   const [searchTerm, setSearchTerm] = useState('');
@@ -121,6 +130,26 @@ export function LicensePage() {
                   </motion.div>
                 )}
               </AnimatePresence>
+            </div>
+          )}
+          {/* 외부 서비스 · AI */}
+          {(!searchTerm.trim() || SERVICES.some((x) => `${x.name} ${x.use} ${x.terms}`.toLowerCase().includes(searchTerm.toLowerCase()))) && (
+            <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+                <h3 className="font-bold text-zinc-900 dark:text-white text-sm">사용하는 외부 서비스 · AI</h3>
+                <p className="text-xs text-zinc-500 mt-0.5">소스 코드를 가져다 쓰는 건 아니지만, 사이트가 기능을 위해 부르는 서비스예요. 각 서비스의 약관을 따라요.</p>
+              </div>
+              <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {SERVICES.filter((x) => !searchTerm.trim() || `${x.name} ${x.use} ${x.terms}`.toLowerCase().includes(searchTerm.toLowerCase())).map((x) => (
+                  <li key={x.name} className="px-4 py-2.5 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-zinc-900 dark:text-zinc-100">{x.name}</span>
+                      <a href={x.url} target="_blank" rel="noreferrer" className="shrink-0 text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 font-semibold">{x.terms} <ExternalLink className="w-3 h-3" /></a>
+                    </div>
+                    <p className="mt-0.5 text-zinc-500 dark:text-zinc-400">{x.use}</p>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
           {filteredEntries.map(([pkgName, details]: [string, any]) => {

@@ -1056,7 +1056,7 @@ export function SettingsView({
             >
               <div className="flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
-                <span className="text-sm font-semibold text-zinc-900 dark:text-white">데이터 및 예측 안내</span>
+                <span className="text-sm font-semibold text-zinc-900 dark:text-white">데이터 · 예측 · AI 안내</span>
               </div>
               <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'disclaimer' && "rotate-90")} />
             </button>
@@ -1075,6 +1075,9 @@ export function SettingsView({
                     <p>※ 본 데이터는 <b>{firstYear}년 이후</b> 방송 데이터만 포함하며, 실제 방송 일정과 다를 수 있는 통계적 예측치예요.</p>
                     <p>※ 본 사이트는 사용자 설정(테마, 알림 설정 등) 유지를 위해 브라우저 로컬 저장소를 일부 사용해요.</p>
                     <p>※ 치지직 및 유튜브 데이터는 공용 API 및 공식 채널 공개 정보를 바탕으로 정기 수집/분석돼요.</p>
+                    <p>※ <b>AI 영상 요약 · AI 검색 · 패치노트 요약</b>은 Google Gemini가 영상과 글을 보고 정리한 내용이에요.</p>
+                    <p className="font-bold text-zinc-800 dark:text-zinc-200">※ AI는 실수할 수 있어요. 중요한 내용은 영상에서 직접 확인해 주세요.</p>
+                    <p>※ 틀린 요약은 ⋮ › 신고 › 'AI 영상 요약이 틀려요'로 알려 주시면 고칠게요. AI 검색은 설정 › 보기·정렬·검색 › 검색 도우미에서 끌 수 있어요.</p>
                   </div>
                 </motion.div>
               )}

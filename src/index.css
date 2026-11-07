@@ -441,12 +441,12 @@ svg g.chart-capture-only-label {
 .capturing-image .text-purple-500,
 .capturing-image .dark\:text-purple-400,
 .capturing-image [class*="text-purple-"] {
-  color: #7c3aed !important;
+  color: #5d76a6 !important; /* 하마 색 (밝은 바탕 글씨용) */
 }
 
 .capturing-image .text-blue-600,
 .capturing-image [class*="text-blue-"] {
-  color: #2563eb !important;
+  color: #5d76a6 !important;
 }
 
 .capturing-image svg text,
@@ -472,7 +472,7 @@ svg g.chart-capture-only-label {
 
 .capturing-image .chart-capture-only-label text:not([stroke="#ffffff"]),
 .capturing-image text.chart-capture-only-label:not([stroke="#ffffff"]) {
-  fill: #7e22ce !important;
+  fill: #5d76a6 !important;
   stroke: none !important;
 }
 
