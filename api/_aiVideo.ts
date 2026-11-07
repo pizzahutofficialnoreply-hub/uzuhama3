@@ -478,8 +478,10 @@ async function expandQuery(db: any, q: string, tokens: string[]): Promise<string
   const key = normWord(q).slice(0, 60);
   if (!key) return [];
   const ref = db.collection('ai_query').doc(key);
+  // 한글·영문·숫자만 (AI 가 가끔 다른 나라 글자를 섞음)
+  const clean = (ws: any[]) => [...new Set((ws || []).map((w: any) => normWord(String(w))).filter((w: string) => w.length >= 2 && /^[0-9a-z가-힣]+$/.test(w) && !tokens.includes(w)))].slice(0, 10) as string[];
   const cur = (await ref.get()).data();
-  if (cur?.words) return cur.words;
+  if (cur?.words && cur.v === 2) return clean(cur.words);
   // 하루 AI 확장 횟수 제한 (무료 한도 보호)
   const day = kstDay();
   const cnt = db.collection('youtube_cache').doc('ai_query_count');
@@ -491,9 +493,10 @@ async function expandQuery(db: any, q: string, tokens: string[]): Promise<string
     const { text } = await gen([{ text: `팬 사이트에서 스트리머 "우주하마"의 게임 방송 영상 장면을 찾는 검색어야: "${q}"
 이 검색어로 찾고 싶은 장면을 AI 가 영상 장면마다 붙여 둔 한국어 키워드(예: 점프스케어, 귀신, 비명, 웃음, 노래, 보스전, 엔딩, 사망, 깜짝 놀람)로 바꿔 줘.
 줄임말·신조어·은어(예: 갑툭튀→점프스케어, 깜놀→깜짝 놀람, 겜→게임)는 풀어서. 검색어에 없는 뜻은 넣지 마. 3~10개.
-JSON 으로만: {"words":["..."]}` }], true, 12000, ['gemini-flash-lite-latest', 'gemini-3.8-flash', 'gemini-flash-latest']);
-    const words = [...new Set((parseJson(text).words || []).map((w: any) => normWord(String(w))).filter((w: string) => w.length >= 2 && !tokens.includes(w)))].slice(0, 10) as string[];
-    await ref.set({ q: q.slice(0, 80), words, at: new Date().toISOString() });
+한국어(또는 영어 게임 용어)만, 다른 나라 글자는 쓰지 마.
+JSON 으로만: {"words":["..."]}` }], true, 12000, ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest']);
+    const words = clean(parseJson(text).words || []);
+    await ref.set({ q: q.slice(0, 80), words, at: new Date().toISOString(), v: 2 });
     return words;
   } catch {
     return [];
