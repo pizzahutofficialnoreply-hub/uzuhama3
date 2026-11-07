@@ -27,12 +27,12 @@ const QUEUE_TTL = 12 * 3600 * 1000;
 // 영상 분석은 정확도 우선: 가벼운 Lite 모델로는 하지 않음 (붐비거나 한도면 기다렸다가 이어서)
 const MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest'].filter(Boolean) as string[];
 /** 분석 방식 버전: 바뀌면 예전 방식(가벼운 모델·낮은 화질)으로 본 영상을 다시 봄 */
-const PV = 2;
+const PV = 3; // 3: 한 말·함께한 사람도 기록
 const TEXT_MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean) as string[];
 
 type QItem = { id: string; title: string; publishedAt: string; kind?: 'video' | 'short' | 'live'; duration?: number; live?: string; logDate?: string; games?: string[]; gameLinks?: Record<string, string>; comp?: boolean };
 const QUEUE_VER = 3; // 2: 방송 기록의 생방송 다시보기 포함, 3: 몰아보기 표시(분석 안 함)
-export type Scene = { t: number; d: string; k: string[]; u?: number /* 1: 확실하지 않음 */ };
+export type Scene = { t: number; d: string; k: string[]; u?: number /* 1: 확실하지 않음 */; q?: string /* 한 말 */; w?: string[] /* 함께한 사람 */ };
 
 const kstDay = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
 const isRate = (m: string) => /429|quota|RESOURCE_EXHAUSTED|rate limit|Too Many Requests/i.test(m);
@@ -69,7 +69,7 @@ function buildKw(doc: any): string[] {
   (doc.keywords || []).forEach(add);
   (doc.mood || []).forEach(add);
   (doc.games || []).forEach((g: any) => { add(g.name); (g.tags || []).forEach(add); (g.aliases || []).forEach(add); if (g.genre) add(g.genre); });
-  (doc.scenes || []).forEach((sc: Scene) => (sc.k || []).forEach(add));
+  (doc.scenes || []).forEach((sc: Scene) => { (sc.k || []).forEach(add); (sc.w || []).forEach(add); if (sc.q) add(sc.q); });
   String(doc.title || '').split(/\s+/).forEach(add);
   return [...out].slice(0, 400);
 }
@@ -260,7 +260,7 @@ ${item.logDate ? `방송 날짜: ${item.logDate}\n` : ''}${item.games?.length ? 
 화면·자막·말소리를 모두 보고 아래 JSON 으로만 답해. 모르는 건 지어내지 마.
 {
  "summary": "이 ${whole ? '영상' : '구간'}에서 일어난 일 2~3문장 (한국어)",
- "scenes": [{"t": "원본 영상 기준 시작 시각 MM:SS 또는 H:MM:SS", "d": "무슨 장면인지 한 문장", "k": ["검색 키워드 3~8개: 장면 성격(점프스케어, 귀신, 비명, 웃음, 노래, 보스전, 엔딩, 사망, 실패, 성공 등)·등장 대상·감정"], "sure": true}],
+ "scenes": [{"t": "원본 영상 기준 시작 시각 MM:SS 또는 H:MM:SS", "d": "무슨 장면인지 한 문장", "k": ["검색 키워드 3~8개: 장면 성격(점프스케어, 귀신, 비명, 웃음, 노래, 보스전, 엔딩, 사망, 실패, 성공 등)·등장 대상·감정·맵/스테이지 이름"], "say": "그 순간 우주하마나 함께한 사람이 한 인상적인 말 (그대로, 없으면 빈칸)", "who": ["화면·말로 확인되는 함께한 사람 이름이나 닉네임"], "sure": true}],
  "games": [{"name": "화면에 나온 게임 정식 이름(영문이면 영문 그대로)", "ko": "한국어 이름이나 흔히 부르는 이름"}],
  "keywords": ["이 ${whole ? '영상' : '구간'} 전체를 대표하는 검색어 5~15개 (한국어)"],
  "mood": ["분위기 단어 1~5개 (공포, 웃김, 힐링, 긴장감, 감동, 혼돈 등)"]
@@ -273,7 +273,7 @@ scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'
   // 화질은 기본(중간): 낮은 화질보다 귀신·글자·표정 같은 화면 내용을 훨씬 잘 봄
   const { text, model } = await gen([part, { text: prompt }], true, AI_TIMEOUT, MODELS);
   const out = parseJson(text);
-  let scenes: Scene[] = (Array.isArray(out.scenes) ? out.scenes : []).map((s: any) => ({ t: toSec(s?.t), d: String(s?.d || '').slice(0, 160), k: words(s?.k, 8), ...(s?.sure === false ? { u: 1 } : {}) }))
+  let scenes: Scene[] = (Array.isArray(out.scenes) ? out.scenes : []).map((s: any) => ({ t: toSec(s?.t), d: String(s?.d || '').slice(0, 160), k: words(s?.k, 8), ...(s?.sure === false ? { u: 1 } : {}), ...(String(s?.say || '').trim() ? { q: String(s.say).trim().slice(0, 80) } : {}), ...(words(s?.who, 4, 20).length ? { w: words(s?.who, 4, 20) } : {}) }))
     .filter((s: Scene) => Number.isFinite(s.t) && s.d);
   // 구간을 잘라 보냈는데 모든 시각이 0부터 시작하면 구간 기준으로 답한 것 → 원본 기준으로
   if (!whole && start > 0 && scenes.length && scenes.every((s) => s.t < end - start + 5) && Math.max(...scenes.map((s) => s.t)) < start) {
@@ -524,11 +524,12 @@ export async function aiSearch(db: any, q: string, sceneLimit = 3) {
       score += has(v.title || '', toks).length * 2 + has(v.title || '', extra).length;
       score += toks.filter((t) => (v.kw || []).includes(t)).length + extra.filter((t) => (v.kw || []).includes(t)).length * 0.6;
       const scenes = (v.scenes || []).map((s: Scene) => {
-        const main = new Set<string>([...has(s.d, toks), ...(s.k || []).flatMap((k) => has(k, toks))]);
-        const ex = new Set<string>([...has(s.d, extra), ...(s.k || []).flatMap((k) => has(k, extra))]);
+        const txt = [s.d, s.q || '', ...(s.w || [])].join(' ');
+        const main = new Set<string>([...has(txt, toks), ...(s.k || []).flatMap((k) => has(k, toks))]);
+        const ex = new Set<string>([...has(txt, extra), ...(s.k || []).flatMap((k) => has(k, extra))]);
         const vague = s.u === 1 || HEDGE.test(s.d) || (s.k || []).some((k) => /의심/.test(k));
         const n = (main.size + ex.size * 0.6) * (vague ? 0.35 : 1);
-        return { t: s.t, d: s.d, n, vague };
+        return { t: s.t, d: s.q ? `${s.d} — "${s.q}"` : s.d, n, vague };
       }).filter((s: any) => s.n > 0).sort((a: any, b: any) => b.n - a.n || a.t - b.t);
       if (scenes.length) score += scenes[0].n * 3 + Math.min(3, scenes.filter((x: any) => !x.vague).length) * 0.5;
       const gameText = (v.games || []).map((g: any) => [g.name, g.ko, ...(g.tags || []), ...(g.aliases || []), g.genre].join(' ')).join(' ');
@@ -578,7 +579,7 @@ export async function aiVideoDetail(db: any, id: string) {
   return {
     found: true, id, title: d.title, kind: d.kind, status: d.status, seg: d.seg, segTotal: d.segTotal, model: d.model,
     summary: d.summary || '', parts: (d.parts || []).map((p: any) => ({ from: p.from, to: p.to, summary: p.summary })),
-    scenes: (d.scenes || []).map((s: Scene) => ({ t: s.t, d: s.d, k: s.k, ...(s.u ? { vague: true } : {}) })),
+    scenes: (d.scenes || []).map((s: Scene) => ({ t: s.t, d: s.q ? `${s.d} — "${s.q}"` : s.d, k: s.k, ...(s.u ? { vague: true } : {}) })),
     games: games.map((g: any) => ({ name: g.name, ko: g.ko, genre: g.genre, about: g.about, tags: g.tags, horror: g.horror })),
     keywords: d.keywords || [], mood: d.mood || [],
   };
