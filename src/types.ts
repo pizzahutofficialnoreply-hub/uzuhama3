@@ -173,7 +173,17 @@ export interface TermsRevision {
   newPrivacy?: string;
 }
 
+/** 띠 공지 옆 D-day (예: 10주년). daysBefore 일 전부터 표시, 당일은 D-DAY */
+export interface DdayEvent {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD (한국 시간)
+  daysBefore?: number; // 기본 14
+  active?: boolean;
+}
+
 export interface SystemConfig {
+  events?: DdayEvent[];
   maintenance: boolean;
   maintenanceTitle?: string;
   maintenanceContent?: string;

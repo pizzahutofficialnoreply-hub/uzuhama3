@@ -7,6 +7,43 @@ import { NoticeItem, NoticeLink } from '../types';
 import { formatNoticeText } from '../App';
 import { cn } from '../utils';
 import { plainText } from './common/RichTextRenderer';
+import { ddayLabel } from '../utils/dday';
+
+export type DdayItem = { id: string; title: string; date: string; left: number };
+
+/** 띠 공지 옆 작은 D-day (여러 개면 4초마다 바뀜, 누르면 날짜) */
+export function DdayChip({ items, standalone = false }: { items: DdayItem[]; standalone?: boolean }) {
+  const [i, setI] = useState(0);
+  const [showDate, setShowDate] = useState(false);
+  useEffect(() => {
+    if (items.length <= 1) return;
+    const t = window.setInterval(() => { setI((x) => (x + 1) % items.length); setShowDate(false); }, 4000);
+    return () => window.clearInterval(t);
+  }, [items.length]);
+  const it = items[i % items.length];
+  if (!it) return null;
+  const today = it.left === 0;
+  return (
+    <button
+      type="button"
+      onClick={() => setShowDate((v) => !v)}
+      data-testid="dday-chip"
+      title={`${it.title} · ${it.date}`}
+      className={cn(
+        'shrink-0 rounded-xl border px-2 py-1 flex flex-col items-center justify-center leading-tight cursor-pointer active:scale-95 transition-transform',
+        standalone ? 'min-w-[88px]' : 'w-[18%] min-w-[64px] max-w-[120px] min-h-[44px] sm:min-h-[48px]',
+        today ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white/70 dark:bg-zinc-900/70 border-purple-500/30 dark:border-purple-400/30 text-purple-700 dark:text-purple-300'
+      )}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span key={`${it.id}-${showDate}`} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.18 }} className="flex flex-col items-center min-w-0 max-w-full">
+          <span className="text-[13px] sm:text-sm font-black tabular-nums tracking-tight">{showDate ? it.date.slice(5).replace('-', '.') : ddayLabel(it.left)}</span>
+          <span className={cn('text-[9.5px] sm:text-[10px] font-bold truncate max-w-full', today ? 'text-white/85' : 'text-zinc-500 dark:text-zinc-400')}>{it.title}</span>
+        </motion.span>
+      </AnimatePresence>
+    </button>
+  );
+}
 
 export type BannerColorTheme = 'default' | 'yellow' | 'green';
 
@@ -40,6 +77,8 @@ interface NoticeBannerProps {
   onExpandedChange?: (isExpanded: boolean) => void;
   systemDismissMode?: 'session' | 'permanent';
   defaultPrefix?: string;
+  /** 띠 공지 옆 D-day */
+  ddays?: DdayItem[];
 }
 
 export const NoticeBanner: React.FC<NoticeBannerProps> = ({ 
@@ -52,7 +91,8 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
   isHeaderHidden = false,
   onExpandedChange,
   systemDismissMode = 'session',
-  defaultPrefix
+  defaultPrefix,
+  ddays
 }) => {
   const basePrefix = (defaultPrefix || '').trim() || '[공지]';
   // 1. 일회성 표시 (permanent): localStorage 저장
@@ -441,7 +481,8 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="w-full relative z-40 bg-zinc-50/70 dark:bg-black/50 border-b border-zinc-200/60 dark:border-zinc-800/60 overflow-hidden"
           >
-            <div className="max-w-7xl mx-auto px-2 sm:px-5 lg:px-8 py-2 sm:py-2.5 flex flex-col gap-1.5">
+            <div className="max-w-7xl mx-auto px-2 sm:px-5 lg:px-8 py-2 sm:py-2.5 flex items-start gap-1.5">
+              <div className="flex-1 min-w-0 flex flex-col gap-1.5">
               
               {/* 공지 카드 본문: 다음 공지가 바로 옆에 붙어있는 연속 트랙 및 부드러운 모션 블러 전환 */}
               <div className="w-full min-w-0 overflow-hidden relative rounded-xl">
@@ -639,6 +680,8 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
                 </div>
               )}
 
+            </div>
+              {ddays && ddays.length > 0 && <DdayChip items={ddays} />}
             </div>
           </motion.div>
         )}

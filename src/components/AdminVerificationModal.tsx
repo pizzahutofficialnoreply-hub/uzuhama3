@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ShieldCheck, Lock, CheckCircle2, AlertCircle, ArrowRight, Loader2, X, RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShieldCheck, Lock, AlertCircle, Loader2, X } from 'lucide-react';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { isAdminUser } from '../utils/adminAuth';
 import { auth } from '../lib/firebase';
@@ -15,91 +15,8 @@ export function AdminVerificationModal({ onClose, onSuccess }: AdminVerification
   const navigate = useNavigate();
   const { user } = useAuth();
   
-  // Step 1: Touch/Mouse CAPTCHA, Step 2: Google Re-auth
-  const [captchaPassed, setCaptchaPassed] = useState(false);
-  const [sliderPosition, setSliderPosition] = useState(0); // 0 to 100%
-  const [isDragging, setIsDragging] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isVerifyingAuth, setIsVerifyingAuth] = useState(false);
-
-  const sliderTrackRef = useRef<HTMLDivElement>(null);
-  const startXRef = useRef(0);
-  const currentPosRef = useRef(0);
-
-  // Handle Touch / Mouse dragging for CAPTCHA slider
-  const handleStart = (clientX: number) => {
-    if (captchaPassed) return;
-    setIsDragging(true);
-    startXRef.current = clientX;
-    setAuthError(null);
-  };
-
-  const handleMove = (clientX: number) => {
-    if (!isDragging || captchaPassed || !sliderTrackRef.current) return;
-    const rect = sliderTrackRef.current.getBoundingClientRect();
-    const maxDrag = rect.width - 48; // thumb width approx 48px
-    if (maxDrag <= 0) return;
-
-    const diff = clientX - rect.left - 20;
-    const clamped = Math.max(0, Math.min(diff, maxDrag));
-    const percentage = Math.min(100, Math.max(0, (clamped / maxDrag) * 100));
-    
-    currentPosRef.current = percentage;
-    setSliderPosition(percentage);
-
-    if (percentage >= 92) {
-      // Completed!
-      setSliderPosition(100);
-      setCaptchaPassed(true);
-      setIsDragging(false);
-    }
-  };
-
-  const handleEnd = () => {
-    if (captchaPassed) return;
-    setIsDragging(false);
-    if (currentPosRef.current < 92) {
-      // Snap back if not reached the end
-      setSliderPosition(0);
-      currentPosRef.current = 0;
-    }
-  };
-
-  useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        e.preventDefault();
-        handleMove(e.clientX);
-      }
-    };
-    const onMouseUp = () => {
-      if (isDragging) handleEnd();
-    };
-    const onTouchMove = (e: TouchEvent) => {
-      if (isDragging && e.touches[0]) {
-        handleMove(e.touches[0].clientX);
-      }
-    };
-    const onTouchEnd = () => {
-      if (isDragging) handleEnd();
-    };
-
-    if (isDragging) {
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
-      window.addEventListener('touchmove', onTouchMove, { passive: true });
-      window.addEventListener('touchend', onTouchEnd);
-      window.addEventListener('touchcancel', onTouchEnd);
-    }
-
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onTouchEnd);
-      window.removeEventListener('touchcancel', onTouchEnd);
-    };
-  }, [isDragging]);
 
   const markAdminVerified = () => {
     const now = Date.now().toString();
@@ -158,12 +75,6 @@ export function AdminVerificationModal({ onClose, onSuccess }: AdminVerification
     }
   };
 
-  const handleResetCaptcha = () => {
-    setCaptchaPassed(false);
-    setSliderPosition(0);
-    currentPosRef.current = 0;
-  };
-
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
       <div 
@@ -189,78 +100,15 @@ export function AdminVerificationModal({ onClose, onSuccess }: AdminVerification
               관리자 모드 검증
             </h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              보안 강화를 위해 2단계 인증을 완료해주세요.
+              관리자 구글 계정으로 확인한 뒤, 인증 앱 6자리 코드를 넣어요.
             </p>
-          </div>
-        </div>
-
-        {/* Step 1: Touch/Mouse CAPTCHA Slider */}
-        <div className="mb-6 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800">
-          <div className="flex items-center justify-between text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2.5">
-            <span className="flex items-center gap-1.5">
-              <span className="w-5 h-5 rounded-full bg-purple-600 text-white text-[11px] font-bold flex items-center justify-center">1</span>
-              마우스/터치 리캡챠 인증
-            </span>
-            {captchaPassed ? (
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> 인증 성공
-              </span>
-            ) : (
-              <span className="text-zinc-400 text-[11px]">우측으로 밀기</span>
-            )}
-          </div>
-
-          <div
-            ref={sliderTrackRef}
-            className={`relative h-12 rounded-xl flex items-center select-none overflow-hidden transition-colors border ${
-              captchaPassed
-                ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
-                : 'bg-zinc-200/70 dark:bg-zinc-700/60 border-zinc-300 dark:border-zinc-600'
-            }`}
-          >
-            {/* Progress Fill */}
-            <div
-              className={`absolute left-0 top-0 bottom-0 transition-all duration-75 ${
-                captchaPassed ? 'bg-emerald-500' : 'bg-purple-600/40'
-              }`}
-              style={{ width: `${sliderPosition}%` }}
-            />
-
-            {/* Slider Text */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-xs font-bold tracking-tight text-zinc-600 dark:text-zinc-300">
-              {captchaPassed ? '✓ 사람(운영자) 인증 완료' : '슬라이더를 오른쪽 끝으로 미세요'}
-            </div>
-
-            {/* Slider Thumb */}
-            {!captchaPassed ? (
-              <div
-                style={{
-                  left: `calc(4px + (100% - 48px) * ${sliderPosition / 100})`,
-                  touchAction: 'none'
-                }}
-                onMouseDown={(e) => handleStart(e.clientX)}
-                onTouchStart={(e) => e.touches[0] && handleStart(e.touches[0].clientX)}
-                className="absolute left-1 w-10 h-10 rounded-lg bg-white dark:bg-zinc-900 border border-purple-500/50 shadow-md flex items-center justify-center cursor-grab active:cursor-grabbing hover:scale-105 transition-transform z-10 select-none text-purple-600 dark:text-purple-400"
-              >
-                <ArrowRight className="w-5 h-5 animate-pulse" />
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handleResetCaptcha}
-                title="다시 시도"
-                className="absolute right-2 p-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors z-10"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
         </div>
 
         {/* Step 2: Google Re-authentication */}
         <div className="mb-6 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
-            <span className="w-5 h-5 rounded-full bg-purple-600 text-white text-[11px] font-bold flex items-center justify-center">2</span>
+            <ShieldCheck className="w-4 h-4 text-purple-500" />
             Google 관리자 계정 재인증
           </div>
           <p className="text-[12px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -286,7 +134,7 @@ export function AdminVerificationModal({ onClose, onSuccess }: AdminVerification
           </button>
           <button
             type="button"
-            disabled={!captchaPassed || isVerifyingAuth}
+            disabled={isVerifyingAuth}
             onClick={handleGoogleReauth}
             className="flex-[2] py-3 px-4 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 active:scale-95 disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 shadow-md shadow-purple-600/20"
           >

@@ -590,7 +590,7 @@ export async function aiSearch(db: any, q: string, sceneLimit = 3) {
         hasSummary: v.status === 'done',
         score,
       };
-    }).filter((r: any) => r.score >= 2)
+    }).filter((r: any) => r.score >= 2 && !r.partial) // 다 본 영상만 (보는 중인 영상은 끝난 뒤에)
       .sort((a: any, b: any) => b.score - a.score || (b.publishedAt || '').localeCompare(a.publishedAt || ''))
       .slice(0, 8);
   };
