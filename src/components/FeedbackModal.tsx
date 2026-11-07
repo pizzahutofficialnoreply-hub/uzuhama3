@@ -1453,7 +1453,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                         : tab === 'bug'
                         ? '어떤 상황에서 오류가 발생했는지 구체적인 상황을 적어주세요.'
                         : dataRequestType === 'edit'
-                        ? '수정 사유나 관리자에게 전달할 추가 요청 사항을 자유롭게 적어주세요.'
+                        ? '수정 사유나 추가로 전할 내용을 자유롭게 적어주세요.'
                         : dataRequestType === 'delete'
                         ? '예시:\n- 삭제 요청 사유: 해당 날짜는 방송이 진행되지 않았거나 잘못 등록된 중복 데이터예요.'
                         : '예시:\n- 방송 일자: 2024-08-15\n- 방송 제목: 특별 생방송\n- 플레이 게임: 게임A (2시간), 게임B (1시간)\n- 참고 출처/다시보기 링크: https://...'

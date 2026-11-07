@@ -20,10 +20,12 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
 
   // 이 기기의 저장 내용 지키기
   const saved: Record<string, string> = {};
-  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i)!; saved[k] = localStorage.getItem(k) || ''; }
+  // 로그인 정보(firebase:…)와 기기 연결은 건드리지 않음 — 예전 것으로 되돌리면 관리자 로그인이 풀림
+  const keep = (k: string) => k.startsWith('firebase:') || k.startsWith('uzuhama_device_link');
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i)!; if (!keep(k)) saved[k] = localStorage.getItem(k) || ''; }
   const restore = () => {
     try {
-      Object.keys(localStorage).forEach((k) => { if (!(k in saved)) localStorage.removeItem(k); });
+      Object.keys(localStorage).forEach((k) => { if (!keep(k) && !(k in saved)) localStorage.removeItem(k); });
       Object.entries(saved).forEach(([k, v]) => localStorage.setItem(k, v));
     } catch { /* */ }
   };

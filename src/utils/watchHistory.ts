@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { markTomb } from './syncTomb';
 
 /**
  * 시청 기록 + 이어 보기 위치 (이 기기에만 저장)
@@ -54,8 +55,10 @@ export function recordPosition(id: string, pos: number, dur: number, title?: str
   if (i > 0) cache = [cache[i], ...cache.slice(0, i), ...cache.slice(i + 1)];
   persist();
 }
-export function removeWatch(id: string) { cache = cache.filter((x) => x.id !== id); persist(true); }
-export function clearWatchEntries() { cache = []; persist(true); }
+export function removeWatch(id: string) { markTomb((t) => { t.h[id] = Date.now(); }); cache = cache.filter((x) => x.id !== id); persist(true); }
+export function clearWatchEntries() { markTomb((t) => { t.hClear = Date.now(); t.h = {}; }); cache = []; persist(true); }
+/** 연결된 기기와 합친 결과로 바꾸기 */
+export function replaceWatchHistory(list: WatchEntry[]) { cache = list.slice(0, MAX); persist(true); }
 
 /** 이어 볼 위치 (앞 5초 이내·끝 15초 이내는 처음부터) */
 export function resumeAt(id: string): number {

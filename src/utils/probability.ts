@@ -244,14 +244,14 @@ export function computeBroadcastProbability(
   } else if (dateOverrideFor(options.system, todayStr)?.type === 'off') {
     patternState = 'absence';
     patternLogOdds = Math.log(ABSENCE_ODDS);
-    patternLabel = '관리자 지정 휴방일';
+    patternLabel = '공지된 휴방일';
   } else if (dateOverrideFor(options.system, todayStr)?.type === 'on') {
     patternState = 'scheduled';
-    patternLabel = '관리자 지정 방송 예정일';
+    patternLabel = '공지된 방송 예정일';
   } else if (isAbsencePeriodActive(options.system, todayStr)) {
     patternState = 'absence';
     patternLogOdds = Math.log(ABSENCE_ODDS);
-    patternLabel = '관리자 지정 휴방 기간';
+    patternLabel = '공지된 휴방 기간';
   } else if (sorted.length === 0) {
     patternState = 'noData';
     patternLabel = '방송 기록 없음';

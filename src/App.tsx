@@ -75,6 +75,7 @@ import { SELFTEST_FLAG } from './selftest/flag';
 const SelfTestPage = lazy(() => import('./components/SelfTestPage').then((m) => ({ default: m.SelfTestPage })));
 import { AiSummaryHost, GO_SEARCH_EVENT } from './components/common/AiSummaryHost';
 import { activeDdays } from './utils/dday';
+import { joinWithCode, startDeviceSync } from './utils/deviceSync';
 import { FluidBackdrop } from './components/common/FluidBackdrop';
 
 function SlugRoute() {
@@ -283,6 +284,21 @@ function MainApp() {
     }
     handleTabChange('recommend', false, true);
   };
+
+  // 기기 연결: 맞추기 시작 + QR(?link=코드)로 들어오면 연결할지 묻기
+  useEffect(() => {
+    if (window.self !== window.top) return; // 점검 화면 안에서는 안 함
+    startDeviceSync();
+    const sp = new URLSearchParams(window.location.search);
+    const code = sp.get('link');
+    if (!code) return;
+    sp.delete('link');
+    window.history.replaceState(null, '', `${window.location.pathname}${sp.toString() ? `?${sp}` : ''}${window.location.hash}`);
+    window.setTimeout(() => {
+      if (!window.confirm('이 기기를 연결할까요?\n연결한 기기끼리 검색 기록·시청 기록·재생목록이 맞춰져요. 이 기기의 기록은 지워지지 않고 합쳐져요.')) return;
+      joinWithCode(code).then(() => window.alert('연결했어요. 설정 › 기기 연결에서 언제든 끊을 수 있어요.')).catch((e) => window.alert(String(e?.message || e)));
+    }, 800);
+  }, []);
 
   // AI 요약 등에서 게임·카테고리·키워드를 누르면 검색 탭으로 (검색어 그대로)
   const navRecRef = useRef(handleNavigateToRecommend);

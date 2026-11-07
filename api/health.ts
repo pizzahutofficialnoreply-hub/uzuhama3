@@ -21,6 +21,86 @@ async function verifyRun(runId: string) {
   return run;
 }
 
+/* ── 기기 연결 (로그인 없이 QR·코드로) ──
+ * POST ?sync=pair {key}       → 10분짜리 8자리 연결 코드 (한 번만)
+ * POST ?sync=join {code}      → 열쇠 (코드는 바로 지움, IP마다 시간당 30번까지)
+ * POST ?sync=pull {key}       → {data, rev}
+ * POST ?sync=push {key,rev,data} → rev 가 다르면 409 (다시 받아 합치기)
+ * POST ?sync=delete {key}     → 모든 기기 연결 끊기
+ * 서버에는 열쇠를 SHA-256 으로 바꾼 이름만 (열쇠 자체는 연결 코드 10분 동안만)
+ */
+const SYNC_MAX = 400_000;
+const CODE_ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+async function syncHandler(op: string, req: any, res: any) {
+  const { db } = await import('./_firebase.js');
+  const crypto = await import('node:crypto');
+  const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
+  res.setHeader('Cache-Control', 'no-store');
+  if (req.method !== 'POST') return res.status(405).json({ error: 'POST' });
+  const hash = (k: string) => crypto.createHash('sha256').update(`uzuhama-sync:${k}`).digest('hex');
+  const validKey = (k: any) => typeof k === 'string' && /^[a-f0-9]{40}$/.test(k);
+  const ip = String(req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim();
+  const limit = async (what: string, max: number) => {
+    const id = `${what}_${crypto.createHash('sha256').update(ip).digest('hex').slice(0, 16)}_${new Date().toISOString().slice(0, 13)}`;
+    const ref = db.collection('device_sync_rl').doc(id);
+    const n = await db.runTransaction(async (tx: any) => { const c = Number(((await tx.get(ref)).data() || {}).n || 0) + 1; tx.set(ref, { n: c, exp: new Date(Date.now() + 2 * 3600000) }); return c; });
+    if (n > max) throw Object.assign(new Error('잠시 뒤에 다시 해 주세요'), { status: 429 });
+  };
+  try {
+    if (op === 'join') {
+      await limit('join', 30);
+      const code = String(body.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (code.length !== 8) return res.status(400).json({ error: '코드는 8자리예요' });
+      const ref = db.collection('device_sync_pair').doc(code);
+      const key = await db.runTransaction(async (tx: any) => {
+        const d = (await tx.get(ref)).data();
+        if (!d) return null;
+        tx.delete(ref);
+        return Number(d.exp?.toMillis?.() || d.expMs || 0) > Date.now() ? d.key : null;
+      });
+      if (!key) return res.status(404).json({ error: '코드가 맞지 않거나 시간이 지났어요' });
+      return res.status(200).json({ key });
+    }
+    if (!validKey(body.key)) return res.status(400).json({ error: 'bad key' });
+    const ref = db.collection('device_sync').doc(hash(body.key));
+    if (op === 'pair') {
+      await limit('pair', 40);
+      let code = '';
+      for (let i = 0; i < 8; i++) code += CODE_ABC[crypto.randomInt(CODE_ABC.length)];
+      const expMs = Date.now() + 10 * 60000;
+      await db.collection('device_sync_pair').doc(code).set({ key: body.key, expMs, exp: new Date(expMs) });
+      // 처음 만드는 연결이면 빈 문서
+      await ref.set({ touchedAt: new Date().toISOString() }, { merge: true });
+      return res.status(200).json({ code, exp: expMs });
+    }
+    if (op === 'pull') {
+      const d = (await ref.get()).data();
+      if (!d) return res.status(404).json({ error: 'not linked' });
+      return res.status(200).json({ data: d.data || null, rev: Number(d.rev || 0) });
+    }
+    if (op === 'push') {
+      const data = String(body.data || '');
+      if (data.length > SYNC_MAX) return res.status(413).json({ error: '너무 커요' });
+      try { JSON.parse(data); } catch { return res.status(400).json({ error: 'bad data' }); }
+      const r = await db.runTransaction(async (tx: any) => {
+        const d = (await tx.get(ref)).data() || {};
+        if (Number(d.rev || 0) !== Number(body.rev || 0)) return { conflict: true };
+        tx.set(ref, { data, rev: Number(d.rev || 0) + 1, updatedAt: new Date().toISOString(), touchedAt: new Date().toISOString() }, { merge: true });
+        return { rev: Number(d.rev || 0) + 1 };
+      });
+      if ((r as any).conflict) return res.status(409).json({ error: 'conflict' });
+      return res.status(200).json({ ok: true, rev: (r as any).rev });
+    }
+    if (op === 'delete') {
+      await ref.delete();
+      return res.status(200).json({ ok: true });
+    }
+    return res.status(400).json({ error: 'unknown' });
+  } catch (e: any) {
+    return res.status(e?.status || 500).json({ error: String(e?.message || e).slice(0, 160) });
+  }
+}
+
 const toMs = (v: any) => (v?.toMillis ? v.toMillis() : v?._seconds ? v._seconds * 1000 : Date.parse(v || '') || 0);
 
 async function serverSide(db: any) {
@@ -96,6 +176,8 @@ export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
 
+  const sync = String(req.query?.sync || '');
+  if (sync) return syncHandler(sync, req, res);
   const weekly = String(req.query?.weekly || '');
   if (!weekly) {
     return res.status(200).json({ status: 'ok', serverTime: new Date().toISOString(), message: 'Vercel Serverless Function 연결 정상' });

@@ -376,7 +376,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
 
         await Promise.all(promises);
         localStorage.removeItem(`uzuhama_contribute_auto_draft_${currentType}`);
-        alert(`총 ${validEntries.length}건의 생방송 추가 요청이 접수되었어요! 관리자 승인 후 반영돼요.`);
+        alert(`총 ${validEntries.length}건의 생방송 추가 요청이 접수되었어요! 확인 후 반영돼요.`);
         onClose();
       } catch (e) {
         console.error(e);
@@ -418,7 +418,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
 
         await Promise.all(promises);
         localStorage.removeItem(`uzuhama_contribute_auto_draft_${currentType}`);
-        alert(`총 ${validItems.length}건의 ${currentType === 'shorts' ? '쇼츠' : '영상'} 추가 요청이 접수되었어요! 관리자 승인 후 반영돼요.`);
+        alert(`총 ${validItems.length}건의 ${currentType === 'shorts' ? '쇼츠' : '영상'} 추가 요청이 접수되었어요! 확인 후 반영돼요.`);
         onClose();
       } catch (e) {
         console.error(e);

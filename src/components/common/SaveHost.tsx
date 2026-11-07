@@ -105,7 +105,7 @@ function ReportSheet({ target, onClose }: { target: ReportTarget; onClose: () =>
             </div>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={300} placeholder="더 알려 주실 게 있으면 (선택)" className="mt-3 w-full px-3 py-2 text-sm rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 outline-none focus:ring-2 focus:ring-purple-500" />
             {reason === 'not_match' && <p className="mt-1.5 text-[11px] text-zinc-500">모인 신고는 하루 한 번 검색에 반영돼요. 이 검색어에서는 이 영상이 빠지게 돼요.</p>}
-            {reason.startsWith('wrong_') && <p className="mt-1.5 text-[11px] text-zinc-500">관리자가 확인하고 고칠게요. 맞는 링크나 이름을 알면 위에 적어 주세요.</p>}
+            {reason.startsWith('wrong_') && <p className="mt-1.5 text-[11px] text-zinc-500">확인하고 고칠게요. 맞는 링크나 이름을 알면 위에 적어 주세요.</p>}
             <button type="button" disabled={busy} onClick={send} className="mt-3 w-full h-11 rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-bold cursor-pointer disabled:opacity-60">보내기</button>
           </>
         )}

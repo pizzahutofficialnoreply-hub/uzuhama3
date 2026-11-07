@@ -3,10 +3,11 @@ import {
   initializeFirestore, 
   memoryLocalCache 
 } from "firebase/firestore";
-import { 
-  getAuth, 
-  setPersistence, 
-  browserLocalPersistence, 
+import {
+  initializeAuth,
+  browserLocalPersistence,
+  indexedDBLocalPersistence,
+  browserPopupRedirectResolver,
   GoogleAuthProvider, 
   signInWithPopup, 
   signOut 
@@ -35,13 +36,12 @@ export const db = initializeFirestore(app, {
   localCache: memoryLocalCache()
 });
 
-export const auth = getAuth(app);
-
-if (typeof window !== 'undefined') {
-  setPersistence(auth, browserLocalPersistence).catch((err) => {
-    console.debug('Firebase persistence notice:', err);
-  });
-}
+// 로그인 저장: 모든 창(점검용 안쪽 창 포함)이 같은 곳(localStorage)을 먼저 씀
+// 창마다 저장 방식이 다르면 Firebase 가 로그인 정보를 옮기면서 다른 창의 로그인을 지워 버림 (점검 뒤 관리자 로그아웃 원인)
+export const auth = initializeAuth(app, {
+  persistence: [browserLocalPersistence, indexedDBLocalPersistence],
+  popupRedirectResolver: browserPopupRedirectResolver,
+});
 
 // Analytics 안전하게 가져오기 (브라우저 환경 체크)
 export const getAnalyticsInstance = async (): Promise<Analytics | null> => {

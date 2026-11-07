@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { markTomb } from '../utils/syncTomb';
 
 /**
  * 최근 검색어 (기기에 저장, 모든 화면이 같이 씀)
@@ -16,8 +17,9 @@ export function readRecentSearches(): string[] {
     return [];
   }
 }
-function write(list: string[]) {
+function write(list: string[], at = Date.now()) {
   try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* 저장 공간 없음 */ }
+  markTomb((t) => { t.s = at; }); // 연결된 기기와 합칠 때 더 최근 쪽을 씀
   try { window.dispatchEvent(new CustomEvent(EVENT)); } catch { /* 무시 */ }
 }
 export function addRecentSearch(term: string) {
@@ -31,6 +33,8 @@ export function addRecentSearch(term: string) {
 }
 export function removeRecentSearch(term: string) { write(readRecentSearches().filter((s) => s !== term)); }
 export function clearRecentSearches() { write([]); }
+/** 연결된 기기와 합친 결과로 바꾸기 */
+export function replaceRecentSearches(list: string[], at: number) { write(list.slice(0, MAX), at); }
 
 export function useRecentSearches(): string[] {
   const [list, setList] = useState<string[]>(readRecentSearches);

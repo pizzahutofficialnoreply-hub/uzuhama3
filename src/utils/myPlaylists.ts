@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { markTomb } from './syncTomb';
 
 /**
  * 내 재생목록 (이 기기에 저장, 로그인 없음)
@@ -30,6 +31,8 @@ function write(next: Store) {
 }
 
 export function getMyPlaylists(): Store { return cache; }
+/** 연결된 기기와 합친 결과로 바꾸기 (기본 저장 위치는 기기마다) */
+export function replaceMyLists(lists: MyList[]) { write({ ...cache, lists, defaultListId: lists.some((l) => l.id === cache.defaultListId) ? cache.defaultListId : null }); }
 
 export function useMyPlaylists(): Store {
   const [s, setS] = useState(cache);
@@ -52,6 +55,7 @@ export function renameList(id: string, name: string) {
   write({ ...cache, lists: cache.lists.map((l) => (l.id === id ? { ...l, name: name.trim() || l.name, updatedAt: Date.now() } : l)) });
 }
 export function deleteList(id: string) {
+  markTomb((t) => { t.l[id] = Date.now(); });
   write({ ...cache, lists: cache.lists.filter((l) => l.id !== id), defaultListId: cache.defaultListId === id ? null : cache.defaultListId });
 }
 export function addToList(listId: string, item: Omit<MyItem, 'addedAt'>) {
