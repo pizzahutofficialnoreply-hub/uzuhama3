@@ -7,6 +7,7 @@ import { adminLogoutAll } from '../../../AdminMfaGate';
 export function AdminSecurityCard() {
   const [st, setSt] = useState<any>(null);
   const [msg, setMsg] = useState('');
+  const [codes, setCodes] = useState<string[]>([]);
   const load = useCallback(async () => { try { setSt(await mutate('mfaStatus')); } catch (e: any) { setMsg(String(e?.message || e)); } }, []);
   useEffect(() => { load(); }, [load]);
   const btn = 'px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer';
@@ -41,8 +42,21 @@ export function AdminSecurityCard() {
       )}
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={async () => { if (!window.confirm('다른 기기(이 기기 포함)의 관리자 로그인을 모두 끊을까요?')) return; try { await adminLogoutAll(); window.location.href = '/'; } catch (e: any) { setMsg(String(e?.message || e)); } }} className={`${btn} bg-red-600 text-white`}>모든 기기에서 로그아웃</button>
+        {st?.enabled && <button type="button" onClick={async () => { if (!window.confirm('복구 코드를 새로 받을까요? 인증 앱은 그대로 쓰고, 예전 복구 코드는 모두 못 쓰게 돼요.')) return; try { const r = await mutate('mfaNewRecovery'); setCodes(r.recoveryCodes || []); load(); } catch (e: any) { setMsg(String(e?.message || e)); } }} className={`${btn} bg-purple-600 text-white`}>복구 코드 새로 받기</button>}
         {st?.enabled && <button type="button" onClick={async () => { if (!window.confirm('인증 앱을 다시 설정할까요? 지금 앱의 코드와 복구 코드는 더 이상 안 돼요.')) return; try { await mutate('mfaReset'); const { auth } = await import('../../../../lib/firebase'); await auth.currentUser?.getIdToken(true); window.location.reload(); } catch (e: any) { setMsg(String(e?.message || e)); } }} className={`${btn} bg-zinc-100 dark:bg-zinc-800`}>인증 앱 다시 설정 (새 복구 코드)</button>}
       </div>
+      {codes.length > 0 && (
+        <div className="rounded-xl border border-emerald-300/60 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-3 space-y-2">
+          <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 break-keep">새 복구 코드예요. 지금 한 번만 보여요. 휴대폰을 잃어버렸을 때 6자리 코드 대신 쓰고, 코드마다 한 번씩만 쓸 수 있어요.</p>
+          <div className="grid grid-cols-2 gap-1.5 font-mono text-sm font-bold text-zinc-800 dark:text-zinc-100">
+            {codes.map((c) => <span key={c} className="py-1.5 text-center rounded-lg bg-white dark:bg-zinc-800 select-all">{c}</span>)}
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => { try { navigator.clipboard.writeText(codes.join('\n')); setMsg(''); } catch {} }} className={`${btn} bg-white dark:bg-zinc-800`}>복사하기</button>
+            <button type="button" onClick={() => setCodes([])} className={`${btn} bg-zinc-900 text-white dark:bg-white dark:text-zinc-900`}>보관했어요</button>
+          </div>
+        </div>
+      )}
       {msg && <p className="text-xs text-red-500">{msg}</p>}
     </div>
   );

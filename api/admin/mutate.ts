@@ -46,6 +46,7 @@ export default async function handler(req: any, res: any) {
       }
       if (action === 'mfaLogoutAll') { await m.mfaLogoutAll(db, adminAuth, u); await logA({ action: 'mfa_logout_all' }); return res.status(200).json({ success: true, summary: '모든 기기에서 관리자 로그아웃했어요' }); }
       if (action === 'mfaEmergencyReset') { await m.mfaEmergencyReset(db, adminAuth, u); await logA({ action: 'mfa_emergency_reset' }); return res.status(200).json({ success: true }); }
+      if (action === 'mfaNewRecovery') { const r = await m.mfaNewRecovery(db, u); await logA({ action: 'mfa_new_recovery' }); return res.status(200).json({ success: true, ...r }); }
       if (action === 'mfaReset') { await m.mfaReset(db, adminAuth, u); await logA({ action: 'mfa_reset' }); return res.status(200).json({ success: true }); }
       return res.status(400).json({ error: 'unknown mfa action' });
     }

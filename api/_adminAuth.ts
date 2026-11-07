@@ -175,6 +175,18 @@ export async function mfaVerify(db: any, auth: any, decoded: any, code: string, 
   return { until: await grant(db, auth, decoded, '복구 코드', req), recoveryLeft: list.filter((x: any) => !x.used).length };
 }
 
+/** 복구 코드만 새로 받기 (인증 앱은 그대로, 예전 복구 코드는 모두 못 씀) — 지금 코드로 확인된 상태에서만 */
+export async function mfaNewRecovery(db: any, decoded: any) {
+  if (!(Number(decoded?.adm2fa || 0) > Date.now())) throw Object.assign(new Error('먼저 지금 코드로 확인해 주세요.'), { status: 403 });
+  const r = ref(db);
+  const d = (await r.get()).data() || {};
+  if (!d.totp || !d.enabledAt) throw Object.assign(new Error('2단계 인증이 켜져 있지 않아요.'), { status: 400 });
+  const salt = randomBytes(16).toString('hex');
+  const codes = Array.from({ length: 10 }, () => randomBytes(5).toString('hex').toUpperCase().replace(/(.{5})/, '$1-'));
+  await r.set({ salt, recovery: codes.map((c) => ({ h: hashCode(c, salt), used: false })), recoveryAt: new Date().toISOString() }, { merge: true });
+  return { recoveryCodes: codes };
+}
+
 /** 모든 기기에서 관리자 로그아웃 */
 export async function mfaLogoutAll(db: any, auth: any, decoded: any) {
   await auth.setCustomUserClaims(decoded.uid, {});
