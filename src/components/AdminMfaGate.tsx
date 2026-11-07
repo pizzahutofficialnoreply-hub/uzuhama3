@@ -42,6 +42,7 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
   const [err, setErr] = useState('');
   const [codes, setCodes] = useState<string[]>([]);
   const [useRecovery, setUseRecovery] = useState(false);
+  const [canReset, setCanReset] = useState(false);
   const lastActive = useRef(Date.now());
 
   const check = useCallback(async () => {
@@ -49,6 +50,7 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
     if (await adminMfaValid()) { setPhase('ok'); return; }
     try {
       const st = await call('mfaStatus');
+      setCanReset(Boolean(st.emergencyReset && st.enabled));
       if (st.enabled) setPhase('verify');
       else {
         const s = await call('mfaBeginSetup');
@@ -152,6 +154,15 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
             <button type="button" onClick={() => { setUseRecovery(!useRecovery); setCode(''); setErr(''); }} className="text-[11px] text-zinc-500 underline cursor-pointer">
               {useRecovery ? '6자리 코드로 하기' : '휴대폰이 없어요 (복구 코드)'}
             </button>
+          )}
+          {phase === 'verify' && canReset && (
+            <button type="button" disabled={busy} onClick={async () => {
+              if (!window.confirm('2단계 인증을 처음부터 다시 설정할까요? 지금 인증 앱에 있는 항목과 복구 코드는 더 이상 안 써요. (이번 한 번만 할 수 있어요)')) return;
+              setBusy(true); setErr('');
+              try { await call('mfaEmergencyReset'); await auth.currentUser?.getIdToken(true); setCode(''); setUseRecovery(false); await check(); }
+              catch (e: any) { setErr(String(e?.message || e)); }
+              finally { setBusy(false); }
+            }} className="w-full py-2.5 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold cursor-pointer">인증 앱 처음부터 다시 설정하기 (한 번만)</button>
           )}
           <button type="button" onClick={onCancel} className="w-full py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5"><LogOut className="w-3.5 h-3.5" /> 나가기</button>
         </div>

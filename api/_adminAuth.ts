@@ -81,7 +81,22 @@ export async function mfaStatus(db: any, decoded: any) {
     sessionUntil: Number(decoded?.adm2fa || 0),
     locked: lockedUntil > Date.now() ? lockedUntil : 0,
     recentLogins: (d.logins || []).slice(0, 10),
+    emergencyReset: emergencyOpen(d),
   };
+}
+
+/**
+ * 운영자 요청으로 딱 한 번 여는 초기화 (2026-11-07 복구 코드 입력 문제)
+ * 구글 관리자 계정으로 로그인한 상태에서만, 정해진 시각까지, 한 번만. 쓰고 나면 다시 안 열림
+ */
+const EMERGENCY = { id: 'r20261107', until: Date.parse('2026-11-07T10:30:00Z') };
+const emergencyOpen = (d: any) => Date.now() < EMERGENCY.until && d.emergencyUsed !== EMERGENCY.id;
+export async function mfaEmergencyReset(db: any, auth: any, decoded: any) {
+  const r = ref(db);
+  const d = (await r.get()).data() || {};
+  if (!emergencyOpen(d)) throw Object.assign(new Error('초기화할 수 있는 시간이 지났거나 이미 썼어요.'), { status: 403 });
+  await r.set({ totp: null, enabledAt: null, recovery: [], pending: null, fails: 0, lockUntil: 0, emergencyUsed: EMERGENCY.id, emergencyAt: new Date().toISOString() }, { merge: true });
+  await auth.setCustomUserClaims(decoded.uid, {});
 }
 
 /** 처음 설정: 비밀 키 만들기 (아직 켜지 않음) */
