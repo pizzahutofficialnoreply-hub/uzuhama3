@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bookmark, Flag, Link2, MoreVertical } from 'lucide-react';
+import { Bookmark, Flag, Link2, MoreVertical, Sparkles } from 'lucide-react';
+import { openAiSummary } from './AiSummaryHost';
 import { cn } from '../../utils';
 import { requestSave, useMyPlaylists, type MyItemKind } from '../../utils/myPlaylists';
 import { shareTextOrClipboard } from '../../utils/shareUtils';
@@ -46,7 +47,7 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
   useLayoutEffect(() => {
     if (!open || !btn.current) return;
     const r = btn.current.getBoundingClientRect();
-    const up = r.bottom + 220 + extraItems.length * 44 > window.innerHeight - 80; // 아래 공간이 없으면 위로
+    const up = r.bottom + 264 + extraItems.length * 44 > window.innerHeight - 80; // 아래 공간이 없으면 위로
     const left = Math.max(8, Math.min(window.innerWidth - 188, r.right - 180));
     setPos(up ? { bottom: window.innerHeight - r.top + 6, left, up } : { top: r.bottom + 6, left, up });
   }, [open]);
@@ -98,7 +99,13 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
                     {x.icon}{x.label}
                   </button>
                 ))}
-                <button type="button" role="menuitem" className={cn(item, extraItems.length > 0 && 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); onSave?.(); requestSave({ id, kind, title }); }}>
+                {/^[\w-]{11}$/.test(id) && (
+                  <button type="button" role="menuitem" className={cn(item, extraItems.length > 0 && 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); openAiSummary({ id, title, kind }); }}>
+                    <Sparkles className="w-4 h-4 text-purple-500" />
+                    AI 영상 요약
+                  </button>
+                )}
+                <button type="button" role="menuitem" className={cn(item, (extraItems.length > 0 || /^[\w-]{11}$/.test(id)) && 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); onSave?.(); requestSave({ id, kind, title }); }}>
                   <Bookmark className={cn('w-4 h-4', saved ? 'text-purple-600' : 'text-zinc-500')} fill={saved ? 'currentColor' : 'none'} />
                   {saved ? '저장됨 · 바꾸기' : '저장'}
                 </button>

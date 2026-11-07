@@ -2,12 +2,14 @@
  * AI 검색 요청 (서버: /api/videos/search-index?ai=search&q=)
  * - 서버가 키워드로 1단계 거른 뒤 장면 단위로 점수를 매겨 최대 8개만 돌려줌. 같은 검색어는 기기에서 10분 재사용
  */
-export type AiResult = { id: string; title: string; kind?: string; publishedAt?: string; summary?: string; scenes: { t: number; d: string }[]; games?: string[]; partial?: boolean; score: number };
+export type AiResult = { id: string; title: string; kind?: string; publishedAt?: string; summary?: string; scenes: { t: number; d: string; vague?: boolean }[]; games?: string[]; partial?: boolean; score: number };
 
 const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')
 ).replace(/\/+$/, '');
-const mem = new Map<string, { at: number; r: AiResult[] }>();
+const mem = new Map<string, { at: number; r: AiResult[]; ex: string[] }>();
+/** 마지막 검색에서 AI 가 넓힌 말 (예: 갑툭튀 → 점프스케어) */
+export const lastExpanded = new Map<string, string[]>();
 
 export async function aiSearch(q: string): Promise<AiResult[]> {
   const key = q.trim().toLowerCase();
@@ -17,7 +19,9 @@ export async function aiSearch(q: string): Promise<AiResult[]> {
     const r = await fetch(`${API_BASE}/api/videos/search-index?ai=search&q=${encodeURIComponent(q.trim())}`);
     const j = await r.json();
     const out: AiResult[] = Array.isArray(j?.results) ? j.results : [];
-    mem.set(key, { at: Date.now(), r: out });
+    const ex: string[] = Array.isArray(j?.expanded) ? j.expanded : [];
+    mem.set(key, { at: Date.now(), r: out, ex });
+    lastExpanded.set(key, ex);
     return out;
   } catch {
     return [];

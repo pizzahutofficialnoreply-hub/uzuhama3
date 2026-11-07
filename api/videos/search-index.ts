@@ -174,6 +174,14 @@ export default async function handler(req: any, res: any) {
         res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
         return res.status(200).json(out);
       }
+      if (aiMode === 'video') {
+        res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
+        return res.status(200).json(await ai.aiVideoDetail(db, String(req.query?.id || '')));
+      }
+      if (aiMode === 'prioritize') {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json(await ai.aiPrioritize(db, String(req.query?.id || '')));
+      }
       if (aiMode === 'status') {
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(await ai.aiVideoStatus(db));

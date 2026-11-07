@@ -1,3 +1,4 @@
+import { toInternal } from '../utils/internalLink';
 import { useState, useEffect, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, ExternalLink, Play, Pause } from 'lucide-react';
 import { NoticeItem, NoticeLink } from '../types';
@@ -159,15 +160,15 @@ export function NoticeModal({ notices, onClose, onNavigateInternal }: NoticeModa
                 return (
                   <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center gap-2 shrink-0">
                     {noticeLinks.map((link, lIdx) => {
-                      const isInternal = link.url?.startsWith('redirect://') || link.url?.startsWith('app://') || link.url?.startsWith('/');
+                      const internal = toInternal(link.url);
                       return (
                         <button
                           key={lIdx}
                           type="button"
                           onClick={() => {
-                            if (isInternal && onNavigateInternal) {
+                            if (internal && onNavigateInternal) {
                               onClose();
-                              onNavigateInternal(link.url);
+                              onNavigateInternal(internal);
                             } else {
                               window.open(link.url, '_blank', 'noopener,noreferrer');
                             }

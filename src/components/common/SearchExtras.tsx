@@ -4,7 +4,7 @@ import { cn } from '../../utils';
 import { squash } from '../../utils/smartSearch';
 import { useSearchTuning } from '../../hooks/useSearchTuning';
 import { embedSrc, trackYoutubeFrame, watchUrl } from '../../utils/watchHistory';
-import { aiSearch, fmtTime, type AiResult } from '../../utils/aiSearch';
+import { aiSearch, fmtTime, lastExpanded, type AiResult } from '../../utils/aiSearch';
 
 /**
  * 검색 결과 맨 위에 붙는 두 가지
@@ -12,7 +12,7 @@ import { aiSearch, fmtTime, type AiResult } from '../../utils/aiSearch';
  *  2) AI 검색 — AI가 영상을 미리 보고 정리해 둔 장면에서 찾은 것 (설정에서 끌 수 있음)
  * 장면 시간을 누르면 그 10초 전부터 재생
  */
-type Card = { id: string; title: string; kind?: string; summary?: string; scenes: { t: number; d?: string }[]; games?: string[]; from: 'pin' | 'ai'; partial?: boolean; note?: string };
+type Card = { id: string; title: string; kind?: string; summary?: string; scenes: { t: number; d?: string; vague?: boolean }[]; games?: string[]; from: 'pin' | 'ai'; partial?: boolean; note?: string };
 
 const KIND_LABEL: Record<string, string> = { short: '쇼츠', live: '생방송', video: '영상' };
 
@@ -53,6 +53,7 @@ function ExtraCard({ c }: { c: Card }) {
               <button type="button" onClick={() => play(s.t)} className="font-black text-purple-600 dark:text-purple-400 underline underline-offset-2 tabular-nums cursor-pointer">{fmtTime(s.t)}</button>
               {i === 0 ? '에 나와요' : ''}
               {s.d && <span className="text-zinc-500 dark:text-zinc-400"> · {s.d}</span>}
+              {s.vague && <span className="text-[10px] text-amber-600"> (확실하지 않음)</span>}
             </p>
           ))}
           <p className="text-[10px] text-zinc-400">시간을 누르면 10초 전부터 재생돼요{c.partial ? ' · 아직 영상 앞부분만 분석했어요' : ''}</p>
@@ -117,6 +118,9 @@ export function SearchExtras({ query, aiEnabled }: { query: string; aiEnabled: b
         <Sparkles className="w-4 h-4 text-purple-500" /> 콕 집어 찾은 결과
         {loading && !cards.length && <span className="text-[11px] font-semibold text-zinc-400 ml-1">AI가 정리해 둔 장면에서 찾는 중…</span>}
       </h3>
+      {(lastExpanded.get(q.toLowerCase()) || []).length > 0 && ai?.q === q && (
+        <p className="px-1 text-[11px] text-zinc-500">AI가 '{q}'를 <b>{(lastExpanded.get(q.toLowerCase()) || []).slice(0, 5).join(' · ')}</b>(으)로도 찾아봤어요</p>
+      )}
       <div className={cn('grid gap-2.5', cards.length > 1 && 'lg:grid-cols-2')}>
         {cards.map((c) => <ExtraCard key={`${c.from}-${c.id}-${c.scenes[0]?.t || 0}`} c={c} />)}
       </div>

@@ -29,7 +29,7 @@ const TEXT_MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini
 
 type QItem = { id: string; title: string; publishedAt: string; kind?: 'video' | 'short' | 'live'; duration?: number; live?: string; logDate?: string; games?: string[]; gameLinks?: Record<string, string>; comp?: boolean };
 const QUEUE_VER = 3; // 2: 방송 기록의 생방송 다시보기 포함, 3: 몰아보기 표시(분석 안 함)
-export type Scene = { t: number; d: string; k: string[] };
+export type Scene = { t: number; d: string; k: string[]; u?: number /* 1: 확실하지 않음 */ };
 
 const kstDay = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
 const isRate = (m: string) => /429|quota|RESOURCE_EXHAUSTED|rate limit|Too Many Requests/i.test(m);
@@ -255,18 +255,19 @@ ${item.logDate ? `방송 날짜: ${item.logDate}\n` : ''}${item.games?.length ? 
 화면·자막·말소리를 모두 보고 아래 JSON 으로만 답해. 모르는 건 지어내지 마.
 {
  "summary": "이 ${whole ? '영상' : '구간'}에서 일어난 일 2~3문장 (한국어)",
- "scenes": [{"t": "원본 영상 기준 시작 시각 MM:SS 또는 H:MM:SS", "d": "무슨 장면인지 한 문장", "k": ["검색 키워드 3~8개: 장면 성격(점프스케어, 귀신, 비명, 웃음, 노래, 보스전, 엔딩, 사망, 실패, 성공 등)·등장 대상·감정"]}],
+ "scenes": [{"t": "원본 영상 기준 시작 시각 MM:SS 또는 H:MM:SS", "d": "무슨 장면인지 한 문장", "k": ["검색 키워드 3~8개: 장면 성격(점프스케어, 귀신, 비명, 웃음, 노래, 보스전, 엔딩, 사망, 실패, 성공 등)·등장 대상·감정"], "sure": true}],
  "games": [{"name": "화면에 나온 게임 정식 이름(영문이면 영문 그대로)", "ko": "한국어 이름이나 흔히 부르는 이름"}],
  "keywords": ["이 ${whole ? '영상' : '구간'} 전체를 대표하는 검색어 5~15개 (한국어)"],
  "mood": ["분위기 단어 1~5개 (공포, 웃김, 힐링, 긴장감, 감동, 혼돈 등)"]
 }
+k 에는 화면에 실제로 또렷이 나온 것만 넣어. 예: 귀신·괴물이 실제로 화면에 보이면 '귀신', 소리만 나거나 그림자·착각·"귀신인가?" 하는 말뿐이면 '귀신' 대신 '귀신 의심'·'소리'처럼 쓰고 sure 를 false 로. 확실하면 sure 는 true.
 scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'}), 시간 순서로.`;
   // mimeType 을 붙이면 유튜브 주소를 느린 방식으로 읽어 시간 초과가 남 → 주소만
   const part: any = { fileData: { fileUri: `https://www.youtube.com/watch?v=${item.id}` } };
   if (!whole) part.videoMetadata = { startOffset: `${start}s`, endOffset: `${end}s` };
   const { text, model } = await gen([part, { text: prompt }], true, AI_TIMEOUT, MODELS, { mediaResolution: 'MEDIA_RESOLUTION_LOW' });
   const out = parseJson(text);
-  let scenes: Scene[] = (Array.isArray(out.scenes) ? out.scenes : []).map((s: any) => ({ t: toSec(s?.t), d: String(s?.d || '').slice(0, 160), k: words(s?.k, 8) }))
+  let scenes: Scene[] = (Array.isArray(out.scenes) ? out.scenes : []).map((s: any) => ({ t: toSec(s?.t), d: String(s?.d || '').slice(0, 160), k: words(s?.k, 8), ...(s?.sure === false ? { u: 1 } : {}) }))
     .filter((s: Scene) => Number.isFinite(s.t) && s.d);
   // 구간을 잘라 보냈는데 모든 시각이 0부터 시작하면 구간 기준으로 답한 것 → 원본 기준으로
   if (!whole && start > 0 && scenes.length && scenes.every((s) => s.t < end - start + 5) && Math.max(...scenes.map((s) => s.t)) < start) {
@@ -332,6 +333,15 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
     let item: QItem | undefined;
     let cur: any;
     const col = db.collection('ai_video');
+    // 방문자가 '먼저 봐 달라'고 한 영상부터
+    const pr: string[] = (st.priority || []).filter((pid: string) => queue.some((q) => q.id === pid && !q.comp));
+    for (const pid of pr) {
+      if (opts.kind) break;
+      const d = (await col.doc(pid).get()).data();
+      if (d?.status === 'done' || d?.status === 'skip' || (d?.status === 'error' && (d.tries || 0) >= 3)) continue;
+      item = queue.find((q) => q.id === pid); cur = d; break;
+    }
+
     for (let i = 0; i < queue.length && !item; i += 30) {
       const part = queue.slice(i, i + 30).filter((q) => !q.comp && q.live !== 'live' && q.live !== 'upcoming' && (!opts.kind || q.kind === opts.kind));
       if (!part.length) continue;
@@ -435,6 +445,7 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
       } catch { /* 첫 구간 요약 */ }
     }
     await ref.set({ summary, status: 'done', doneAt: new Date().toISOString() }, { merge: true });
+    if ((st.priority || []).includes(item.id)) await stRef.set({ priority: (st.priority || []).filter((x: string) => x !== item!.id) }, { merge: true });
     await release({ calls: calls + 1, doneCount: Number(st.doneCount || 0) + 1 });
     return { id: item.id, title: item.title, finished: true };
   } catch (e: any) {
@@ -459,38 +470,116 @@ export async function aiVideoStatus(db: any) {
   return { ...st, lockUntil: undefined, total: (q?.items || []).filter((x: QItem) => !x.comp).length || q?.count || 0, channelCount: q?.channelCount || 0, fetchedAt: q?.fetchedAt, kinds, done, partial, dailySec: DAILY_SEC, models: MODELS };
 }
 
-/** AI 검색: 키워드로 1단계 거르고 장면 단위로 점수 */
+/** '애매'한 장면 (확실하지 않다고 표시했거나 말투가 추측) */
+const HEDGE = /(인가|인지|것 같|듯|처럼 보|착각|의심|소리만|그림자|비슷|아닌가|헷갈)/;
+
+/** 검색어를 장면 검색용 말로 넓히기 (예: 갑툭튀 → 점프스케어·깜짝). 한 번 넓힌 검색어는 저장해 두고 다시 AI 를 부르지 않음 */
+async function expandQuery(db: any, q: string, tokens: string[]): Promise<string[]> {
+  const key = normWord(q).slice(0, 60);
+  if (!key) return [];
+  const ref = db.collection('ai_query').doc(key);
+  const cur = (await ref.get()).data();
+  if (cur?.words) return cur.words;
+  // 하루 AI 확장 횟수 제한 (무료 한도 보호)
+  const day = kstDay();
+  const cnt = db.collection('youtube_cache').doc('ai_query_count');
+  const c = (await cnt.get()).data() || {};
+  const used = c.day === day ? Number(c.n || 0) : 0;
+  if (used >= Number(process.env.AI_QUERY_DAILY || 300) || !aiKey()) return [];
+  await cnt.set({ day, n: used + 1 }, { merge: true });
+  try {
+    const { text } = await gen([{ text: `팬 사이트에서 스트리머 "우주하마"의 게임 방송 영상 장면을 찾는 검색어야: "${q}"
+이 검색어로 찾고 싶은 장면을 AI 가 영상 장면마다 붙여 둔 한국어 키워드(예: 점프스케어, 귀신, 비명, 웃음, 노래, 보스전, 엔딩, 사망, 깜짝 놀람)로 바꿔 줘.
+줄임말·신조어·은어(예: 갑툭튀→점프스케어, 깜놀→깜짝 놀람, 겜→게임)는 풀어서. 검색어에 없는 뜻은 넣지 마. 3~10개.
+JSON 으로만: {"words":["..."]}` }], true, 12000, ['gemini-flash-lite-latest', 'gemini-3.8-flash', 'gemini-flash-latest']);
+    const words = [...new Set((parseJson(text).words || []).map((w: any) => normWord(String(w))).filter((w: string) => w.length >= 2 && !tokens.includes(w)))].slice(0, 10) as string[];
+    await ref.set({ q: q.slice(0, 80), words, at: new Date().toISOString() });
+    return words;
+  } catch {
+    return [];
+  }
+}
+
+/** AI 검색: 키워드로 1단계 거르고 장면 단위로 점수 (부족하면 검색어를 AI 로 한 번 넓힘 — 저장해 두고 재사용) */
 export async function aiSearch(db: any, q: string) {
   const tokens = queryTokens(q);
   if (!tokens.length) return { tokens, results: [] };
-  const snap = await db.collection('ai_video').where('kw', 'array-contains-any', tokens.slice(0, 30)).limit(40).get();
-  const has = (text: string) => { const t = normWord(text); return tokens.filter((k) => t.includes(k)); };
-  const results = snap.docs.map((d: any) => {
-    const v = d.data();
-    let score = 0;
-    const titleHit = has(v.title || '').length;
-    score += titleHit * 2;
-    const kwHit = tokens.filter((t) => (v.kw || []).includes(t)).length;
-    score += kwHit;
-    const scenes = (v.scenes || []).map((s: Scene) => {
-      const hit = new Set<string>([...has(s.d), ...(s.k || []).flatMap((k) => has(k))]);
-      return { t: s.t, d: s.d, n: hit.size };
-    }).filter((s: any) => s.n > 0).sort((a: any, b: any) => b.n - a.n || a.t - b.t);
-    if (scenes.length) score += scenes[0].n * 3 + Math.min(3, scenes.length) * 0.5;
-    const gameHit = (v.games || []).some((g: any) => has([g.name, g.ko, ...(g.tags || []), ...(g.aliases || []), g.genre].join(' ')).length);
-    if (gameHit) score += 1.5;
-    return {
-      id: v.id || d.id, title: v.title, kind: v.kind, publishedAt: v.publishedAt, duration: v.duration,
-      summary: String(v.summary || v.parts?.[0]?.summary || '').slice(0, 220),
-      scenes: scenes.slice(0, 3).map((s: any) => ({ t: s.t, d: s.d })),
-      games: (v.games || []).map((g: any) => g.ko || g.name).slice(0, 3),
-      partial: v.status !== 'done',
-      score,
-    };
-  }).filter((r: any) => r.score >= 2)
-    .sort((a: any, b: any) => b.score - a.score || (b.publishedAt || '').localeCompare(a.publishedAt || ''))
-    .slice(0, 8);
-  return { tokens, results };
+  const run = async (toks: string[], extra: string[]) => {
+    const all = [...toks, ...extra].slice(0, 30);
+    const snap = await db.collection('ai_video').where('kw', 'array-contains-any', all).limit(40).get();
+    const has = (text: string, list: string[]) => { const t = normWord(text); return list.filter((k) => t.includes(k)); };
+    return snap.docs.map((d: any) => {
+      const v = d.data();
+      let score = 0;
+      score += has(v.title || '', toks).length * 2 + has(v.title || '', extra).length;
+      score += toks.filter((t) => (v.kw || []).includes(t)).length + extra.filter((t) => (v.kw || []).includes(t)).length * 0.6;
+      const scenes = (v.scenes || []).map((s: Scene) => {
+        const main = new Set<string>([...has(s.d, toks), ...(s.k || []).flatMap((k) => has(k, toks))]);
+        const ex = new Set<string>([...has(s.d, extra), ...(s.k || []).flatMap((k) => has(k, extra))]);
+        const vague = s.u === 1 || HEDGE.test(s.d) || (s.k || []).some((k) => /의심/.test(k));
+        const n = (main.size + ex.size * 0.6) * (vague ? 0.35 : 1);
+        return { t: s.t, d: s.d, n, vague };
+      }).filter((s: any) => s.n > 0).sort((a: any, b: any) => b.n - a.n || a.t - b.t);
+      if (scenes.length) score += scenes[0].n * 3 + Math.min(3, scenes.filter((x: any) => !x.vague).length) * 0.5;
+      const gameText = (v.games || []).map((g: any) => [g.name, g.ko, ...(g.tags || []), ...(g.aliases || []), g.genre].join(' ')).join(' ');
+      if (has(gameText, toks).length) score += 1.5; else if (has(gameText, extra).length) score += 0.8;
+      return {
+        id: v.id || d.id, title: v.title, kind: v.kind, publishedAt: v.publishedAt, duration: v.duration,
+        summary: String(v.summary || v.parts?.[0]?.summary || '').slice(0, 220),
+        // 확실한 장면 먼저, 애매한 건 뒤로
+        scenes: [...scenes.filter((x: any) => !x.vague), ...scenes.filter((x: any) => x.vague)].slice(0, 3).map((x: any) => ({ t: x.t, d: x.d, ...(x.vague ? { vague: true } : {}) })),
+        games: (v.games || []).map((g: any) => g.ko || g.name).slice(0, 3),
+        partial: v.status !== 'done',
+        score,
+      };
+    }).filter((r: any) => r.score >= 2)
+      .sort((a: any, b: any) => b.score - a.score || (b.publishedAt || '').localeCompare(a.publishedAt || ''))
+      .slice(0, 8);
+  };
+  let results = await run(tokens, []);
+  let expanded: string[] = [];
+  // 결과가 적으면(또는 줄임말 같은 검색어면) 한 번 넓혀서 다시
+  if (results.length < 3) {
+    expanded = await expandQuery(db, q, tokens);
+    if (expanded.length) {
+      const more = await run(tokens, expanded);
+      const seen = new Set(results.map((r: any) => r.id));
+      results = [...results, ...more.filter((r: any) => !seen.has(r.id))].slice(0, 8);
+    }
+  }
+  return { tokens, expanded, results };
+}
+
+/** ⋮ › AI 영상 요약: 저장된 분석 결과 (검색용 내부 칸은 빼고) */
+export async function aiVideoDetail(db: any, id: string) {
+  if (!/^[\w-]{11}$/.test(id)) return { found: false };
+  const d = (await db.collection('ai_video').doc(id).get()).data();
+  if (!d || !(d.parts?.length || d.summary)) {
+    const st = (await db.collection('youtube_cache').doc('ai_state').get()).data() || {};
+    return { found: false, requested: (st.priority || []).includes(id) };
+  }
+  const games = await Promise.all((d.games || []).slice(0, 4).map(async (g: any) => {
+    if (g.about) return g;
+    try { const x = (await db.collection('ai_games').doc(slug(g.name)).get()).data(); return x ? { ...g, ...x } : g; } catch { return g; }
+  }));
+  return {
+    found: true, id, title: d.title, kind: d.kind, status: d.status, seg: d.seg, segTotal: d.segTotal, model: d.model,
+    summary: d.summary || '', parts: (d.parts || []).map((p: any) => ({ from: p.from, to: p.to, summary: p.summary })),
+    scenes: (d.scenes || []).map((s: Scene) => ({ t: s.t, d: s.d, k: s.k, ...(s.u ? { vague: true } : {}) })),
+    games: games.map((g: any) => ({ name: g.name, ko: g.ko, genre: g.genre, about: g.about, tags: g.tags, horror: g.horror })),
+    keywords: d.keywords || [], mood: d.mood || [],
+  };
+}
+
+/** 아직 안 본 영상을 먼저 봐 달라고 (최대 30개, 순서대로) */
+export async function aiPrioritize(db: any, id: string) {
+  if (!/^[\w-]{11}$/.test(id)) return { ok: false };
+  const ref = db.collection('youtube_cache').doc('ai_state');
+  const st = (await ref.get()).data() || {};
+  const list: string[] = (st.priority || []).filter((x: string) => x !== id);
+  if (list.length >= 30) return { ok: false, full: true };
+  await ref.set({ priority: [...list, id] }, { merge: true });
+  return { ok: true, position: list.length + 1 };
 }
 
 /** 시간이 허락하는 만큼 여러 구간 (점검·예약 실행 공통) */

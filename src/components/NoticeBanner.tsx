@@ -1,3 +1,4 @@
+import { toInternal } from '../utils/internalLink';
 import React, { useState, useEffect, useRef } from 'react';
 import { ExternalLink, X, Info, AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -271,11 +272,10 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
     if (!url) return;
 
     const trimmed = url.trim();
-    if (trimmed.startsWith('redirect://') || trimmed.startsWith('app://') || trimmed.startsWith('/')) {
-      if (onNavigateInternal) {
-        onNavigateInternal(trimmed);
-        return;
-      }
+    const internal = toInternal(trimmed);
+    if (internal && onNavigateInternal) {
+      onNavigateInternal(internal);
+      return;
     }
     window.open(trimmed, '_blank', 'noopener,noreferrer');
   };

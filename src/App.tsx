@@ -69,6 +69,9 @@ const PolicyPage = lazy(() => import('./components/PolicyPage').then((m) => ({ d
 const LicensePage = lazy(() => import('./components/LicensePage').then((m) => ({ default: m.LicensePage })));
 import { useAuth } from './hooks/useAuth';
 import { RELOAD_LINK, reloadToNewVersion, useNewBuildAvailable } from './utils/appVersion';
+import { MaintenancePager } from './components/MaintenancePager';
+import { AiSummaryHost } from './components/common/AiSummaryHost';
+import { FluidBackdrop } from './components/common/FluidBackdrop';
 
 function MainApp() {
   const navigate = useNavigate();
@@ -662,7 +665,10 @@ function MainApp() {
       // 2. 패치노트
       if (rawPath.includes('패치') || pathLower.includes('patch')) {
         setIsSettingsOpen(false);
-        navigate('/patch');
+        // 'app://패치노트/v1.1.0' 처럼 버전이 있으면 그 버전 글로
+        const ver = rawPath.match(/v?(\d+(?:\.\d+){1,3})/)?.[1];
+        navigate(ver ? `/patch-v${ver}` : '/patch');
+        window.scrollTo({ top: 0 });
         return true;
       }
 
@@ -701,9 +707,11 @@ function MainApp() {
     }
 
     if (trimmed.startsWith('/')) {
-      if (trimmed === '/patch' || /^\/patch-v?[\d.]+$/.test(trimmed)) {
+      if (/^\/patch(-v?[\d.]+)?\/?$/.test(trimmed) || /^\/patch\/v?[\d.]+$/.test(trimmed)) {
         setIsSettingsOpen(false);
-        navigate(trimmed);
+        const ver = trimmed.match(/v?(\d+(?:\.\d+){1,3})/)?.[1];
+        navigate(ver ? `/patch-v${ver}` : '/patch');
+        window.scrollTo({ top: 0 });
         return true;
       }
       if (trimmed === '/terms') {
@@ -828,9 +836,11 @@ function MainApp() {
     };
 
     return (
-      <div className="min-h-[100dvh] w-full bg-zinc-50 dark:bg-black overflow-y-auto select-text">
-        {/* 첫 화면: 자물쇠 + 점검 중 + 날짜·시간만 */}
-        <section className="relative min-h-[100dvh] flex flex-col items-center justify-center px-6 text-center">
+      <MaintenancePager
+        first={(goDetail) => (
+          <div className="relative h-full flex flex-col items-center justify-center px-6 text-center">
+          <FluidBackdrop />
+          <div className="relative flex flex-col items-center">
           <div className="inline-flex p-5 rounded-[28px] bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 shadow-sm">
             <Lock className="w-12 h-12 sm:w-14 sm:h-14" />
           </div>
@@ -850,18 +860,22 @@ function MainApp() {
               )}
             </div>
           )}
+          </div>
           <button
             type="button"
-            onClick={() => document.getElementById('maint-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            onClick={goDetail}
             className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-zinc-500 dark:text-zinc-400 text-sm font-bold cursor-pointer"
           >
             자세히 보기
             <ChevronDown className="w-6 h-6 animate-bounce" />
           </button>
-        </section>
-
+        </div>
+        )}
+        detail={(
+          <>
         {/* 아래로 내리면: 연장 공지 · 점검 공지 · 바뀌는 것 · 링크 */}
-        <section id="maint-detail" className="w-full max-w-2xl mx-auto px-3 sm:px-6 pt-6 pb-20 space-y-5 text-left">
+        <div id="maint-detail" className="w-full max-w-2xl mx-auto px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+24px)] pb-20 space-y-5 text-left">
+          <p className="text-center text-[11px] text-zinc-400">맨 위에서 아래로 끌면 처음 화면으로 돌아가요</p>
           {extended && (
             <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 space-y-1.5">
               <h2 className="text-base font-extrabold text-amber-800 dark:text-amber-200">⏰ 점검 연장 안내</h2>
@@ -921,8 +935,10 @@ function MainApp() {
               ))}
             </div>
           )}
-        </section>
-      </div>
+        </div>
+          </>
+        )}
+      />
     );
   }
 
@@ -1399,6 +1415,7 @@ function MainApp() {
         )}
       </AnimatePresence>
       {/* 저장 버튼 → 저장할 곳 고르기 창·알림 */}
+      <AiSummaryHost />
       <SaveHost />
       {/* 시청 기록 전체 보기 */}
       <AnimatePresence>{historyOpen && <WatchHistoryPage key="history" onClose={() => setHistoryOpen(false)} />}</AnimatePresence>
