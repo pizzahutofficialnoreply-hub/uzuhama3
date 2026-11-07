@@ -42,7 +42,11 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
   const [err, setErr] = useState('');
   const [codes, setCodes] = useState<string[]>([]);
   const [useRecovery, setUseRecovery] = useState(false);
-  const [canReset, setCanReset] = useState(false);
+  const [expiresAt, setExpiresAt] = useState(0);
+  const [now, setNow] = useState(Date.now());
+  const startWindow = useCallback(async () => {
+    try { const r = await call('mfaChallenge'); setExpiresAt(Number(r.expiresAt) || Date.now() + 180000); } catch (e: any) { setErr(String(e?.message || e)); }
+  }, []);
   const lastActive = useRef(Date.now());
 
   const check = useCallback(async () => {
@@ -50,30 +54,38 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
     if (await adminMfaValid()) { setPhase('ok'); return; }
     try {
       const st = await call('mfaStatus');
-      setCanReset(Boolean(st.emergencyReset && st.enabled));
-      if (st.enabled) setPhase('verify');
+      if (st.enabled) { await startWindow(); setPhase('verify'); }
       else {
         const s = await call('mfaBeginSetup');
         setSecret(s.secret); setUri(s.uri);
         setQr(await QRCode.toDataURL(s.uri, { margin: 1, width: 220 }));
+        setExpiresAt(Date.now() + 10 * 60 * 1000);
         setPhase('setup');
       }
     } catch (e: any) { setErr(String(e?.message || e)); setPhase('verify'); }
-  }, []);
+  }, [startWindow]);
   useEffect(() => { check(); }, [check]);
+  // 남은 입력 시간
+  useEffect(() => {
+    if (phase !== 'verify' && phase !== 'setup') return;
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [phase]);
+  const left = Math.max(0, Math.ceil((expiresAt - now) / 1000));
+  const expired = (phase === 'verify' || phase === 'setup') && expiresAt > 0 && left <= 0;
 
   // 4시간이 지나거나, 30분 동안 아무것도 안 하면 다시 잠금
   useEffect(() => {
     if (phase !== 'ok') return;
     const bump = () => { lastActive.current = Date.now(); };
     ['pointerdown', 'keydown', 'scroll'].forEach((ev) => window.addEventListener(ev, bump, { passive: true }));
-    const lockNow = () => setPhase('verify');
+    const lockNow = () => { setPhase('verify'); startWindow(); };
     window.addEventListener(ADMIN_MFA_LOCK_EVENT, lockNow);
     const t = window.setInterval(async () => {
-      if (Date.now() - lastActive.current > IDLE_MS || !(await adminMfaValid())) setPhase('verify');
+      if (Date.now() - lastActive.current > IDLE_MS || !(await adminMfaValid())) { setPhase('verify'); startWindow(); }
     }, 30000);
     return () => { ['pointerdown', 'keydown', 'scroll'].forEach((ev) => window.removeEventListener(ev, bump)); window.removeEventListener(ADMIN_MFA_LOCK_EVENT, lockNow); window.clearInterval(t); };
-  }, [phase]);
+  }, [phase, startWindow]);
 
   const submit = async () => {
     setBusy(true); setErr('');
@@ -143,11 +155,12 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
             inputMode={useRecovery ? 'text' : 'numeric'}
             autoComplete="one-time-code"
             autoFocus
+            disabled={expired}
             placeholder={useRecovery ? 'XXXXX-XXXXX' : '000000'}
             className="w-full text-center text-2xl font-mono tracking-[0.3em] py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
           {err && <p className="text-xs text-red-500 bg-red-500/10 p-2 rounded-xl break-keep">{err}</p>}
-          <button type="button" disabled={busy || (!useRecovery && code.length !== 6)} onClick={submit} className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+          <button type="button" disabled={busy || expired || (!useRecovery && code.length !== 6)} onClick={submit} className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
             {busy && <Loader2 className="w-4 h-4 animate-spin" />} 확인
           </button>
           {phase === 'verify' && (
@@ -155,14 +168,15 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
               {useRecovery ? '6자리 코드로 하기' : '휴대폰이 없어요 (복구 코드)'}
             </button>
           )}
-          {phase === 'verify' && canReset && (
-            <button type="button" disabled={busy} onClick={async () => {
-              if (!window.confirm('2단계 인증을 처음부터 다시 설정할까요? 지금 인증 앱에 있는 항목과 복구 코드는 더 이상 안 써요. (이번 한 번만 할 수 있어요)')) return;
-              setBusy(true); setErr('');
-              try { await call('mfaEmergencyReset'); await auth.currentUser?.getIdToken(true); setCode(''); setUseRecovery(false); await check(); }
-              catch (e: any) { setErr(String(e?.message || e)); }
-              finally { setBusy(false); }
-            }} className="w-full py-2.5 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold cursor-pointer">인증 앱 처음부터 다시 설정하기 (한 번만)</button>
+          {expiresAt > 0 && (
+            expired ? (
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-amber-600 break-keep">입력 시간이 지났어요. 처음부터 다시 해 주세요.</p>
+                <button type="button" onClick={() => { setErr(''); setCode(''); if (phase === 'verify') startWindow(); else check(); }} className="w-full py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-bold cursor-pointer">다시 시작</button>
+              </div>
+            ) : (
+              <p className={`text-[11px] font-bold tabular-nums ${left <= 30 ? 'text-red-500' : 'text-zinc-400'}`}>남은 입력 시간 {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</p>
+            )
           )}
           <button type="button" onClick={onCancel} className="w-full py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5"><LogOut className="w-3.5 h-3.5" /> 나가기</button>
         </div>

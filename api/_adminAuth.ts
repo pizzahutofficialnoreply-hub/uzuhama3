@@ -81,30 +81,30 @@ export async function mfaStatus(db: any, decoded: any) {
     sessionUntil: Number(decoded?.adm2fa || 0),
     locked: lockedUntil > Date.now() ? lockedUntil : 0,
     recentLogins: (d.logins || []).slice(0, 10),
-    emergencyReset: emergencyOpen(d),
   };
 }
 
-/**
- * 운영자 요청으로 딱 한 번 여는 초기화 (2026-11-07 복구 코드 입력 문제)
- * 구글 관리자 계정으로 로그인한 상태에서만, 정해진 시각까지, 한 번만. 쓰고 나면 다시 안 열림
- */
-const EMERGENCY = { id: 'r20261107', until: Date.parse('2026-11-07T10:30:00Z') };
-const emergencyOpen = (d: any) => Date.now() < EMERGENCY.until && d.emergencyUsed !== EMERGENCY.id;
-export async function mfaEmergencyReset(db: any, auth: any, decoded: any) {
-  const r = ref(db);
-  const d = (await r.get()).data() || {};
-  if (!emergencyOpen(d)) throw Object.assign(new Error('초기화할 수 있는 시간이 지났거나 이미 썼어요.'), { status: 403 });
-  await r.set({ totp: null, enabledAt: null, recovery: [], pending: null, fails: 0, lockUntil: 0, emergencyUsed: EMERGENCY.id, emergencyAt: new Date().toISOString() }, { merge: true });
-  await auth.setCustomUserClaims(decoded.uid, {});
+/** 코드 입력 제한 시간: 코드 입력 화면을 연 뒤 이 시간 안에 넣어야 함 (지나면 처음부터) */
+export const CODE_WINDOW_MS = 3 * 60 * 1000;
+export async function mfaChallenge(db: any) {
+  const at = Date.now();
+  await ref(db).set({ challengeAt: at }, { merge: true });
+  return { expiresAt: at + CODE_WINDOW_MS };
 }
+const checkWindow = async (db: any, d: any) => {
+  const at = Number(d.challengeAt || 0);
+  if (!at || Date.now() - at > CODE_WINDOW_MS) {
+    await ref(db).set({ challengeAt: 0 }, { merge: true });
+    throw Object.assign(new Error('입력 시간이 지났어요. 처음부터 다시 해 주세요.'), { status: 408, expired: true });
+  }
+};
 
 /** 처음 설정: 비밀 키 만들기 (아직 켜지 않음) */
 export async function mfaBeginSetup(db: any, decoded: any) {
   const d = (await ref(db).get()).data() || {};
   if (d.totp && d.enabledAt) throw Object.assign(new Error('이미 켜져 있어요. 바꾸려면 먼저 지금 코드로 확인하고 다시 설정하세요.'), { status: 409 });
   const secret = b32encode(randomBytes(20));
-  await ref(db).set({ pending: enc(secret), pendingAt: new Date().toISOString() }, { merge: true });
+  await ref(db).set({ pending: enc(secret), pendingAt: new Date().toISOString(), challengeAt: Date.now() }, { merge: true });
   const label = encodeURIComponent(`${ISSUER}:admin`);
   const uri = `otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent(ISSUER)}&algorithm=SHA1&digits=6&period=30`;
   return { uri, secret };
@@ -118,7 +118,7 @@ async function grant(db: any, auth: any, decoded: any, how: string, req: any) {
   const ua = String(req?.headers?.['user-agent'] || '').slice(0, 160);
   const ip = String(req?.headers?.['x-forwarded-for'] || '').split(',')[0].trim().replace(/\.\d+$/, '.*'); // 끝자리는 가림
   const logins = [{ at: new Date().toISOString(), how, ua, ip }, ...(d.logins || [])].slice(0, 30);
-  await r.set({ fails: 0, lockUntil: 0, logins }, { merge: true });
+  await r.set({ fails: 0, lockUntil: 0, logins, challengeAt: 0 }, { merge: true }); // 한 번 통과하면 그 입력 창은 끝
   return until;
 }
 
@@ -138,6 +138,7 @@ export async function mfaConfirmSetup(db: any, auth: any, decoded: any, code: st
   const d = (await r.get()).data() || {};
   if (Number(d.lockUntil || 0) > Date.now()) throw Object.assign(new Error('잠시 잠겼어요. 나중에 다시 해 주세요.'), { status: 429 });
   if (!d.pending) throw Object.assign(new Error('설정을 다시 시작해 주세요.'), { status: 400 });
+  if (Number(d.challengeAt || 0) && Date.now() - Number(d.challengeAt) > 10 * 60 * 1000) throw Object.assign(new Error('설정 시간이 지났어요. 처음부터 다시 해 주세요.'), { status: 408, expired: true });
   const secret = dec(d.pending);
   const step = verifyTotp(secret, code);
   if (step < 0) { await fail(db); throw Object.assign(new Error('코드가 맞지 않아요. 휴대폰 시간이 맞는지도 확인해 주세요.'), { status: 401 }); }
@@ -155,6 +156,7 @@ export async function mfaVerify(db: any, auth: any, decoded: any, code: string, 
   if (!d.totp || !d.enabledAt) throw Object.assign(new Error('2단계 인증이 아직 설정되지 않았어요.'), { status: 400 });
   const lockUntil = Number(d.lockUntil || 0);
   if (lockUntil > Date.now()) throw Object.assign(new Error(`여러 번 틀려서 ${new Date(lockUntil).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' })}까지 잠겼어요.`), { status: 429 });
+  await checkWindow(db, d);
   const raw = String(code || '').trim();
   if (/^\d{6}$/.test(raw.replace(/\s/g, ''))) {
     const step = verifyTotp(dec(d.totp), raw);

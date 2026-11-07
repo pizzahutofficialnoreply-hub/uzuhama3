@@ -456,7 +456,7 @@ export function FloatingBottomNav({
                     aria-label="하단 네비게이션"
                     style={glassStyle}
                     className={cn(
-                      "relative flex-1 min-w-0 flex items-center h-[clamp(58px,15.2vw,66px)] p-[3px] rounded-full select-none touch-none border backdrop-blur-xl",
+                      "relative flex-1 min-w-0 flex items-center h-[clamp(61px,16.2vw,70px)] p-[3px] rounded-full select-none touch-none border backdrop-blur-xl",
                       "shadow-[0_10px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     )}
                   >
@@ -507,7 +507,7 @@ export function FloatingBottomNav({
                     aria-label="영상 검색 및 추천"
                     style={glassStyle}
                     className={cn(
-                      "relative flex items-center justify-center w-[clamp(58px,15.2vw,66px)] h-[clamp(58px,15.2vw,66px)] rounded-full active:scale-95 duration-150 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 border backdrop-blur-xl",
+                      "relative flex items-center justify-center w-[clamp(61px,16.2vw,70px)] h-[clamp(61px,16.2vw,70px)] rounded-full active:scale-95 duration-150 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 border backdrop-blur-xl",
                       "shadow-[0_10px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     )}
                     title="영상 검색"
