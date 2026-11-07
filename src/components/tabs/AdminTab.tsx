@@ -45,28 +45,38 @@ export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAll
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <AdminHealthBanner onGo={(m) => setViewMode(m as AdminViewMode)} />
       
-      {/* Desktop Tab Navigation (sm 이상에서만 표시) */}
-      <div className="hidden sm:flex overflow-x-auto no-scrollbar sm:flex-wrap gap-1.5 sm:gap-2 p-1 bg-zinc-100 dark:bg-zinc-800/50 rounded-xl w-full sm:w-fit">
-        {adminNavTabs.map((tab) => {
-          const isActive = viewMode === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setViewMode(tab.id)}
-              className={`shrink-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-colors ${
-                isActive 
-                  ? 'bg-white dark:bg-zinc-900 text-purple-600 dark:text-purple-400 shadow-sm' 
-                  : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
-              }`}
-            >
-              {tab.fullLabel}
-            </button>
-          );
-        })}
-      </div>
+      {/* 상단: 지금 보는 곳 + (데스크톱) 탭 */}
+      <header className="space-y-3">
+        <div className="flex items-end justify-between gap-3 px-1">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold tracking-wide text-purple-600 dark:text-purple-400">관리자</p>
+            <h2 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white tracking-tight truncate">{adminNavTabs.find((t) => t.id === viewMode)?.fullLabel}</h2>
+          </div>
+        </div>
+        <nav aria-label="관리자 메뉴" className="hidden sm:flex flex-wrap gap-1 p-1 bg-zinc-100/80 dark:bg-zinc-800/60 rounded-2xl w-fit">
+          {adminNavTabs.map((tab) => {
+            const isActive = viewMode === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setViewMode(tab.id)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold rounded-xl transition-colors cursor-pointer',
+                  isActive ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
+                )}
+              >
+                <Icon className={cn('w-4 h-4', isActive && 'text-purple-600 dark:text-purple-400')} />
+                {tab.fullLabel}
+              </button>
+            );
+          })}
+        </nav>
+      </header>
 
       {/* Main Tab Content */}
       <div className="pb-32 sm:pb-0">
@@ -119,55 +129,40 @@ export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAll
         }}
       />
 
-      {/* Mobile Floating Bottom Nav: 등록, 수정, 시스템, 승인 (PWA 기준 위치 및 세로 높이 조정) */}
-      <div 
+      {/* 모바일 하단 탭바: 네이버 카페 앱처럼 화면 폭 안에 7개가 다 들어가는 캡슐 + 짧은 회색 캡슐 */}
+      <div
         id="admin-floating-bottom-dock"
-        className="sm:hidden fixed bottom-0 inset-x-0 z-50 flex items-center justify-center pointer-events-none px-3 select-none pb-[max(0rem,calc(env(safe-area-inset-bottom)-8px))]"
+        className="sm:hidden fixed bottom-0 inset-x-0 z-50 flex justify-center pointer-events-none px-3 select-none pb-[max(10px,calc(env(safe-area-inset-bottom)-12px))]"
       >
-        <nav 
+        <nav
           aria-label="관리자 하단 네비게이션"
-          style={{ WebkitBackdropFilter: 'blur(32px) saturate(190%)', backdropFilter: 'blur(32px) saturate(190%)' }}
-          className={cn(
-            "pointer-events-auto flex items-center h-[60px] p-1 rounded-full backdrop-blur-3xl backdrop-saturate-180 transition-all duration-300 gap-1",
-            // Dark Mode
-            "dark:bg-zinc-950/80 dark:border dark:border-white/15 dark:shadow-[0_12px_36px_rgba(0,0,0,0.7)]",
-            // Light Mode
-            "bg-white/80 border border-black/5 shadow-[0_12px_30px_rgba(0,0,0,0.12)]"
-          )}
+          style={{ WebkitBackdropFilter: 'blur(28px) saturate(180%)', backdropFilter: 'blur(28px) saturate(180%)' }}
+          className="pointer-events-auto w-full max-w-[440px] flex items-center h-[58px] px-1 rounded-full bg-white/85 dark:bg-zinc-900/85 border border-black/[0.06] dark:border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.6)]"
         >
           {adminNavTabs.map((tab) => {
             const isActive = viewMode === tab.id;
             const Icon = tab.icon;
-
             return (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setViewMode(tab.id)}
+                aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  "relative flex flex-col items-center justify-center w-[76px] h-[51px] rounded-full transition-colors duration-150 touch-manipulation cursor-pointer select-none active:scale-95 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none ring-0 border-0",
-                  isActive
-                    ? "dark:text-white text-zinc-950 font-bold"
-                    : "dark:text-zinc-400 dark:hover:text-zinc-200 text-zinc-500 hover:text-zinc-900 font-medium"
+                  'relative flex-1 min-w-0 h-[50px] flex flex-col items-center justify-center touch-manipulation cursor-pointer select-none active:scale-95 outline-none',
+                  isActive ? 'text-zinc-950 dark:text-white' : 'text-zinc-500 dark:text-zinc-400'
                 )}
-                title={tab.label}
+                title={tab.fullLabel}
               >
-                {/* Active Indicator Pill */}
                 {isActive && (
-                  <motion.div
+                  <motion.span
                     layoutId="adminFloatingActiveTabPill"
-                    style={{ WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)' }}
-                    className="absolute inset-0 rounded-full bg-zinc-300/60 dark:bg-white/20 dark:border dark:border-white/10 backdrop-blur-md"
-                    transition={{ type: "spring", stiffness: 450, damping: 35 }}
+                    className="absolute inset-y-0 inset-x-0.5 rounded-full bg-zinc-200/80 dark:bg-white/15"
+                    transition={{ type: 'spring', stiffness: 450, damping: 35 }}
                   />
                 )}
-
-                <div className="relative z-10 flex flex-col items-center justify-center pointer-events-none">
-                  <Icon className={cn("w-5 h-5 transition-transform duration-200", isActive && "scale-105 text-purple-600 dark:text-purple-400")} />
-                  <span className="text-[10px] tracking-tight mt-0.5">
-                    {tab.label}
-                  </span>
-                </div>
+                <Icon className={cn('relative w-[19px] h-[19px]', isActive ? 'stroke-[2.4]' : 'stroke-[2]')} />
+                <span className={cn('relative text-[10px] leading-none mt-1 truncate max-w-full', isActive ? 'font-bold' : 'font-medium')}>{tab.label}</span>
               </button>
             );
           })}

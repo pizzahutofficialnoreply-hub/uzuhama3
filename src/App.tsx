@@ -72,7 +72,7 @@ import { RELOAD_LINK, reloadToNewVersion, useNewBuildAvailable } from './utils/a
 import { MaintenancePager } from './components/MaintenancePager';
 import { SELFTEST_FLAG } from './selftest/flag';
 const SelfTestPage = lazy(() => import('./components/SelfTestPage').then((m) => ({ default: m.SelfTestPage })));
-import { AiSummaryHost } from './components/common/AiSummaryHost';
+import { AiSummaryHost, GO_SEARCH_EVENT } from './components/common/AiSummaryHost';
 import { FluidBackdrop } from './components/common/FluidBackdrop';
 
 function SlugRoute() {
@@ -281,6 +281,15 @@ function MainApp() {
     }
     handleTabChange('recommend', false, true);
   };
+
+  // AI 요약 등에서 게임·카테고리·키워드를 누르면 검색 탭으로 (검색어 그대로)
+  const navRecRef = useRef(handleNavigateToRecommend);
+  navRecRef.current = handleNavigateToRecommend;
+  useEffect(() => {
+    const on = (e: any) => { const q = String(e?.detail?.q || '').trim(); if (q) navRecRef.current(undefined, q); };
+    window.addEventListener(GO_SEARCH_EVENT, on);
+    return () => window.removeEventListener(GO_SEARCH_EVENT, on);
+  }, []);
 
   // 링크로 들어온 경우: ?v=영상ID (공유 미리보기 링크) / ?q=검색어 → 검색 탭에서 바로
   const deepLinkDone = useRef(false);
@@ -756,6 +765,18 @@ function MainApp() {
   handleTabChangeRef.current = (t: Tab) => handleTabChange(t);
   closeSettingsRef.current = () => { if (isSettingsOpen) closeSettings(); };
 
+  // 설정 › 알림: 게임 이름 찾기·카테고리 고르기용 (이미 받은 방송 기록에서만)
+  const notifyChoices = useMemo(() => {
+    const games = new Set<string>();
+    const cats = new Map<string, number>();
+    const addCat = (c: any) => String(c || '').split(',').map((x) => x.trim()).filter((x) => x && x.length <= 20).forEach((x) => cats.set(x, (cats.get(x) || 0) + 1));
+    Object.values(data?.logs || {}).forEach((l: any) => {
+      if (l?.game) games.add(String(l.game).trim());
+      (l?.games || []).forEach((g: any) => { if (g?.name) games.add(String(g.name).trim()); addCat(g?.category); });
+      addCat(l?.category);
+    });
+    return { gameNames: [...games].filter(Boolean), categories: [...cats.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count })) };
+  }, [data?.logs]);
   if (loading || isLoggingOut) {
     return (
       <LoadingScreen 
@@ -1321,6 +1342,7 @@ function MainApp() {
 
                   <Suspense fallback={null}>
                   <SettingsView 
+                    notifyChoices={notifyChoices}
                     user={user}
                     system={data.system}
                     firstYear={firstYear}
@@ -1387,6 +1409,7 @@ function MainApp() {
             <div className="p-4 pb-28">
               <Suspense fallback={null}>
               <SettingsView 
+                notifyChoices={notifyChoices}
                 user={user}
                 system={data.system}
                 firstYear={firstYear}

@@ -211,7 +211,7 @@ export function AdminSystemTab({
   return (
     <div className="space-y-6">
       {/* 탭 안의 탭: 서브탭 네비게이션 바 */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-1.5 shadow-sm sticky top-[72px] sm:top-[76px] z-20 backdrop-blur-md bg-white/95 dark:bg-zinc-900/95">
+      <div className="border border-black/[0.06] dark:border-white/10 rounded-full p-1 shadow-sm sticky top-[calc(env(safe-area-inset-top,0px)+64px)] z-20 backdrop-blur-xl bg-white/85 dark:bg-zinc-900/85">
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 px-0.5">
           {subTabs.map(tab => {
             const isActive = activeSubTab === tab.id;
@@ -221,16 +221,16 @@ export function AdminSystemTab({
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveSubTab(tab.id)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-bold transition-all shrink-0 cursor-pointer ${
                   isActive
-                    ? 'bg-purple-600 text-white shadow-sm'
+                    ? 'bg-zinc-200/80 dark:bg-white/15 text-zinc-950 dark:text-white'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-zinc-500 dark:text-zinc-400'}`} />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-500 dark:text-zinc-400'}`} />
                 <span>{tab.label}</span>
                 {tab.badge && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${isActive ? 'bg-white/20 text-white' : tab.badgeColor}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${tab.badgeColor}`}>
                     {tab.badge}
                   </span>
                 )}
@@ -306,7 +306,7 @@ export function AdminSystemTab({
       </div>
 
       {/* 전체 저장 플로팅 액션 바 */}
-      <div className="flex justify-end pt-4 pb-2 sticky bottom-[62px] sm:bottom-6 z-30 pointer-events-auto">
+      <div className="flex justify-end pt-4 pb-2 sticky bottom-[calc(max(10px,env(safe-area-inset-bottom)-12px)+66px)] sm:bottom-6 z-30 pointer-events-auto">
         <button 
           onClick={handleSave}
           disabled={saving}

@@ -69,7 +69,7 @@ export default async function handler(req: any, res: any) {
       notifyReports: settings?.notifyReports !== undefined ? Boolean(settings.notifyReports) : true,
       // 생방송 알림을 이 게임·장르일 때만 (최대 10개, 30자)
       liveKeywords: Array.isArray(settings?.liveKeywords)
-        ? [...new Set(settings.liveKeywords.map((k: any) => String(k || '').trim().slice(0, 30)).filter(Boolean))].slice(0, 10)
+        ? [...new Set(settings.liveKeywords.map((k: any) => String(k || '').trim().slice(0, 80)).filter(Boolean))].slice(0, 20)
         : [],
       userAgent,
       updatedAt: new Date().toISOString(),

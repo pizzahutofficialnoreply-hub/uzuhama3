@@ -107,5 +107,6 @@ export function matchesLiveKeywords(keywords: string[] | undefined, title: strin
   if (!keywords?.length) return true;
   const norm = (s: string) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
   const hay = norm(`${title} ${category}`);
-  return keywords.some((k) => { const n = norm(k); return n.length > 0 && hay.includes(n); });
+  // '휴먼 폴 플랫|Human Fall Flat' 처럼 | 로 같은 게임의 다른 이름
+  return keywords.some((k) => String(k || '').split('|').some((p) => { const n = norm(p); return n.length > 0 && hay.includes(n); }));
 }

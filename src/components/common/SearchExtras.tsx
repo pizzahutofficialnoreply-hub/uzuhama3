@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pin, Play, Sparkles, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { BookOpen, Pin, Play, Sparkles, X } from 'lucide-react';
+import { openAiSummary } from './AiSummaryHost';
 import { cn } from '../../utils';
 import { squash } from '../../utils/smartSearch';
 import { useSearchTuning } from '../../hooks/useSearchTuning';
@@ -12,14 +13,25 @@ import { aiSearch, aiVerify, fmtTime, lastExpanded, type AiResult, type AiVerify
  *  2) AI 검색 — AI가 영상을 미리 보고 정리해 둔 장면에서 찾은 것 (설정에서 끌 수 있음)
  * 장면 시간을 누르면 그 10초 전부터 재생
  */
-type Card = { id: string; title: string; kind?: string; summary?: string; scenes: { t: number; d?: string; vague?: boolean }[]; games?: string[]; from: 'pin' | 'ai'; partial?: boolean; note?: string; checked?: boolean };
+type Card = { id: string; title: string; kind?: string; summary?: string; scenes: { t: number; d?: string; vague?: boolean }[]; games?: string[]; from: 'pin' | 'ai'; partial?: boolean; note?: string; checked?: boolean; hasSummary?: boolean };
 
 const KIND_LABEL: Record<string, string> = { short: '쇼츠', live: '생방송', video: '영상' };
 
 function ExtraCard({ c }: { c: Card }) {
   const [playAt, setPlayAt] = useState<number | null>(null);
+  const frame = useRef<HTMLIFrameElement | null>(null);
   const first = c.scenes[0];
-  const play = (t: number | null) => setPlayAt(t === null ? -1 : Math.max(0, t - 10));
+  // 이미 재생 중이면 다시 불러오지 않고 그 시간으로 이동
+  const play = (t: number | null) => {
+    const at = t === null ? -1 : Math.max(0, t - 10);
+    const w = frame.current?.contentWindow;
+    if (playAt !== null && w && at >= 0) {
+      w.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [at, true] }), '*');
+      w.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
+      return;
+    }
+    setPlayAt(at);
+  };
   return (
     <div className="rounded-2xl border border-purple-200/80 dark:border-purple-800/50 bg-white dark:bg-zinc-900 overflow-hidden">
       <div className="flex gap-3 p-3">
@@ -56,14 +68,20 @@ function ExtraCard({ c }: { c: Card }) {
               {s.vague && <span className="text-[10px] text-amber-600"> (확실하지 않음)</span>}
             </p>
           ))}
-          <p className="text-[10px] text-zinc-400">시간을 누르면 10초 전부터 재생돼요{c.partial ? ' · 아직 영상 앞부분만 분석했어요' : ''}</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] text-zinc-400">시간을 누르면 10초 전부터 재생돼요{c.partial ? ' · 아직 영상 앞부분만 분석했어요' : ''}</p>
+            {c.from === 'ai' && c.hasSummary && (
+              <button type="button" onClick={() => openAiSummary({ id: c.id, title: c.title, kind: c.kind, t: first ? Math.max(0, first.t - 10) : undefined })} className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[11px] font-bold cursor-pointer">
+                <BookOpen className="w-3 h-3" /> AI 요약 보기
+              </button>
+            )}
+          </div>
         </div>
       )}
       {playAt !== null && (
         <div className="relative aspect-video bg-black">
           <iframe
-            key={playAt}
-            ref={trackYoutubeFrame}
+            ref={(el) => { frame.current = el; trackYoutubeFrame(el); }}
             src={embedSrc(c.id, playAt >= 0 ? { start: playAt } : {})}
             title={c.title}
             className="absolute inset-0 w-full h-full border-0"
@@ -118,12 +136,12 @@ export function SearchExtras({ query, aiEnabled }: { query: string; aiEnabled: b
       v?.verified.forEach((x) => {
         if (out.some((c) => c.id === x.id)) return;
         const r = ai.results.find((y) => y.id === x.id);
-        out.push({ id: x.id, title: x.title || r?.title || '', kind: x.kind || r?.kind, summary: r?.summary, scenes: x.moments, games: r?.games, from: 'ai', checked: true, partial: r?.partial });
+        out.push({ id: x.id, title: x.title || r?.title || '', kind: x.kind || r?.kind, summary: r?.summary, scenes: x.moments, games: r?.games, from: 'ai', checked: true, partial: r?.partial, hasSummary: r?.hasSummary });
       });
       ai.results.forEach((r) => {
         if (out.some((c) => c.id === r.id) || v?.rejected.includes(r.id)) return;
         if (v && !v.pending.includes(r.id) && v.verified.length) return; // 확인이 끝났는데 후보에 없던 건 빼기
-        out.push({ id: r.id, title: r.title, kind: r.kind, summary: r.summary, scenes: r.scenes, games: r.games, from: 'ai', partial: r.partial });
+        out.push({ id: r.id, title: r.title, kind: r.kind, summary: r.summary, scenes: r.scenes, games: r.games, from: 'ai', partial: r.partial, hasSummary: r.hasSummary });
       });
     }
     return out.slice(0, 6);

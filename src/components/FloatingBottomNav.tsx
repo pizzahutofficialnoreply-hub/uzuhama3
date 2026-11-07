@@ -31,8 +31,9 @@ interface FloatingBottomNavProps {
 }
 
 // 탭바 및 검색창 고정 규격: 전체 가로길이 340px로 모든 모드에서 일치 (페이지 맨 끝까지 과도하게 움직이지 않도록 여백 확보)
-const TAB_NAV_WIDTH = 268;
-const FIXED_SLOT_WIDTH = (TAB_NAV_WIDTH - 8) / 3; // 86.666px
+// 아이폰 '전화' 앱 탭바 비율 (390pt 화면 기준: 좌우 20 · 탭 281×59 · 간격 8.5 · 검색 원 59 · 아래 21)
+const TAB_NAV_WIDTH = 282;
+const FIXED_SLOT_WIDTH = (TAB_NAV_WIDTH - 8) / 3; // 측정 전 기본값 // 86.666px
 
 export function FloatingBottomNav({
   activeTab,
@@ -112,7 +113,7 @@ export function FloatingBottomNav({
   const [isKeyboardUp, setIsKeyboardUp] = useState(false);
 
   // 탭바 하단 여백: 내비게이션 바와 간섭 없이 바로 위 높이까지 밀착 (하단 여백 살짝 축소)
-  const defaultBottomStyle = 'max(0px, calc(env(safe-area-inset-bottom, 0px) - 8px))';
+  const defaultBottomStyle = 'max(12px, calc(env(safe-area-inset-bottom, 0px) - 13px))';
 
   // 탭바 및 바닥으로 깔리는 정밀 점진적 블러 높이 (탭바를 포함하여 바닥까지 넉넉하고 자연스럽게 깔림)
   const defaultBlurHeight = 'calc(env(safe-area-inset-bottom, 0px) + 96px)';
@@ -312,7 +313,7 @@ export function FloatingBottomNav({
 
   const measureSlot = useCallback(() => {
     if (navRef.current) {
-      const innerWidth = navRef.current.clientWidth - 8;
+      const innerWidth = navRef.current.clientWidth - 6;
       if (innerWidth > 60) {
         const newSlot = innerWidth / 3;
         setSlotWidth(prev => Math.abs(prev - newSlot) > 0.5 ? newSlot : prev);
@@ -408,7 +409,7 @@ export function FloatingBottomNav({
             y: dockY,
             bottom: defaultBottomStyle,
           }}
-          className="sm:hidden fixed inset-x-0 z-50 isolate flex items-center justify-center pointer-events-none px-2 select-none"
+          className="sm:hidden fixed inset-x-0 z-50 isolate flex items-center justify-center pointer-events-none px-5 select-none"
         >
           {/* 하단 페이드 블러: 도크에 붙어 함께 움직임 → 검색창이 올라가면 원래 자리부터 검색창까지 자연스럽게 이어지고,
               스크롤해도 검색창과 블러가 따로 놀지 않음 (도크 위 40px 에서 시작해 화면 아래 끝까지) */}
@@ -429,7 +430,7 @@ export function FloatingBottomNav({
           {/* 플로팅 바 래퍼: 키보드가 올라오면 자연스럽게 확장되며 시원하게 늘어나는 레이아웃 */}
           <div className={cn(
             "flex items-center justify-center pointer-events-auto w-full relative",
-            "max-w-[348px]"
+            "max-w-[440px]"
           )}>
             <AnimatePresence mode="popLayout" initial={false}>
               {!isSearchActive ? (
@@ -443,7 +444,7 @@ export function FloatingBottomNav({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -50 }}
                   transition={{ type: "spring", stiffness: 280, damping: 23, mass: 0.75 }}
-                  className="flex items-center gap-2 w-full justify-between"
+                  className="flex items-center gap-[8.5px] w-full justify-between"
                 >
                   {/* 3개 탭 캡슐 네비게이션: 실시간 블러 적용 반투명 글래스 */}
                   <nav 
@@ -455,7 +456,7 @@ export function FloatingBottomNav({
                     aria-label="하단 네비게이션"
                     style={glassStyle}
                     className={cn(
-                      "relative w-[268px] flex items-center h-[64px] p-1 rounded-full select-none touch-none shrink-0 border backdrop-blur-xl",
+                      "relative flex-1 min-w-0 flex items-center h-[59px] p-[3px] rounded-full select-none touch-none border backdrop-blur-xl",
                       "shadow-[0_10px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     )}
                   >
@@ -463,7 +464,7 @@ export function FloatingBottomNav({
                     <motion.div
                       aria-hidden="true"
                       style={{ x: pillDisplayX, width: slotWidth, scaleX: pillScaleX, scaleY: pillSquash }}
-                      className="absolute top-1 bottom-1 left-1 rounded-full z-10 pointer-events-none bg-zinc-200/75 dark:bg-white/[0.16] backdrop-blur-md border border-white/50 dark:border-white/10 shadow-[0_2px_10px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.12)]"
+                      className="absolute top-[3px] bottom-[3px] left-[3px] rounded-full z-10 pointer-events-none bg-zinc-200/75 dark:bg-white/[0.16] backdrop-blur-md border border-white/50 dark:border-white/10 shadow-[0_2px_10px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     />
 
                     {/* 3개 탭 버튼들 */}
@@ -506,7 +507,7 @@ export function FloatingBottomNav({
                     aria-label="영상 검색 및 추천"
                     style={glassStyle}
                     className={cn(
-                      "relative flex items-center justify-center w-[64px] h-[64px] rounded-full active:scale-95 duration-150 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 border backdrop-blur-xl",
+                      "relative flex items-center justify-center w-[59px] h-[59px] rounded-full active:scale-95 duration-150 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 border backdrop-blur-xl",
                       "shadow-[0_10px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     )}
                     title="영상 검색"
@@ -524,7 +525,7 @@ export function FloatingBottomNav({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 50 }}
                   transition={{ type: "spring", stiffness: 280, damping: 23, mass: 0.75 }}
-                  className="w-full flex items-center gap-2"
+                  className="w-full flex items-center gap-[13px] px-[7.5px] -translate-y-[6.5px]"
                 >
                   {/* 좌측 이전 탭 복귀 원형 버튼 (48px) - 키보드 등장 시 자연스럽게 0으로 수축 */}
                   <motion.button
@@ -536,10 +537,10 @@ export function FloatingBottomNav({
                       width: 0,
                       opacity: 0,
                       scale: 0.6,
-                      marginRight: -8,
+                      marginRight: -13,
                       pointerEvents: 'none'
                     } : {
-                      width: 48,
+                      width: 45,
                       opacity: 1,
                       scale: 1,
                       marginRight: 0,
@@ -548,7 +549,7 @@ export function FloatingBottomNav({
                     transition={KB_SPRING}
                     style={searchGlassStyle}
                     className={cn(
-                      "relative flex items-center justify-center h-[48px] rounded-full active:scale-95 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 overflow-hidden border",
+                      "relative flex items-center justify-center h-[45px] rounded-full active:scale-95 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 overflow-hidden border",
                       "shadow-[0_8px_24px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     )}
                     title="이전 탭으로 돌아가기"
@@ -561,7 +562,7 @@ export function FloatingBottomNav({
                     transition={{ type: "spring", stiffness: 350, damping: 28 }}
                     style={searchGlassStyle}
                     className={cn(
-                      "relative flex items-center h-[48px] px-3.5 rounded-full flex-1 min-w-0 border",
+                      "relative flex items-center h-[45px] px-3.5 rounded-full flex-1 min-w-0 border",
                       "shadow-[0_10px_32px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     )}
                   >
@@ -617,7 +618,7 @@ export function FloatingBottomNav({
                     aria-label="검색 닫기"
                     style={searchGlassStyle}
                     className={cn(
-                      "relative flex items-center justify-center w-[48px] h-[48px] rounded-full active:scale-95 duration-150 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 border",
+                      "relative flex items-center justify-center w-[45px] h-[45px] rounded-full active:scale-95 duration-150 touch-manipulation cursor-pointer select-none outline-none focus:outline-none ring-0 shrink-0 border",
                       "shadow-[0_8px_24px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)]"
                     )}
                     title="검색 닫기"

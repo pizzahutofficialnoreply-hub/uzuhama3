@@ -70,8 +70,10 @@ function buildKw(doc: any): string[] {
   (doc.mood || []).forEach(add);
   (doc.games || []).forEach((g: any) => { add(g.name); (g.tags || []).forEach(add); (g.aliases || []).forEach(add); if (g.genre) add(g.genre); });
   (doc.scenes || []).forEach((sc: Scene) => { (sc.k || []).forEach(add); (sc.w || []).forEach(add); if (sc.q) add(sc.q); });
+  (doc.chapters || []).forEach((c: any) => { add(c.title || ''); String(c.summary || '').split(/\s+/).forEach(add); });
+  (doc.gameStories || []).forEach((g: any) => { add(g.name || ''); [g.story, g.result, ...(g.highlights || []).map((h: any) => h.d)].join(' ').split(/\s+/).forEach(add); });
   String(doc.title || '').split(/\s+/).forEach(add);
-  return [...out].slice(0, 400);
+  return [...out].slice(0, 500);
 }
 
 /* ── 유튜브 ── */
@@ -313,6 +315,42 @@ async function analyzeGame(db: any, name: string, ko: string, link = '') {
 }
 
 /** 한 번 부를 때 한 구간 (또는 마무리 한 단계). 결과를 짧게 돌려줌 */
+/** 스토리 정리 버전: 바뀌면 이미 본 영상도 (영상은 다시 안 보고) 정리만 다시 */
+const SV = 1;
+
+async function buildStory(title: string, cur: any, games: any[]) {
+  const parts = (cur?.parts || []).map((p: any) => `[${fmt(p.from)}~${fmt(p.to)}] ${p.summary}`).join('\n').slice(0, 14000);
+  const scenes = (cur?.scenes || []).filter((x: Scene) => !x.u).map((x: Scene) => `${fmt(x.t)} ${x.d}${x.q ? ` "${x.q}"` : ''}`).join('\n').slice(0, 16000);
+  const gl = games.map((g: any) => `- ${g.ko && g.ko !== g.name ? `${g.ko} (${g.name})` : g.name}${g.about ? `: ${g.about}` : ''}`).join('\n');
+  const prompt = `스트리머 우주하마의 영상 "${title}" 을 AI가 보고 정리한 기록이야. 장면 하나하나가 아니라, 시청자가 한눈에 보게 '이야기·사건 단위'로 묶어 줘.
+규칙: 한국어. 기록에 없는 건 지어내지 말 것. 시간은 초(정수), 기록에 있는 시간만. 너무 잘게 나누지 말고 큰 흐름 위주.
+JSON 으로만:
+{"summary":"영상 전체 3~4문장",
+ "chapters":[{"from":초,"to":초,"title":"이 구간 이름 (짧게)","summary":"무슨 일이 있었는지 1~2문장","game":"이때 하던 게임 이름(없으면 빈칸)"}],
+ "gameStories":[{"name":"게임 이름 (아래 목록 그대로)","story":"이 영상에서 이 게임의 줄거리·진행 2~4문장 (스포일러 포함 가능)","result":"클리어·엔딩·포기 등 결과 (모르면 빈칸)","highlights":[{"t":초,"d":"하이라이트 한 줄"}]}]}
+chapters 는 영상 길이에 따라 3~12개, highlights 는 게임마다 최대 5개.
+
+[나온 게임]
+${gl || '(없음)'}
+
+[구간별 정리]
+${parts}
+
+[장면 기록]
+${scenes}`;
+  const { text } = await gen([{ text: prompt }], true, 40000, TEXT_MODELS);
+  const j = parseJson(text) || {};
+  const num = (v: any) => Math.max(0, Math.round(Number(v) || 0));
+  const chapters = (Array.isArray(j.chapters) ? j.chapters : []).slice(0, 14).map((c: any) => ({
+    from: num(c.from), to: num(c.to), title: String(c.title || '').slice(0, 60), summary: String(c.summary || '').slice(0, 300), game: String(c.game || '').slice(0, 60),
+  })).filter((c: any) => c.title || c.summary).sort((a: any, b: any) => a.from - b.from);
+  const gameStories = (Array.isArray(j.gameStories) ? j.gameStories : []).slice(0, 8).map((g: any) => ({
+    name: String(g.name || '').slice(0, 80), story: String(g.story || '').slice(0, 700), result: String(g.result || '').slice(0, 80),
+    highlights: (Array.isArray(g.highlights) ? g.highlights : []).slice(0, 6).map((h: any) => ({ t: num(h.t), d: String(h.d || '').slice(0, 160) })).filter((h: any) => h.d),
+  })).filter((g: any) => g.name && (g.story || g.highlights.length));
+  return { summary: String(j.summary || '').slice(0, 800), chapters, gameStories };
+}
+
 export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Promise<any> {
   if (!aiKey()) return { skipped: 'GEMINI_API_KEY 없음' };
   if (!ytKey()) return { skipped: 'YOUTUBE_API_KEY 없음' };
@@ -344,7 +382,7 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
     for (const pid of pr) {
       if (opts.kind) break;
       const d = (await col.doc(pid).get()).data();
-      if (d?.pv === PV && (d?.status === 'done' || d?.status === 'skip' || (d?.status === 'error' && (d.tries || 0) >= 3))) continue;
+      if (d?.pv === PV && ((d?.status === 'done' && (d?.sv === SV || Number(d?.storyTries || 0) >= 3)) || d?.status === 'skip' || (d?.status === 'error' && (d.tries || 0) >= 3))) continue;
       item = queue.find((q) => q.id === pid); cur = d?.pv === PV ? d : null; break;
     }
 
@@ -356,6 +394,8 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
         const d = snaps[j].exists ? snaps[j].data() : null;
         const busySkip = d?.status === 'skip' && /high demand|UNAVAILABLE/i.test(d?.error || ''); // 예전 규칙으로 잘못 건너뛴 것
         const redo = d && d.pv !== PV && d.status !== 'skip'; // 예전 방식으로 본 영상 → 처음부터 다시
+        const restory = d && !redo && d.status === 'done' && d.sv !== SV && Number(d.storyTries || 0) < 3; // 스토리 정리만 다시 (영상은 안 봄)
+        if (restory) { item = part[j]; cur = { ...d, status: 'finishing' }; break; }
         if (!d || busySkip || redo || (d.status !== 'done' && d.status !== 'skip' && !(d.status === 'error' && (d.tries || 0) >= 3))) { item = part[j]; cur = redo ? null : d; break; }
       }
     }
@@ -444,14 +484,14 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
       await release({ calls: calls + 1 });
       return { id: item.id, game: unknown.name };
     }
-    let summary = cur?.parts?.[0]?.summary || '';
-    if ((cur?.parts || []).length > 1) {
-      try {
-        const { text } = await gen([{ text: `스트리머 우주하마의 영상 "${item.title}" 을 구간별로 정리한 내용이야. 영상 전체를 3~4문장으로 요약해 줘. 한국어, 지어내지 말 것. JSON {"summary":""} 로만.\n\n${cur.parts.map((p: any) => `[${fmt(p.from)}~${fmt(p.to)}] ${p.summary}`).join('\n').slice(0, 12000)}` }], true, 25000, TEXT_MODELS);
-        summary = String(parseJson(text).summary || summary).slice(0, 700);
-      } catch { /* 첫 구간 요약 */ }
-    }
-    await ref.set({ summary, status: 'done', doneAt: new Date().toISOString() }, { merge: true });
+    // 전체를 보고 스토리·사건 단위로 묶기 (장면 하나하나가 아니라) + 게임별 줄거리·하이라이트
+    const story = await buildStory(item.title, cur, games).catch((e: any) => {
+      if (isRate(String(e?.message || e))) throw e;
+      return null;
+    });
+    const summary = story?.summary || cur?.parts?.[0]?.summary || '';
+    const fin = { ...cur, games, summary, chapters: story?.chapters || [], gameStories: story?.gameStories || [] };
+    await ref.set({ summary, chapters: fin.chapters, gameStories: fin.gameStories, sv: story ? SV : 0, storyTries: story ? 0 : Number(cur?.storyTries || 0) + 1, kw: buildKw(fin), status: 'done', doneAt: new Date().toISOString() }, { merge: true });
     if ((st.priority || []).includes(item.id)) await stRef.set({ priority: (st.priority || []).filter((x: string) => x !== item!.id) }, { merge: true });
     await release({ calls: calls + 1, doneCount: Number(st.doneCount || 0) + 1 });
     return { id: item.id, title: item.title, finished: true };
@@ -523,7 +563,13 @@ export async function aiSearch(db: any, q: string, sceneLimit = 3) {
       let score = 0;
       score += has(v.title || '', toks).length * 2 + has(v.title || '', extra).length;
       score += toks.filter((t) => (v.kw || []).includes(t)).length + extra.filter((t) => (v.kw || []).includes(t)).length * 0.6;
-      const scenes = (v.scenes || []).map((s: Scene) => {
+      // 스토리·사건 묶음과 게임 하이라이트도 장면처럼 찾음 ('소녀가 실종되는 스토리' 같은 말)
+      const pool: Scene[] = [
+        ...(v.scenes || []),
+        ...(v.chapters || []).map((c: any) => ({ t: c.from, d: `${c.title} — ${c.summary}`, k: c.game ? [c.game] : [] })),
+        ...(v.gameStories || []).flatMap((g: any) => (g.highlights || []).map((h: any) => ({ t: h.t, d: h.d, k: [g.name] }))),
+      ];
+      const scenes = pool.map((s: Scene) => {
         const txt = [s.d, s.q || '', ...(s.w || [])].join(' ');
         const main = new Set<string>([...has(txt, toks), ...(s.k || []).flatMap((k) => has(k, toks))]);
         const ex = new Set<string>([...has(txt, extra), ...(s.k || []).flatMap((k) => has(k, extra))]);
@@ -532,7 +578,7 @@ export async function aiSearch(db: any, q: string, sceneLimit = 3) {
         return { t: s.t, d: s.q ? `${s.d} — "${s.q}"` : s.d, n, vague };
       }).filter((s: any) => s.n > 0).sort((a: any, b: any) => b.n - a.n || a.t - b.t);
       if (scenes.length) score += scenes[0].n * 3 + Math.min(3, scenes.filter((x: any) => !x.vague).length) * 0.5;
-      const gameText = (v.games || []).map((g: any) => [g.name, g.ko, ...(g.tags || []), ...(g.aliases || []), g.genre].join(' ')).join(' ');
+      const gameText = (v.games || []).map((g: any) => [g.name, g.ko, ...(g.tags || []), ...(g.aliases || []), g.genre, g.about].join(' ')).join(' ') + ' ' + (v.gameStories || []).map((g: any) => `${g.story} ${g.result}`).join(' ');
       if (has(gameText, toks).length) score += 1.5; else if (has(gameText, extra).length) score += 0.8;
       return {
         id: v.id || d.id, title: v.title, kind: v.kind, publishedAt: v.publishedAt, duration: v.duration,
@@ -541,6 +587,7 @@ export async function aiSearch(db: any, q: string, sceneLimit = 3) {
         scenes: [...scenes.filter((x: any) => !x.vague), ...scenes.filter((x: any) => x.vague)].slice(0, sceneLimit).map((x: any) => ({ t: x.t, d: x.d, ...(x.vague ? { vague: true } : {}) })),
         games: (v.games || []).map((g: any) => g.ko || g.name).slice(0, 3),
         partial: v.status !== 'done',
+        hasSummary: v.status === 'done',
         score,
       };
     }).filter((r: any) => r.score >= 2)
@@ -576,8 +623,13 @@ export async function aiVideoDetail(db: any, id: string) {
     if (g.about) return g;
     try { const x = (await db.collection('ai_games').doc(slug(g.name)).get()).data(); return x ? { ...g, ...x } : g; } catch { return g; }
   }));
+  if (d.status !== 'done') {
+    // 아직 보는 중: 내용은 다 끝난 뒤에 (진행 상황만)
+    return { found: true, pending: true, id, title: d.title, kind: d.kind, status: d.status, seg: d.seg, segTotal: d.segTotal, pos: d.pos, duration: d.duration };
+  }
   return {
     found: true, id, title: d.title, kind: d.kind, status: d.status, seg: d.seg, segTotal: d.segTotal, model: d.model,
+    chapters: d.chapters || [], gameStories: d.gameStories || [],
     summary: d.summary || '', parts: (d.parts || []).map((p: any) => ({ from: p.from, to: p.to, summary: p.summary })),
     scenes: (d.scenes || []).map((s: Scene) => ({ t: s.t, d: s.q ? `${s.d} — "${s.q}"` : s.d, k: s.k, ...(s.u ? { vague: true } : {}) })),
     games: games.map((g: any) => ({ name: g.name, ko: g.ko, genre: g.genre, about: g.about, tags: g.tags, horror: g.horror })),
@@ -612,12 +664,12 @@ async function compilationSources(db: any, id: string) {
     });
   });
   const snaps = ids.length ? await db.getAll(...ids.slice(0, 30).map((x) => db.collection('ai_video').doc(x))) : [];
-  const sources = snaps.map((sn: any, i: number) => ({ sn, id: ids[i] })).filter(({ sn }: any) => sn.exists && (sn.data().parts?.length || sn.data().summary)).map(({ sn, id: vid }: any) => {
+  const sources = snaps.map((sn: any, i: number) => ({ sn, id: ids[i] })).filter(({ sn }: any) => sn.exists && sn.data().status === 'done').map(({ sn, id: vid }: any) => {
     const v = sn.data();
     return {
       id: vid, title: v.title, kind: v.kind, status: v.status,
       summary: v.summary || v.parts?.[0]?.summary || '',
-      scenes: (v.scenes || []).filter((x: Scene) => !x.u).slice(0, 12).map((x: Scene) => ({ t: x.t, d: x.d })),
+      chapters: v.chapters || [], gameStories: v.gameStories || [],
       games: (v.games || []).map((g: any) => g.ko || g.name).slice(0, 4),
     };
   });

@@ -2,7 +2,7 @@
  * AI 검색 요청 (서버: /api/videos/search-index?ai=search&q=)
  * - 서버가 키워드로 1단계 거른 뒤 장면 단위로 점수를 매겨 최대 8개만 돌려줌. 같은 검색어는 기기에서 10분 재사용
  */
-export type AiResult = { id: string; title: string; kind?: string; publishedAt?: string; summary?: string; scenes: { t: number; d: string; vague?: boolean }[]; games?: string[]; partial?: boolean; score: number };
+export type AiResult = { id: string; title: string; kind?: string; publishedAt?: string; summary?: string; scenes: { t: number; d: string; vague?: boolean }[]; games?: string[]; partial?: boolean; hasSummary?: boolean; score: number };
 
 const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')

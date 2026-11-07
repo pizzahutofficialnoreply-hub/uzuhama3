@@ -109,24 +109,24 @@ export function AdminRoute() {
   return (
     <AdminMfaGate onCancel={handleLogout}>
     <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans selection:bg-purple-500/30">
-      <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-50 pt-[calc(env(safe-area-inset-top,0px)+8px)] pb-1 sm:pt-2.5 sm:pb-0">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center cursor-pointer" onClick={() => navigate('/')}>
-              <Tv className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white">관리자 대시보드</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-zinc-500 hidden sm:inline-block">{user?.email || '관리자 (보안 인증)'}</span>
-            <button 
-              onClick={() => setShowLogoutConfirm(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-sm font-medium transition-colors text-zinc-700 dark:text-zinc-300 cursor-pointer"
-            >
-              <LogOut className="w-4 h-4" />
-              로그아웃
-            </button>
-          </div>
+      <header className="sticky top-0 z-50 bg-zinc-50/80 dark:bg-black/75 backdrop-blur-xl border-b border-black/[0.05] dark:border-white/[0.06] pt-[env(safe-area-inset-top,0px)]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+          <button type="button" onClick={() => navigate('/')} className="flex items-center gap-2.5 min-w-0 cursor-pointer" title="사이트로 돌아가기">
+            <span className="w-8 h-8 rounded-[10px] bg-gradient-to-br from-purple-500 to-violet-700 flex items-center justify-center shadow-sm shadow-purple-600/30 shrink-0">
+              <Tv className="w-4.5 h-4.5 text-white" />
+            </span>
+            <span className="text-left min-w-0">
+              <span className="block text-[15px] font-black tracking-tight text-zinc-900 dark:text-white leading-tight">우주하마 관리자</span>
+              <span className="block text-[10.5px] font-semibold text-emerald-600 dark:text-emerald-400 leading-tight">● 보안 인증됨</span>
+            </span>
+          </button>
+          <button
+            onClick={() => setShowLogoutConfirm(true)}
+            className="flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/10 text-[13px] font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shadow-sm"
+          >
+            <LogOut className="w-4 h-4" />
+            로그아웃
+          </button>
         </div>
       </header>
 

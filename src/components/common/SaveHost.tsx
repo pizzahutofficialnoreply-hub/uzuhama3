@@ -13,6 +13,7 @@ import {
   SAVE_EVENT, addToList, createList, getMyPlaylists, listsContaining, removeFromList, setDefaultList, setDefaultYoutube, useMyPlaylists, type MyItem,
 } from '../../utils/myPlaylists';
 import { YoutubeLogo } from './MediaIcons';
+import { hasAiSummary } from './AiSummaryHost';
 
 /**
  * 저장 버튼을 누르면 뜨는 창 + 저장 알림 (App 에 한 번만 둠)
@@ -21,7 +22,8 @@ import { YoutubeLogo } from './MediaIcons';
  */
 type Item = Omit<MyItem, 'addedAt'>;
 
-const REASONS = (t: ReportTarget) => [
+const REASONS = (t: ReportTarget, hasAi: boolean) => [
+  ...(hasAi ? [{ key: 'wrong_ai_summary', label: 'AI 영상 요약이 틀려요' }] : []),
   ...(t.search.concepts.length ? [{ key: 'not_match', label: `'${t.search.concepts.join(' · ')}'에 안 맞아요` }] : t.search.query ? [{ key: 'not_match', label: `'${t.search.query}' 검색 결과에 안 맞아요` }] : []),
   { key: 'wrong_link', label: '연결된 생방송·쇼츠·편집본이 틀려요' },
   { key: 'wrong_game_name', label: '게임 이름이 달라요' },
@@ -33,8 +35,16 @@ const REASONS = (t: ReportTarget) => [
 /** ⋮ > 신고: 이유 고르기 + 한 줄 의견 → 제보함(feedbacks)에. 하루 한 번 검색 조정에 쓰임 */
 function ReportSheet({ target, onClose }: { target: ReportTarget; onClose: () => void }) {
   useBackToClose(true, onClose);
-  const reasons = REASONS(target);
-  const [reason, setReason] = useState(reasons[0].key);
+  // 이 영상에 다 끝난 AI 요약이 있으면 'AI 요약이 틀려요'
+  const [hasAi, setHasAi] = useState(Boolean(target.aiSummary));
+  useEffect(() => {
+    if (target.aiSummary || !/^[\w-]{11}$/.test(target.id)) return;
+    let alive = true;
+    hasAiSummary(target.id).then((v) => { if (alive && v) setHasAi(true); });
+    return () => { alive = false; };
+  }, [target.id, target.aiSummary]);
+  const reasons = REASONS(target, hasAi);
+  const [reason, setReason] = useState(target.reason && reasons.some((r) => r.key === target.reason) ? target.reason : reasons[0].key);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -50,14 +60,14 @@ function ReportSheet({ target, onClose }: { target: ReportTarget; onClose: () =>
         vid: visitorId(),
         reason,
         // 연결·게임·날짜 문제는 관리자 '연동' 탭으로
-        route: reason.startsWith('wrong_') ? (reason === 'wrong_game_name' || reason === 'wrong_game_link' ? 'game' : 'link') : null,
+        route: reason === 'wrong_ai_summary' ? 'ai' : reason.startsWith('wrong_') ? (reason === 'wrong_game_name' || reason === 'wrong_game_link' ? 'game' : 'link') : null,
         videoId: target.id,
         kind: target.kind,
         query: target.search.query || null,
         concepts: target.search.concepts,
         understood: target.search.understood || null,
         note: note.trim() || null,
-        title: `[검색 신고] ${label}`,
+        title: reason === 'wrong_ai_summary' ? `[AI 요약 신고] ${target.title}`.slice(0, 120) : `[검색 신고] ${label}`,
         content: [`영상: ${target.title}`, `https://youtu.be/${target.id}`, target.search.query ? `검색어: ${target.search.query}` : '', target.search.understood ? `해석: ${target.search.understood}` : '', note.trim() ? `의견: ${note.trim()}` : ''].filter(Boolean).join('\n'),
         createdAt: serverTimestamp(),
       });
