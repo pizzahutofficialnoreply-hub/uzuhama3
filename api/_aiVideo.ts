@@ -46,7 +46,7 @@ const aiKey = () => process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || 
 
 /* ── 키워드 정규화 (분석 저장과 검색이 같은 규칙) ── */
 const JOSA = /(으로부터|에서부터|이라고|이라는|에게서|한테서|까지|부터|에서|에게|한테|으로|처럼|같은|이랑|하고|이나|이란|라고|라는|은|는|이|가|을|를|에|의|도|만|로|와|과|랑|들)$/;
-const STOP = new Set(['영상', '장면', '부분', '방송', '나오는', '나온', '나오던', '있는', '있던', '하는', '했던', '하던', '찾아줘', '찾아', '보여줘', '알려줘', '추천', '추천해줘', '거', '것', '좀', '그', '그거', '뭐', '뭐였지', '어디', '언제', '어떤', '우주하마', '하마', '편', '부분이', '나오', '그때', '때', '중', '보면', '보고', '싶어', '싶은', '줘', '해줘', '있어', '같은데', '다시보기', '생방', '생방송']);
+const STOP = new Set(['영상', '장면', '부분', '방송', '나오는', '나온', '나오던', '있는', '있던', '하는', '했던', '하던', '찾아줘', '찾아', '보여줘', '알려줘', '추천', '추천해줘', '거', '것', '좀', '그', '그거', '뭐', '뭐였지', '어디', '언제', '어떤', '우주하마', '하마', '좜마', '좜마님', '하마님', '편', '부분이', '나오', '그때', '때', '중', '보면', '보고', '싶어', '싶은', '줘', '해줘', '있어', '같은데', '다시보기', '생방', '생방송']);
 export function normWord(w: string): string {
   let s = String(w || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
   if (s.length > 2) s = s.replace(JOSA, '');
@@ -253,7 +253,7 @@ const words = (a: any, n: number, len = 30) => [...new Set((Array.isArray(a) ? a
 
 async function analyzeSegment(item: QItem, start: number, end: number, desc: string) {
   const whole = item.kind === 'short' || !item.duration || item.duration <= end - start + 30;
-  const prompt = `너는 스트리머 "우주하마"의 영상을 검색용으로 꼼꼼히 정리하는 사람이야. 시청자가 나중에 "귀신 점프스케어 나오는 장면", "노래 부르는 부분", "엔딩 보고 우는 장면"처럼 찾을 수 있게 정리해.
+  const prompt = `너는 스트리머 "우주하마"의 영상을 검색용으로 꼼꼼히 정리하는 사람이야. (시청자·함께한 사람들은 우주하마를 '좜마'라고 줄여 부르기도 해. 그렇게 들리면 우주하마를 말하는 거야.) 시청자가 나중에 "귀신 점프스케어 나오는 장면", "노래 부르는 부분", "엔딩 보고 우는 장면"처럼 찾을 수 있게 정리해.
 영상 제목: ${item.title}
 종류: ${item.kind === 'short' ? '쇼츠' : item.kind === 'live' ? '생방송 다시보기' : '편집 영상'}${item.duration ? ` / 전체 길이 ${fmt(item.duration)}` : ''}
 ${item.logDate ? `방송 날짜: ${item.logDate}\n` : ''}${item.games?.length ? `방송 기록에 적힌 게임: ${item.games.join(', ')}\n` : ''}${desc ? `설명: ${desc.slice(0, 600)}\n` : ''}${whole ? '' : `지금 보는 건 원본 영상의 ${fmt(start)} ~ ${fmt(end)} 구간이야.\n`}
@@ -497,7 +497,7 @@ async function expandQuery(db: any, q: string, tokens: string[]): Promise<string
   if (used >= Number(process.env.AI_QUERY_DAILY || 300) || !aiKey()) return [];
   await cnt.set({ day, n: used + 1 }, { merge: true });
   try {
-    const { text } = await gen([{ text: `팬 사이트에서 스트리머 "우주하마"의 게임 방송 영상 장면을 찾는 검색어야: "${q}"
+    const { text } = await gen([{ text: `팬 사이트에서 스트리머 "우주하마"('좜마'라고도 부름)의 게임 방송 영상 장면을 찾는 검색어야: "${q}"
 이 검색어로 찾고 싶은 장면을 AI 가 영상 장면마다 붙여 둔 한국어 키워드(예: 점프스케어, 귀신, 비명, 웃음, 노래, 보스전, 엔딩, 사망, 깜짝 놀람)로 바꿔 줘.
 줄임말·신조어·은어(예: 갑툭튀→점프스케어, 깜놀→깜짝 놀람, 겜→게임)는 풀어서. 검색어에 없는 뜻은 넣지 마. 3~10개.
 한국어(또는 영어 게임 용어)만, 다른 나라 글자는 쓰지 마.
@@ -706,7 +706,7 @@ export async function aiVerify(db: any, q: string) {
       : wins.map(([a, b]) => ({ fileData: { fileUri: `https://www.youtube.com/watch?v=${c.id}` }, videoMetadata: { startOffset: `${a}s`, endOffset: `${b}s` } }));
     videoSec += whole ? (c.duration || 60) : wins.reduce((t, [a, b]) => t + (b - a), 0);
     const where = whole ? '영상 전체' : wins.map(([a, b], i) => `클립${i + 1}: 원본 ${fmt(a)}~${fmt(b)}`).join(', ');
-    const prompt = `시청자가 스트리머 "우주하마"의 영상에서 이런 장면을 찾고 있어: "${q}"
+    const prompt = `시청자가 스트리머 "우주하마"('좜마'라고도 부름)의 영상에서 이런 장면을 찾고 있어: "${q}"
 보내 준 영상(${where})을 직접 보고 듣고, 그 장면이 실제로 있는지 엄격하게 판단해.
 - 비명은 크게 놀라 지르는 소리만 (작은 감탄사·"음~"·웃음은 아님)
 - 귀신·괴물은 화면에 실제로 보여야 함 (소리·그림자·착각·"귀신인가?" 하는 말만으로는 아님)
