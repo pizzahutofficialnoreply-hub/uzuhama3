@@ -127,11 +127,16 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
               <details className="text-[11px] text-zinc-500"><summary className="cursor-pointer">직접 입력할 설정 키 (이건 코드가 아니에요)</summary><p className="mt-1 font-mono break-all select-all">{secret.replace(/(.{4})/g, '$1 ').trim()}</p><p className="mt-1">앱에 이 키를 넣으면, 앱에 30초마다 바뀌는 <b>6자리 숫자</b>가 생겨요. 그 숫자를 아래에 넣어요.</p></details>
             </>
           ) : (
-            <p className="text-xs text-zinc-500 leading-relaxed break-keep">{useRecovery ? '복구 코드(XXXXX-XXXXX)를 넣어요. 한 번 쓰면 다시 못 써요.' : '인증 앱에 뜨는 6자리 숫자를 넣어요.'}</p>
+            <p className="text-xs text-zinc-500 leading-relaxed break-keep">{useRecovery ? '복구 코드(XXXXX-XXXXX)를 넣어요. 코드마다 한 번만 쓸 수 있어요.' : '인증 앱(암호 앱 등)에 뜨는 6자리 숫자를 넣어요. 숫자는 30초마다 바뀌는 게 정상이에요. 휴대폰이 없을 때만 아래 복구 코드를 써요.'}</p>
           )}
           <input
             value={code}
-            onChange={(e) => setCode(useRecovery ? e.target.value.toUpperCase() : e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onChange={(e) => {
+              const v = e.target.value;
+              // 복구 코드(글자·- 포함)를 붙여 넣으면 자동으로 복구 코드 입력으로
+              if (!useRecovery && phase === 'verify' && /[A-Za-z-]/.test(v) && v.replace(/[^0-9A-Za-z]/g, '').length >= 8) { setUseRecovery(true); setCode(v.trim().toUpperCase()); return; }
+              setCode(useRecovery ? v.trim().toUpperCase() : v.replace(/\D/g, '').slice(0, 6));
+            }}
             onKeyDown={(e) => { if (e.key === 'Enter' && !busy) submit(); }}
             inputMode={useRecovery ? 'text' : 'numeric'}
             autoComplete="one-time-code"
