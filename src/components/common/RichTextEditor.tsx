@@ -33,8 +33,8 @@ interface RichTextEditorProps {
 
 const COLOR_PRESETS = [
   { label: '기본 텍스트', color: '', hex: '' },
-  { label: '사이트 보라', color: '#9333ea', hex: '#9333ea' },
-  { label: '밝은 보라', color: '#a855f7', hex: '#a855f7' },
+  { label: '사이트 파랑', color: '#5873a8', hex: '#5873a8' },
+  { label: '밝은 파랑', color: '#7994c2', hex: '#7994c2' },
   { label: '레드 (강조)', color: '#dc2626', hex: '#dc2626' },
   { label: '블루 (안내)', color: '#2563eb', hex: '#2563eb' },
   { label: '에메랄드 (완료)', color: '#059669', hex: '#059669' },

@@ -30,7 +30,8 @@ const TabSpinner = () => (
   </div>
 );
 import { NoticeModal } from './components/NoticeModal';
-import { NoticeBanner, DdayChip } from './components/NoticeBanner';
+import { NoticeBanner } from './components/NoticeBanner';
+import { HeaderDday } from './components/common/HeaderDday';
 import { FeedbackModal } from './components/FeedbackModal';
 import { PolicyModal } from './components/PolicyModal';
 import { TermsRevisionModal } from './components/TermsRevisionModal';
@@ -1091,6 +1092,7 @@ function MainApp() {
                 우주하마 방송 예측
               </h1>
             </button>
+            {(() => { const dd = activeDdays(data?.system?.events); return dd.length > 0 ? <HeaderDday items={dd} /> : null; })()}
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 text-sm font-bold h-9 shrink-0">
@@ -1152,16 +1154,7 @@ function MainApp() {
         const hasUpcoming = Boolean(maintenanceStatus.isScheduledToday && maintenanceStatus.upcomingNoticeText);
         const hasCompleted = Boolean(maintenanceStatus.isCompletedRecently && maintenanceStatus.completedNoticeMarkdown);
 
-        const ddays = activeDdays(data.system?.events);
-        if (bannerNotices.length === 0 && !fallback && !hasUpcoming && !hasCompleted) {
-          // 공지는 없고 D-day 만 있을 때: 작은 줄 하나
-          if (!ddays.length || activeTab === 'recommend') return null;
-          return (
-            <div className="w-full bg-zinc-50/70 dark:bg-black/50 border-b border-zinc-200/60 dark:border-zinc-800/60">
-              <div className="max-w-7xl mx-auto px-2 sm:px-5 lg:px-8 py-1.5 flex justify-end"><DdayChip items={ddays} standalone /></div>
-            </div>
-          );
-        }
+        if (bannerNotices.length === 0 && !fallback && !hasUpcoming && !hasCompleted) return null;
 
         return (
           <NoticeBanner
@@ -1181,7 +1174,6 @@ function MainApp() {
             onExpandedChange={setIsNoticeExpanded}
             systemDismissMode={data.system?.noticeDismissMode || 'session'}
             defaultPrefix={data.system?.defaultNoticePrefix}
-            ddays={ddays}
           />
         );
       })()}

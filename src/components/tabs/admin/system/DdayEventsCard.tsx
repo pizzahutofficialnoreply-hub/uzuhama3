@@ -3,7 +3,7 @@ import { CalendarClock, Plus, Trash2 } from 'lucide-react';
 import type { DdayEvent } from '../../../../types';
 import { daysUntil, ddayLabel } from '../../../../utils/dday';
 
-/** 관리자 › 시스템 › 공지: 일정 (띠 공지 옆 D-day). 저장은 아래 '저장' 버튼 */
+/** 관리자 › 시스템 › 공지: 일정 (헤더 제목 옆 D-day). 저장은 아래 '저장' 버튼 */
 export function DdayEventsCard({ value, onChange }: { value: DdayEvent[]; onChange: (v: DdayEvent[]) => void }) {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
@@ -20,7 +20,7 @@ export function DdayEventsCard({ value, onChange }: { value: DdayEvent[]; onChan
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
       <div>
         <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2"><CalendarClock className="w-4 h-4 text-purple-500" /> 일정 · D-day</h3>
-        <p className="text-xs text-zinc-500 mt-1 break-keep">정한 날짜 며칠 전부터 띠 공지 옆에 'D-12 · 10주년'처럼 작게 보여요. 당일은 D-DAY, 지나면 자동으로 사라져요. 공지가 없을 때는 D-day만 작게 한 줄로 보여요. 고친 뒤 아래 저장을 눌러 주세요.</p>
+        <p className="text-xs text-zinc-500 mt-1 break-keep">정한 날짜 며칠 전부터 맨 위 '우주하마 방송 예측' 옆에 회색 캡슐로 'D-12 10주년'처럼 보여요. 당일은 D-DAY, 지나면 자동으로 사라져요. 고친 뒤 아래 저장을 눌러 주세요.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
         <label className="space-y-1"><span className="text-[11px] font-bold text-zinc-500">이름 (짧게)</span><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 10주년" maxLength={20} className={`${input} w-full`} /></label>

@@ -28,8 +28,8 @@ export const SmartTrendLabel: React.FC<SmartTrendLabelProps> = (props) => {
     y,
     value,
     index = 0,
-    strokeColor = '#a855f7',
-    textColor = '#7e22ce',
+    strokeColor = '#7994c2',
+    textColor = '#485f8e',
     className = 'chart-capture-only-label',
     unit = '회'
   } = props;

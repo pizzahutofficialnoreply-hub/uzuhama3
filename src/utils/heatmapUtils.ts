@@ -19,130 +19,130 @@ export const HEATMAP_LEVEL_COLORS: Record<number, HeatmapColorStyle> = {
   1: {
     level: 1,
     label: '~20분',
-    lightBg: '#f5f3ff',
-    lightBorder: '#ede9fe',
-    darkBg: '#1e1635',
-    darkBorder: '#2d1f4d'
+    lightBg: '#f3f6fb',
+    lightBorder: '#e6ecf6',
+    darkBg: '#1b2232',
+    darkBorder: '#212a3f'
   },
   2: {
     level: 2,
     label: '~40분',
-    lightBg: '#ede9fe',
-    lightBorder: '#ddd6fe',
-    darkBg: '#2a1a4a',
-    darkBorder: '#3b2566'
+    lightBg: '#e7edf6',
+    lightBorder: '#dae3f1',
+    darkBg: '#212a3e',
+    darkBorder: '#27324b'
   },
   3: {
     level: 3,
     label: '~1시간',
-    lightBg: '#e0e7ff',
-    lightBorder: '#c7d2fe',
-    darkBg: '#281c5a',
-    darkBorder: '#39287a'
+    lightBg: '#dbe3f1',
+    lightBorder: '#ced9ec',
+    darkBg: '#26324b',
+    darkBorder: '#2c3b58'
   },
   4: {
     level: 4,
     label: '~1시간 20분',
-    lightBg: '#ddd6fe',
-    lightBorder: '#c4b5fd',
-    darkBg: '#341f6e',
-    darkBorder: '#482a94'
+    lightBg: '#cfdaec',
+    lightBorder: '#b8c8e2',
+    darkBg: '#2c3a57',
+    darkBorder: '#36476a'
   },
   5: {
     level: 5,
     label: '~1시간 40분',
-    lightBg: '#c7d2fe',
-    lightBorder: '#a5b4fc',
-    darkBg: '#3f2284',
-    darkBorder: '#562fb0'
+    lightBg: '#b9c9e2',
+    lightBorder: '#a3b6d8',
+    darkBg: '#354669',
+    darkBorder: '#3f537d'
   },
   6: {
     level: 6,
     label: '~2시간',
-    lightBg: '#c4b5fd',
-    lightBorder: '#a78bfa',
-    darkBg: '#4c269c',
-    darkBorder: '#6533cd'
+    lightBg: '#a4b7d9',
+    lightBorder: '#8da5ce',
+    darkBg: '#3f537c',
+    darkBorder: '#49608f'
   },
   7: {
     level: 7,
     label: '~2시간 20분',
-    lightBg: '#a78bfa',
-    lightBorder: '#8b5cf6',
-    darkBg: '#592cb8',
-    darkBorder: '#7339eb'
+    lightBg: '#8ea6cf',
+    lightBorder: '#7b94c1',
+    darkBg: '#485f8e',
+    darkBorder: '#5972a0'
   },
   8: {
     level: 8,
     label: '~2시간 40분',
-    lightBg: '#93c5fd',
-    lightBorder: '#60a5fa',
-    darkBg: '#6432cd',
-    darkBorder: '#8045fb'
+    lightBg: '#7c95c2',
+    lightBorder: '#6983b4',
+    darkBg: '#58719f',
+    darkBorder: '#6983b2'
   },
   9: {
     level: 9,
     label: '~3시간',
-    lightBg: '#8b5cf6',
-    lightBorder: '#7c3aed',
-    darkBg: '#7038e2',
-    darkBorder: '#8c4ffb'
+    lightBg: '#6a84b5',
+    lightBorder: '#5772a7',
+    darkBg: '#6982b1',
+    darkBorder: '#7a95c3'
   },
   10: {
     level: 10,
     label: '~3시간 20분',
-    lightBg: '#a855f7',
-    lightBorder: '#9333ea',
-    darkBg: '#7e40f0',
-    darkBorder: '#995dfd'
+    lightBg: '#5873a8',
+    lightBorder: '#4b628e',
+    darkBg: '#7994c2',
+    darkBorder: '#8ea5cd'
   },
   11: {
     level: 11,
     label: '~3시간 40분',
-    lightBg: '#c084fc',
-    lightBorder: '#a855f7',
-    darkBg: '#8d4bf8',
-    darkBorder: '#aa73fe'
+    lightBg: '#4b628f',
+    lightBorder: '#3e5175',
+    darkBg: '#8da4cd',
+    darkBorder: '#a1b5d8'
   },
   12: {
     level: 12,
     label: '~4시간',
-    lightBg: '#7c3aed',
-    lightBorder: '#6d28d9',
-    darkBg: '#9b5bfb',
-    darkBorder: '#b988fe'
+    lightBg: '#3f5277',
+    lightBorder: '#32405d',
+    darkBg: '#a0b5d7',
+    darkBorder: '#b5c6e2'
   },
   13: {
     level: 13,
     label: '~4시간 20분',
-    lightBg: '#9333ea',
-    lightBorder: '#7e22ce',
-    darkBg: '#a96bfd',
-    darkBorder: '#c79efe'
+    lightBg: '#32415e',
+    lightBorder: '#2a364f',
+    darkBg: '#b4c5e2',
+    darkBorder: '#c8d5ea'
   },
   14: {
     level: 14,
     label: '~4시간 40분',
-    lightBg: '#6d28d9',
-    lightBorder: '#5b21b6',
-    darkBg: '#b982fe',
-    darkBorder: '#d6b3fe'
+    lightBg: '#2a3750',
+    lightBorder: '#222c41',
+    darkBg: '#c7d4ea',
+    darkBorder: '#dce4f2'
   },
   15: {
     level: 15,
     label: '~5시간',
-    lightBg: '#581c87',
-    lightBorder: '#3b0764',
-    darkBg: '#ca9dfd',
-    darkBorder: '#e5cffe'
+    lightBg: '#222c41',
+    lightBorder: '#1a2233',
+    darkBg: '#dbe3f1',
+    darkBorder: '#eef2f9'
   },
   16: {
     level: 16,
     label: '5시간 이상',
-    lightBg: '#3b0764',
-    lightBorder: '#2e1065',
-    darkBg: '#e0c0fe',
-    darkBorder: '#ffffff'
+    lightBg: '#1a2233',
+    lightBorder: '#1a2233',
+    darkBg: '#eef2f9',
+    darkBorder: '#eef2f9'
   }
 };
 
