@@ -13,7 +13,8 @@
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export const MFA_SESSION_MS = 4 * 3600 * 1000; // 2단계 인증 한 번에 4시간
-const ISSUER = '우주하마 방송 예측';
+// 인증 앱마다 한글 이름을 못 읽는 경우가 있어 영문으로 (아이폰 '암호' 앱 등)
+const ISSUER = 'Uzuhama';
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
 function b32encode(buf: Buffer) {
@@ -89,7 +90,7 @@ export async function mfaBeginSetup(db: any, decoded: any) {
   if (d.totp && d.enabledAt) throw Object.assign(new Error('이미 켜져 있어요. 바꾸려면 먼저 지금 코드로 확인하고 다시 설정하세요.'), { status: 409 });
   const secret = b32encode(randomBytes(20));
   await ref(db).set({ pending: enc(secret), pendingAt: new Date().toISOString() }, { merge: true });
-  const label = encodeURIComponent(`${ISSUER}:관리자`);
+  const label = encodeURIComponent(`${ISSUER}:admin`);
   const uri = `otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent(ISSUER)}&algorithm=SHA1&digits=6&period=30`;
   return { uri, secret };
 }
