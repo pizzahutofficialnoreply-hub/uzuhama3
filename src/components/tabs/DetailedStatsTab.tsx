@@ -935,7 +935,7 @@ export function DetailedStatsTab({
           {isLegacyRange ? (
             <>
               <button
-                onClick={() => setActiveSubTab('trend')}
+                onClick={() => setActiveSubTab('trend')} data-testid="stats-tab-trend"
                 className={cn(
                   "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
                   activeSubTab !== 'category' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
@@ -945,7 +945,7 @@ export function DetailedStatsTab({
               </button>
               {showLegacyCategory && (
                 <button
-                  onClick={() => setActiveSubTab('category')}
+                  onClick={() => setActiveSubTab('category')} data-testid="stats-tab-category"
                   className={cn(
                     "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
                     activeSubTab === 'category' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
@@ -958,7 +958,7 @@ export function DetailedStatsTab({
           ) : (
             <>
               <button
-                onClick={() => setActiveSubTab('trend')}
+                onClick={() => setActiveSubTab('trend')} data-testid="stats-tab-trend"
                 className={cn(
                   "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
                   activeSubTab === 'trend' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
@@ -967,7 +967,7 @@ export function DetailedStatsTab({
                 방송 추이
               </button>
               <button
-                onClick={() => setActiveSubTab('day')}
+                onClick={() => setActiveSubTab('day')} data-testid="stats-tab-day"
                 className={cn(
                   "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
                   activeSubTab === 'day' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
@@ -976,7 +976,7 @@ export function DetailedStatsTab({
                 요일별 분석
               </button>
               <button
-                onClick={() => setActiveSubTab('category')}
+                onClick={() => setActiveSubTab('category')} data-testid="stats-tab-category"
                 className={cn(
                   "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
                   activeSubTab === 'category' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"

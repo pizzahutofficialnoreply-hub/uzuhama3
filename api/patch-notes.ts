@@ -337,6 +337,26 @@ ${String(note.content || '').slice(0, 9000)}`;
   return [];
 }
 
+/** 본문에서 '하이라이트'·'주요' 아래 목록 (없으면 앞쪽 목록 5개) */
+function bulletsOf(md: string): string[] {
+  const lines = String(md || '').split('\n');
+  const clean = (l: string) => l.replace(/^\s*[-*]\s+/, '').replace(/\*\*|__|`/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').trim();
+  const h = lines.findIndex((l) => /^#{1,4}\s.*(하이라이트|주요|요약|highlight)/i.test(l));
+  const from = h >= 0 ? lines.slice(h + 1) : lines;
+  const out: string[] = [];
+  for (const l of from) {
+    if (h >= 0 && /^#{1,4}\s/.test(l) && out.length) break;
+    if (/^\s*[-*]\s+/.test(l)) out.push(clean(l));
+    if (out.length >= 5) break;
+  }
+  return out.filter(Boolean);
+}
+const noticeBody = (version: string, points: string[], ai: boolean) => [
+  `우주하마 방송 예측이 **v${version}**(으)로 업데이트됐어요.`,
+  points.length ? `**주요 업데이트${ai ? ' (AI 요약)' : ''}**\n\n${points.map((p) => `- ${p}`).join('\n')}` : '',
+  '지금 바로 사용해 보세요!',
+].filter(Boolean).join('\n\n');
+
 async function maybeAnnounce(db: any, notes: Note[]) {
   const today = kstToday();
   const latest = notes
@@ -346,7 +366,11 @@ async function maybeAnnounce(db: any, notes: Note[]) {
   const ref = db.collection('config').doc('system');
   const sys = (await ref.get()).data() || {};
   const prev = sys.autoPatchNotice || {};
-  if (prev.version && verCmp(latest.version, prev.version) <= 0) return;
+  // 같은 버전인데 AI 요약을 못 만들었으면 몇 번 더 시도 (그사이엔 본문의 하이라이트로)
+  const hasNotice = (sys.noticeList || []).some((n: any) => n?.id === `auto-patch-${latest.version}`);
+  const retry = hasNotice && prev.version === latest.version && prev.ai === false && Number(prev.retries || 0) < 6
+    && Date.now() - Date.parse(prev.at || '0') > 20 * 60 * 1000;
+  if (prev.version && verCmp(latest.version, prev.version) <= 0 && !retry) return;
   if (prev.pending && Date.now() - Date.parse(prev.at || '0') < 2 * 60 * 1000) return; // 다른 요청이 만드는 중
   // 처음 켤 때 오래된 패치노트는 공지하지 않음 (2주 이내만)
   if (!prev.version && latest.date && Date.now() - Date.parse(latest.date) > 14 * 86400000) {
@@ -358,13 +382,19 @@ async function maybeAnnounce(db: any, notes: Note[]) {
   let points = await aiSummary(latest);
   const ai = points.length > 0;
   if (!points.length) points = latest.highlights.slice(0, 5);
+  if (!points.length) points = bulletsOf(latest.content);
+  if (retry) {
+    // 이미 띄운 공지의 내용만 바꿈 (닫은 사람은 그대로 닫힌 채)
+    const cur = (await ref.get()).data() || {};
+    const list = (Array.isArray(cur.noticeList) ? cur.noticeList : []).map((n: any) => (n?.id === `auto-patch-${latest.version}`
+      ? { ...n, content: noticeBody(latest.version, points, ai), links: [{ title: '패치노트 읽기', url: `/patch-v${latest.version}` }] }
+      : n));
+    await ref.set({ noticeList: list, autoPatchNotice: { version: latest.version, at: new Date().toISOString(), ai, retries: Number(prev.retries || 0) + 1, pending: false } }, { merge: true });
+    return;
+  }
   const titleHasVer = new RegExp(`v?\\s*${latest.version.replace(/\./g, '\\.')}`).test(latest.title);
   const title = titleHasVer ? latest.title : `v${latest.version} ${latest.title || '패치노트'}`;
-  const content = [
-    `우주하마 방송 예측이 **v${latest.version}**(으)로 업데이트됐어요.`,
-    points.length ? `**주요 업데이트${ai ? ' (AI 요약)' : ''}**\n\n${points.map((p) => `- ${p}`).join('\n')}` : '',
-    '지금 바로 사용해 보세요!',
-  ].filter(Boolean).join('\n\n');
+  const content = noticeBody(latest.version, points, ai);
   const notice = {
     id: `auto-patch-${latest.version}`,
     title,

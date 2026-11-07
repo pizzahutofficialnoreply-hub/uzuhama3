@@ -132,6 +132,8 @@ export default async function handler(req: any, res: any) {
       if (lu.consoleErrors) fails.push(`콘솔 오류 ${lu.consoleErrors}`);
       if (lu.overflowPages) fails.push(`가로 넘침 ${lu.overflowPages}화면`);
       if (lu.brokenImages) fails.push(`깨진 이미지 ${lu.brokenImages}`);
+      const st2 = results.selftest?.summary;
+      if (st2?.failed || results.selftest?.error) fails.push(`화면·기능 전체 점검 ${st2?.failed || 0}개${results.selftest?.error ? ' (중단)' : ''}`);
       const apiFails = (results.api?.checks || []).filter((c: any) => !c.ok);
       if (apiFails.length) fails.push(`API·DB·보안 ${apiFails.length}개`);
       if ((server.clientErrors?.total || 0) > 20) fails.push(`방문자 화면 오류 ${server.clientErrors.total}건`);
@@ -143,6 +145,7 @@ export default async function handler(req: any, res: any) {
           e2e: results.e2e || null,
           live: results.live ? { summary: results.live.summary, problems: (results.live.runs || []).filter((r: any) => !r.ok || r.pageerror?.length || r.console?.length || r.overflow > 2 || r.broken?.length).slice(0, 40).map((r: any) => ({ host: r.host, view: r.view, scheme: r.scheme, page: r.page, err: r.err, pageerror: r.pageerror, console: (r.console || []).slice(0, 5), failed: (r.failed || []).slice(0, 5), overflow: r.overflow, wide: r.wide, broken: r.broken })) } : null,
           api: results.api ? { summary: results.api.summary, stats: results.api.stats, checks: results.api.checks } : null,
+          selftest: results.selftest ? { summary: results.selftest.summary, error: results.selftest.error || '', results: (results.selftest.results || []).map((r: any) => ({ group: r.group, name: r.name, ok: r.ok, warn: Boolean(r.warn), err: r.err || '', ms: r.ms })) } : null,
         },
         server,
       };

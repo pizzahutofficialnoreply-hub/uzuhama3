@@ -54,6 +54,19 @@
             "value": "no-store"
           }
         ]
+      },
+      {
+        "source": "/selftest",
+        "headers": [
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "no-store"
+          }
+        ]
       }
     ],
     "redirects": [

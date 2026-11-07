@@ -854,6 +854,8 @@ export function CategoryStatsTab({
                           {visibleGames.map((g, gIdx) => (
                             <button
                               key={gIdx}
+                              data-testid="cat-game"
+                              data-count={g.count}
                               onClick={() => {
                                 if (g.count > 1 && onNavigateToRecommend) onNavigateToRecommend(undefined, g.name);
                                 else if (g.latestDate && onNavigateToCalendar) onNavigateToCalendar(g.latestDate);

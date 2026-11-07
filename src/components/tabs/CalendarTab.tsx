@@ -756,6 +756,9 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
           <div
             key={cloneDay.toString()}
             onClick={() => handleDayClick(cloneDay)}
+            data-testid="cal-day"
+            data-date={format(cloneDay, 'yyyy-MM-dd')}
+            data-has-log={log ? '1' : '0'}
             className="h-24 sm:h-32 p-1 border-r border-b border-zinc-100 dark:border-zinc-800/60 relative cursor-pointer bg-white dark:bg-zinc-900 transition-colors"
             title={log ? `${formatTimeRange(log.time, log.endTime, log.durationHours)} - ${log.game}` : '방송 기록 없음'}
           >
@@ -954,6 +957,8 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
             <div className="flex items-center gap-2">
               <button 
                 onClick={prevMonth} 
+                aria-label="이전 달"
+                data-testid="cal-prev" 
                 disabled={format(currentDate, 'yyyy-MM') <= minMonthStr} 
                 className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors text-zinc-600 dark:text-zinc-300 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                 title="이전 달"
@@ -997,7 +1002,9 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
               </label>
 
               <button 
-                onClick={nextMonth} 
+                onClick={nextMonth}
+                aria-label="다음 달"
+                data-testid="cal-next" 
                 disabled={format(currentDate, 'yyyy-MM') >= maxMonthStr} 
                 className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors text-zinc-600 dark:text-zinc-300 disabled:opacity-30 disabled:pointer-events-none cursor-pointer" 
                 title="다음 달"
@@ -1108,7 +1115,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
                 {selectedLog ? (
-                  <div className="flex flex-col gap-4 sm:gap-6 mt-2">
+                  <div className="flex flex-col gap-4 sm:gap-6 mt-2" data-testid="day-detail">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <h3 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">

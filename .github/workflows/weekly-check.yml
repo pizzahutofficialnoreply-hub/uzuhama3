@@ -78,6 +78,9 @@ jobs:
       - name: 실제 사이트 화면·개발자 콘솔·UI/UX
         continue-on-error: true
         run: node scripts/weekly/live-ui.mjs
+      - name: 화면·기능 전체 점검 (사람이 누르는 순서대로)
+        continue-on-error: true
+        run: node scripts/weekly/selftest.mjs
       - name: API·Vercel·DB·보안
         continue-on-error: true
         run: node scripts/weekly/api-db.mjs

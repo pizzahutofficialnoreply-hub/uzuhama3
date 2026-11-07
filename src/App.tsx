@@ -70,6 +70,8 @@ const LicensePage = lazy(() => import('./components/LicensePage').then((m) => ({
 import { useAuth } from './hooks/useAuth';
 import { RELOAD_LINK, reloadToNewVersion, useNewBuildAvailable } from './utils/appVersion';
 import { MaintenancePager } from './components/MaintenancePager';
+import { SELFTEST_FLAG } from './selftest/flag';
+const SelfTestPage = lazy(() => import('./components/SelfTestPage').then((m) => ({ default: m.SelfTestPage })));
 import { AiSummaryHost } from './components/common/AiSummaryHost';
 import { FluidBackdrop } from './components/common/FluidBackdrop';
 
@@ -774,7 +776,9 @@ function MainApp() {
   const maintenanceStatus = checkMaintenanceStatus(maintSystem, nowTime);
 
   // 주간 자동 점검(브라우저 자동화)은 점검 화면을 건너뛰고 실제 화면을 시험함
-  const automationBypass = typeof navigator !== 'undefined' && (navigator as any).webdriver === true;
+  const automationBypass = (typeof navigator !== 'undefined' && (navigator as any).webdriver === true)
+    // 관리자의 화면·기능 전체 점검 중 (15분)
+    || (() => { try { return Number(localStorage.getItem(SELFTEST_FLAG) || 0) > Date.now(); } catch { return false; } })();
   if (maintenanceStatus.isInProgress && !automationBypass) {
     const endTimeMs = maintSystem?.maintenanceEnd ? parseDateSafe(maintSystem.maintenanceEnd) : null;
     const remainingSeconds = endTimeMs && !isNaN(endTimeMs) ? Math.max(0, Math.floor((endTimeMs - nowTime) / 1000)) : null;
@@ -1486,6 +1490,7 @@ export default function App() {
         <Route path="/admin" element={<AdminRoute />} />
         <Route path="/patch" element={<PatchNotesPage />} />
         <Route path="/patch/:version" element={<PatchNotesPage />} />
+        <Route path="/selftest" element={<Suspense fallback={null}><SelfTestPage /></Suspense>} />
         {/* '/patch-1.1.0' · '/patch-v1.1.0' (라우터는 'patch-:version' 같은 반쪽 주소를 못 읽어서 직접 나눔) */}
         <Route path="/:slug" element={<SlugRoute />} />
         <Route path="/terms" element={<PolicyPage type="terms" />} />

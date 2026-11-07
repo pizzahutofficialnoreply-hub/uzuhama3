@@ -22,6 +22,7 @@ const results = {
   e2e: read('e2e.json'),
   live: read('live-ui.json'),
   api: read('api-db.json'),
+  selftest: read('selftest.json'),
 };
 
 let server = null;
@@ -52,6 +53,7 @@ const md = [
   line(!lu.consoleErrors, '개발자 콘솔', `오류 ${lu.consoleErrors || 0} · 실패한 요청 ${lu.failedRequests || 0}`),
   line(!lu.overflowPages && !lu.brokenImages, 'UI/UX', `가로 넘침 ${lu.overflowPages || 0} · 깨진 이미지 ${lu.brokenImages || 0} · 작은 버튼 최대 ${lu.smallTargetsMax || 0} · 이름 없는 버튼 최대 ${lu.unlabeledButtonsMax || 0} · 가장 느린 첫 화면 ${lu.slowestMs || 0}ms`),
   line(!ad.failed, 'API·Vercel·DB·보안', `${(ad.total || 0) - (ad.failed || 0)}/${ad.total || 0}`),
+  line(results.selftest && !results.selftest.summary?.failed && !results.selftest.error, '화면·기능 전체 점검 (연결 동작)', results.selftest ? `${(results.selftest.summary?.total || 0) - (results.selftest.summary?.failed || 0)}/${results.selftest.summary?.total || 0}${results.selftest.error ? ` · ${results.selftest.error}` : ''}` : '결과 없음'),
   line(server?.ok !== undefined, '피드백 총정리·방문자 오류 (사이트에 저장)', server ? `피드백 ${server.feedback?.total ?? 0}건 (처리 안 됨 ${server.feedback?.pending ?? 0}) · 화면 오류 ${server.clientErrors ?? 0}건` : '보고 실패'),
   '',
   fails.length ? `### 고칠 것\n${fails.map((f) => `- ${f}`).join('\n')}` : '### 문제 없음 🎉',
@@ -59,6 +61,8 @@ const md = [
   ...(results.api?.checks || []).filter((c) => !c.ok).map((c) => `- ❌ [${c.group}] ${c.name}: ${c.detail}`),
   ...(results.api?.checks || []).filter((c) => c.warn).map((c) => `- ⚠️ [${c.group}] ${c.name}: ${c.detail}`),
   ...(results.e2e?.results || []).filter((r) => !r.ok).map((r) => `- ❌ [e2e] ${r.name}: ${r.err}`),
+  ...(results.selftest?.results || []).filter((r) => !r.ok).map((r) => `- ❌ [전체 점검·${r.group}] ${r.name}: ${r.err}`),
+  ...(results.selftest?.results || []).filter((r) => r.warn).map((r) => `- ⚠️ [전체 점검·${r.group}] ${r.name}: ${r.err}`),
   ...(results.static.vitest.failedNames || []).map((n) => `- ❌ [테스트] ${n}`),
   ...(results.live?.runs || []).filter((r) => !r.ok || r.pageerror?.length || r.console?.length || r.overflow > 2 || r.broken?.length).slice(0, 15)
     .map((r) => `- ❌ [화면] ${r.host.replace('https://', '')} ${r.view}/${r.scheme} ${r.page}: ${[r.err, ...(r.pageerror || []), ...(r.console || []).slice(0, 2), r.overflow > 2 ? `가로 넘침 ${r.overflow}px (${(r.wide || []).join(', ')})` : '', ...(r.broken || []).slice(0, 2)].filter(Boolean).join(' / ').slice(0, 300)}`),

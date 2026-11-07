@@ -34,7 +34,13 @@ function Report({ r }: { r: any }) {
         <Row ok={lu.pages ? !lu.overflowPages && !lu.brokenImages : null} name="UI/UX" detail={`가로 넘침 ${lu.overflowPages || 0} · 깨진 이미지 ${lu.brokenImages || 0} · 작은 버튼 ${lu.smallTargetsMax || 0} · 첫 화면 ${lu.slowestMs || 0}ms`} />
         <Row ok={ap.total ? !ap.failed : null} name="API·Vercel·DB·보안" detail={`${(ap.total || 0) - (ap.failed || 0)}/${ap.total || 0}`} />
         <Row ok={(r.server?.clientErrors?.total || 0) <= 20} name="방문자 화면 오류(7일)" detail={`${r.server?.clientErrors?.total || 0}건`} />
+        <Row ok={r.results?.selftest ? !r.results.selftest.summary?.failed && !r.results.selftest.error : null} name="화면·기능 전체 점검" detail={r.results?.selftest ? `${(r.results.selftest.summary?.total || 0) - (r.results.selftest.summary?.failed || 0)}/${r.results.selftest.summary?.total || 0}${r.results.selftest.error ? ` · ${r.results.selftest.error}` : ''}` : ''} />
       </ul>
+      {(r.results?.selftest?.results || []).some((x: any) => !x.ok || x.warn) && (
+        <div className="rounded-xl bg-red-50 dark:bg-red-950/30 p-2.5 text-[11px] space-y-0.5">
+          {r.results.selftest.results.filter((x: any) => !x.ok || x.warn).map((x: any, i: number) => <p key={i}>{x.ok ? '⚠️' : '❌'} [{x.group}] {x.name} <span className="text-zinc-500">{x.err}</span></p>)}
+        </div>
+      )}
 
       {(r.results?.api?.checks || []).some((c: any) => !c.ok) && (
         <div className="rounded-xl bg-red-50 dark:bg-red-950/30 p-2.5 text-[11px] space-y-0.5">
