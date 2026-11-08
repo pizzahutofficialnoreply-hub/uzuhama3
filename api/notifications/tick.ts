@@ -1,5 +1,5 @@
 import { setCorsHeaders } from '../_cors.js';
-import { sendPush, loadSubscriptions, matchesLiveKeywords } from '../_push.js';
+import { sendPush, loadSubscriptions } from '../_push.js';
 import {
   computeBroadcastProbability,
   formatClockMinute,
@@ -179,7 +179,8 @@ export default async function handler(req: any, res: any) {
       await stateRef.set({ lastLiveOpenDate: content.openDate }, { merge: true });
       if (ageMin <= LIVE_NOTIFY_MAX_AGE_MIN) {
         // 게임·장르를 골라 둔 사람은 그 게임·장르 방송일 때만
-        const subs = (await loadSubscriptions(db)).filter((s) => s.notifyLive && matchesLiveKeywords(s.liveKeywords, content?.liveTitle || '', content?.liveCategoryValue || ''));
+        // 게임·카테고리별 알림은 없앰 (생방 제목이 늘 같고 카테고리도 정확하지 않아 걸러 낼 수 없음) → 켠 사람 모두에게
+        const subs = (await loadSubscriptions(db)).filter((s) => s.notifyLive);
         const category = content?.liveCategoryValue ? ` · ${content.liveCategoryValue}` : '';
         result.liveNotification = await sendPush(db, messaging, subs, {
           title: '우주하마 방송 시작!',

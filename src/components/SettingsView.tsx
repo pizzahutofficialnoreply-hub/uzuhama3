@@ -1,7 +1,6 @@
 import { Stethoscope } from 'lucide-react';
 import { makeMatcher } from '../utils/textMatch';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { interestSummary } from '../utils/interest';
 import { setDefaultList, setDefaultYoutube, useMyPlaylists } from '../utils/myPlaylists';
 import { 
   MessageSquare, User, Bell, Palette, Database, Megaphone, 
@@ -25,7 +24,6 @@ import { isAdminUser } from '../utils/adminAuth';
 import { usePrefs, setPref, PAGE_SIZE_OPTIONS, KEYBOARD_OPTIONS, type UserPrefs } from '../utils/userPrefs';
 import { useAppVersion } from '../utils/appVersion';
 import { createPortal } from 'react-dom';
-import { findGames, keywordForGame, keywordLabel } from '../utils/gameFind';
 import { squash } from '../utils/smartSearch';
 import { useBackToClose } from '../hooks/useBackToClose';
 import { DeviceNameSetting } from './settings/DeviceNameSetting';
@@ -78,7 +76,6 @@ export function SettingsView({
   } = usePushNotification();
 
   // 게임 알림 추천: 이 기기에서 관심 많은 게임 + 자주 찾는 장르
-  const gameSuggestions = useMemo(() => [...new Set([...interestSummary(6).games, '공포', '퍼즐', '시뮬레이션', '노가리'])], []);
   // 하위 설정 모달/아코디언 상태
   const navigate = useNavigate();
   // 실제 관리자 계정으로 로그인한 경우만 (기기에 저장된 표시는 믿지 않음)
@@ -488,7 +485,6 @@ export function SettingsView({
                       </button>
                     </div>
 
-                    {isSubscribed && settings.notifyLive && <LiveKeywordsRow value={settings.liveKeywords || []} onChange={(v) => updateSettings({ liveKeywords: v })} suggestions={gameSuggestions} gameNames={notifyChoices?.gameNames || []} categories={notifyChoices?.categories || []} />}
 
                     <div className="flex items-center justify-between py-1">
                       <div>
@@ -1362,108 +1358,6 @@ export function SettingsView({
   );
 }
 
-/** 생방송 알림을 이 게임·장르일 때만 */
-const MAX_LIVE_KEYWORDS = 20;
-function LiveKeywordsRow({ value, onChange, suggestions, gameNames, categories }: { value: string[]; onChange: (v: string[]) => void; suggestions: string[]; gameNames: string[]; categories: { name: string; count: number }[] }) {
-  const prefs = usePrefs();
-  const [draft, setDraft] = useState('');
-  const [catOpen, setCatOpen] = useState(false);
-  const has = (k: string) => value.some((x) => keywordLabel(x) === keywordLabel(k));
-  const add = (k: string) => { const t = k.trim(); if (!t || has(t) || value.length >= MAX_LIVE_KEYWORDS) return; onChange([...value, t]); setDraft(''); };
-  const remove = (k: string) => onChange(value.filter((x) => x !== k));
-  const found = useMemo(() => (draft.trim() ? findGames(draft, gameNames, prefs, 6) : []), [draft, gameNames, prefs]);
-  const catSet = new Set(categories.map((c) => c.name));
-  const left = suggestions.filter((g) => !has(g)).slice(0, 8);
-  return (
-    <div className="-mt-1 mb-1 ml-1 pl-3 border-l-2 border-purple-200 dark:border-purple-900/60 space-y-2">
-      <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">{value.length ? '이 게임·카테고리 방송일 때만 알려 줘요' : '모든 방송을 알려 줘요 · 게임·카테고리를 고르면 그때만'}</p>
-      {value.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {value.map((k) => (
-            <button key={k} type="button" onClick={() => remove(k)} className={cn('px-2 py-1 rounded-lg text-[11px] font-bold cursor-pointer', catSet.has(k) ? 'bg-zinc-800 dark:bg-zinc-200 text-white dark:text-zinc-900' : 'bg-purple-600 text-white')} aria-label={`${keywordLabel(k)} 빼기`}>{keywordLabel(k)} ✕</button>
-          ))}
-        </div>
-      )}
-      <button type="button" onClick={() => setCatOpen(true)} className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-700 dark:text-zinc-200 cursor-pointer">
-        <span>카테고리 고르기 {value.filter((k) => catSet.has(k)).length ? <span className="text-purple-600">· {value.filter((k) => catSet.has(k)).length}개</span> : <span className="text-zinc-400 font-medium">(여러 개)</span>}</span>
-        <ChevronRight className="w-4 h-4 text-zinc-400" />
-      </button>
-      <div className="relative">
-        <div className="flex gap-1.5">
-          <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(found[0] ? keywordForGame(found[0].name) : draft); }} placeholder="게임 이름 검색 (예: 배그, ㅁㅇㅋㄹㅍㅌ)" className="flex-1 min-w-0 px-2.5 py-1.5 text-xs rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" />
-          <button type="button" onClick={() => add(draft)} disabled={!draft.trim()} className="shrink-0 px-2.5 py-1.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[11px] font-bold cursor-pointer disabled:opacity-40">그대로 추가</button>
-        </div>
-        {found.length > 0 && (
-          <div className="mt-1 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden">
-            {found.map((g) => (
-              <button key={g.name} type="button" onClick={() => add(keywordForGame(g.name))} disabled={has(g.name)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer disabled:opacity-40">
-                <span className="font-semibold text-zinc-800 dark:text-zinc-100 truncate">{g.name}</span>
-                <span className="shrink-0 text-[10px] text-zinc-400">{has(g.name) ? '추가됨' : g.how || '+ 추가'}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      {left.length > 0 && !draft && (
-        <div className="flex flex-wrap gap-1">
-          {left.map((g) => <button key={g} type="button" onClick={() => add(g)} className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-[11px] text-zinc-600 dark:text-zinc-300 cursor-pointer">+ {g}</button>)}
-        </div>
-      )}
-      <p className="text-[10px] text-zinc-400">방송 제목이나 치지직 카테고리에 이 말이 있으면 알려 줘요. 게임 검색은 검색 탭의 검색 도우미 설정(오타·초성·줄임말)을 그대로 따라요. 최대 {MAX_LIVE_KEYWORDS}개.</p>
-      {catOpen && createPortal(
-        <CategoryPicker categories={categories} selected={value.filter((k) => catSet.has(k))} onClose={() => setCatOpen(false)} onDone={(cats) => {
-          const others = value.filter((k) => !catSet.has(k));
-          onChange([...others, ...cats].slice(0, MAX_LIVE_KEYWORDS));
-          setCatOpen(false);
-        }} room={MAX_LIVE_KEYWORDS - value.filter((k) => !catSet.has(k)).length} />,
-        document.body,
-      )}
-    </div>
-  );
-}
-
-/** 카테고리 여러 개 고르는 화면 */
-function CategoryPicker({ categories, selected, onClose, onDone, room }: { categories: { name: string; count: number }[]; selected: string[]; onClose: () => void; onDone: (v: string[]) => void; room: number }) {
-  const [pick, setPick] = useState<string[]>(selected);
-  const [q, setQ] = useState('');
-  useBackToClose(true, onClose);
-  const prefs = usePrefs();
-  const m = makeMatcher(q, prefs, categories.map((c) => c.name));
-  const list = categories.filter((c) => m(c.name));
-  const toggle = (n: string) => setPick((p) => (p.includes(n) ? p.filter((x) => x !== n) : p.length >= room ? p : [...p, n]));
-  return (
-    <div className="fixed inset-0 z-[400] flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/45 backdrop-blur-[2px]" onClick={onClose} />
-      <div role="dialog" aria-label="알림 카테고리 고르기" className="relative w-full sm:max-w-md max-h-[85dvh] flex flex-col bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] shadow-2xl">
-        <div className="px-5 pt-5 pb-3 space-y-3 border-b border-zinc-100 dark:border-zinc-800">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-black text-zinc-900 dark:text-white">알림 받을 카테고리</h3>
-            <button type="button" onClick={onClose} className="p-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
-          </div>
-          <p className="text-[11.5px] text-zinc-500 break-keep">여러 개 고를 수 있어요. 고른 카테고리 중 하나라도 방송 제목·치지직 카테고리에 있으면 알려 줘요.</p>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="카테고리 찾기" className="w-full h-9 px-3 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[13px] outline-none" />
-        </div>
-        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-3">
-          {list.length === 0 && <p className="text-xs text-zinc-500 py-6 text-center">없어요</p>}
-          <div className="flex flex-wrap gap-1.5">
-            {list.map((c) => {
-              const on = pick.includes(c.name);
-              return (
-                <button key={c.name} type="button" aria-pressed={on} onClick={() => toggle(c.name)} className={cn('px-3 py-1.5 rounded-full text-[12.5px] font-bold border cursor-pointer active:scale-95 transition-colors', on ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200')}>
-                  {on && '✓ '}{c.name} <span className={on ? 'text-white/70' : 'text-zinc-400'}>{c.count}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] flex gap-2 border-t border-zinc-100 dark:border-zinc-800">
-          <button type="button" onClick={() => setPick([])} className="px-4 py-3 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-sm font-bold cursor-pointer">모두 해제</button>
-          <button type="button" onClick={() => onDone(pick)} className="flex-1 py-3 rounded-2xl bg-purple-600 text-white text-sm font-bold cursor-pointer">{pick.length ? `${pick.length}개 선택 완료` : '카테고리 없이'}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /** 저장 버튼: 기본 저장 위치 (다음부터 묻지 않기) 풀기 */
 function SaveLocationRow() {
