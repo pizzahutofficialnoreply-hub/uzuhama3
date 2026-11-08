@@ -5,7 +5,7 @@ const yt = (u) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\
 const url = (x) => (typeof x === 'string' ? x : x?.url || '');
 const hist = normalizeHistorical(JSON.parse(fs.readFileSync('h.json', 'utf8')));
 const conv = (v) => v.stringValue ?? v.booleanValue ?? (v.integerValue != null ? Number(v.integerValue) : v.doubleValue ?? (v.arrayValue ? (v.arrayValue.values || []).map(conv) : v.mapValue ? obj(v.mapValue.fields || {}) : v.nullValue === null ? null : undefined));
-const obj = (f) => Object.fromEntries(Object.entries(f).map(([k, v]) => [k, conv(v)]));
+const obj = (f) => Object.fromEntries(Object.entries(f || {}).map(([k, v]) => [k, conv(v)]));
 const docs = JSON.parse(fs.readFileSync('all.json', 'utf8')).documents.map((d) => obj(d.fields));
 const site = overlayMonthDocs(hist, docs);
 const logs = Object.values(site).filter((l) => l?.date && !l.isAbsence);
