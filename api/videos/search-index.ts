@@ -189,9 +189,17 @@ export default async function handler(req: any, res: any) {
       }
       if (aiMode === 'ids') {
         // AI가 보기 시작한 영상 목록 (⋮ 메뉴에 'AI 영상 요약'을 보여 줄지)
-        const snap = await db.collection('ai_video').select('status').get();
-        res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-        return res.status(200).json({ ids: snap.docs.filter((d: any) => d.data().status !== 'skip').map((d: any) => d.id) });
+        // 문서 전체를 읽으면 영상 수만큼 읽기가 들어서, 목록을 문서 하나에 모아 두고 1시간에 한 번만 새로 만듦
+        const cRef = db.collection('youtube_cache').doc('ai_ids');
+        const c = (await cRef.get()).data();
+        let ids: string[] = Array.isArray(c?.ids) ? c.ids : [];
+        if (!c || Date.now() - Date.parse(c.at || '0') > 3600000) {
+          const snap = await db.collection('ai_video').select('status').get();
+          ids = snap.docs.filter((d: any) => d.data().status !== 'skip').map((d: any) => d.id);
+          await cRef.set({ ids, at: new Date().toISOString() });
+        }
+        res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
+        return res.status(200).json({ ids });
       }
       if (aiMode === 'check') {
         // 데이터 검증: 하루 한 번 (GitHub 정기 실행이 부름). 결과는 관리자만

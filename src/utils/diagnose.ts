@@ -60,7 +60,7 @@ export function deviceInfo(model = ''): DeviceInfo {
   const ver = latestReleaseVersion(notes);
   const build = String((import.meta as any).env?.VITE_BUILD_ID || '').slice(0, 7);
   const app = `${ver ? `v${ver}` : '버전 확인 중'}${build ? ` (${build})` : ''} · ${standalone ? '홈 화면 앱' : '웹'}`;
-  return { device, os, browser: browser.trim(), app, screen: `${window.screen.width}×${window.screen.height} @${window.devicePixelRatio}x`, model: model || undefined };
+  return { device, os, browser: browser.trim(), app, screen: `${window.screen.width}×${window.screen.height} @${window.devicePixelRatio}x`, ...(model ? { model } : {}) };
 }
 
 /** 더 정확하게: 안드로이드 모델 번호(크롬이 알려 줌) + 앱 버전(패치노트) 받아 오기 */

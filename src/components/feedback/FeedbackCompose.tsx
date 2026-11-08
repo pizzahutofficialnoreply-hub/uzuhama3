@@ -67,7 +67,8 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
         problemArea: where || null,
         os: `${dev.device} · ${dev.os} · ${dev.browser}`,
         attachments: {
-          device: dev,
+          // 값이 없는 칸(undefined)이 있으면 Firestore 가 거절해서 지움 (아이폰은 모델 번호가 없음)
+          device: JSON.parse(JSON.stringify(dev)),
           diagnose: useDiag && diag ? diag.slice(0, 8000) : null,
           selftest: useTest && selftest ? selftest.slice(0, 8000) : null,
           images: images.map((i) => i.data),
@@ -80,7 +81,7 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
       noteSubmit('feedback', guardKey);
       onDone();
     } catch (e: any) {
-      setErr(/size|too large|exceeds/i.test(String(e?.message)) ? '첨부한 사진이 너무 커요. 사진을 줄이거나 빼고 다시 보내 주세요.' : '보내지 못했어요. 잠시 뒤에 다시 해 주세요.');
+      setErr(/size|too large|exceeds/i.test(String(e?.message)) ? '첨부한 사진이 너무 커요. 사진을 줄이거나 빼고 다시 보내 주세요.' : `보내지 못했어요. 잠시 뒤에 다시 해 주세요. (${String(e?.code || e?.message || e).slice(0, 60)})`);
     } finally { setBusy(false); }
   };
 

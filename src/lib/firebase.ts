@@ -33,7 +33,9 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 // Safari 및 PWA 환경에서 IndexedDB 꼬임 방지를 위해 Memory Cache 적용
 export const db = initializeFirestore(app, {
-  localCache: memoryLocalCache()
+  localCache: memoryLocalCache(),
+  // 값이 없는 칸(undefined)은 빼고 저장 (있으면 Firestore 가 저장 자체를 거절함: 의견 보내기 실패 원인)
+  ignoreUndefinedProperties: true,
 });
 
 // 로그인 저장: 모든 창(점검용 안쪽 창 포함)이 같은 곳(localStorage)을 먼저 씀

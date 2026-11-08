@@ -12,7 +12,10 @@ const API = (import.meta.env.VITE_VERCEL_API_URL ||
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepResult) => void, opts: { only?: string[]; skip?: string[]; onProgress?: (t: string) => void } = {}) {
+/** 점검 중 앱을 닫아도 되돌릴 수 있게: 점검 창이 바꾼 저장 항목의 원래 값을 여기에 적어 둠 (bgRun 이 다음 실행 때 되돌림) */
+export const SELFTEST_BACKUP = 'uzuhama_selftest_backup_v1';
+
+export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepResult) => void, opts: { only?: string[]; skip?: string[]; skipSteps?: Set<string>; onProgress?: (t: string) => void } = {}) {
   const results: StepResult[] = [];
   const errors: string[] = [];
   const W = () => frame.contentWindow as any as Window & typeof globalThis;
@@ -26,7 +29,14 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
   // 점검 창(iframe)이 바꾼 것만 되돌림 — 점검하는 동안 사용자가 바깥 화면에서 바꾼 건(새 시청 기록 등) 그대로
   // (같은 사이트의 다른 창이 바꾸면 이 창에 storage 이벤트가 옴 → 그 이름만 모아 둠)
   const touched = new Set<string>(['uzuhama_onboarding_version', 'uzuhama_tutorial_done_v1']);
-  const onStorage = (e: StorageEvent) => { if (e.key && e.storageArea === localStorage) touched.add(e.key); };
+  const backup: Record<string, string | null> = {};
+  const noteBackup = (k: string) => {
+    if (keep(k) || k in backup || k.startsWith('uzuhama_selftest')) return;
+    backup[k] = k in saved ? saved[k] : null;
+    try { localStorage.setItem(SELFTEST_BACKUP, JSON.stringify(backup)); } catch { /* */ }
+  };
+  touched.forEach(noteBackup);
+  const onStorage = (e: StorageEvent) => { if (e.key && e.storageArea === localStorage) { touched.add(e.key); noteBackup(e.key); } };
   window.addEventListener('storage', onStorage);
   const restore = () => {
     try {
@@ -129,6 +139,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
     stepDetails = undefined;
     if (opts.only && !opts.only.includes(group)) return;
     if (opts.skip && opts.skip.includes(group)) return;
+    if (opts.skipSteps?.has(`${group}|${name}`)) return; // 이어서 점검: 앞에서 끝낸 단계
     const t0 = Date.now();
     const before = errors.length;
     let r: StepResult;
@@ -232,13 +243,29 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
     });
     await step('검색', '⋮ 메뉴 → AI 영상 요약이 열리고 닫혀요', async () => {
       ($('input[name="search_query"]') as HTMLInputElement)?.blur();
-      // AI가 보기 시작한 영상에만 메뉴가 있음 → ⋮ 를 차례로 열어 찾기
+      // AI가 보기 시작한 영상에만 메뉴가 있음 → 그 목록으로 해당 카드의 ⋮ 만 바로 엶 (하나씩 열어 보면 30초 넘게 걸림)
       await waitFor(() => $('button[aria-label="더 보기"]'), 6000, '⋮ 버튼');
+      let started = new Set<string>();
+      try {
+        const base = W().location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app';
+        const j = await Promise.race([fetch(`${base}/api/videos/search-index?ai=ids`).then((r) => r.json()), sleep(5000).then(() => null)]);
+        started = new Set<string>(Array.isArray(j?.ids) ? j.ids : []);
+      } catch { /* */ }
+      const idNear = (btn: HTMLElement) => {
+        let el: HTMLElement | null = btn;
+        for (let i = 0; i < 8 && el; i++, el = el.parentElement) {
+          const m = (el.innerHTML.match(/(?:vi\/|v=|youtu\.be\/|\/live\/|\/shorts\/)([\w-]{11})/) || [])[1];
+          if (m) return m;
+        }
+        return '';
+      };
+      const mores = $$('button[aria-label="더 보기"]');
+      const pick = mores.filter((b) => started.has(idNear(b)));
       let item: HTMLElement | null = null;
-      for (const more of $$('button[aria-label="더 보기"]').slice(0, 8)) {
+      for (const more of (pick.length ? pick : mores).slice(0, pick.length ? 3 : 2)) {
         more.click();
-        await waitFor(() => $('[role="menuitem"]'), 3000, '메뉴').catch(() => null);
-        item = await waitFor(() => byText('[role="menuitem"]', 'AI 영상 요약'), 1500, 'AI 메뉴').catch(() => null);
+        await waitFor(() => $('[role="menuitem"]'), 2000, '메뉴').catch(() => null);
+        item = await waitFor(() => byText('[role="menuitem"]', 'AI 영상 요약'), 1200, 'AI 메뉴').catch(() => null);
         if (item) break;
         D().dispatchEvent(new (W() as any).MouseEvent('mousedown', { bubbles: true }));
         await sleep(200);
@@ -513,12 +540,13 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
     await api('캘린더 구독(ics)', '/api/calendar', (_j, r, t) => r.ok && /BEGIN:VCALENDAR/.test(t));
     await api('관리자 API는 로그인 없이 막혀요', '/api/admin/mutate', (_j, r) => r.status === 401 || r.status === 403, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mfaStatus' }) });
     await api('DB: 설정 읽기', 'https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/config/system?key=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM&mask.fieldPaths=appVersion', (j, r) => r.ok && Boolean(j?.fields));
-    await api('DB: 방송 기록 읽기', 'https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs?key=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM&pageSize=3', (j, r) => r.ok && (j?.documents || []).length > 0);
+    await api('DB: 방송 기록 읽기', 'https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month?key=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM&pageSize=1&mask.fieldPaths=month', (j, r) => r.ok && (j?.documents || []).length > 0);
     await api('DB: 방문자는 푸시 구독 목록을 못 읽어요', 'https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/push_subscriptions?key=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM&pageSize=1', (j, r) => r.status === 403 || (r.ok && !(j?.documents || []).length));
   } finally {
     await sleep(400); // 마지막 storage 이벤트까지 받고
     restore();
     window.removeEventListener('storage', onStorage);
+    try { localStorage.removeItem(SELFTEST_BACKUP); } catch { /* */ }
   }
   return { results, errors };
 }
