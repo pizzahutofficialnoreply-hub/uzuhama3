@@ -23,3 +23,11 @@ jobs:
     steps:
       - name: Analyze next video segments
         run: curl -sS --max-time 295 "https://uzuhama.vercel.app/api/videos/search-index?ai=run" | head -c 600 || true
+
+  # 방송 기록 데이터 검증 (서버가 하루 한 번만 실제로 함): 방송 시간·게임 이름·게임 링크
+  data-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Check broadcast data
+        run: curl -sS --max-time 295 "https://uzuhama.vercel.app/api/videos/search-index?ai=check" | head -c 600 || true

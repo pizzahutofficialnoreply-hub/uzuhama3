@@ -356,7 +356,21 @@ export function AdminSuggestionsTab({
                   )}
                   
                   <h4 className="font-bold text-zinc-900 dark:text-white text-sm sm:text-base mb-1">{item.title}</h4>
+                  {(item as any).feedbackKind && <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400">{(item as any).feedbackKind}{(item as any).problemArea ? ` · ${(item as any).problemArea}` : ''}</p>}
                   <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">{item.content}</p>
+                  {(item as any).attachments && (() => {
+                    const at = (item as any).attachments;
+                    return (
+                      <div className="mt-2 space-y-1.5 text-[11px]">
+                        {at.device && <p className="text-zinc-500">📱 {at.device.device} · {at.device.os} · {at.device.browser} · {at.device.app}</p>}
+                        {at.diagnose && <details className="rounded-lg bg-zinc-50 dark:bg-zinc-950 px-2 py-1"><summary className="cursor-pointer font-semibold">앱 진단</summary><pre className="whitespace-pre-wrap break-all text-[10.5px] text-zinc-600 dark:text-zinc-300 mt-1 max-h-64 overflow-auto">{at.diagnose}</pre></details>}
+                        {at.selftest && <details className="rounded-lg bg-zinc-50 dark:bg-zinc-950 px-2 py-1"><summary className="cursor-pointer font-semibold">앱 점검 결과 · {String(at.selftest).split('\n')[0]}</summary><pre className="whitespace-pre-wrap break-all text-[10.5px] text-zinc-600 dark:text-zinc-300 mt-1 max-h-64 overflow-auto">{at.selftest}</pre></details>}
+                        {Array.isArray(at.images) && at.images.length > 0 && (
+                          <div className="flex gap-1.5 flex-wrap">{at.images.map((src: string, i: number) => <img key={i} src={src} alt={`첨부 ${i + 1}`} onClick={(e) => (e.currentTarget as HTMLImageElement).classList.toggle('w-20')} className="w-20 max-w-full rounded-lg object-cover border border-zinc-200 dark:border-zinc-700 cursor-zoom-in" />)}</div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {item.adminComment && (
                     <div className="mt-3 p-3 bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 rounded-lg text-xs">

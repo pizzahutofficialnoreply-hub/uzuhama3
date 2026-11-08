@@ -1,3 +1,5 @@
+import { makeMatcher } from '../utils/textMatch';
+import { usePrefs } from '../utils/userPrefs';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
@@ -48,10 +50,11 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
   useBackToClose(true, onClose);
   useEffect(() => { const o = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = o; }; }, []);
 
+  const prefs = usePrefs();
   const list = useMemo(() => {
-    const term = q.trim().toLowerCase().replace(/\s+/g, '');
-    return all.filter((e) => (filter === 'all' || e.kind === filter) && (!term || (e.title || '').toLowerCase().replace(/\s+/g, '').includes(term)));
-  }, [all, q, filter]);
+    const m = makeMatcher(q, prefs, all.map((e) => e.title || ''));
+    return all.filter((e) => (filter === 'all' || e.kind === filter) && m(e.title || ''));
+  }, [all, q, filter, prefs]);
   const groups = useMemo(() => {
     const out: { label: string; shorts: WatchEntry[]; rows: WatchEntry[] }[] = [];
     list.slice(0, limit).forEach((e) => {

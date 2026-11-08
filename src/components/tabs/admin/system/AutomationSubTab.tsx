@@ -1,3 +1,4 @@
+import { DataCheckCard } from './DataCheckCard';
 import React, { useCallback, useEffect, useState } from 'react';
 import { WeeklyReportCard } from './WeeklyReportCard';
 import { AdminSecurityCard } from './AdminSecurityCard';
@@ -96,6 +97,7 @@ export function AutomationSubTab() {
       <AdminSecurityCard />
       <SelfTestCard />
       <WeeklyReportCard />
+      <DataCheckCard />
       <SearchTuningCard />
       <ClientErrorsCard />
 

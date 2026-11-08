@@ -11,8 +11,13 @@ import { checkSubmit, noteSubmit, visitorId } from './submitGuard';
 const IGNORE = /ResizeObserver loop|Script error\.?$|chrome-extension:|moz-extension:|safari-extension:|Non-Error promise rejection|Load failed|Failed to fetch|NetworkError|The operation was aborted|AbortError|cancelled|QuotaExceeded|play\(\) request was interrupted/i;
 const VERSION_RE = /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i;
 
+/** 진단 첨부용: 최근 오류 (기기 안에만, 보내지 않음) */
+const recent: { at: string; msg: string; path: string }[] = [];
+export const recentErrors = () => recent.slice();
+
 function send(message: string, stack = '') {
   const msg = String(message || '').slice(0, 300);
+  if (msg) { recent.unshift({ at: new Date().toISOString(), msg, path: window.location.pathname }); recent.length = Math.min(recent.length, 20); }
   if (!msg || IGNORE.test(msg) || IGNORE.test(stack)) return;
   // 새 버전 배포 직후 옛 화면에서 나는 오류는 새로 고치면 해결 → 한 번만 새로 고침
   if (VERSION_RE.test(msg)) {
@@ -40,7 +45,11 @@ function send(message: string, stack = '') {
 export function installErrorReporting() {
   if (typeof window === 'undefined' || (window as any).__uzuhamaErr) return;
   (window as any).__uzuhamaErr = true;
-  if (/localhost|127\.0\.0\.1/.test(window.location.hostname)) return;
+  const local = /localhost|127\.0\.0\.1/.test(window.location.hostname);
+  if (local) {
+    window.addEventListener('error', (e) => { recent.unshift({ at: new Date().toISOString(), msg: String(e.message || ''), path: window.location.pathname }); recent.length = Math.min(recent.length, 20); });
+    return;
+  }
   window.addEventListener('error', (e) => send(e.message || String(e.error || ''), e.error?.stack || `${e.filename || ''}:${e.lineno || ''}`));
   window.addEventListener('unhandledrejection', (e) => { const r: any = e.reason; send(r?.message || String(r || ''), r?.stack || ''); });
 }

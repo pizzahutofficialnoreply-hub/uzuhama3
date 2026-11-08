@@ -27,3 +27,16 @@ describe('알림 게임 찾기', () => {
     expect(chosungOf('마인')).toBe('ㅁㅇ');
   });
 });
+
+import { makeMatcher } from './textMatch';
+describe('다른 검색창 글자 보정', () => {
+  it('설정 따라 초성·한/영·줄임말', () => {
+    const m = makeMatcher('ㅁㅇㅋ', {});
+    expect(m('마인크래프트 같이 하기')).toBe(true);
+    expect(makeMatcher('ㅁㅇㅋ', { searchChosung: false })('마인크래프트')).toBe(false);
+    expect(makeMatcher('akdls', {})('마인크래프트')).toBe(true);
+    expect(makeMatcher('akdls', { searchTypo: false })('마인크래프트')).toBe(false);
+    expect(makeMatcher('배그', {})('배틀그라운드 솔로')).toBe(true);
+    expect(makeMatcher('배그 솔로', {})('배틀그라운드 듀오')).toBe(false);
+  });
+});

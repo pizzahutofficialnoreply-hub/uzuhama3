@@ -1,3 +1,5 @@
+import { makeMatcher } from '../../utils/textMatch';
+import { usePrefs } from '../../utils/userPrefs';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { LazyInput } from '../common/LazyInput';
@@ -310,6 +312,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
   const [appliedStartDate, setAppliedStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [appliedEndDate, setAppliedEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [searchTerm, setSearchTerm] = useState('');
+  const searchPrefs = usePrefs();
   const [sortOrder, setSortOrder] = useState<'desc'|'asc'>('desc');
   const [hasCustomFilter, setHasCustomFilter] = useState(false);
   const [exportedLogId, setExportedLogId] = useState<string | null>(null);
@@ -856,6 +859,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
       const ytId = extractYoutubeId(rawTerm);
       const chzzkId = extractChzzkId(rawTerm);
       const isUrl = isVideoUrl(rawTerm) || !!ytId || !!chzzkId;
+      const textMatch = makeMatcher(rawTerm, searchPrefs, logsArray.flatMap((l) => [l.game, ...(l.games || []).map((g) => g.name)]).filter(Boolean) as string[]);
 
       return logsArray.filter(log => {
         // 1. 영상, 쇼츠, 생방 링크 대조 (유튜브 Video ID 11자리 파싱 및 LIKE 매칭 완벽 지원)
@@ -867,12 +871,10 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
         // 2. 일반 텍스트, 날짜, 미디어 링크 및 초성 매칭
         if (matchLogMedia(log, rawTerm)) return true;
         if (fuzzyDateMatch(rawTerm, log.date)) return true;
-        if (log.game && fuzzyKoreanMatch(rawTerm, log.game)) return true;
-        if (log.category && fuzzyKoreanMatch(rawTerm, log.category)) return true;
-        if (log.games?.some(g => fuzzyKoreanMatch(rawTerm, g.name) || fuzzyKoreanMatch(rawTerm, g.category))) return true;
-        if (log.vods?.some(v => (v.title && fuzzyKoreanMatch(rawTerm, v.title)) || matchMediaUrl(typeof v === 'string' ? v : v?.url, rawTerm))) return true;
-        if (log.shorts?.some(s => (s.title && fuzzyKoreanMatch(rawTerm, s.title)) || matchMediaUrl(typeof s === 'string' ? s : s?.url, rawTerm))) return true;
-        if (log.edited?.some(e => (e.title && fuzzyKoreanMatch(rawTerm, e.title)) || matchMediaUrl(typeof e === 'string' ? e : e?.url, rawTerm))) return true;
+        // 게임·카테고리·영상 제목: 설정의 검색 도우미(오타·초성·줄임말) 그대로
+        const t = [log.game, log.category, ...(log.games || []).flatMap((g) => [g.name, g.category]), ...[...(log.vods || []), ...(log.shorts || []), ...(log.edited || [])].map((v: any) => v?.title || '')].filter(Boolean).join(' ');
+        if (textMatch(t)) return true;
+        if ([...(log.vods || []), ...(log.shorts || []), ...(log.edited || [])].some((v: any) => matchMediaUrl(typeof v === 'string' ? v : v?.url, rawTerm))) return true;
         return false;
       });
     }
@@ -886,7 +888,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
     return logsArray.filter(log => {
       return log.date >= appliedStartDate && log.date <= appliedEndDate;
     });
-  }, [logsArray, appliedStartDate, appliedEndDate, searchTerm, selectedDate]);
+  }, [logsArray, appliedStartDate, appliedEndDate, searchTerm, selectedDate, searchPrefs]);
 
   // 검색 결과가 1건으로 좁혀졌을 때 자동으로 해당 날짜 선택 및 달력 이동
   useEffect(() => {

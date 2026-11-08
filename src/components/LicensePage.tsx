@@ -1,3 +1,5 @@
+import { makeMatcher } from '../utils/textMatch';
+import { usePrefs } from '../utils/userPrefs';
 import { motion, AnimatePresence } from 'motion/react';
 import { ExternalLink, ArrowLeft, Type } from 'lucide-react';
 import { useState } from 'react';
@@ -17,13 +19,13 @@ export function LicensePage() {
   const [openPackage, setOpenPackage] = useState<string | null>('font-bm-hanna-pro');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const fontMatches = !searchTerm.trim() || 
-    '배달의민족 한나체 pro bm hanna pro 우아한형제들 font 폰트 글꼴 ofl sil'.toLowerCase().includes(searchTerm.toLowerCase());
+  const prefs = usePrefs();
+  const match = makeMatcher(searchTerm, prefs);
+  const fontMatches = match('배달의민족 한나체 pro bm hanna pro 우아한형제들 font 폰트 글꼴 ofl sil');
 
   const filteredEntries = Object.entries(licensesData).filter(([pkgName, details]: [string, any]) => {
     if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
-    return pkgName.toLowerCase().includes(term) || (details.licenses && String(details.licenses).toLowerCase().includes(term));
+    return match(`${pkgName} ${details.licenses || ''} ${details.publisher || ''}`);
   });
 
   return (
@@ -133,14 +135,14 @@ export function LicensePage() {
             </div>
           )}
           {/* 외부 서비스 · AI */}
-          {(!searchTerm.trim() || SERVICES.some((x) => `${x.name} ${x.use} ${x.terms}`.toLowerCase().includes(searchTerm.toLowerCase()))) && (
+          {SERVICES.some((x) => match(`${x.name} ${x.use} ${x.terms}`)) && (
             <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
               <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
                 <h3 className="font-bold text-zinc-900 dark:text-white text-sm">사용하는 외부 서비스 · AI</h3>
                 <p className="text-xs text-zinc-500 mt-0.5">소스 코드를 가져다 쓰는 건 아니지만, 사이트가 기능을 위해 부르는 서비스예요. 각 서비스의 약관을 따라요.</p>
               </div>
               <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {SERVICES.filter((x) => !searchTerm.trim() || `${x.name} ${x.use} ${x.terms}`.toLowerCase().includes(searchTerm.toLowerCase())).map((x) => (
+                {SERVICES.filter((x) => match(`${x.name} ${x.use} ${x.terms}`)).map((x) => (
                   <li key={x.name} className="px-4 py-2.5 text-xs">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-zinc-900 dark:text-zinc-100">{x.name}</span>

@@ -1,3 +1,5 @@
+import { Stethoscope } from 'lucide-react';
+import { makeMatcher } from '../utils/textMatch';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { interestSummary } from '../utils/interest';
 import { setDefaultList, setDefaultYoutube, useMyPlaylists } from '../utils/myPlaylists';
@@ -244,6 +246,21 @@ export function SettingsView({
               <MessageSquare className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">의견 보내기</p>
+                <p className="text-[11px] text-zinc-500">의견 · 버그 제보 · 데이터 요청</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />
+          </button>
+          <button
+            type="button"
+            onClick={() => { try { sessionStorage.setItem('uzuhama_feedback_tab', 'check'); } catch { /* */ } onOpenFeedback(); }}
+            className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 active:bg-zinc-200/50 dark:active:bg-zinc-800 transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <Stethoscope className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">내 앱 점검하기</p>
+                <p className="text-[11px] text-zinc-500">이 기기에서 화면·기능이 잘 되는지 확인 (1~3분)</p>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />
@@ -1384,7 +1401,9 @@ function CategoryPicker({ categories, selected, onClose, onDone, room }: { categ
   const [pick, setPick] = useState<string[]>(selected);
   const [q, setQ] = useState('');
   useBackToClose(true, onClose);
-  const list = categories.filter((c) => !q.trim() || squash(c.name).includes(squash(q)));
+  const prefs = usePrefs();
+  const m = makeMatcher(q, prefs, categories.map((c) => c.name));
+  const list = categories.filter((c) => m(c.name));
   const toggle = (n: string) => setPick((p) => (p.includes(n) ? p.filter((x) => x !== n) : p.length >= room ? p : [...p, n]));
   return (
     <div className="fixed inset-0 z-[400] flex items-end sm:items-center justify-center">

@@ -1,3 +1,5 @@
+import { makeMatcher } from '../../utils/textMatch';
+import { usePrefs } from '../../utils/userPrefs';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LazyInput } from '../common/LazyInput';
 import { BroadcastLog } from '../../types';
@@ -306,6 +308,7 @@ export function CategoryStatsTab({
   }, [categories, totalPlays]);
 
   // 추천 영상 탭 스타일 초성 검색 및 텍스트 필터링
+  const searchPrefs = usePrefs();
   const filteredCategories = useMemo(() => {
     let list = categories;
 
@@ -314,11 +317,9 @@ export function CategoryStatsTab({
     }
 
     if (searchTerm.trim()) {
-      list = list.filter(c => {
-        if (fuzzyKoreanMatch(searchTerm, c.name)) return true;
-        if (c.games.some(g => fuzzyKoreanMatch(searchTerm, g.name))) return true;
-        return false;
-      });
+      // 설정의 검색 도우미(오타·초성·줄임말)를 그대로
+      const m = makeMatcher(searchTerm, searchPrefs, categories.flatMap((c) => [c.name, ...c.games.map((g) => g.name)]));
+      list = list.filter(c => m(c.name) || c.games.some(g => m(g.name)));
     }
 
     const sorted = [...list].sort((a, b) => {
@@ -331,7 +332,7 @@ export function CategoryStatsTab({
     });
 
     return sorted;
-  }, [categories, selectedCategory, searchTerm, sortBy, sortOrder]);
+  }, [categories, selectedCategory, searchTerm, sortBy, sortOrder, searchPrefs]);
 
   const categoryInsight = useMemo(() => {
     if (!topCategory || totalPlays === 0) return null;
@@ -692,7 +693,7 @@ export function CategoryStatsTab({
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
               <LazyInput
                 type="text"
-                placeholder="카테고리/게임 검색 (초성 지원)..."
+                placeholder="카테고리/게임 검색..."
                 value={searchTerm}
               onCommit={setSearchTerm}
                 className="w-full pl-8 pr-7 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-400 text-xs sm:text-sm dark:text-zinc-200"

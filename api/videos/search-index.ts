@@ -187,6 +187,15 @@ export default async function handler(req: any, res: any) {
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(await ai.aiPrioritize(db, String(req.query?.id || '')));
       }
+      if (aiMode === 'check') {
+        // 데이터 검증: 하루 한 번 (GitHub 정기 실행이 부름). 결과는 관리자만
+        const ref = db.collection('admin_data').doc('dataCheck');
+        const last = Date.parse(((await ref.get()).data() || {}).at || '') || 0;
+        if (Date.now() - last < 20 * 3600000) return res.status(200).json({ skipped: '오늘 이미 함', at: new Date(last).toISOString() });
+        const dc = await import('../_dataCheck.js');
+        const r = await dc.runDataCheck(db);
+        return res.status(200).json({ ok: true, at: r.at, counts: r.counts, ms: r.ms });
+      }
       if (aiMode === 'status') {
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(await ai.aiVideoStatus(db));

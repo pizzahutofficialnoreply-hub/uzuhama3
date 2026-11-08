@@ -1,3 +1,5 @@
+import { makeMatcher } from '../utils/textMatch';
+import { usePrefs } from '../utils/userPrefs';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -188,22 +190,19 @@ export function PatchNotesPage({ version: propVersion }: { version?: string } = 
     }
   }, [targetVersion, patchNotes]);
 
+  const prefs = usePrefs();
   const filteredNotes = useMemo(() => {
+    const m = makeMatcher(searchQuery, prefs, patchNotes.map((n) => n.title));
     return sortNotes(patchNotes, sortMode).filter(note => {
       if (selectedCategory !== 'all' && note.category !== selectedCategory) {
         return false;
       }
       if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchTitle = note.title.toLowerCase().includes(query);
-        const matchVersion = note.version.toLowerCase().includes(query);
-        const matchContent = note.content.toLowerCase().includes(query);
-        const matchHighlights = note.highlights?.some(h => h.toLowerCase().includes(query));
-        return matchTitle || matchVersion || matchContent || matchHighlights;
+        return m(`${note.title} ${note.version} v${note.version} ${note.content} ${(note.highlights || []).join(' ')}`);
       }
       return true;
     });
-  }, [patchNotes, selectedCategory, searchQuery, sortMode]);
+  }, [patchNotes, selectedCategory, searchQuery, sortMode, prefs]);
 
   const activeNote = useMemo(() => {
     if (!activeNoteId) return null;

@@ -1,7 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Suspense, lazy } from 'react';
+import { FeedbackCompose } from './feedback/FeedbackCompose';
+import { resultText } from '../selftest/format';
+const SelfTestRunner = lazy(() => import('./SelfTestPage').then((m) => ({ default: m.SelfTestRunner })));
 import { checkSubmit, noteSubmit, visitorId } from '../utils/submitGuard';
 import { 
   X, 
+  Stethoscope,
   Loader2, 
   ArrowLeft, 
   MessageSquare, 
@@ -70,7 +74,14 @@ export interface SelectableItem {
 
 export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
   useBodyScrollLock(true);
-  const [tab, setTab] = useState<'suggestion' | 'bug' | 'data_request' | 'search_add'>('suggestion');
+  // 위 탭 3개: 의견 보내기(의견+버그) · 데이터 요청(방송 기록 추가 / 검색 결과 추가) · 앱 점검
+  const [top, setTop] = useState<'feedback' | 'data' | 'check'>(() => {
+    try { const t = sessionStorage.getItem('uzuhama_feedback_tab'); sessionStorage.removeItem('uzuhama_feedback_tab'); if (t === 'check' || t === 'data') return t; } catch { /* */ }
+    return 'feedback';
+  });
+  const [dataSub, setDataSub] = useState<'add' | 'search'>('add');
+  const [checkText, setCheckText] = useState('');
+  const [tab] = useState<'suggestion' | 'bug' | 'data_request' | 'search_add'>('data_request');
   
   // 기능 제안 & 버그 제보 공통 필드
   const [title, setTitle] = useState('');
@@ -78,7 +89,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
   const [os, setOs] = useState('iOS 및 iPadOS');
   
   // 데이터 추가/수정/삭제 요청 전용 필드
-  const [dataRequestType, setDataRequestType] = useState<'edit' | 'delete' | 'add'>('edit');
+  const [dataRequestType, setDataRequestType] = useState<'edit' | 'delete' | 'add'>('add'); // 고치기·지우기는 ⋮ › 신고로
   const [searchQuery, setSearchQuery] = useState('');
 
   // 복수 선택된 항목 키 Set
@@ -644,59 +655,39 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
             </div>
           ) : (
             <div className="space-y-5 max-w-xl mx-auto">
-              {/* 3-Way Type Switcher Tab: 기능 제안 / 버그 제보 / 데이터 요청 */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 p-1 bg-zinc-200/70 dark:bg-zinc-800/80 rounded-2xl shrink-0 gap-1">
-                <button 
-                  type="button"
-                  onClick={() => setTab('suggestion')} 
-                  className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                    tab === 'suggestion' 
-                      ? 'bg-white dark:bg-zinc-900 shadow-sm text-purple-600 dark:text-purple-400' 
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  <Lightbulb className="w-3.5 h-3.5 shrink-0" />
-                  <span>기능 제안</span>
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setTab('bug')} 
-                  className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                    tab === 'bug' 
-                      ? 'bg-white dark:bg-zinc-900 shadow-sm text-red-600 dark:text-red-400' 
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  <Bug className="w-3.5 h-3.5 shrink-0" />
-                  <span>버그 제보</span>
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setTab('data_request')} 
-                  className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                    tab === 'data_request' 
-                      ? 'bg-white dark:bg-zinc-900 shadow-sm text-indigo-600 dark:text-indigo-400' 
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  <Database className="w-3.5 h-3.5 shrink-0" />
-                  <span>데이터 요청</span>
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setTab('search_add')} 
-                  className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                    tab === 'search_add' 
-                      ? 'bg-white dark:bg-zinc-900 shadow-sm text-purple-600 dark:text-purple-400' 
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  <Search className="w-3.5 h-3.5 shrink-0" />
-                  <span>검색 결과 추가</span>
-                </button>
+              {/* 위 탭 3개 */}
+              <div className="grid grid-cols-3 p-1 bg-zinc-200/70 dark:bg-zinc-800/80 rounded-2xl shrink-0 gap-1" role="tablist">
+                {([['feedback', '의견 보내기', MessageSquare], ['data', '데이터 요청', Database], ['check', '앱 점검', Stethoscope]] as const).map(([k, l, Icon]) => (
+                  <button key={k} type="button" role="tab" aria-selected={top === k} onClick={() => setTop(k)} className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${top === k ? 'bg-white dark:bg-zinc-900 shadow-sm text-purple-600 dark:text-purple-400' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'}`}>
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    <span>{l}</span>
+                  </button>
+                ))}
               </div>
 
-              {tab === 'search_add' ? (
+              {top === 'feedback' ? (
+                <FeedbackCompose areas={tabOptions} selftest={checkText || undefined} onOpenCheck={() => setTop('check')} onDone={() => { setIsSubmitted(true); setTimeout(() => handleSafeClose(), 1400); }} />
+              ) : top === 'check' ? (
+                <div className="space-y-3">
+                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] p-4 space-y-2">
+                    <p className="text-sm font-bold text-zinc-900 dark:text-white">내 앱 점검하기</p>
+                    <p className="text-xs text-zinc-500 leading-relaxed break-keep">이 기기에서 사이트를 안쪽 창에 띄워 화면을 하나씩 열어 보고, 서버 연결까지 확인해요 (1~3분). 내 설정·기록은 끝나면 그대로 돌려놔요. 문제가 있으면 결과를 의견에 붙여 보낼 수 있어요.</p>
+                  </div>
+                  <Suspense fallback={<div className="flex items-center gap-2 text-xs text-zinc-500"><Loader2 className="w-4 h-4 animate-spin" /> 불러오는 중…</div>}>
+                    <SelfTestRunner embedded user onFinish={(r) => setCheckText(resultText(r))} />
+                  </Suspense>
+                  {checkText && (
+                    <button type="button" onClick={() => setTop('feedback')} className="w-full py-3 rounded-2xl bg-purple-600 text-white text-sm font-bold cursor-pointer">이 결과를 붙여서 의견 보내기</button>
+                  )}
+                </div>
+              ) : (<>
+              <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-100 dark:bg-zinc-800/60 rounded-xl">
+                {([['add', '방송 기록 추가'], ['search', '검색 결과 추가']] as const).map(([k, l]) => (
+                  <button key={k} type="button" aria-pressed={dataSub === k} onClick={() => setDataSub(k)} className={`py-2 text-xs font-bold rounded-lg cursor-pointer ${dataSub === k ? 'bg-white dark:bg-zinc-900 shadow-xs text-zinc-900 dark:text-white' : 'text-zinc-500'}`}>{l}</button>
+                ))}
+              </div>
+              <p className="px-1 text-[11px] text-zinc-500 break-keep">이미 있는 기록을 고치거나 지울 때는 그 영상의 ⋮ › 신고로 알려 주세요.</p>
+              {dataSub === 'search' ? (
                 <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] p-5 sm:p-6 shadow-xs">
                   <SearchAddForm mode="user" />
                 </div>
@@ -706,7 +697,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
               <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] p-5 sm:p-6 shadow-xs space-y-4">
                 
                 {/* 데이터 요청 탭일 경우: 추가/수정/삭제 서브타입 선택 */}
-                {tab === 'data_request' && (
+                {false && (
                   <div className="space-y-3 pb-2 border-b border-zinc-100 dark:border-zinc-800">
                     <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
                       요청 구분 <span className="text-purple-500">*</span>
@@ -1494,6 +1485,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                   )}
                 </button>
               </div>
+              </>)}
               </>)}
             </div>
           )}

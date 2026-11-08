@@ -72,6 +72,21 @@ export default async function handler(req: any, res: any) {
         const r = await tuneSearch(db, { force: true });
         return res.status(200).json({ success: true, ...r });
       }
+      case 'dataCheck': {
+        // 데이터 검증: get(결과 보기) · run(지금 검증) · apply(제안 적용) · ignore(무시)
+        const dc = await import('../_dataCheck.js');
+        const op = String(payload.op || 'get');
+        if (op === 'run') return res.status(200).json({ success: true, ...(await dc.runDataCheck(db)) });
+        if (op === 'apply') {
+          const before = (await db.collection('admin_data').doc('dataCheck').get()).data();
+          const issue = (before?.issues || []).find((x: any) => x.id === payload.id);
+          if (issue?.logId) await audit({ action: 'data_fix', target: issue.logId, before: (await db.collection('logs').doc(issue.logId).get()).data() || null });
+          return res.status(200).json({ success: true, ...(await dc.applyDataFix(db, String(payload.id || ''))) });
+        }
+        if (op === 'ignore') { await dc.ignoreDataIssue(db, String(payload.id || '')); return res.status(200).json({ success: true }); }
+        const d = (await db.collection('admin_data').doc('dataCheck').get()).data() || {};
+        return res.status(200).json({ success: true, at: d.at || null, stats: d.stats || null, counts: d.counts || {}, issues: d.issues || [], applied: (d.applied || []).slice(-20) });
+      }
       case 'checkDeadVideos': {
         const { checkDeadVideos } = await import('../_deadVideos.js');
         const r = await checkDeadVideos(db, { force: true });

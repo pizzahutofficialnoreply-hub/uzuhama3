@@ -31,7 +31,11 @@ export function SelfTestPage() {
 }
 
 /** 점검 본체: /selftest 페이지와 관리자 화면 안에서 같이 씀 (관리자 화면에서는 새 창 없이 바로) */
-export function SelfTestRunner({ auto = false, embedded = false }: { auto?: boolean; embedded?: boolean }) {
+export { resultText } from '../selftest/format';
+import { resultText } from '../selftest/format';
+
+export function SelfTestRunner({ auto = false, embedded = false, user = false, onFinish }: { auto?: boolean; embedded?: boolean; user?: boolean; onFinish?: (results: StepResult[]) => void }) {
+  const [deep, setDeep] = useState(!user); // 일반 사용자는 '전부 눌러 보기'(오래 걸림)를 골라서
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [running, setRunning] = useState(false);
   const [stage, setStage] = useState('');
@@ -48,11 +52,12 @@ export function SelfTestRunner({ auto = false, embedded = false }: { auto?: bool
       setResults((p) => [...p, r]);
       setStage(`${r.group} · ${r.name}`);
       (window as any).__selftest.results.push(r);
-    }, (() => { const o = new URLSearchParams(window.location.search).get('only'); return o ? { only: o.split(',') } : {}; })());
+    }, (() => { const o = new URLSearchParams(window.location.search).get('only'); return o ? { only: o.split(',') } : deep ? {} : { skip: ['전부 눌러 보기'] }; })());
     try { localStorage.removeItem(SELFTEST_FLAG); } catch { /* */ }
     (window as any).__selftest = { done: true, results: out.results, errors: out.errors.slice(0, 20) };
     setRunning(false); setDone(true);
     if (frameRef.current) frameRef.current.src = 'about:blank';
+    onFinish?.(out.results);
   };
   useEffect(() => { if (auto) { const t = setTimeout(start, 800); return () => clearTimeout(t); } }, []); // eslint-disable-line
 
@@ -70,9 +75,10 @@ export function SelfTestRunner({ auto = false, embedded = false }: { auto?: bool
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <button type="button" onClick={start} disabled={running} className="px-4 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-bold flex items-center gap-2 disabled:opacity-60 cursor-pointer">
-              {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} {running ? '점검 중…' : done ? '다시 점검' : '전체 점검 시작'}
+              {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} {running ? '점검 중…' : done ? '다시 점검' : user ? '점검 시작' : '전체 점검 시작'}
             </button>
             <label className="text-xs flex items-center gap-1.5"><input type="checkbox" checked={phone} onChange={(e) => setPhone(e.target.checked)} disabled={running} /> 휴대폰 크기</label>
+            <label className="text-xs flex items-center gap-1.5"><input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} disabled={running} /> 전부 눌러 보기{user ? ' (5~15분)' : ''}</label>
           </div>
           <div className="rounded-[28px] border-4 border-zinc-800 overflow-hidden bg-white shadow-xl" style={{ width: phone ? 'min(390px, 100%)' : 'min(1024px, 100%)', height: phone ? 760 : 700 }}>
             <iframe ref={frameRef} title="점검할 화면" src="about:blank" className="w-full h-full border-0" />

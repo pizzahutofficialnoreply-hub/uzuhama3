@@ -85,6 +85,18 @@ function SummaryBody({ d, onSeek, onSearch }: { d: any; onSeek: (t: number) => v
     <div className="space-y-5">
       {d.summary && <p className="text-[14px] text-zinc-800 dark:text-zinc-100 leading-relaxed break-keep">{d.summary}</p>}
 
+      {d.opanmu && (
+        <button type="button" onClick={() => onSearch('오팬무')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer">
+          <span className="text-purple-600 dark:text-purple-400">오팬무</span> {d.opanmu}
+        </button>
+      )}
+
+      {d.nogari && (
+        <Section icon={<span className="text-[13px]">💬</span>} title="노가리">
+          <p className="text-[13px] text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep whitespace-pre-line">{d.nogari}</p>
+        </Section>
+      )}
+
       {chapters.length > 0 ? (
         <Section icon={<BookOpen className="w-3.5 h-3.5" />} title="흐름 · 이야기별 요약">
           <ol className="relative space-y-2.5 pl-4 before:absolute before:left-[5px] before:top-2 before:bottom-2 before:w-px before:bg-zinc-200 dark:before:bg-zinc-700">

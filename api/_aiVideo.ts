@@ -27,7 +27,7 @@ const QUEUE_TTL = 12 * 3600 * 1000;
 // 영상 분석은 정확도 우선: 가벼운 Lite 모델로는 하지 않음 (붐비거나 한도면 기다렸다가 이어서)
 const MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest'].filter(Boolean) as string[];
 /** 분석 방식 버전: 바뀌면 예전 방식(가벼운 모델·낮은 화질)으로 본 영상을 다시 봄 */
-const PV = 3; // 3: 한 말·함께한 사람도 기록
+const PV = 4; // 4: 생방송 노가리·오팬무 // 3: 한 말·함께한 사람도 기록
 const TEXT_MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean) as string[];
 
 type QItem = { id: string; title: string; publishedAt: string; kind?: 'video' | 'short' | 'live'; duration?: number; live?: string; logDate?: string; games?: string[]; gameLinks?: Record<string, string>; comp?: boolean };
@@ -70,6 +70,8 @@ function buildKw(doc: any): string[] {
   (doc.mood || []).forEach(add);
   (doc.games || []).forEach((g: any) => { add(g.name); (g.tags || []).forEach(add); (g.aliases || []).forEach(add); if (g.genre) add(g.genre); });
   (doc.scenes || []).forEach((sc: Scene) => { (sc.k || []).forEach(add); (sc.w || []).forEach(add); if (sc.q) add(sc.q); });
+  String(doc.nogari || '').split(/\s+/).forEach(add);
+  if (doc.opanmu) { add('오팬무'); String(doc.opanmu).split(/\s+/).forEach(add); }
   (doc.chapters || []).forEach((c: any) => { add(c.title || ''); String(c.summary || '').split(/\s+/).forEach(add); });
   (doc.gameStories || []).forEach((g: any) => { add(g.name || ''); [g.story, g.result, ...(g.highlights || []).map((h: any) => h.d)].join(' ').split(/\s+/).forEach(add); });
   String(doc.title || '').split(/\s+/).forEach(add);
@@ -265,7 +267,9 @@ ${item.logDate ? `방송 날짜: ${item.logDate}\n` : ''}${item.games?.length ? 
  "scenes": [{"t": "원본 영상 기준 시작 시각 MM:SS 또는 H:MM:SS", "d": "무슨 장면인지 한 문장", "k": ["검색 키워드 3~8개: 장면 성격(점프스케어, 귀신, 비명, 웃음, 노래, 보스전, 엔딩, 사망, 실패, 성공 등)·등장 대상·감정·맵/스테이지 이름"], "say": "그 순간 우주하마나 함께한 사람이 한 인상적인 말 (그대로, 없으면 빈칸)", "who": ["화면·말로 확인되는 함께한 사람 이름이나 닉네임"], "sure": true}],
  "games": [{"name": "화면에 나온 게임 정식 이름(영문이면 영문 그대로)", "ko": "한국어 이름이나 흔히 부르는 이름"}],
  "keywords": ["이 ${whole ? '영상' : '구간'} 전체를 대표하는 검색어 5~15개 (한국어)"],
- "mood": ["분위기 단어 1~5개 (공포, 웃김, 힐링, 긴장감, 감동, 혼돈 등)"]
+ "mood": ["분위기 단어 1~5개 (공포, 웃김, 힐링, 긴장감, 감동, 혼돈 등)"]${item.kind === 'live' ? `,
+ "nogari": "게임 시작 전 수다(노가리) 부분이 이 구간에 있으면: 무슨 얘기를 했는지 앞뒤 흐름 그대로, 웃긴 말·드립·리액션을 살려서 시청자가 말하듯 편하게 3~8문장. 요약 보고서 말투(~했다, ~를 언급함) 말고 '~했는데 ~해서 빵 터짐' 같은 말투. 노가리가 없으면 빈칸",
+ "opanmu": "우주하마가 오늘 입은 팬티 색·무늬를 직접 정확히 말했으면 그 말 그대로 짧게 (예: 파란색, 핑크 땡땡이). 말 안 했거나 애매하면 빈칸"` : ''}
 }
 k 에는 화면에 실제로 또렷이 나온 것·실제로 들린 것만 넣어. '비명'은 크게 놀라 지르는 소리만 (작은 감탄사·"음~"·웃음·혼잣말은 '비명' 아님). 예: 귀신·괴물이 실제로 화면에 보이면 '귀신', 소리만 나거나 그림자·착각·"귀신인가?" 하는 말뿐이면 '귀신' 대신 '귀신 의심'·'소리'처럼 쓰고 sure 를 false 로. 확실하면 sure 는 true.
 scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'}), 시간 순서로.`;
@@ -289,6 +293,8 @@ scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'
     games: (Array.isArray(out.games) ? out.games : []).map((g: any) => ({ name: String(g?.name || '').trim().slice(0, 80), ko: String(g?.ko || '').trim().slice(0, 80) })).filter((g: any) => g.name),
     keywords: words(out.keywords, 15),
     mood: words(out.mood, 5, 10),
+    nogari: String(out.nogari || '').trim().slice(0, 1200),
+    opanmu: String(out.opanmu || '').trim().slice(0, 30),
   };
 }
 
@@ -316,18 +322,21 @@ async function analyzeGame(db: any, name: string, ko: string, link = '') {
 
 /** 한 번 부를 때 한 구간 (또는 마무리 한 단계). 결과를 짧게 돌려줌 */
 /** 스토리 정리 버전: 바뀌면 이미 본 영상도 (영상은 다시 안 보고) 정리만 다시 */
-const SV = 1;
+const SV = 2; // 2: 노가리·오팬무
 
 async function buildStory(title: string, cur: any, games: any[]) {
   const parts = (cur?.parts || []).map((p: any) => `[${fmt(p.from)}~${fmt(p.to)}] ${p.summary}`).join('\n').slice(0, 14000);
   const scenes = (cur?.scenes || []).filter((x: Scene) => !x.u).map((x: Scene) => `${fmt(x.t)} ${x.d}${x.q ? ` "${x.q}"` : ''}`).join('\n').slice(0, 16000);
+  const nogariRaw = (cur?.parts || []).filter((p: any) => p.nogari).map((p: any) => `[${fmt(p.from)}~${fmt(p.to)}] ${p.nogari}`).join('\n').slice(0, 6000);
+  const opanmu = ((cur?.parts || []).find((p: any) => p.opanmu) || {}).opanmu || '';
   const gl = games.map((g: any) => `- ${g.ko && g.ko !== g.name ? `${g.ko} (${g.name})` : g.name}${g.about ? `: ${g.about}` : ''}`).join('\n');
   const prompt = `스트리머 우주하마의 영상 "${title}" 을 AI가 보고 정리한 기록이야. 장면 하나하나가 아니라, 시청자가 한눈에 보게 '이야기·사건 단위'로 묶어 줘.
 규칙: 한국어. 기록에 없는 건 지어내지 말 것. 시간은 초(정수), 기록에 있는 시간만. 너무 잘게 나누지 말고 큰 흐름 위주.
 JSON 으로만:
 {"summary":"영상 전체 3~4문장",
  "chapters":[{"from":초,"to":초,"title":"이 구간 이름 (짧게)","summary":"무슨 일이 있었는지 1~2문장","game":"이때 하던 게임 이름(없으면 빈칸)"}],
- "gameStories":[{"name":"게임 이름 (아래 목록 그대로)","story":"이 영상에서 이 게임의 줄거리·진행 2~4문장 (스포일러 포함 가능)","result":"클리어·엔딩·포기 등 결과 (모르면 빈칸)","highlights":[{"t":초,"d":"하이라이트 한 줄"}]}]}
+ "gameStories":[{"name":"게임 이름 (아래 목록 그대로)","story":"이 영상에서 이 게임의 줄거리·진행 2~4문장 (스포일러 포함 가능)","result":"클리어·엔딩·포기 등 결과 (모르면 빈칸)","highlights":[{"t":초,"d":"하이라이트 한 줄"}]}],
+ "nogari":"아래 [노가리] 가 있으면 하나로 이어서: 앞뒤 자르지 말고 흐름 그대로, 웃긴 말·드립·리액션을 살려 시청자가 친구한테 얘기하듯 편하게 (보고서 말투 금지, 너무 길지만 않게 4~10문장). 없으면 빈칸"}
 chapters 는 영상 길이에 따라 3~12개, highlights 는 게임마다 최대 5개.
 
 [나온 게임]
@@ -335,6 +344,7 @@ ${gl || '(없음)'}
 
 [구간별 정리]
 ${parts}
+${nogariRaw ? `\n[노가리]\n${nogariRaw}\n` : ''}
 
 [장면 기록]
 ${scenes}`;
@@ -348,7 +358,7 @@ ${scenes}`;
     name: String(g.name || '').slice(0, 80), story: String(g.story || '').slice(0, 700), result: String(g.result || '').slice(0, 80),
     highlights: (Array.isArray(g.highlights) ? g.highlights : []).slice(0, 6).map((h: any) => ({ t: num(h.t), d: String(h.d || '').slice(0, 160) })).filter((h: any) => h.d),
   })).filter((g: any) => g.name && (g.story || g.highlights.length));
-  return { summary: String(j.summary || '').slice(0, 800), chapters, gameStories };
+  return { summary: String(j.summary || '').slice(0, 800), chapters, gameStories, nogari: String(j.nogari || '').trim().slice(0, 2000) || nogariRaw.replace(/\[[^\]]+\]\s*/g, '').slice(0, 2000), opanmu: String(opanmu).slice(0, 30) };
 }
 
 export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Promise<any> {
@@ -456,7 +466,7 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
       const next = {
         id: item.id, title: item.title, kind: item.kind, publishedAt: item.publishedAt, duration: dur, desc,
         segSec, pos: whole ? dur : end, seg: (cur?.parts?.length || 0) + 1, segTotal: (cur?.parts?.length || 0) + 1 + (whole ? 0 : Math.ceil(Math.max(0, dur - end) / segSec)),
-        parts: [...(cur?.parts || []), { from: start, to: end, summary: r.summary }].slice(0, 200),
+        parts: [...(cur?.parts || []), { from: start, to: end, summary: r.summary, ...(r.nogari ? { nogari: r.nogari } : {}), ...(r.opanmu ? { opanmu: r.opanmu } : {}) }].slice(0, 200),
         scenes, games,
         keywords: [...new Set([...(cur?.keywords || []), ...r.keywords])].slice(0, 60),
         mood: [...new Set([...(cur?.mood || []), ...r.mood])].slice(0, 8),
@@ -490,8 +500,8 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
       return null;
     });
     const summary = story?.summary || cur?.parts?.[0]?.summary || '';
-    const fin = { ...cur, games, summary, chapters: story?.chapters || [], gameStories: story?.gameStories || [] };
-    await ref.set({ summary, chapters: fin.chapters, gameStories: fin.gameStories, sv: story ? SV : 0, storyTries: story ? 0 : Number(cur?.storyTries || 0) + 1, kw: buildKw(fin), status: 'done', doneAt: new Date().toISOString() }, { merge: true });
+    const fin = { ...cur, games, summary, chapters: story?.chapters || [], gameStories: story?.gameStories || [], nogari: story?.nogari || '', opanmu: story?.opanmu || '' };
+    await ref.set({ summary, chapters: fin.chapters, gameStories: fin.gameStories, nogari: fin.nogari, opanmu: fin.opanmu, sv: story ? SV : 0, storyTries: story ? 0 : Number(cur?.storyTries || 0) + 1, kw: buildKw(fin), status: 'done', doneAt: new Date().toISOString() }, { merge: true });
     if ((st.priority || []).includes(item.id)) await stRef.set({ priority: (st.priority || []).filter((x: string) => x !== item!.id) }, { merge: true });
     await release({ calls: calls + 1, doneCount: Number(st.doneCount || 0) + 1 });
     return { id: item.id, title: item.title, finished: true };
@@ -629,7 +639,7 @@ export async function aiVideoDetail(db: any, id: string) {
   }
   return {
     found: true, id, title: d.title, kind: d.kind, status: d.status, seg: d.seg, segTotal: d.segTotal, model: d.model,
-    chapters: d.chapters || [], gameStories: d.gameStories || [],
+    chapters: d.chapters || [], gameStories: d.gameStories || [], nogari: d.nogari || '', opanmu: d.opanmu || '',
     summary: d.summary || '', parts: (d.parts || []).map((p: any) => ({ from: p.from, to: p.to, summary: p.summary })),
     scenes: (d.scenes || []).map((s: Scene) => ({ t: s.t, d: s.q ? `${s.d} — "${s.q}"` : s.d, k: s.k, ...(s.u ? { vague: true } : {}) })),
     games: games.map((g: any) => ({ name: g.name, ko: g.ko, genre: g.genre, about: g.about, tags: g.tags, horror: g.horror })),
@@ -790,3 +800,6 @@ JSON 으로만: {"found":true,"moments":[{"t":"MM:SS 또는 H:MM:SS","d":"한 �
   await ref.set({ q: q.slice(0, 80), per, at: new Date().toISOString() }, { merge: true });
   return pack(true, { failed: checked.filter((c: any) => c.error).length });
 }
+
+/** 데이터 검증(_dataCheck)에서 같이 씀 */
+export { gen as aiGen, parseJson as aiParseJson, yt as ytApi, ytKey as ytApiKey, TEXT_MODELS as AI_TEXT_MODELS, parseDur as ytParseDur };

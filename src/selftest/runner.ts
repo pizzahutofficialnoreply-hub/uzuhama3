@@ -12,7 +12,7 @@ const API = (import.meta.env.VITE_VERCEL_API_URL ||
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepResult) => void, opts: { only?: string[] } = {}) {
+export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepResult) => void, opts: { only?: string[]; skip?: string[] } = {}) {
   const results: StepResult[] = [];
   const errors: string[] = [];
   const W = () => frame.contentWindow as any as Window & typeof globalThis;
@@ -103,6 +103,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
   const step = async (group: string, name: string, fn: () => Promise<void>, limitMs = 30000) => {
     stepDetails = undefined;
     if (opts.only && !opts.only.includes(group)) return;
+    if (opts.skip && opts.skip.includes(group)) return;
     const t0 = Date.now();
     const before = errors.length;
     let r: StepResult;
@@ -270,7 +271,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
      * 누르면 나오는 메뉴·창 안의 항목까지 한 번 더 눌러 봄. 지우기·보내기·구독 같은 되돌릴 수 없는 건 안 누름.
      * 바깥 링크는 누르지 않고 주소가 제대로인지만 봄. 새 창·공유·복사·다운로드는 실제로 안 하고 불렸는지만 셈 */
     // 이 기기 안에서만 바뀌는 것(검색 기록 지우기·보기 방식 등)은 점검 뒤 되돌리니 누름. 서버·바깥으로 나가거나 되돌릴 수 없는 것만 안 누름
-    const SKIP = /로그아웃|연결 끊기|(?<!내)보내기|제출|신고하기|구독하기|알림 (켜|끄)|알림 받기|허용|설치하기|앱 설치|홈 화면에 추가|기기 연결 만들기|QR·연결 코드|먼저 봐 달라|의견 남기기|패치 등록|많이 보고 싶어요|투표/;
+    const SKIP = /로그아웃|연결 끊기|(?<!내)보내기|제출|신고하기|구독하기|알림 (켜|끄)|알림 받기|허용|설치하기|앱 설치|홈 화면에 추가|기기 연결 만들기|QR·연결 코드|먼저 봐 달라|의견 남기기|패치 등록|많이 보고 싶어요|투표|점검 시작|다시 점검/;
     const CTRL = 'button, a[href], [role="button"], [role="tab"], [role="menuitem"], [role="switch"], [role="option"], input[type="checkbox"], input[type="radio"], summary';
     const labelOf = (el: HTMLElement) => (el.getAttribute('aria-label') || el.getAttribute('title') || el.innerText || (el as HTMLInputElement).value || '').replace(/\s+/g, ' ').trim().slice(0, 40);
     const keyOf = (el: HTMLElement) => `${el.tagName}|${el.getAttribute('role') || ''}|${labelOf(el).replace(/[\d,.:%]+/g, '#')}`;
