@@ -4,4 +4,6 @@ jobs:
   p:
     runs-on: ubuntu-latest
     steps:
-      - run: curl -sS --max-time 295 "https://uzuhama.vercel.app/api/videos/search-index?ai=check" | jq '{ok, stats: (.stats|del(.dateFixedSample))}'
+      - run: |
+          curl -sS --max-time 295 "https://uzuhama.vercel.app/api/videos/search-index?ai=check" > r.json
+          jq '{ok, skipped, stats: (.stats|del(.dateFixedSample))}' r.json || cat r.json
