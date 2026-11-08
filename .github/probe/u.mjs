@@ -1,0 +1,27 @@
+import fs from 'fs';
+import { normalizeHistorical, overlayMonthDocs } from '../../src/utils/archiveOverlay.ts';
+const conv = (v) => v.stringValue ?? v.booleanValue ?? (v.integerValue != null ? Number(v.integerValue) : v.doubleValue ?? (v.arrayValue ? (v.arrayValue.values || []).map(conv) : v.mapValue ? obj(v.mapValue.fields || {}) : null));
+const obj = (f) => Object.fromEntries(Object.entries(f || {}).map(([k, v]) => [k, conv(v)]));
+const hist = normalizeHistorical(JSON.parse(fs.readFileSync('h.json', 'utf8')));
+const docs = JSON.parse(fs.readFileSync('all.json', 'utf8')).documents.map((d) => obj(d.fields));
+const logs = Object.values(overlayMonthDocs(hist, docs)).filter((l) => l.date && !l.isAbsence);
+const yt = (u) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
+const inLog = new Set(); const inHist = new Set();
+logs.forEach((l) => ['vods', 'edited', 'shorts'].forEach((k) => (l[k] || []).forEach((x) => { const id = yt(typeof x === 'string' ? x : x?.url); if (id) inLog.add(id); })));
+Object.values(hist).forEach((l) => ['vods', 'edited', 'shorts'].forEach((k) => (l[k] || []).forEach((x) => { const id = yt(typeof x === 'string' ? x : x?.url); if (id) inHist.add(id); })));
+const up = JSON.parse(fs.readFileSync('up.json', 'utf8'));
+const vids = up.videos || up.items || up;
+console.log('keys', Object.keys(up).slice(0, 8), 'count', vids.length);
+const un = vids.filter((v) => !inLog.has(v.videoId));
+const byYear = {}; un.forEach((v) => { const y = (v.publishedAt || '').slice(0, 4); byYear[y] = (byYear[y] || 0) + 1; });
+console.log('channel videos', vids.length, 'unlinked', un.length, JSON.stringify(byYear));
+const live = un.filter((v) => /생방송|LIVE|라이브/i.test(v.title)).length;
+console.log('unlinked that look like live archives', live);
+// 날짜에 방송 기록이 있는 것
+const dates = new Set(logs.map((l) => l.date));
+const kst = (iso) => new Date(Date.parse(iso) + 9 * 3600000).toISOString().slice(0, 10);
+const near = un.filter((v) => v.publishedAt && [0, 1, 2, 3].some((d) => dates.has(kst(new Date(Date.parse(v.publishedAt) - d * 86400000).toISOString())))).length;
+console.log('unlinked with a log within 3 days before upload', near);
+un.slice(0, 25).forEach((v) => console.log(' -', kst(v.publishedAt || '2000-01-01T00:00:00Z'), v.title.slice(0, 60)));
+const sh = JSON.parse(fs.readFileSync('sh.json', 'utf8')); const shorts = sh.videos || sh.items || sh.shorts || [];
+console.log('shorts keys', Object.keys(sh).slice(0, 8), 'shorts', shorts.length, 'unlinked shorts', shorts.filter((v) => !inLog.has(v.videoId)).length);
