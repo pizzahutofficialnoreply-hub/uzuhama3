@@ -87,7 +87,7 @@ export function writtenDate(text: string, near: string): string | null {
   return best;
 }
 /** 검증 방식 버전: 바뀌면 그날 이미 했어도 한 번 더 */
-export const DC_VER = 4;
+export const DC_VER = 5;
 const ytIdOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
 const sq = (s: string) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
 const kstDate = (iso: string) => new Date(Date.parse(iso) + KST).toISOString().slice(0, 10);
@@ -96,7 +96,7 @@ const minutesOf = (d: string, t: string) => Date.parse(`${d}T${t || '00:00'}:00Z
 const looseMatch = (a: string, b: string) => { const x = sq(a); const y = sq(b); return !!x && !!y && (x.includes(y) || y.includes(x)); };
 
 export type Issue = {
-  id: string; type: 'time' | 'game' | 'link' | 'link_dead';
+  id: string; type: 'time' | 'game' | 'link' | 'link_dead' | 'dup';
   logId: string; date: string; msg: string;
   fix?: { field: 'time' | 'endTime' | 'game' | 'link'; index?: number; from: string; to: string }[];
   video?: string;
@@ -117,6 +117,166 @@ async function checkLink(url: string, name: string): Promise<{ ok: boolean; why?
   }
 }
 
+
+/**
+ * 링크(생방·영상) 고치기: 관리자 수정분 자리(items[id], 아카이브면 _patch)에 씀
+ * (__dc 는 맨 나중에 덮어써서 나중에 관리자가 넣은 링크를 지울 수 있으니 시간·날짜만 둠)
+ */
+async function patchLinks(db: any, list: { l: any; fill: Record<string, any> }[], historical: Record<string, any>) {
+  const byMonth = new Map<string, { l: any; fill: any }[]>();
+  // 아카이브 기록은 원래 날짜의 달 문서에 (관리자 수정분이 있는 곳)
+  list.forEach((x) => { const m = String(historical[x.l.id]?.date || x.l.date).slice(0, 7); byMonth.set(m, [...(byMonth.get(m) || []), x]); });
+  const now = new Date().toISOString();
+  const { FieldValue } = await import('firebase-admin/firestore');
+  for (const [month, xs] of byMonth) {
+    const ref = db.collection('logs_by_month').doc(month);
+    await db.runTransaction(async (tx: any) => {
+      const snap = await tx.get(ref);
+      const items = (snap.exists ? snap.data()?.items : null) || {};
+      const upd: Record<string, any> = { updatedAt: now };
+      xs.forEach(({ l, fill }) => {
+        if (historical[l.id]) {
+          const prev = items[l.id]?._patch ? items[l.id] : {};
+          upd[`items.${l.id}`] = { ...prev, id: l.id, date: prev.date || historical[l.id].date, _patch: true, _updatedAt: now, ...fill };
+          // 옛 방식 전체 사본은 정리 (내용은 위 fill 에 이미 합쳐져 있음)
+          Object.entries(items).forEach(([k, v]: [string, any]) => { if (k !== l.id && !k.endsWith('__dc') && !v?._patch && (v?.id === l.id || k === l.id)) upd[`items.${k}`] = FieldValue.delete(); });
+        } else upd[`items.${l.id}`] = { ...(items[l.id] || l), ...fill };
+      });
+      if (snap.exists) tx.update(ref, upd);
+      else { const it: any = {}; Object.entries(upd).forEach(([k, v]) => { if (k.startsWith('items.')) it[k.slice(6)] = v; }); tx.set(ref, { month, updatedAt: now, items: it }); }
+    });
+  }
+}
+
+const idsIn = (text: string) => [...String(text || '').matchAll(/(?:youtu\.be\/|v=|\/live\/|\/shorts\/|\/embed\/)([\w-]{11})/g)].map((m) => m[1]);
+const itemId = (x: any) => ytIdOf(typeof x === 'string' ? x : x?.url);
+
+/**
+ * 링크 정리 — 영상 설명란·제목을 기준으로
+ *  A) 같은 생방 링크가 여러 기록에: 설명란에 적힌 날짜(없으면 유튜브 시작일)·설명란에 걸린 편집 영상·게임 이름으로 맞는 기록 하나만 남기고 나머지에서 뺌
+ *  B) 생방 없는 기록(예전 카페 가져오기 등)의 편집 영상: 그 영상을 설명란에 건 생방, 또는 영상 설명란에 걸린 생방·적힌 날짜의 기록으로 옮김. 빈 기록은 지움
+ *  C) 같은 날 기록 둘 이상: 한쪽에 생방이 없으면 B와 같이 합치고, 둘 다 생방이 있으면 각 생방의 실제 방송일을 알려 줌
+ * 바꾼 내용은 applied 에 (이전 값 포함) 남김
+ */
+async function cleanupLinks(db: any, logs: any[], info: Map<string, any>, historical: Record<string, any>) {
+  const issues: Issue[] = [];
+  const summary: any = { dupLives: 0, removedLinks: 0, movedVideos: 0, deletedLogs: 0, sameDay: 0, actions: [] as any[] };
+  const deleted = new Set<string>();
+  const changed = new Map<string, any>(); // id → 바뀐 기록
+  const cur = (l: any) => changed.get(l.id) || l;
+  const set = (l: any, fields: any) => { const n = { ...cur(l), ...fields }; changed.set(l.id, n); Object.assign(l, fields); };
+
+  // 편집 영상 정보도 필요 (생방 없는 기록 · 같은 날 기록)
+  const need = new Set<string>();
+  logs.forEach((l: any) => { if (!(l.vods || []).some(itemId) || logs.some((o) => o !== l && o.date === l.date)) (l.edited || []).forEach((e: any) => { const id = itemId(e); if (id && !info.has(id)) need.add(id); }); });
+  const ids = [...need];
+  for (let i = 0; i < ids.length && ytApiKey(); i += 50) {
+    try { const j = await ytApi(`videos?part=snippet,liveStreamingDetails&id=${ids.slice(i, i + 50).join(',')}`); (j.items || []).forEach((it: any) => info.set(it.id, it)); } catch { break; }
+  }
+  const textOf = (id: string) => { const sn = info.get(id)?.snippet; return sn ? `${sn.title}\n${sn.description || ''}` : ''; };
+  const liveDate = (id: string) => {
+    const it = info.get(id); if (!it) return '';
+    const st = it.liveStreamingDetails?.actualStartTime || it.liveStreamingDetails?.scheduledStartTime;
+    const base = st ? kstDate(st) : kstDate(it.snippet?.publishedAt || new Date().toISOString());
+    return writtenDate(textOf(id), base) || (st ? base : '');
+  };
+  const dayGap = (a: string, b: string) => Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86400000;
+  const names = (l: any) => (l.games?.length ? l.games.map((g: any) => g.name) : [l.game]).filter(Boolean);
+
+  // ── A) 같은 생방이 여러 기록에 ──
+  const liveAt = new Map<string, any[]>();
+  logs.forEach((l: any) => (l.vods || []).forEach((v: any) => { const id = itemId(v); if (id) liveAt.set(id, [...new Set([...(liveAt.get(id) || []), l])]); }));
+  for (const [vid, ls] of liveAt) {
+    if (ls.length < 2) continue;
+    summary.dupLives++;
+    const real = liveDate(vid);
+    const desc = textOf(vid);
+    const dIds = new Set(idsIn(desc));
+    const score = (l: any) => (real && l.date === real ? 10 : 0)
+      + (l.edited || []).concat(l.shorts || []).filter((e: any) => dIds.has(itemId(e))).length * 5
+      + (names(l).some((n: string) => looseMatch(desc, n)) ? 3 : 0)
+      - (real ? dayGap(l.date, real) * 0.5 : 0);
+    const ranked = ls.map((l) => ({ l, s: score(l) })).sort((a, b) => b.s - a.s);
+    if (!desc || ranked[0].s <= 0 || (ranked[1] && ranked[1].s === ranked[0].s)) {
+      issues.push({ id: `dup:${vid}`, type: 'dup', logId: ranked[0].l.id, date: ranked[0].l.date, video: vid, msg: `생방 ${vid} 가 ${ls.map((l) => l.date).join(', ')} 기록에 다 있는데 설명란으로는 어느 날인지 못 정했어요${real ? ` (유튜브 방송일 ${real})` : ''}` });
+      continue;
+    }
+    const keep = ranked[0].l;
+    for (const { l } of ranked.slice(1)) {
+      const before = (cur(l).vods || []);
+      set(l, { vods: before.filter((v: any) => itemId(v) !== vid) });
+      summary.removedLinks++;
+      summary.actions.push({ id: `dedupe:${vid}:${l.id}`, at: new Date().toISOString(), logId: l.id, kind: '중복 생방 뺌', msg: `생방 ${vid}: ${keep.date} 기록에 남기고 ${l.date} 기록에서 뺌 (설명란${real ? ` 방송일 ${real}` : ''})`, from: { vods: before } });
+    }
+  }
+
+  // ── B·C) 생방 없는 기록의 편집 영상 → 맞는 생방 기록으로 ──
+  const liveOfVideo = new Map<string, any>(); // 생방 설명란에 걸린 편집 영상 → 그 생방 기록
+  logs.forEach((l: any) => (l.vods || []).forEach((v: any) => idsIn(textOf(itemId(v))).forEach((id) => { if (!liveOfVideo.has(id)) liveOfVideo.set(id, l); })));
+  const liveLogOf = (id: string) => logs.find((l: any) => !deleted.has(l.id) && (cur(l).vods || []).some((v: any) => itemId(v) === id));
+  for (const l of logs) {
+    if (deleted.has(l.id) || (cur(l).vods || []).some(itemId) || !(cur(l).edited || []).length) continue;
+    const moves: { item: any; to: any; why: string }[] = [];
+    for (const e of cur(l).edited || []) {
+      if (e?.isCompilation || e?.compilationId) continue;
+      const id = itemId(e); if (!id) continue;
+      let to = liveOfVideo.get(id); let why = '생방 설명란에 이 영상이 걸려 있음';
+      if (!to) { const lid = idsIn(textOf(id)).find((x) => liveLogOf(x)); if (lid) { to = liveLogOf(lid); why = '영상 설명란에 생방 링크'; } }
+      if (!to) {
+        const sn = info.get(id)?.snippet;
+        const wd = sn ? writtenDate(textOf(id), kstDate(sn.publishedAt)) : null;
+        const cands = wd ? logs.filter((o: any) => o !== l && !deleted.has(o.id) && o.date === wd && (cur(o).vods || []).some(itemId)) : [];
+        if (cands.length === 1) { to = cands[0]; why = `영상 설명란 날짜 ${wd}`; }
+      }
+      if (to && to !== l) moves.push({ item: e, to, why });
+    }
+    if (!moves.length) {
+      if (logs.some((o: any) => o !== l && o.date === l.date && !deleted.has(o.id)) || !historical[l.id]) issues.push({ id: `orphan:${l.id}`, type: 'dup', logId: l.id, date: l.date, msg: `${l.date} 기록에 생방이 없고, 영상 설명란으로도 어느 방송인지 못 찾았어요 (${(l.edited || []).map((e: any) => e.title || itemId(e)).slice(0, 3).join(', ')})` });
+      continue;
+    }
+    for (const m of moves) {
+      const tgt = cur(m.to);
+      if (!(tgt.edited || []).some((x: any) => itemId(x) === itemId(m.item))) set(m.to, { edited: [...(tgt.edited || []), m.item] });
+      summary.movedVideos++;
+      summary.actions.push({ id: `move:${itemId(m.item)}`, at: new Date().toISOString(), logId: m.to.id, kind: '영상 옮김', msg: `「${m.item.title || itemId(m.item)}」 ${l.date} → ${m.to.date} 기록 (${m.why})`, from: { logId: l.id } });
+    }
+    const movedIds = new Set(moves.map((m) => itemId(m.item)));
+    const left = { ...cur(l), edited: (cur(l).edited || []).filter((e: any) => !movedIds.has(itemId(e))) };
+    const empty = !(left.vods || []).length && !(left.edited || []).length && !(left.shorts || []).length && !names(left).length && !left.time;
+    if (empty && !historical[l.id]) {
+      deleted.add(l.id); changed.delete(l.id); summary.deletedLogs++;
+      summary.actions.push({ id: `del:${l.id}`, at: new Date().toISOString(), logId: l.id, kind: '빈 기록 지움', msg: `${l.date} 기록 (영상을 다 옮겨서 비었음)`, from: { log: cur(l) } });
+    } else set(l, { edited: left.edited });
+  }
+
+  // C) 같은 날 생방 있는 기록 둘 이상: 각 생방의 실제 방송일 알려 줌 (자동으로 안 바꿈)
+  const byDate = new Map<string, any[]>();
+  logs.forEach((l: any) => { if (!deleted.has(l.id)) byDate.set(l.date, [...(byDate.get(l.date) || []), l]); });
+  for (const [d, ls] of byDate) {
+    if (ls.length < 2) continue;
+    summary.sameDay++;
+    const desc = ls.map((l: any) => `${names(cur(l)).join(', ') || '게임 없음'}: ${(cur(l).vods || []).map((v: any) => { const id = itemId(v); const rd = id ? liveDate(id) : ''; return `생방 ${id}${rd ? ` (방송일 ${rd})` : ''}`; }).join(', ') || '생방 없음'}`).join(' / ');
+    issues.push({ id: `sameday:${d}`, type: 'dup', logId: ls[0].id, date: d, msg: `${d} 에 기록 ${ls.length}개 — ${desc}` });
+  }
+
+  // 저장: 바뀐 기록은 달별로 한 번에, 지울 기록은 항목 삭제
+  const list = [...changed.entries()].filter(([id]) => !deleted.has(id)).map(([id, l]) => {
+    const fields: any = {};
+    ['vods', 'edited', 'shorts', 'games'].forEach((k) => { fields[k] = l[k] || []; });
+    return { l: logs.find((x: any) => x.id === id), fill: fields };
+  }).filter((x) => x.l);
+  if (list.length) await patchLinks(db, list, historical);
+  const now = new Date().toISOString();
+  for (const id of deleted) {
+    const l = logs.find((x: any) => x.id === id);
+    const ref = db.collection('logs_by_month').doc(String(l.date).slice(0, 7));
+    const { FieldValue } = await import('firebase-admin/firestore');
+    await ref.update({ updatedAt: now, [`items.${id}`]: FieldValue.delete() });
+    try { await db.collection('logs').doc(id).delete(); } catch { /* */ }
+  }
+  return { issues, summary, deleted };
+}
+
 export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?: number } = {}) {
   const t0 = Date.now();
   const ref = db.collection('admin_data').doc('dataCheck');
@@ -124,7 +284,7 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
   const ignored: string[] = prev.ignored || [];
   const linkCache: Record<string, { at: string; ok: boolean; why?: string; title?: string }> = prev.linkCache || {};
   const site = await loadSiteLogs(db);
-  const logs = site.logs.filter((l: any) => !l.isAbsence);
+  let logs = site.logs.filter((l: any) => !l.isAbsence);
   const issues: Issue[] = [];
   const stats: any = { logs: logs.length, videos: 0, timeChecked: 0, gameChecked: 0, linksChecked: 0, ai: 0 };
 
@@ -142,6 +302,14 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
     }
   }
   stats.videos = info.size;
+
+  // ── 0) 링크 정리 (영상 설명란 기준): 같은 생방이 여러 기록에 / 생방 없는 기록의 영상 / 같은 날 기록 둘 ──
+  try {
+    const r = await cleanupLinks(db, logs, info, site.historical);
+    stats.cleanup = r.summary;
+    r.issues.forEach((i) => issues.push(i));
+    if (r.deleted.size) logs = logs.filter((l: any) => !r.deleted.has(l.id));
+  } catch (e: any) { stats.cleanupError = String(e?.message || e).slice(0, 200); }
 
   // ── 1) 방송 시간: 기록의 다시보기(여러 개면 가장 이른 시작 ~ 가장 늦은 끝)와 비교 ──
   //   비어 있는 시작·끝·방송 시간은 유튜브 값으로 바로 채움 (덮어쓰지는 않음), 다르면 고칠 제안
@@ -251,7 +419,7 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
   const kept = issues.filter((i) => !ignored.includes(i.id)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 400);
   const urls = new Set(links.map((x) => x.url));
   const cache = Object.fromEntries(Object.entries(linkCache).filter(([u]) => urls.has(u)));
-  const out = { v: DC_VER, at: new Date().toISOString(), ms: Date.now() - t0, stats, issues: kept, applied: [...(prev.applied || []), ...autoFilled].slice(-300), counts: kept.reduce((a: any, i) => { a[i.type] = (a[i.type] || 0) + 1; return a; }, {}), ignored, linkCache: cache };
+  const out = { v: DC_VER, at: new Date().toISOString(), ms: Date.now() - t0, stats, issues: kept, applied: [...(prev.applied || []), ...(stats.cleanup?.actions || []), ...autoFilled].slice(-400), counts: kept.reduce((a: any, i) => { a[i.type] = (a[i.type] || 0) + 1; return a; }, {}), ignored, linkCache: cache };
   await ref.set(JSON.parse(JSON.stringify(out)));
   return { at: out.at, ms: out.ms, stats, counts: out.counts };
 }

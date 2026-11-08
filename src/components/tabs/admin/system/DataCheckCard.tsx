@@ -8,6 +8,7 @@ const TYPE: Record<string, { label: string; icon: any; color: string }> = {
   game: { label: '게임 이름', icon: Gamepad2, color: 'text-amber-600' },
   link_dead: { label: '없는 링크', icon: Link2Off, color: 'text-red-600' },
   link: { label: '다른 게임 링크?', icon: Link2Off, color: 'text-orange-600' },
+  dup: { label: '중복·연결', icon: Link2Off, color: 'text-violet-600' },
 };
 
 export function DataCheckCard() {

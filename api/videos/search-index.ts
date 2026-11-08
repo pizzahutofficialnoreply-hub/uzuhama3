@@ -199,7 +199,7 @@ export default async function handler(req: any, res: any) {
         const prevDc = (await ref.get()).data() || {};
         const last = Date.parse(prevDc.at || '') || 0;
         // 검증 방식이 바뀌었으면(빈 시간 자동 채움 추가) 바로 한 번 더
-        if (Date.now() - last < 20 * 3600000 && prevDc.v === 4) return res.status(200).json({ skipped: '오늘 이미 함', at: new Date(last).toISOString() });
+        if (Date.now() - last < 20 * 3600000 && prevDc.v === 5) return res.status(200).json({ skipped: '오늘 이미 함', at: new Date(last).toISOString() });
         const dc = await import('../_dataCheck.js');
         const r = await dc.runDataCheck(db);
         return res.status(200).json({ ok: true, at: r.at, counts: r.counts, ms: r.ms, stats: r.stats });
