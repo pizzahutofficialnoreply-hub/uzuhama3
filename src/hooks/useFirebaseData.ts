@@ -161,6 +161,7 @@ export async function buildArchivePatch(log: BroadcastLog): Promise<any | null> 
   const base = historical[log.id] || Object.values(historical).find((l) => l.date === log.date);
   if (!base) return null;
   const patch: any = { id: base.id, date: base.date, _patch: true, _updatedAt: new Date().toISOString() };
+  if (log.date && log.date !== base.date) patch._date = log.date;
   const keys = new Set([...Object.keys(base), ...Object.keys(log)]);
   keys.forEach((k) => {
     if (PATCH_META_KEYS.has(k)) return;

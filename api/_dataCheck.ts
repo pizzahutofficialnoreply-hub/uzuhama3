@@ -53,7 +53,7 @@ async function patchSiteLog(db: any, log: any, fields: Record<string, any>, hist
 /** 여러 기록을 달별로 묶어 한 번에 (기록마다 쓰면 느림) */
 async function patchSiteLogs(db: any, list: { l: any; fill: Record<string, any> }[], historical: Record<string, any>) {
   const byMonth = new Map<string, { l: any; fill: any }[]>();
-  list.forEach((x) => { const m = String(x.l.date).slice(0, 7); byMonth.set(m, [...(byMonth.get(m) || []), x]); });
+  list.forEach((x) => { const m = String(historical[x.l.id]?.date || x.l.date).slice(0, 7); byMonth.set(m, [...(byMonth.get(m) || []), x]); });
   const now = new Date().toISOString();
   for (const [month, xs] of byMonth) {
     const ref = db.collection('logs_by_month').doc(month);
@@ -62,7 +62,11 @@ async function patchSiteLogs(db: any, list: { l: any; fill: Record<string, any> 
       const items = (snap.exists ? snap.data()?.items : null) || {};
       const upd: Record<string, any> = { updatedAt: now };
       xs.forEach(({ l, fill }) => {
-        if (historical[l.id]) { const key = `${l.id}__dc`; upd[`items.${key}`] = { ...(items[key] || {}), id: l.id, date: l.date, _patch: true, _updatedAt: now, ...fill }; }
+        if (historical[l.id]) {
+          const key = `${l.id}__dc`;
+          const { date: newDate, ...rest } = fill;
+          upd[`items.${key}`] = { ...(items[key] || {}), id: l.id, date: historical[l.id].date, _patch: true, _updatedAt: now, ...rest, ...(newDate ? { _date: newDate } : {}) };
+        }
         else upd[`items.${l.id}`] = { ...(items[l.id] || l), ...fill };
       });
       if (snap.exists) tx.update(ref, upd);
@@ -87,7 +91,7 @@ export function writtenDate(text: string, near: string): string | null {
   return best;
 }
 /** 검증 방식 버전: 바뀌면 그날 이미 했어도 한 번 더 */
-export const DC_VER = 7;
+export const DC_VER = 8;
 const ytIdOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
 const sq = (s: string) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
 const kstDate = (iso: string) => new Date(Date.parse(iso) + KST).toISOString().slice(0, 10);

@@ -6,7 +6,7 @@
  *  - JSON 에 없는 날짜(2026년 이후 등)는 그대로 추가
  */
 
-const PATCH_META_KEYS = new Set(['id', 'date', '_patch', '_updatedAt']);
+const PATCH_META_KEYS = new Set(['id', 'date', '_date', '_patch', '_updatedAt']);
 
 export const normalizeGameLinks = (log: any) =>
   Array.isArray(log?.games)
@@ -42,6 +42,8 @@ export function applyArchivePatch(base: any, patch: any): any {
     else merged[k] = patch[k];
   });
   merged.id = base.id;
+  // 날짜를 옮긴 수정분 (date 는 원본을 찾는 데 쓰니 새 날짜는 _date 에)
+  if (typeof patch._date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(patch._date)) merged.date = patch._date;
   merged.games = normalizeGameLinks(merged);
   return merged;
 }
