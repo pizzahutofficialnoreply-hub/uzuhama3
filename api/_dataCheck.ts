@@ -63,19 +63,36 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
   }
   stats.videos = info.size;
 
-  // ── 1) 방송 시간 ──
-  for (const [vid, l] of vidToLog) {
-    const ls = info.get(vid)?.liveStreamingDetails;
-    if (!ls?.actualStartTime) continue;
+  // ── 1) 방송 시간: 기록의 다시보기(여러 개면 가장 이른 시작 ~ 가장 늦은 끝)와 비교 ──
+  //   비어 있는 시작·끝·방송 시간은 유튜브 값으로 바로 채움 (덮어쓰지는 않음), 다르면 고칠 제안
+  const autoFilled: any[] = [];
+  for (const l of logs) {
+    const lives = (l.vods || []).map((v: any) => info.get(ytIdOf(typeof v === 'string' ? v : v?.url))?.liveStreamingDetails).filter((x: any) => x?.actualStartTime);
+    if (!lives.length) continue;
     stats.timeChecked++;
-    const sDate = kstDate(ls.actualStartTime); const sTime = kstTime(ls.actualStartTime);
-    const eTime = ls.actualEndTime ? kstTime(ls.actualEndTime) : '';
-    const diff = Math.abs(minutesOf(l.date, l.time) - minutesOf(sDate, sTime));
+    const startIso = lives.map((x: any) => x.actualStartTime).sort()[0];
+    const ends = lives.map((x: any) => x.actualEndTime).filter(Boolean).sort();
+    const endIso = ends[ends.length - 1] || '';
+    const sDate = kstDate(startIso); const sTime = kstTime(startIso);
+    const eTime = endIso ? kstTime(endIso) : '';
+    const hours = endIso ? Math.round(((Date.parse(endIso) - Date.parse(startIso)) / 3600000) * 10) / 10 : 0;
+    // 날짜가 하루 넘게 다르면 다른 방송의 영상일 수 있음 → 건드리지 않음
+    if (Math.abs(Date.parse(`${sDate}T00:00:00Z`) - Date.parse(`${l.date}T00:00:00Z`)) > 86400000) continue;
+    const fill: any = {};
+    if (!l.time) fill.time = sTime;
+    if (!l.endTime && eTime) fill.endTime = eTime;
+    if (!(Number(l.durationHours) > 0) && hours > 0 && hours < 30) fill.durationHours = hours;
+    if (Object.keys(fill).length) {
+      try { await db.collection('logs').doc(l.id).set(fill, { merge: true }); Object.assign(l, fill); autoFilled.push({ id: `fill:${l.id}`, at: new Date().toISOString(), logId: l.id, patch: fill }); } catch { /* */ }
+    }
     const fix: Issue['fix'] = [];
+    const diff = Math.abs(minutesOf(l.date, l.time) - minutesOf(sDate, sTime));
     if (l.time && diff > 45 && diff < 36 * 60) fix.push({ field: 'time', from: l.time, to: sTime });
-    if (eTime && l.endTime && Math.abs(minutesOf('2000-01-01', l.endTime) - minutesOf('2000-01-01', eTime)) > 45 && Math.abs(minutesOf('2000-01-01', l.endTime) - minutesOf('2000-01-01', eTime)) < 23 * 60) fix.push({ field: 'endTime', from: l.endTime, to: eTime });
-    if (fix.length) issues.push({ id: `time:${l.id}`, type: 'time', logId: l.id, date: l.date, video: vid, msg: `유튜브 생방송 기록은 ${sDate} ${sTime}${eTime ? `~${eTime}` : ''} 인데 방송 기록은 ${l.time || '-'}${l.endTime ? `~${l.endTime}` : ''}`, fix });
+    const eDiff = eTime && l.endTime ? Math.abs(minutesOf('2000-01-01', l.endTime) - minutesOf('2000-01-01', eTime)) : 0;
+    if (eDiff > 45 && eDiff < 23 * 60) fix.push({ field: 'endTime', from: l.endTime, to: eTime });
+    if (fix.length) issues.push({ id: `time:${l.id}`, type: 'time', logId: l.id, date: l.date, video: ytIdOf(typeof l.vods[0] === 'string' ? l.vods[0] : l.vods[0]?.url), msg: `유튜브 생방송 기록은 ${sDate} ${sTime}${eTime ? `~${eTime}` : ''} 인데 방송 기록은 ${l.time || '-'}${l.endTime ? `~${l.endTime}` : ''}`, fix });
   }
+  stats.autoFilled = autoFilled.length;
 
   // ── 2) 게임 이름: 제목·설명란·AI가 본 게임에 방송 기록의 게임이 하나도 없으면 AI에게 물어봄 ──
   const suspects: { l: any; vid: string; title: string; desc: string; aiGames: string[] }[] = [];
@@ -139,7 +156,7 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
   const kept = issues.filter((i) => !ignored.includes(i.id)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 400);
   const urls = new Set(links.map((x) => x.url));
   const cache = Object.fromEntries(Object.entries(linkCache).filter(([u]) => urls.has(u)));
-  const out = { at: new Date().toISOString(), ms: Date.now() - t0, stats, issues: kept, counts: kept.reduce((a: any, i) => { a[i.type] = (a[i.type] || 0) + 1; return a; }, {}), ignored, linkCache: cache };
+  const out = { at: new Date().toISOString(), ms: Date.now() - t0, stats, issues: kept, applied: [...(prev.applied || []), ...autoFilled].slice(-300), counts: kept.reduce((a: any, i) => { a[i.type] = (a[i.type] || 0) + 1; return a; }, {}), ignored, linkCache: cache };
   await ref.set(JSON.parse(JSON.stringify(out)));
   return { at: out.at, ms: out.ms, stats, counts: out.counts };
 }
@@ -156,6 +173,9 @@ export async function applyDataFix(db: any, issueId: string) {
   const patch: any = {};
   for (const f of issue.fix) {
     if (f.field === 'time' || f.field === 'endTime') patch[f.field] = f.to;
+    // 시작·끝이 다 있으면 방송 시간도 맞춤
+    const st = f.field === 'time' ? f.to : patch.time || log.time; const en = f.field === 'endTime' ? f.to : patch.endTime || log.endTime;
+    if ((f.field === 'time' || f.field === 'endTime') && st && en) { let m = minutesOf('2000-01-01', en) - minutesOf('2000-01-01', st); if (m <= 0) m += 1440; patch.durationHours = Math.round((m / 60) * 10) / 10; }
     if (f.field === 'game') {
       const games = [...(log.games || [])];
       const i = f.index ?? 0;

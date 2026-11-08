@@ -32,6 +32,7 @@ const TabSpinner = () => (
 import { NoticeModal } from './components/NoticeModal';
 import { NoticeBanner } from './components/NoticeBanner';
 import { HeaderDday } from './components/common/HeaderDday';
+import { SelfTestHeaderLine } from './components/common/UserSelfCheck';
 import { FeedbackModal } from './components/FeedbackModal';
 import { PolicyModal } from './components/PolicyModal';
 import { TermsRevisionModal } from './components/TermsRevisionModal';
@@ -1093,6 +1094,7 @@ function MainApp() {
           isHeaderHidden && "pointer-events-none shadow-none border-b-transparent"
         )}
       >
+        <SelfTestHeaderLine />
         <div className={cn("mx-auto px-3 sm:px-5 lg:px-8 h-14 sm:h-15 flex items-center justify-between gap-2 transition-all duration-300", isSettingsOpen ? "max-w-[1750px] 2xl:max-w-[1850px]" : "max-w-7xl 2xl:max-w-[1440px]")}>
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
             <button

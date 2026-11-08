@@ -6,29 +6,88 @@ import { getPrefs } from './userPrefs';
  * 의견 보내기의 '기기 정보 · 진단' 첨부 (아이폰 피드백 앱의 sysdiagnose 처럼)
  * 개인 정보(시청 기록 내용·검색어·이메일)는 넣지 않음: 기기·브라우저·앱 버전·설정 켜짐 여부·최근 오류만
  */
-export type DeviceInfo = { device: string; os: string; browser: string; app: string; screen: string };
+export type DeviceInfo = { device: string; os: string; browser: string; app: string; screen: string; model?: string };
 
-export function deviceInfo(): DeviceInfo {
+/** 아이폰은 기기 이름을 알려 주지 않아서 화면 크기로 짐작 (가로×세로 pt @배율) */
+const IPHONES: [string, string][] = [
+  ['440x956@3', 'iPhone 16 Pro Max / 17 Pro Max'],
+  ['420x912@3', 'iPhone Air'],
+  ['402x874@3', 'iPhone 16 Pro / 17 / 17 Pro'],
+  ['430x932@3', 'iPhone 14 Pro Max / 15 Plus / 15 Pro Max / 16 Plus'],
+  ['393x852@3', 'iPhone 14 Pro / 15 / 15 Pro / 16 / 16e'],
+  ['428x926@3', 'iPhone 12 Pro Max / 13 Pro Max / 14 Plus'],
+  ['390x844@3', 'iPhone 12 / 12 Pro / 13 / 13 Pro / 14 / 16e'],
+  ['375x812@3', 'iPhone X / XS / 11 Pro / 12 mini / 13 mini'],
+  ['414x896@3', 'iPhone XS Max / 11 Pro Max'],
+  ['414x896@2', 'iPhone XR / 11'],
+  ['414x736@3', 'iPhone 6s Plus / 7 Plus / 8 Plus'],
+  ['375x667@2', 'iPhone 6s / 7 / 8 / SE (2·3세대)'],
+  ['320x568@2', 'iPhone SE (1세대)'],
+];
+/** 갤럭시 모델 번호 → 이름 (앞자리로) */
+const GALAXY: [RegExp, string][] = [
+  [/^SM-S94/, 'Galaxy S26 시리즈'], [/^SM-S93/, 'Galaxy S25 시리즈'], [/^SM-S92/, 'Galaxy S24 시리즈'], [/^SM-S72/, 'Galaxy S24 FE'], [/^SM-S91/, 'Galaxy S23 시리즈'], [/^SM-S90/, 'Galaxy S22 시리즈'],
+  [/^SM-G99/, 'Galaxy S21 시리즈'], [/^SM-G98/, 'Galaxy S20 시리즈'], [/^SM-F9[67]/, 'Galaxy Z Fold 6·7'], [/^SM-F94/, 'Galaxy Z Fold 5'], [/^SM-F93/, 'Galaxy Z Fold 4'],
+  [/^SM-F7[67]/, 'Galaxy Z Flip 6·7'], [/^SM-F73/, 'Galaxy Z Flip 5'], [/^SM-F72/, 'Galaxy Z Flip 4'], [/^SM-A/, 'Galaxy A 시리즈'], [/^SM-M/, 'Galaxy M 시리즈'], [/^SM-X/, 'Galaxy Tab S'], [/^SM-T/, 'Galaxy Tab'],
+];
+
+export function deviceInfo(model = ''): DeviceInfo {
   const ua = navigator.userAgent;
   const ios = ua.match(/OS (\d+)[._](\d+)?(?:[._](\d+))? like Mac/);
+  const safariVer = Number(ua.match(/Version\/(\d+)/)?.[1] || 0);
   const and = ua.match(/Android (\d+(?:\.\d+)?)/);
-  const device = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'iPad' : /iPhone/.test(ua) ? 'iPhone' : and ? (ua.match(/Android [^;]+; ([^;)]+)/)?.[1]?.replace(/ Build.*/, '') || 'Android 기기') : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows PC' : /Linux/.test(ua) ? 'Linux' : '알 수 없음';
-  const os = ios ? `iOS ${ios[1]}${ios[2] ? `.${ios[2]}` : ''}` : and ? `Android ${and[1]}` : /Windows NT 10/.test(ua) ? 'Windows 10/11' : /Mac OS X ([\d_]+)/.test(ua) ? `macOS ${(ua.match(/Mac OS X ([\d_]+)/)?.[1] || '').replace(/_/g, '.')}` : navigator.platform || '';
-  const browser = /CriOS|Chrome\//.test(ua) && !/Edg|SamsungBrowser|Whale/.test(ua) ? `Chrome ${ua.match(/(?:CriOS|Chrome)\/(\d+)/)?.[1] || ''}` : /SamsungBrowser\/(\d+)/.test(ua) ? `삼성 인터넷 ${ua.match(/SamsungBrowser\/(\d+)/)?.[1]}` : /Whale\/(\d+)/.test(ua) ? `웨일 ${ua.match(/Whale\/(\d+)/)?.[1]}` : /Edg\/(\d+)/.test(ua) ? `Edge ${ua.match(/Edg\/(\d+)/)?.[1]}` : /Firefox\/(\d+)/.test(ua) ? `Firefox ${ua.match(/Firefox\/(\d+)/)?.[1]}` : /Safari/.test(ua) ? `Safari ${ua.match(/Version\/([\d.]+)/)?.[1] || ''}` : '기타';
+  const isIpad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const isIphone = /iPhone/.test(ua);
+  let device = 'PC';
+  if (isIphone) {
+    const key = `${Math.min(screen.width, screen.height)}x${Math.max(screen.width, screen.height)}@${Math.round(window.devicePixelRatio)}`;
+    device = IPHONES.find(([k]) => k === key)?.[1] || `iPhone (${key})`;
+  } else if (isIpad) device = 'iPad';
+  else if (and) {
+    const m = model || ua.match(/Android [^;]+; ([^;)]+)/)?.[1]?.replace(/ Build.*/, '').trim() || '';
+    const named = GALAXY.find(([re]) => re.test(m))?.[1];
+    device = m && m !== 'K' ? (named ? `${named} (${m})` : m) : 'Android 기기';
+  } else if (/Mac/.test(ua)) device = 'Mac';
+  else if (/Windows/.test(ua)) device = 'Windows PC';
+  else if (/Linux/.test(ua)) device = 'Linux';
+  // iOS 26부터 사파리가 OS 버전을 옛 값으로 고정해 보냄 → 사파리 버전(= iOS 버전)을 씀
+  const iosVer = ios ? (safariVer >= 26 ? `${safariVer}${ua.match(/Version\/\d+\.(\d+)/)?.[1] && ua.match(/Version\/\d+\.(\d+)/)![1] !== '0' ? `.${ua.match(/Version\/\d+\.(\d+)/)![1]}` : ''}` : `${ios[1]}${ios[2] ? `.${ios[2]}` : ''}`) : '';
+  const os = ios ? `${isIpad ? 'iPadOS' : 'iOS'} ${iosVer}` : and ? `Android ${and[1]}` : /Windows NT 10/.test(ua) ? 'Windows 10/11' : /Mac OS X ([\d_]+)/.test(ua) ? `macOS ${(ua.match(/Mac OS X ([\d_]+)/)?.[1] || '').replace(/_/g, '.')}` : navigator.platform || '';
+  const browser = /CriOS|Chrome\//.test(ua) && !/Edg|SamsungBrowser|Whale/.test(ua) ? `Chrome ${ua.match(/(?:CriOS|Chrome)\/(\d+)/)?.[1] || ''}` : /SamsungBrowser\/(\d+)/.test(ua) ? `삼성 인터넷 ${ua.match(/SamsungBrowser\/(\d+)/)?.[1]}` : /Whale\/(\d+)/.test(ua) ? `웨일 ${ua.match(/Whale\/(\d+)/)?.[1]}` : /Edg\/(\d+)/.test(ua) ? `Edge ${ua.match(/Edg\/(\d+)/)?.[1]}` : /Firefox\/(\d+)/.test(ua) ? `Firefox ${ua.match(/Firefox\/(\d+)/)?.[1]}` : /Safari/.test(ua) ? `Safari ${safariVer || ''}` : '기타';
   const standalone = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone;
   let notes: any[] = [];
   try { notes = JSON.parse(localStorage.getItem('uzuhama_patch_notes_v3') || '[]'); } catch { /* */ }
-  const app = `${latestReleaseVersion(notes) ? `v${latestReleaseVersion(notes)}` : '버전 모름'}${standalone ? ' · 홈 화면 앱' : ' · 웹'}`;
-  return { device, os, browser: browser.trim(), app, screen: `${window.screen.width}×${window.screen.height} @${window.devicePixelRatio}x` };
+  const ver = latestReleaseVersion(notes);
+  const build = String((import.meta as any).env?.VITE_BUILD_ID || '').slice(0, 7);
+  const app = `${ver ? `v${ver}` : '버전 확인 중'}${build ? ` (${build})` : ''} · ${standalone ? '홈 화면 앱' : '웹'}`;
+  return { device, os, browser: browser.trim(), app, screen: `${window.screen.width}×${window.screen.height} @${window.devicePixelRatio}x`, model: model || undefined };
+}
+
+/** 더 정확하게: 안드로이드 모델 번호(크롬이 알려 줌) + 앱 버전(패치노트) 받아 오기 */
+export async function deviceInfoFull(): Promise<DeviceInfo> {
+  let model = '';
+  try {
+    const uad: any = (navigator as any).userAgentData;
+    if (uad?.getHighEntropyValues) model = String((await uad.getHighEntropyValues(['model'])).model || '');
+  } catch { /* */ }
+  try {
+    const cached = JSON.parse(localStorage.getItem('uzuhama_patch_notes_v3') || '[]');
+    if (!Array.isArray(cached) || !cached.length) {
+      const base = (window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app');
+      const j = await fetch(`${base}/api/patch-notes`).then((r) => r.json());
+      if (Array.isArray(j?.notes)) localStorage.setItem('uzuhama_patch_notes_v3', JSON.stringify(j.notes));
+    }
+  } catch { /* */ }
+  return deviceInfo(model);
 }
 
 /** 진단 내용(글) 만들기 — 몇 초 안에 끝남 */
 export async function collectDiagnose(extra?: string): Promise<string> {
-  const d = deviceInfo();
+  const d = await deviceInfoFull();
   const lines: string[] = [];
   const add = (k: string, v: any) => lines.push(`${k}: ${v}`);
   add('수집 시각', new Date().toLocaleString('ko-KR'));
-  add('기기', `${d.device} · ${d.os}`);
+  add('기기', `${d.device} · ${d.os}${d.model ? ` · 모델 ${d.model}` : ''}`);
   add('브라우저', d.browser);
   add('앱', d.app);
   add('화면', `${d.screen} · 창 ${window.innerWidth}×${window.innerHeight}`);

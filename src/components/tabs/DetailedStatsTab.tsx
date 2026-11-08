@@ -1059,7 +1059,7 @@ export function DetailedStatsTab({
                           <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                           <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                           <Tooltip content={<TrendTooltip />} cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} />
-                          <Line type="monotone" dataKey="count" stroke="#7791c1" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7791c1' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
+                          <Line type="monotone" dataKey="count" stroke="#7791c1" strokeWidth={stats.trendStatsArray.length > 26 ? 2.75 : 3.5} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7791c1' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
                             <LabelList 
                               dataKey="count" 
                               content={(props: any) => (
@@ -1176,7 +1176,7 @@ export function DetailedStatsTab({
                         <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                         <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                         <Tooltip content={<TrendTooltip />} cursor={{ stroke: '#a1a1aa', strokeWidth: 1, strokeDasharray: '3 3' }} />
-                        <Line type="monotone" dataKey="count" stroke="#7791c1" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7791c1' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
+                        <Line type="monotone" dataKey="count" stroke="#7791c1" strokeWidth={stats.trendStatsArray.length > 26 ? 2.75 : 3.5} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7791c1' }} activeDot={{ r: 6 }} animationDuration={300} animationEasing="ease-out">
                           <LabelList 
                             dataKey="count" 
                             content={(props: any) => (
@@ -1420,7 +1420,7 @@ export function DetailedStatsTab({
                       <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
                       <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
-                      <Line type="monotone" dataKey="count" stroke="#7791c1" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7791c1' }} isAnimationActive={false}>
+                      <Line type="monotone" dataKey="count" stroke="#7791c1" strokeWidth={stats.trendStatsArray.length > 26 ? 2.75 : 3.5} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7791c1' }} isAnimationActive={false}>
                         <LabelList dataKey="count" position="top" fill="#7791c1" fontSize={12} offset={10} formatter={(val: number) => `${val}회`} />
                       </Line>
                     </LineChart>
@@ -1743,7 +1743,7 @@ export function DetailedStatsTab({
                     <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
                     <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
-                    <Line type="monotone" dataKey="count" stroke="#7791c1" strokeWidth={stats.trendStatsArray.length > 26 ? 2.25 : 3} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7791c1' }} isAnimationActive={false}>
+                    <Line type="monotone" dataKey="count" stroke="#7791c1" strokeWidth={stats.trendStatsArray.length > 26 ? 2.75 : 3.5} dot={stats.trendStatsArray.length > 26 ? false : { r: 4, fill: '#7791c1' }} isAnimationActive={false}>
                       <LabelList 
                         dataKey="count" 
                         content={(props: any) => (

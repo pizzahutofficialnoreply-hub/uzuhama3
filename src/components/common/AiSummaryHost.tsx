@@ -35,6 +35,32 @@ function loadDetail(id: string, fresh = false) {
   }
   return detailCache.get(id)!;
 }
+/** AI가 보기 시작한 영상 (⋮ 메뉴에 'AI 영상 요약' 보여 줄지) — 10분마다 새로 */
+let startedIds: Set<string> | null = null;
+let startedAt = 0;
+let startedP: Promise<Set<string>> | null = null;
+export function aiStartedIds(): Promise<Set<string>> {
+  if (startedIds && Date.now() - startedAt < 600000) return Promise.resolve(startedIds);
+  if (!startedP) {
+    startedP = fetch(`${API_BASE}/api/videos/search-index?ai=ids`).then((r) => r.json()).then((j) => {
+      startedIds = new Set<string>(Array.isArray(j?.ids) ? j.ids : []);
+      startedAt = Date.now();
+      return startedIds;
+    }).catch(() => startedIds || new Set<string>()).finally(() => { startedP = null; });
+  }
+  return startedP;
+}
+export function useAiStarted(id: string, enabled: boolean) {
+  const [on, setOn] = React.useState(() => Boolean(startedIds?.has(id)));
+  React.useEffect(() => {
+    if (!enabled || !/^[\w-]{11}$/.test(id)) return;
+    let alive = true;
+    aiStartedIds().then((s) => { if (alive) setOn(s.has(id)); });
+    return () => { alive = false; };
+  }, [id, enabled]);
+  return on;
+}
+
 /** 다 끝난 AI 요약이 있는 영상인지 (신고 이유에 'AI 요약이 틀려요'를 넣을지) */
 export async function hasAiSummary(id: string): Promise<boolean> {
   try { const d = await loadDetail(id); return Boolean(d?.found && !d.pending); } catch { return false; }

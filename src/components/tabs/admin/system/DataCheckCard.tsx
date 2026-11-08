@@ -34,7 +34,7 @@ export function DataCheckCard() {
         하루 한 번 자동: ① 다시보기가 유튜브 생방송 기록이면 실제 시작·끝 시각과 방송 기록 비교 ② 영상 제목·설명란·AI가 영상에서 본 게임과 기록된 게임 이름 비교 (안 맞으면 AI가 판단) ③ 게임 링크를 실제로 열어 없는 페이지·다른 게임 페이지인지 확인.
         자동으로 고치지는 않아요. '적용'을 누르면 고치고, 고치기 전 모습은 수정 기록에 남아요. 치지직은 다시보기를 남기지 않고, 옛 트위치 기록은 공식 API로 볼 수 없어서 비교하지 않아요.
       </p>
-      {d?.at && <p className="text-[11px] text-zinc-400">마지막 검증 {new Date(d.at).toLocaleString('ko-KR')} · 기록 {d.stats?.logs ?? '-'}개 · 유튜브 영상 {d.stats?.videos ?? '-'}개 · 시간 비교 {d.stats?.timeChecked ?? '-'} · 게임 비교 {d.stats?.gameChecked ?? '-'} (AI {d.stats?.ai ?? 0}번) · 링크 확인 {d.stats?.linksChecked ?? '-'}</p>}
+      {d?.at && <p className="text-[11px] text-zinc-400">마지막 검증 {new Date(d.at).toLocaleString('ko-KR')} · 기록 {d.stats?.logs ?? '-'}개 · 유튜브 영상 {d.stats?.videos ?? '-'}개 · 시간 비교 {d.stats?.timeChecked ?? '-'} · 게임 비교 {d.stats?.gameChecked ?? '-'} (AI {d.stats?.ai ?? 0}번) · 링크 확인 {d.stats?.linksChecked ?? "-"} · 빈 시간 자동 채움 {d.stats?.autoFilled ?? 0}</p>}
       {msg && <p className="text-xs font-semibold text-purple-600">{msg}</p>}
       <div className="flex flex-wrap gap-1.5">
         {['all', ...Object.keys(TYPE)].map((k) => (

@@ -12,7 +12,7 @@ const API = (import.meta.env.VITE_VERCEL_API_URL ||
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepResult) => void, opts: { only?: string[]; skip?: string[] } = {}) {
+export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepResult) => void, opts: { only?: string[]; skip?: string[]; onProgress?: (t: string) => void } = {}) {
   const results: StepResult[] = [];
   const errors: string[] = [];
   const W = () => frame.contentWindow as any as Window & typeof globalThis;
@@ -23,10 +23,17 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
   // 로그인 정보(firebase:…)와 기기 연결은 건드리지 않음 — 예전 것으로 되돌리면 관리자 로그인이 풀림
   const keep = (k: string) => k.startsWith('firebase:') || k.startsWith('uzuhama_device_link');
   for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i)!; if (!keep(k)) saved[k] = localStorage.getItem(k) || ''; }
+  // 점검 창(iframe)이 바꾼 것만 되돌림 — 점검하는 동안 사용자가 바깥 화면에서 바꾼 건(새 시청 기록 등) 그대로
+  // (같은 사이트의 다른 창이 바꾸면 이 창에 storage 이벤트가 옴 → 그 이름만 모아 둠)
+  const touched = new Set<string>(['uzuhama_onboarding_version', 'uzuhama_tutorial_done_v1']);
+  const onStorage = (e: StorageEvent) => { if (e.key && e.storageArea === localStorage) touched.add(e.key); };
+  window.addEventListener('storage', onStorage);
   const restore = () => {
     try {
-      Object.keys(localStorage).forEach((k) => { if (!keep(k) && !(k in saved)) localStorage.removeItem(k); });
-      Object.entries(saved).forEach(([k, v]) => localStorage.setItem(k, v));
+      touched.forEach((k) => {
+        if (keep(k)) return;
+        if (k in saved) localStorage.setItem(k, saved[k]); else localStorage.removeItem(k);
+      });
     } catch { /* */ }
   };
   try {
@@ -207,9 +214,18 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
     });
     await step('검색', '⋮ 메뉴 → AI 영상 요약이 열리고 닫혀요', async () => {
       ($('input[name="search_query"]') as HTMLInputElement)?.blur();
-      const more = await waitFor(() => $('button[aria-label="더 보기"]'), 6000, '⋮ 버튼');
-      more.click();
-      const item = await waitFor(() => byText('[role="menuitem"]', 'AI 영상 요약'), 4000, 'AI 영상 요약 메뉴');
+      // AI가 보기 시작한 영상에만 메뉴가 있음 → ⋮ 를 차례로 열어 찾기
+      await waitFor(() => $('button[aria-label="더 보기"]'), 6000, '⋮ 버튼');
+      let item: HTMLElement | null = null;
+      for (const more of $$('button[aria-label="더 보기"]').slice(0, 8)) {
+        more.click();
+        await waitFor(() => $('[role="menuitem"]'), 3000, '메뉴').catch(() => null);
+        item = await waitFor(() => byText('[role="menuitem"]', 'AI 영상 요약'), 1500, 'AI 메뉴').catch(() => null);
+        if (item) break;
+        D().dispatchEvent(new (W() as any).MouseEvent('mousedown', { bubbles: true }));
+        await sleep(200);
+      }
+      if (!item) throw Object.assign(new Error('보이는 영상 중 AI가 본 영상이 없어서 건너뜀 (정상)'), { warn: true });
       item.click();
       await waitFor(() => $('[role="dialog"][aria-label="AI 영상 요약"]'), 5000, 'AI 요약 창');
       await waitFor(() => !/불러오는 중/.test($('[role="dialog"][aria-label="AI 영상 요약"]')!.innerText), 12000, 'AI 요약 내용');
@@ -346,14 +362,20 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
         try { D().dispatchEvent(new (W() as any).KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch { /* */ }
         await sleep(250);
         if (sig() !== base && W().location.href !== '' ) { try { W().history.back(); } catch { /* */ } await sleep(600); }
-        if (sig() !== base) await setup();
+        if (sig() !== base) { setups++; await setup(); }
       };
+      // 같은 버튼을 또 누르지 않게: 글자가 바뀌어도(펼치기↔접기 등) 같은 모양이면 2번까지만
       const done = new Set<string>();
+      const seenKey = new Map<string, number>();
+      let setups = 0;
       const t0 = Date.now();
-      while (pressed < max && Date.now() - t0 < 200000) {
-        const next = controls().find((c) => !done.has(c.id));
+      while (pressed < max && Date.now() - t0 < 200000 && setups < 30) {
+        const next = controls().find((c) => !done.has(c.id) && (seenKey.get(c.id.replace(/#\d+$/, '')) || 0) < 2);
         if (!next) break;
         done.add(next.id);
+        const k0 = next.id.replace(/#\d+$/, '');
+        seenKey.set(k0, (seenKey.get(k0) || 0) + 1);
+        opts.onProgress?.(`${screen} · ${pressed + 1}/${max} · ${next.label.slice(0, 20)}`);
         const el = next.el;
         // 되돌릴 수 없는 건 안 누름
         if (SKIP.test(next.label)) { notes.push(`안 누름(되돌릴 수 없음): ${next.label}`); continue; }
@@ -368,7 +390,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
         const errBefore = errors.length;
         const before = snap(el);
         const ovBefore = overlays();
-        await press(el);
+        await Promise.race([press(el), sleep(5000)]);
         pressed++;
         let after = snap(el);
         // 오래 걸리는 동작(PDF·CSV 만들기, 화면 이동 뒤 불러오기)은 조금 더 기다려 봄
@@ -407,8 +429,14 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
             else if (!reacted(b2, a2) && !already(cur.el)) dead.push(`${next.label} › ${c.label}`);
           }
         }
-        await reset();
+        // 처음 화면으로 (멈추면 20초 뒤 다시 불러옴, 그래도 안 되면 이 화면은 여기까지)
+        const ok = await Promise.race([reset().then(() => true).catch(() => false), sleep(20000).then(() => false)]);
+        if (!ok) {
+          notes.push(`'${next.label}' 누른 뒤 처음 화면으로 못 돌아와서 다시 불러옴`);
+          try { setups++; await Promise.race([setup(), sleep(20000).then(() => { throw new Error('멈춤'); })]); } catch { notes.push('화면을 다시 못 불러와서 이 화면은 여기까지'); break; }
+        }
       }
+      if (setups >= 30) notes.push('처음 화면으로 너무 자주 돌아가서 여기까지만 눌렀어요');
       stepDetails = [
         `눌러 본 것 ${pressed}개 (메뉴·창 안 ${nestedDone}곳 포함)`,
         ...broken.map((x) => `❌ ${x}`),
@@ -470,7 +498,9 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
     await api('DB: 방송 기록 읽기', 'https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs?key=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM&pageSize=3', (j, r) => r.ok && (j?.documents || []).length > 0);
     await api('DB: 방문자는 푸시 구독 목록을 못 읽어요', 'https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/push_subscriptions?key=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM&pageSize=1', (j, r) => r.status === 403 || (r.ok && !(j?.documents || []).length));
   } finally {
+    await sleep(400); // 마지막 storage 이벤트까지 받고
     restore();
+    window.removeEventListener('storage', onStorage);
   }
   return { results, errors };
 }

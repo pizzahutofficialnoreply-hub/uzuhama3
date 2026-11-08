@@ -4,7 +4,7 @@ import { Bug, ChevronRight, FileText, ImagePlus, Lightbulb, Loader2, Paperclip, 
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { checkSubmit, noteSubmit, visitorId } from '../../utils/submitGuard';
-import { collectDiagnose, deviceInfo, shrinkImage } from '../../utils/diagnose';
+import { collectDiagnose, deviceInfo, deviceInfoFull, shrinkImage } from '../../utils/diagnose';
 import { cn } from '../../utils';
 
 /**
@@ -34,7 +34,8 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const file = useRef<HTMLInputElement>(null);
-  const dev = deviceInfo();
+  const [dev, setDev] = useState(() => deviceInfo());
+  useEffect(() => { deviceInfoFull().then(setDev).catch(() => {}); }, []);
 
   // 앱 진단은 열자마자 조용히 모음 (몇 초)
   useEffect(() => { let alive = true; collectDiagnose().then((t) => { if (alive) setDiag(t); }).catch(() => { if (alive) setDiag('진단을 모으지 못했어요'); }); return () => { alive = false; }; }, []);
@@ -135,7 +136,7 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
           <div className="flex items-center gap-3 px-4 py-3">
             <span className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0"><Smartphone className="w-4.5 h-4.5 text-zinc-500" /></span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-semibold text-zinc-900 dark:text-white">{dev.device}</span>
+              <span className="block text-[14px] font-semibold text-zinc-900 dark:text-white">{dev.device}</span>{/iPhone/.test(dev.device) && <span className="block text-[10.5px] text-zinc-400">아이폰은 정확한 기종을 알려 주지 않아 화면 크기로 짐작했어요</span>}
               <span className="block text-[11.5px] text-zinc-500 truncate">{dev.os} · {dev.browser} · {dev.app}</span>
             </span>
           </div>

@@ -1,7 +1,6 @@
-import React, { useState, useMemo, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { FeedbackCompose } from './feedback/FeedbackCompose';
-import { resultText } from '../selftest/format';
-const SelfTestRunner = lazy(() => import('./SelfTestPage').then((m) => ({ default: m.SelfTestRunner })));
+import { UserSelfCheck } from './common/UserSelfCheck';
 import { checkSubmit, noteSubmit, visitorId } from '../utils/submitGuard';
 import { 
   X, 
@@ -668,18 +667,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
               {top === 'feedback' ? (
                 <FeedbackCompose areas={tabOptions} selftest={checkText || undefined} onOpenCheck={() => setTop('check')} onDone={() => { setIsSubmitted(true); setTimeout(() => handleSafeClose(), 1400); }} />
               ) : top === 'check' ? (
-                <div className="space-y-3">
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] p-4 space-y-2">
-                    <p className="text-sm font-bold text-zinc-900 dark:text-white">내 앱 점검하기</p>
-                    <p className="text-xs text-zinc-500 leading-relaxed break-keep">이 기기에서 사이트를 안쪽 창에 띄워 화면을 하나씩 열어 보고, 서버 연결까지 확인해요 (1~3분). 내 설정·기록은 끝나면 그대로 돌려놔요. 문제가 있으면 결과를 의견에 붙여 보낼 수 있어요.</p>
-                  </div>
-                  <Suspense fallback={<div className="flex items-center gap-2 text-xs text-zinc-500"><Loader2 className="w-4 h-4 animate-spin" /> 불러오는 중…</div>}>
-                    <SelfTestRunner embedded user onFinish={(r) => setCheckText(resultText(r))} />
-                  </Suspense>
-                  {checkText && (
-                    <button type="button" onClick={() => setTop('feedback')} className="w-full py-3 rounded-2xl bg-purple-600 text-white text-sm font-bold cursor-pointer">이 결과를 붙여서 의견 보내기</button>
-                  )}
-                </div>
+                <UserSelfCheck onResult={setCheckText} onAttach={() => setTop('feedback')} />
               ) : (<>
               <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-100 dark:bg-zinc-800/60 rounded-xl">
                 {([['add', '방송 기록 추가'], ['search', '검색 결과 추가']] as const).map(([k, l]) => (
