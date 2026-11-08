@@ -1,0 +1,11 @@
+name: probe
+on: { workflow_dispatch: {} }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          CH=$(echo '__CH__')
+          curl -sS -A 'Mozilla/5.0' "https://api.chzzk.naver.com/service/v1/channels/$CH/videos?sortType=LATEST&pagingType=PAGE&page=0&size=3&videoType=REPLAY" | head -c 3000; echo
+          curl -sS -A 'Mozilla/5.0' "https://api.chzzk.naver.com/service/v1/channels/$CH/videos?sortType=LATEST&pagingType=PAGE&page=0&size=1" | grep -o '"totalCount":[0-9]*'
+          curl -sS -A 'Mozilla/5.0' "https://api.chzzk.naver.com/service/v1/channels/$CH/videos?sortType=LATEST&pagingType=PAGE&page=999&size=50&videoType=REPLAY" | head -c 400; echo
