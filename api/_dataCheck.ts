@@ -274,6 +274,7 @@ async function cleanupLinks(db: any, logs: any[], info: Map<string, any>, histor
     await ref.update({ updatedAt: now, [`items.${id}`]: FieldValue.delete() });
     try { await db.collection('logs').doc(id).delete(); } catch { /* */ }
   }
+  summary.notes = issues.map((i) => i.msg);
   return { issues, summary, deleted };
 }
 
