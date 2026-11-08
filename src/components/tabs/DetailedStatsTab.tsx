@@ -115,6 +115,12 @@ export function DetailedStatsTab({
   const [activeSubTab, setActiveSubTab] = useState<'trend' | 'day' | 'category'>('trend');
   const [downloadConfirm, setDownloadConfirm] = useState<'csv' | 'pdf' | null>(null);
   useBodyScrollLock(Boolean(downloadConfirm));
+  useEffect(() => {
+    if (!downloadConfirm) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDownloadConfirm(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [downloadConfirm]);
   const [showLegacyTooltip, setShowLegacyTooltip] = useState(false);
   const helpButtonRef = useRef<HTMLButtonElement>(null);
   const [tooltipPos, setTooltipPos] = useState<{
@@ -2085,12 +2091,14 @@ export function DetailedStatsTab({
 
       {/* Download Confirm Modal */}
       {downloadConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+        <div role="dialog" aria-modal="true" aria-label="다운로드 이용 동의" onClick={(e) => { if (e.target === e.currentTarget) setDownloadConfirm(null); }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
           <div 
             style={{ WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)' }}
             className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-[24px] w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 border border-zinc-200/80 dark:border-zinc-800/80 relative"
           >
             <button 
+              type="button"
+              aria-label="닫기"
               onClick={() => setDownloadConfirm(null)}
               className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
             >

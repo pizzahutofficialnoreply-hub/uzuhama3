@@ -304,13 +304,15 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
       url: W().location.href,
       ov: overlays().length,
       text: D().body.innerText.length,
+      // 글자 수가 같아도 순서·내용이 바뀌면 알아채게 (추천 새로고침 등)
+      hash: (() => { const t = D().body.innerText; let h = 0; for (let i = 0; i < t.length; i += 3) h = (h * 31 + t.charCodeAt(i)) | 0; return h; })(),
       html: D().body.innerHTML.length,
       aria: el ? `${el.getAttribute('aria-expanded')}|${el.getAttribute('aria-pressed')}|${el.getAttribute('aria-checked')}|${el.getAttribute('aria-selected')}|${(el as HTMLInputElement).checked}|${el.className}` : '',
       calls: (W() as any).__stubCalls?.n || 0,
       y: W().scrollY,
     });
     const reacted = (a: ReturnType<typeof snap>, b: ReturnType<typeof snap>) =>
-      a.url !== b.url || a.ov !== b.ov || a.text !== b.text || Math.abs(a.html - b.html) > 20 || a.aria !== b.aria || a.calls !== b.calls || Math.abs(a.y - b.y) > 40;
+      a.url !== b.url || a.ov !== b.ov || a.text !== b.text || a.hash !== b.hash || Math.abs(a.html - b.html) > 20 || a.aria !== b.aria || a.calls !== b.calls || Math.abs(a.y - b.y) > 40;
     // 이미 골라져 있는 것(지금 탭·지금 보기 방식)은 눌러도 바뀌는 게 없는 게 맞음
     const already = (el: HTMLElement) => ['aria-pressed', 'aria-selected', 'aria-checked'].some((a) => el.getAttribute(a) === 'true') || Boolean(el.getAttribute('aria-current'));
     const press = async (el: HTMLElement) => {
