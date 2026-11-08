@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { overlayMonthDocs } from '../utils/archiveOverlay';
+import { kvGet, kvSet } from '../utils/kv';
 import { BroadcastLog, DailyStat, TimeStat, DurationStat, MonthlyStat, AppData, PatternGuide, SystemConfig, GameItem, LinkItem } from '../types';
 import { dailyStats as defaultDaily, timeStats as defaultTime, durationStats as defaultDuration, monthlyStats as defaultMonthly, patternGuides as defaultGuides } from '../data';
 
@@ -192,9 +193,9 @@ export function useFirebaseData() {
   };
 
   const lastFetchTimeRef = useRef<number>(0);
-  const FULL_READ_AT_KEY = 'uzuhama_fs_full_read_at_v2';
+  const MONTH_DOCS_KEY = 'logs_by_month_v1';
+  const FULL_RESYNC_MS = 24 * 3600 * 1000;
   const COMPILATIONS_CACHE_KEY = 'uzuhama_fs_compilations_v1';
-  const FULL_READ_TTL = 30 * 60 * 1000;
 
   // 핵심 일지 데이터 호출 함수: 과거 아카이브(JSON) + Firestore 최신 데이터(logs, logs_by_month, compilations) 통합 병합
   const fetchLatestLogs = useCallback(async (force: boolean = false) => {
@@ -209,48 +210,35 @@ export function useFirebaseData() {
       const historicalLogs = await loadHistoricalLogs();
       const logsMap: Record<string, BroadcastLog> = { ...historicalLogs };
 
-      // 2. Firestore logs_by_month 에서 아카이브 JSON 과 겹치지 않는 부분만 조회
-      //    - logs 컬렉션은 읽지 않음 (logs_by_month 에 같은 내용이 모두 들어 있음)
-      //    - JSON 의 마지막 달 이후 문서만 요청해 읽기 횟수를 줄이고,
-      //      그 안에서도 JSON 에 이미 있는 날짜는 건너뜀 (아카이브는 JSON 이 원본)
-      // 2. Firestore logs_by_month 전체 조회 → JSON 위에 덮어쓰기
-      //    - JSON 에 없는 날짜(2026년 이후 등): 그대로 추가
-      //    - JSON 에 있는 날짜: 관리자 수정분으로 보고 덮어씀 (logs 컬렉션은 읽지 않음)
-      //    - 읽기 절약: 전체 조회는 30분에 한 번(관리자는 항상). 그 사이에는 기기에 저장한 결과 위에
-      //      최근 2개월 문서만 새로 읽어 덮어씀 (방송 기록은 대부분 최근 달에서만 바뀜)
-      const lastFull = Number(localStorage.getItem(FULL_READ_AT_KEY) || 0);
-      const isAdminUser = auth.currentUser?.email?.toLowerCase() === 'saramoriyo@gmail.com';
+      // 2. Firestore logs_by_month → JSON 위에 덮어쓰기
+      //    읽기 절약: 월별 문서 사본을 기기(IndexedDB)에 두고, 그 뒤에 바뀐 문서(updatedAt 이 더 나중)만 읽음
+      //    → 바뀐 게 없으면 읽기 1회. 사본이 없거나 하루가 지나면 전체를 한 번 읽음 (지워진 문서 정리)
       let cachedMerged: Record<string, BroadcastLog> | null = null;
       try { cachedMerged = JSON.parse(localStorage.getItem('uzuhama_logs_cache_v4') || 'null'); } catch {}
       let overlayFailed = false;
-      const doFull = isAdminUser || !cachedMerged || Object.keys(cachedMerged).length === 0 || now - lastFull > FULL_READ_TTL;
+      let doFull = false;
+      let monthChanged = false;
+      // 과거 아카이브를 못 불러왔으면(네트워크 등) 덮어쓰지 않고 저장해 둔 결과를 씀
+      const histOk = Object.keys(historicalLogs).length > 0;
       try {
-        if (doFull) {
-          const monthDocs: any[] = [];
-          const monthSnaps = await getDocs(collection(db, 'logs_by_month'));
-          monthSnaps.forEach((docSnap) => monthDocs.push(docSnap.data()));
-          Object.assign(logsMap, overlayMonthDocs(historicalLogs, monthDocs));
-        } else {
-          Object.assign(logsMap, cachedMerged);
-          const d = new Date(now + 9 * 3600000);
-          d.setUTCDate(1);
-          d.setUTCMonth(d.getUTCMonth() - 1);
-          const recentStart = d.toISOString().slice(0, 7);
-          const recentDocs: any[] = [];
-          const snaps = await getDocs(query(collection(db, 'logs_by_month'), where(documentId(), '>=', recentStart)));
-          snaps.forEach((docSnap) => recentDocs.push(docSnap.data()));
-          // 최근 달은 JSON 아카이브 밖이라 빈 원본 위에 그대로 펼침
-          const recent = overlayMonthDocs({}, recentDocs);
-          // 최근 달에서 지워진 기록은 저장본에서도 제거
-          Object.keys(logsMap).forEach((k) => {
-            const l: any = logsMap[k];
-            if (l?.date && l.date >= `${recentStart}-01` && !historicalLogs[k] && !recent[k]) delete logsMap[k];
-          });
-          Object.assign(logsMap, recent);
-        }
+        const saved = (await kvGet<{ docs: Record<string, any>; syncAt: string; fullAt: number }>(MONTH_DOCS_KEY)) || null;
+        doFull = !saved || !saved.docs || now - (saved.fullAt || 0) > FULL_RESYNC_MS;
+        let docs: Record<string, any> = doFull ? {} : { ...saved!.docs };
+        let syncAt = doFull ? '' : saved!.syncAt || '';
+        const snaps = doFull || !syncAt
+          ? await getDocs(collection(db, 'logs_by_month'))
+          : await getDocs(query(collection(db, 'logs_by_month'), where('updatedAt', '>', syncAt)));
+        monthChanged = snaps.size > 0;
+        snaps.forEach((d) => {
+          const v: any = d.data();
+          docs[d.id] = v;
+          if (typeof v?.updatedAt === 'string' && v.updatedAt > syncAt) syncAt = v.updatedAt;
+        });
+        if (!histOk) throw new Error('과거 아카이브를 못 불러옴');
+        Object.assign(logsMap, overlayMonthDocs(historicalLogs, Object.values(docs)));
+        kvSet(MONTH_DOCS_KEY, { docs, syncAt, fullAt: doFull ? now : saved!.fullAt });
       } catch (e: any) {
-        console.warn('logs_by_month 컬렉션 조회 경고:', e?.message);
-        // 못 읽었으면(사용량 초과·오프라인 등) 수정분 없는 아카이브로 덮어쓰지 않고 기기에 저장해 둔 결과를 그대로 씀
+        console.warn('logs_by_month 조회 경고:', e?.message);
         overlayFailed = true;
         if (cachedMerged && Object.keys(cachedMerged).length) Object.assign(logsMap, cachedMerged);
       }
@@ -263,7 +251,7 @@ export function useFirebaseData() {
         const compSources: { docId: string; comp: any }[] = [];
         try {
           let cachedComps: { docId: string; comp: any }[] | null = null;
-          if (!doFull) {
+          if (!doFull && !monthChanged) {
             try { cachedComps = JSON.parse(localStorage.getItem(COMPILATIONS_CACHE_KEY) || 'null'); } catch {}
           }
           if (Array.isArray(cachedComps)) {
@@ -366,11 +354,10 @@ export function useFirebaseData() {
       }
 
       // 5. 로컬 캐시 갱신 및 화면 반영
-      if (Object.keys(logsMap).length > 0 && !(overlayFailed && !cachedMerged)) {
+      if (Object.keys(logsMap).length > 0 && !overlayFailed) {
         updateCache(logsMap);
       }
       lastFetchTimeRef.current = Date.now();
-      if (doFull && !overlayFailed) { try { localStorage.setItem(FULL_READ_AT_KEY, String(Date.now())); } catch {} }
       setData(prev => {
         if (!prev) return prev;
         return { ...prev, logs: logsMap };
