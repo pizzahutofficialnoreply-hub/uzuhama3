@@ -5,6 +5,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          K=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM
-          curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month/2024-06?key=$K" | jq -c '.fields.items.mapValue.fields | to_entries[] | select(.key|test("archive_40[01]")) | {k:.key, d:.value.mapValue.fields.date.stringValue, t:.value.mapValue.fields.time.stringValue, p:.value.mapValue.fields._patch.booleanValue}'
-          curl -sS https://uzuhama.vercel.app/data/historical_logs.json | jq -c '.[] | select(.date|startswith("2024-06-2")) | {id,date}'
+          curl -sS --max-time 295 "https://uzuhama.vercel.app/api/videos/search-index?ai=check" > r.json
+          head -c 300 r.json; echo
+          jq -c '.stats | {autoFilled, dateFixed, dateFixedSample, c: (.cleanup|{freeLives,freeNear,noLive,addedLives,addLiveError,actions:[.actions[]?.msg]})}' r.json

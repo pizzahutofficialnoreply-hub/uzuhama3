@@ -87,7 +87,7 @@ export function writtenDate(text: string, near: string): string | null {
   return best;
 }
 /** 검증 방식 버전: 바뀌면 그날 이미 했어도 한 번 더 */
-export const DC_VER = 6;
+export const DC_VER = 7;
 const ytIdOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
 const sq = (s: string) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
 const kstDate = (iso: string) => new Date(Date.parse(iso) + KST).toISOString().slice(0, 10);
@@ -222,6 +222,7 @@ async function cleanupLinks(db: any, logs: any[], info: Map<string, any>, histor
     for (let i = 0; i < miss.length && ytApiKey(); i += 50) {
       try { const j = await ytApi(`videos?part=snippet,liveStreamingDetails&id=${miss.slice(i, i + 50).join(',')}`); (j.items || []).forEach((it: any) => info.set(it.id, it)); } catch { break; }
     }
+    summary.freeLives = free.length; summary.freeNear = near.length; summary.noLive = noLive.length;
     const used = new Set<string>();
     for (const l of noLive) {
       const c = near.filter((x: any) => !used.has(x.id) && info.get(x.id)?.liveStreamingDetails?.actualStartTime && liveDate(x.id) === l.date);
