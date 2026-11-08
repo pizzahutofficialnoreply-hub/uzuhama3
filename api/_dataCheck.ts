@@ -7,8 +7,52 @@
  * 참고: 치지직은 다시보기를 남기지 않아(목록 0개) 비교할 수 없고, 옛 트위치 기록은 공식 API로 볼 수 없음
  */
 import { aiGen, aiParseJson, ytApi, ytApiKey, AI_TEXT_MODELS } from './_aiVideo.js';
+import { normalizeHistorical, overlayMonthDocs } from '../src/utils/archiveOverlay.js';
+
+/**
+ * 사이트가 보여 주는 것과 같은 방송 기록: 과거 아카이브 JSON + logs_by_month 수정분
+ * (logs 컬렉션은 일부만 있어서 쓰지 않음)
+ */
+async function loadSiteLogs(db: any): Promise<{ logs: any[]; historical: Record<string, any> }> {
+  let historical: Record<string, any> = {};
+  try {
+    const r = await fetch('https://uzuhama.vercel.app/data/historical_logs.json', { signal: AbortSignal.timeout(15000) });
+    if (r.ok) historical = normalizeHistorical(await r.json());
+  } catch { /* */ }
+  const monthDocs: any[] = [];
+  (await db.collection('logs_by_month').get()).forEach((d: any) => monthDocs.push(d.data()));
+  const map = overlayMonthDocs(historical, monthDocs);
+  return { logs: Object.values(map).filter((l: any) => l?.date), historical };
+}
+
+/** 방송 기록 고치기: 사이트가 읽는 logs_by_month 에 (아카이브 기록이면 바뀐 필드만 _patch 로) */
+async function patchSiteLog(db: any, log: any, fields: Record<string, any>, historical: Record<string, any>) {
+  const monthRef = db.collection('logs_by_month').doc(String(log.date).slice(0, 7));
+  const now = new Date().toISOString();
+  await db.runTransaction(async (tx: any) => {
+    const snap = await tx.get(monthRef);
+    const items = (snap.exists ? snap.data()?.items : null) || {};
+    if (historical[log.id]) {
+      // 아카이브 기록: 검증용 수정분을 따로 (다른 수정분과 섞이지 않게)
+      const key = `${log.id}__dc`;
+      const prev = items[key] || {};
+      const entry = { ...prev, id: log.id, date: log.date, _patch: true, _updatedAt: now, ...fields };
+      if (snap.exists) tx.update(monthRef, { updatedAt: now, [`items.${key}`]: entry });
+      else tx.set(monthRef, { month: String(log.date).slice(0, 7), updatedAt: now, items: { [key]: entry } });
+    } else {
+      // 아카이브에 없는 새 기록: 통째로 들어 있는 항목의 필드를 바꿈
+      const cur = items[log.id] || log;
+      const entry = { ...cur, ...fields };
+      if (snap.exists) tx.update(monthRef, { updatedAt: now, [`items.${log.id}`]: entry });
+      else tx.set(monthRef, { month: String(log.date).slice(0, 7), updatedAt: now, items: { [log.id]: entry } });
+    }
+  });
+  try { await db.collection('logs').doc(log.id).set(fields, { merge: true }); } catch { /* 사본 */ }
+}
 
 const KST = 9 * 3600000;
+/** 검증 방식 버전: 바뀌면 그날 이미 했어도 한 번 더 */
+export const DC_VER = 2;
 const ytIdOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
 const sq = (s: string) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
 const kstDate = (iso: string) => new Date(Date.parse(iso) + KST).toISOString().slice(0, 10);
@@ -44,7 +88,8 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
   const prev = (await ref.get()).data() || {};
   const ignored: string[] = prev.ignored || [];
   const linkCache: Record<string, { at: string; ok: boolean; why?: string; title?: string }> = prev.linkCache || {};
-  const logs = (await db.collection('logs').get()).docs.map((d: any) => ({ id: d.id, ...d.data() })).filter((l: any) => !l.isAbsence);
+  const site = await loadSiteLogs(db);
+  const logs = site.logs.filter((l: any) => !l.isAbsence);
   const issues: Issue[] = [];
   const stats: any = { logs: logs.length, videos: 0, timeChecked: 0, gameChecked: 0, linksChecked: 0, ai: 0 };
 
@@ -83,7 +128,7 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
     if (!l.endTime && eTime) fill.endTime = eTime;
     if (!(Number(l.durationHours) > 0) && hours > 0 && hours < 30) fill.durationHours = hours;
     if (Object.keys(fill).length) {
-      try { await db.collection('logs').doc(l.id).set(fill, { merge: true }); Object.assign(l, fill); autoFilled.push({ id: `fill:${l.id}`, at: new Date().toISOString(), logId: l.id, patch: fill }); } catch { /* */ }
+      try { await patchSiteLog(db, l, fill, site.historical); Object.assign(l, fill); autoFilled.push({ id: `fill:${l.id}`, at: new Date().toISOString(), logId: l.id, patch: fill }); } catch { /* */ }
     }
     const fix: Issue['fix'] = [];
     const diff = Math.abs(minutesOf(l.date, l.time) - minutesOf(sDate, sTime));
@@ -156,7 +201,7 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
   const kept = issues.filter((i) => !ignored.includes(i.id)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 400);
   const urls = new Set(links.map((x) => x.url));
   const cache = Object.fromEntries(Object.entries(linkCache).filter(([u]) => urls.has(u)));
-  const out = { at: new Date().toISOString(), ms: Date.now() - t0, stats, issues: kept, applied: [...(prev.applied || []), ...autoFilled].slice(-300), counts: kept.reduce((a: any, i) => { a[i.type] = (a[i.type] || 0) + 1; return a; }, {}), ignored, linkCache: cache };
+  const out = { v: DC_VER, at: new Date().toISOString(), ms: Date.now() - t0, stats, issues: kept, applied: [...(prev.applied || []), ...autoFilled].slice(-300), counts: kept.reduce((a: any, i) => { a[i.type] = (a[i.type] || 0) + 1; return a; }, {}), ignored, linkCache: cache };
   await ref.set(JSON.parse(JSON.stringify(out)));
   return { at: out.at, ms: out.ms, stats, counts: out.counts };
 }
@@ -167,8 +212,8 @@ export async function applyDataFix(db: any, issueId: string) {
   const d = (await ref.get()).data() || {};
   const issue: Issue | undefined = (d.issues || []).find((x: Issue) => x.id === issueId);
   if (!issue?.fix?.length) throw Object.assign(new Error('고칠 제안이 없는 항목이에요'), { status: 400 });
-  const lref = db.collection('logs').doc(issue.logId);
-  const log = (await lref.get()).data();
+  const site = await loadSiteLogs(db);
+  const log = site.logs.find((l: any) => l.id === issue.logId);
   if (!log) throw Object.assign(new Error('방송 기록이 없어요'), { status: 404 });
   const patch: any = {};
   for (const f of issue.fix) {
@@ -184,7 +229,7 @@ export async function applyDataFix(db: any, issueId: string) {
       if (i === 0) patch.game = f.to;
     }
   }
-  await lref.set(patch, { merge: true });
+  await patchSiteLog(db, log, patch, site.historical);
   await ref.set({ issues: (d.issues || []).filter((x: Issue) => x.id !== issueId), applied: [...(d.applied || []), { id: issueId, at: new Date().toISOString(), patch }].slice(-200) }, { merge: true });
   return { patch };
 }
