@@ -4,7 +4,9 @@ jobs:
   p:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
       - run: |
-          K=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM
-          curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month/2020-08?key=$K" | head -c 400; echo
-          curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month?key=$K&pageSize=300" | jq -c '[.documents[] | {n:(.name|split("/")|last), sz:(tostring|length)}] | (map(.sz)|add) as $t | {count:length, totalBytes:$t, big: (sort_by(-.sz)|.[0:5])}'
+          npm i --no-save playwright@1.48.2 >/dev/null 2>&1 && npx playwright install chromium >/dev/null 2>&1
+          node .github/probe/pw.mjs
