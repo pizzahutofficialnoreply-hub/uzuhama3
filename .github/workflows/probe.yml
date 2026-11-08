@@ -6,8 +6,9 @@ jobs:
     steps:
       - run: |
           K=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM
-          curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month/2026-08?key=$K" > m.json
-          jq -c '.fields.items.mapValue.fields | to_entries[] | select(.key|test("0818|08-18")) ' m.json | cut -c1-1500
-          echo ---keys; jq -r '.fields.items.mapValue.fields|keys[]' m.json | head -50
-          curl -sS https://uzuhama.vercel.app/data/historical_logs.json > h.json; jq -c 'if type=="array" then .[] else .[] end | select((.date//"")|startswith("2026-08-1"))' h.json | cut -c1-600
-          echo; curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month?key=$K&pageSize=300&mask.fieldPaths=month" | jq -r '.documents[].name' | sed 's#.*/##' | tr '\n' ' '
+          for M in 2026-08 2020-08; do
+          curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month/$M?key=$K" > m.json
+          echo "== $M"; jq -c '.fields.items.mapValue.fields | to_entries[] | .value.mapValue.fields | {d:.date.stringValue,t:.time.stringValue,e:.endTime.stringValue,h:(.durationHours.doubleValue // .durationHours.integerValue),p:._patch.booleanValue,g:.game.stringValue,v:(.vods.arrayValue.values // [] | map(.stringValue // .mapValue.fields.url.stringValue))}' m.json | sort | cut -c1-300
+          done
+          curl -sS https://uzuhama.vercel.app/data/historical_logs.json > h.json; head -c 300 h.json; echo; jq -c '.. | objects | select((.date? // "")|tostring|test("08-18"))' h.json | cut -c1-500 | head
+          curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/admin_data/dataCheck?key=$K" | head -c 300
