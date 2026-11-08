@@ -115,6 +115,9 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
   };
   const $ = (sel: string) => D().querySelector(sel) as HTMLElement | null;
   const $$ = (sel: string) => Array.from(D().querySelectorAll(sel)) as HTMLElement[];
+  // '뒤로 가기': 진짜 history.back() 은 점검 창에 남은 기록이 없으면 바깥 앱 화면까지 뒤로 보내 버림
+  // → 앱이 듣는 popstate 를 점검 창 안에서만 일으켜 같은 처리를 시험함
+  const back = () => { try { W().dispatchEvent(new (W() as any).PopStateEvent('popstate', { state: W().history.state })); } catch { /* */ } };
   const byText = (sel: string, text: string | RegExp) => $$(sel).find((el) => (typeof text === 'string' ? (el.innerText || el.getAttribute('aria-label') || '').includes(text) : text.test(el.innerText || el.getAttribute('aria-label') || '')));
   const visible = (el: HTMLElement | null) => Boolean(el && el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
   const setInput = (el: HTMLInputElement, v: string) => {
@@ -282,7 +285,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
       const item = await waitFor(() => byText('[role="menuitem"]', '저장'), 4000, '저장 메뉴');
       item.click();
       await waitFor(() => $('input[placeholder="나중에 볼 영상"]') || byText('button', '완료'), 5000, '저장 창');
-      W().history.back();
+      back();
       await sleep(600);
     });
 
@@ -296,8 +299,17 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
     await step('설정', '시청 기록 전체 보기 → 뒤로 가기로 닫혀요', async () => {
       W().dispatchEvent(new (W() as any).Event('uzuhama-open-history'));
       await waitFor(() => $('[aria-label="시청 기록"]'), 5000, '시청 기록');
-      W().history.back();
-      await waitFor(() => !$('[aria-label="시청 기록"]'), 5000, '닫힘');
+      // 열리면서 쌓은 방문 기록 한 칸이 자리 잡을 때까지 잠깐 (바로 누르면 앞 창을 닫으며 남은 '뒤로'와 겹침)
+      await sleep(300);
+      back();
+      let closed = await waitFor(() => !$('[aria-label="시청 기록"]'), 3000, '닫힘').then(() => true).catch(() => false);
+      if (!closed) { back(); closed = await waitFor(() => !$('[aria-label="시청 기록"]'), 3000, '닫힘').then(() => true).catch(() => false); }
+      if (!closed) {
+        // 닫기 버튼으로는 닫히는지 보고, 뒤로 가기만 안 되는 거면 '주의'
+        byText('button', /닫기|뒤로/)?.click();
+        const byBtn = await waitFor(() => !$('[aria-label="시청 기록"]'), 2000, '닫힘').then(() => true).catch(() => false);
+        throw Object.assign(new Error(byBtn ? '뒤로 가기로는 안 닫히고 닫기 버튼으로는 닫혀요' : '뒤로 가기도 닫기 버튼도 안 돼요'), { warn: byBtn });
+      }
     });
 
     /* ── 6. 패치노트·문서 ── */
@@ -406,7 +418,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
         if (sig() === base) return;
         try { D().dispatchEvent(new (W() as any).KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch { /* */ }
         await sleep(250);
-        if (sig() !== base && W().location.href !== '' ) { try { W().history.back(); } catch { /* */ } await sleep(600); }
+        if (sig() !== base) { back(); await sleep(400); }
         if (sig() !== base) { setups++; await setup(); }
       };
       // 같은 버튼을 또 누르지 않게: 글자가 바뀌어도(펼치기↔접기 등) 같은 모양이면 2번까지만

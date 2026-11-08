@@ -29,6 +29,7 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
   const [diag, setDiag] = useState<string | null>(null);
   const [useDiag, setUseDiag] = useState(true);
   const [useTest, setUseTest] = useState(true);
+  const [useDev, setUseDev] = useState(true);
   const [images, setImages] = useState<{ name: string; data: string }[]>([]);
   const [peek, setPeek] = useState<'diag' | 'test' | null>(null);
   const [busy, setBusy] = useState(false);
@@ -65,11 +66,12 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
         title: title.trim().slice(0, 120),
         content: content.trim().slice(0, 4000),
         problemArea: where || null,
-        os: `${dev.device} · ${dev.os} · ${dev.browser}`,
+        os: useDev ? `${dev.device} · ${dev.os} · ${dev.browser}` : null,
         attachments: {
           // 값이 없는 칸(undefined)이 있으면 Firestore 가 거절해서 지움 (아이폰은 모델 번호가 없음)
-          device: JSON.parse(JSON.stringify(dev)),
-          diagnose: useDiag && diag ? diag.slice(0, 8000) : null,
+          device: useDev ? JSON.parse(JSON.stringify(dev)) : null,
+          // 기기 정보를 뺐으면 진단 글에서도 기기·브라우저·화면 줄을 뺌
+          diagnose: useDiag && diag ? (useDev ? diag : diag.split('\n').filter((l) => !/^(기기|브라우저|앱|화면): /.test(l)).join('\n')).slice(0, 8000) : null,
           selftest: useTest && selftest ? selftest.slice(0, 8000) : null,
           images: images.map((i) => i.data),
         },
@@ -137,9 +139,10 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
           <div className="flex items-center gap-3 px-4 py-3">
             <span className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0"><Smartphone className="w-4.5 h-4.5 text-zinc-500" /></span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-semibold text-zinc-900 dark:text-white">{dev.device}</span>{/iPhone/.test(dev.device) && <span className="block text-[10.5px] text-zinc-400">아이폰은 정확한 기종을 알려 주지 않아 화면 크기로 짐작했어요</span>}
-              <span className="block text-[11.5px] text-zinc-500 truncate">{dev.os} · {dev.browser} · {dev.app}</span>
+              <span className={cn('block text-[14px] font-semibold', useDev ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 line-through')}>{dev.device}</span>{useDev && !dev.named && /iPhone/.test(dev.device) && <span className="block text-[10.5px] text-zinc-400">아이폰은 기종을 알려 주지 않아 화면 크기로 짐작했어요 (설정 › 이 기기 정보에서 고를 수 있어요)</span>}
+              <span className={cn('block text-[11.5px] truncate', useDev ? 'text-zinc-500' : 'text-zinc-400 line-through')}>{dev.os} · {dev.browser} · {dev.app}</span>
             </span>
+            <button type="button" onClick={() => setUseDev(!useDev)} className="text-[12px] font-bold text-zinc-500 cursor-pointer shrink-0">{useDev ? '빼기' : '넣기'}</button>
           </div>
           <div className="flex items-center gap-3 px-4 py-3">
             <button type="button" onClick={() => diag && setPeek(peek === 'diag' ? null : 'diag')} className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer">

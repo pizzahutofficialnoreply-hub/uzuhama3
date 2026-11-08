@@ -6,7 +6,7 @@ import { getPrefs } from './userPrefs';
  * 의견 보내기의 '기기 정보 · 진단' 첨부 (아이폰 피드백 앱의 sysdiagnose 처럼)
  * 개인 정보(시청 기록 내용·검색어·이메일)는 넣지 않음: 기기·브라우저·앱 버전·설정 켜짐 여부·최근 오류만
  */
-export type DeviceInfo = { device: string; os: string; browser: string; app: string; screen: string; model?: string };
+export type DeviceInfo = { device: string; os: string; browser: string; app: string; screen: string; model?: string; guessed?: string; named?: boolean };
 
 /** 아이폰은 기기 이름을 알려 주지 않아서 화면 크기로 짐작 (가로×세로 pt @배율) */
 const IPHONES: [string, string][] = [
@@ -31,6 +31,18 @@ const GALAXY: [RegExp, string][] = [
   [/^SM-F7[67]/, 'Galaxy Z Flip 6·7'], [/^SM-F73/, 'Galaxy Z Flip 5'], [/^SM-F72/, 'Galaxy Z Flip 4'], [/^SM-A/, 'Galaxy A 시리즈'], [/^SM-M/, 'Galaxy M 시리즈'], [/^SM-X/, 'Galaxy Tab S'], [/^SM-T/, 'Galaxy Tab'],
 ];
 
+/** 설정에서 사용자가 직접 정한 기기 이름 (아이폰은 기종을 알 수 없어서) */
+export const DEVICE_NAME_KEY = 'uzuhama_device_name';
+export const getDeviceName = () => { try { return localStorage.getItem(DEVICE_NAME_KEY) || ''; } catch { return ''; } };
+export const setDeviceName = (v: string) => { try { if (v.trim()) localStorage.setItem(DEVICE_NAME_KEY, v.trim().slice(0, 60)); else localStorage.removeItem(DEVICE_NAME_KEY); } catch { /* */ } };
+/** 이 기기 화면 크기로 짐작한 아이폰 후보 (설정의 고르기 목록) */
+export function iphoneCandidates(): string[] {
+  if (!/iPhone/.test(navigator.userAgent)) return [];
+  const key = `${Math.min(screen.width, screen.height)}x${Math.max(screen.width, screen.height)}@${Math.round(window.devicePixelRatio)}`;
+  const hit = IPHONES.find(([k]) => k === key)?.[1] || '';
+  return hit ? hit.split(' / ').map((x) => (/^iPhone/.test(x) ? x : `iPhone ${x}`)) : [];
+}
+
 export function deviceInfo(model = ''): DeviceInfo {
   const ua = navigator.userAgent;
   const ios = ua.match(/OS (\d+)[._](\d+)?(?:[._](\d+))? like Mac/);
@@ -50,6 +62,9 @@ export function deviceInfo(model = ''): DeviceInfo {
   } else if (/Mac/.test(ua)) device = 'Mac';
   else if (/Windows/.test(ua)) device = 'Windows PC';
   else if (/Linux/.test(ua)) device = 'Linux';
+  const guessed = device;
+  const named = getDeviceName();
+  if (named) device = named;
   // iOS 26부터 사파리가 OS 버전을 옛 값으로 고정해 보냄 → 사파리 버전(= iOS 버전)을 씀
   const iosVer = ios ? (safariVer >= 26 ? `${safariVer}${ua.match(/Version\/\d+\.(\d+)/)?.[1] && ua.match(/Version\/\d+\.(\d+)/)![1] !== '0' ? `.${ua.match(/Version\/\d+\.(\d+)/)![1]}` : ''}` : `${ios[1]}${ios[2] ? `.${ios[2]}` : ''}`) : '';
   const os = ios ? `${isIpad ? 'iPadOS' : 'iOS'} ${iosVer}` : and ? `Android ${and[1]}` : /Windows NT 10/.test(ua) ? 'Windows 10/11' : /Mac OS X ([\d_]+)/.test(ua) ? `macOS ${(ua.match(/Mac OS X ([\d_]+)/)?.[1] || '').replace(/_/g, '.')}` : navigator.platform || '';
@@ -60,7 +75,7 @@ export function deviceInfo(model = ''): DeviceInfo {
   const ver = latestReleaseVersion(notes);
   const build = String((import.meta as any).env?.VITE_BUILD_ID || '').slice(0, 7);
   const app = `${ver ? `v${ver}` : '버전 확인 중'}${build ? ` (${build})` : ''} · ${standalone ? '홈 화면 앱' : '웹'}`;
-  return { device, os, browser: browser.trim(), app, screen: `${window.screen.width}×${window.screen.height} @${window.devicePixelRatio}x`, ...(model ? { model } : {}) };
+  return { device, os, browser: browser.trim(), app, screen: `${window.screen.width}×${window.screen.height} @${window.devicePixelRatio}x`, ...(model ? { model } : {}), ...(named ? { named: true, guessed } : {}) };
 }
 
 /** 더 정확하게: 안드로이드 모델 번호(크롬이 알려 줌) + 앱 버전(패치노트) 받아 오기 */

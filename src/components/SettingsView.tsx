@@ -28,6 +28,7 @@ import { createPortal } from 'react-dom';
 import { findGames, keywordForGame, keywordLabel } from '../utils/gameFind';
 import { squash } from '../utils/smartSearch';
 import { useBackToClose } from '../hooks/useBackToClose';
+import { DeviceNameSetting } from './settings/DeviceNameSetting';
 import { DeviceLinkPanel } from './common/DeviceLinkPanel';
 import { useDeviceLink } from '../utils/deviceSync';
 
@@ -84,7 +85,7 @@ export function SettingsView({
   const isAdmin = isAdminUser(user);
   const [showAdminVerifyModal, setShowAdminVerifyModal] = useState(false);
   const deviceLinked = Boolean(useDeviceLink());
-  const [activeSection, setActiveSection] = useState<'notification' | 'viewPrefs' | 'recommend' | 'theme' | 'share' | 'devices' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(() => initialSection || null);
+  const [activeSection, setActiveSection] = useState<'notification' | 'viewPrefs' | 'recommend' | 'theme' | 'share' | 'devices' | 'deviceInfo' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(() => initialSection || null);
   // 긴 항목을 접었을 때(다른 항목을 열어서 닫힌 경우 포함): 다음 항목(또는 연 항목)이 화면 가운데 살짝 위에 오게 스크롤 (끝까지 가서 더 못 가면 거기까지)
   const prevSectionRef = useRef<string | null>(activeSection);
   useEffect(() => {
@@ -776,6 +777,31 @@ export function SettingsView({
                 <motion.div key="settings-accordion-devices" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }} className="overflow-hidden">
                   <div className="px-4 pb-4 pt-2 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
                     <DeviceLinkPanel />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* 이 기기 정보 (의견 보낼 때 붙는 기기 이름) */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setActiveSection(activeSection === 'deviceInfo' ? null : 'deviceInfo')}
+              data-settings-section="deviceInfo"
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Smartphone className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <span className="text-sm font-semibold text-zinc-900 dark:text-white">이 기기 정보</span>
+              </div>
+              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'deviceInfo' && "rotate-90")} />
+            </button>
+            <AnimatePresence initial={false}>
+              {activeSection === 'deviceInfo' && (
+                <motion.div key="settings-accordion-deviceInfo" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }} className="overflow-hidden">
+                  <div className="px-4 pb-4 pt-2 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
+                    <DeviceNameSetting />
                   </div>
                 </motion.div>
               )}
