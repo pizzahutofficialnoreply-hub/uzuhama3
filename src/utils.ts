@@ -104,17 +104,12 @@ export function formatDuration(hours: number): string {
 }
 
 export function formatTo12Hour(timeStr: string): string {
-  if (!timeStr) return '';
-  const [time, period] = timeStr.split(' ');
-  if (!time || !period) return '';
-  
-  let [hours, minutes] = time.split(':');
-  
-  const p = period === 'AM' ? '오전' : '오후';
-  if (minutes === '00' || !minutes) {
-    return `${p} ${hours}시`;
-  }
-  return `${p} ${hours}:${minutes}`;
+  if (!timeStr || !/\d/.test(timeStr)) return '';
+  // "19:35" (24시간) 과 "7:35 PM" 둘 다
+  const { hour, minute } = parseTimeTo24(timeStr);
+  const p = hour % 24 >= 12 ? '오후' : '오전';
+  const h12 = hour % 12 || 12;
+  return minute > 0 ? `${p} ${h12}:${String(minute).padStart(2, '0')}` : `${p} ${h12}시`;
 }
 
 export function parseTimeString(timeStr: string): number {

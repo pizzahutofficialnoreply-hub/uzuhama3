@@ -50,9 +50,30 @@ async function patchSiteLog(db: any, log: any, fields: Record<string, any>, hist
   try { await db.collection('logs').doc(log.id).set(fields, { merge: true }); } catch { /* 사본 */ }
 }
 
+/** 여러 기록을 달별로 묶어 한 번에 (기록마다 쓰면 느림) */
+async function patchSiteLogs(db: any, list: { l: any; fill: Record<string, any> }[], historical: Record<string, any>) {
+  const byMonth = new Map<string, { l: any; fill: any }[]>();
+  list.forEach((x) => { const m = String(x.l.date).slice(0, 7); byMonth.set(m, [...(byMonth.get(m) || []), x]); });
+  const now = new Date().toISOString();
+  for (const [month, xs] of byMonth) {
+    const ref = db.collection('logs_by_month').doc(month);
+    await db.runTransaction(async (tx: any) => {
+      const snap = await tx.get(ref);
+      const items = (snap.exists ? snap.data()?.items : null) || {};
+      const upd: Record<string, any> = { updatedAt: now };
+      xs.forEach(({ l, fill }) => {
+        if (historical[l.id]) { const key = `${l.id}__dc`; upd[`items.${key}`] = { ...(items[key] || {}), id: l.id, date: l.date, _patch: true, _updatedAt: now, ...fill }; }
+        else upd[`items.${l.id}`] = { ...(items[l.id] || l), ...fill };
+      });
+      if (snap.exists) tx.update(ref, upd);
+      else { const it: any = {}; Object.entries(upd).forEach(([k, v]) => { if (k.startsWith('items.')) it[k.slice(6)] = v; }); tx.set(ref, { month, updatedAt: now, items: it }); }
+    });
+  }
+}
+
 const KST = 9 * 3600000;
 /** 검증 방식 버전: 바뀌면 그날 이미 했어도 한 번 더 */
-export const DC_VER = 2;
+export const DC_VER = 3;
 const ytIdOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
 const sq = (s: string) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
 const kstDate = (iso: string) => new Date(Date.parse(iso) + KST).toISOString().slice(0, 10);
@@ -111,6 +132,7 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
   // ── 1) 방송 시간: 기록의 다시보기(여러 개면 가장 이른 시작 ~ 가장 늦은 끝)와 비교 ──
   //   비어 있는 시작·끝·방송 시간은 유튜브 값으로 바로 채움 (덮어쓰지는 않음), 다르면 고칠 제안
   const autoFilled: any[] = [];
+  const pending: { l: any; fill: any }[] = [];
   for (const l of logs) {
     const lives = (l.vods || []).map((v: any) => info.get(ytIdOf(typeof v === 'string' ? v : v?.url))?.liveStreamingDetails).filter((x: any) => x?.actualStartTime);
     if (!lives.length) continue;
@@ -123,20 +145,19 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
     const hours = endIso ? Math.round(((Date.parse(endIso) - Date.parse(startIso)) / 3600000) * 10) / 10 : 0;
     // 날짜가 하루 넘게 다르면 다른 방송의 영상일 수 있음 → 건드리지 않음
     if (Math.abs(Date.parse(`${sDate}T00:00:00Z`) - Date.parse(`${l.date}T00:00:00Z`)) > 86400000) continue;
+    // 유튜브 생방송 기록이 있으면 그 시간이 정답 → 다르면 바로 바꿈 (1분 이내 차이는 그대로)
     const fill: any = {};
-    if (!l.time) fill.time = sTime;
-    if (!l.endTime && eTime) fill.endTime = eTime;
-    if (!(Number(l.durationHours) > 0) && hours > 0 && hours < 30) fill.durationHours = hours;
+    const off = (x: string, y: string) => !x || Math.abs(minutesOf('2000-01-01', x) - minutesOf('2000-01-01', y)) > 1;
+    if (off(l.time, sTime)) fill.time = sTime;
+    if (eTime && off(l.endTime, eTime)) fill.endTime = eTime;
+    if (hours > 0 && hours < 30 && Math.abs((Number(l.durationHours) || 0) - hours) > 0.05) fill.durationHours = hours;
     if (Object.keys(fill).length) {
-      try { await patchSiteLog(db, l, fill, site.historical); Object.assign(l, fill); autoFilled.push({ id: `fill:${l.id}`, at: new Date().toISOString(), logId: l.id, patch: fill }); } catch { /* */ }
+      pending.push({ l, fill });
+      autoFilled.push({ id: `fill:${l.id}`, at: new Date().toISOString(), logId: l.id, patch: fill, from: { time: l.time || '', endTime: l.endTime || '', durationHours: l.durationHours || 0 } });
+      Object.assign(l, fill);
     }
-    const fix: Issue['fix'] = [];
-    const diff = Math.abs(minutesOf(l.date, l.time) - minutesOf(sDate, sTime));
-    if (l.time && diff > 45 && diff < 36 * 60) fix.push({ field: 'time', from: l.time, to: sTime });
-    const eDiff = eTime && l.endTime ? Math.abs(minutesOf('2000-01-01', l.endTime) - minutesOf('2000-01-01', eTime)) : 0;
-    if (eDiff > 45 && eDiff < 23 * 60) fix.push({ field: 'endTime', from: l.endTime, to: eTime });
-    if (fix.length) issues.push({ id: `time:${l.id}`, type: 'time', logId: l.id, date: l.date, video: ytIdOf(typeof l.vods[0] === 'string' ? l.vods[0] : l.vods[0]?.url), msg: `유튜브 생방송 기록은 ${sDate} ${sTime}${eTime ? `~${eTime}` : ''} 인데 방송 기록은 ${l.time || '-'}${l.endTime ? `~${l.endTime}` : ''}`, fix });
   }
+  try { await patchSiteLogs(db, pending, site.historical); } catch (e: any) { stats.fillError = String(e?.message || e).slice(0, 200); }
   stats.autoFilled = autoFilled.length;
 
   // ── 2) 게임 이름: 제목·설명란·AI가 본 게임에 방송 기록의 게임이 하나도 없으면 AI에게 물어봄 ──

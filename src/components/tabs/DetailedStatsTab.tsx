@@ -246,10 +246,6 @@ export function DetailedStatsTab({
     };
   }, [showLegacyTooltip]);
 
-  // 조회 시작일이 2026년보다 전 (~2025)인지 판별
-  const isLegacyRange = useMemo(() => {
-    return startDate < '2026-01-01';
-  }, [startDate]);
 
   // Removes the auto-fetch useEffect to prevent delay when clicking the tab
 
@@ -262,6 +258,16 @@ export function DetailedStatsTab({
   const logsArray = useMemo(() => {
     return Object.values(data.logs).filter(log => log.date >= startDate && log.date <= endDate);
   }, [data.logs, startDate, endDate]);
+
+  // ~2025 데이터라도 방송 시작·종료 시간이 대부분 있으면(유튜브 생방송 기록으로 채움) 2026년과 같은 양식으로 분석
+  // 시간 없는 기록이 많을 때만 예전 간단 양식 (주간 추이·요일 빈도)
+  const isLegacyRange = useMemo(() => {
+    if (startDate >= '2026-01-01') return false;
+    const real = logsArray.filter((l: any) => !l.isAbsence);
+    if (!real.length) return true;
+    const timed = real.filter((l: any) => typeof l.time === 'string' && /^\s*\d{1,2}:\d{2}/.test(l.time)).length;
+    return timed / real.length < 0.7;
+  }, [startDate, logsArray]);
 
   const executeDownloadCSV = () => {
     const allLogs = Object.values(data.logs);

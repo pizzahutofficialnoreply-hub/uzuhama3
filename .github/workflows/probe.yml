@@ -6,9 +6,7 @@ jobs:
     steps:
       - run: |
           K=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM
-          for M in 2026-08 2020-08; do
+          for M in 2026-08 2020-08 2023-03; do
           curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month/$M?key=$K" > m.json
-          echo "== $M"; jq -c '.fields.items.mapValue.fields | to_entries[] | .value.mapValue.fields | {d:.date.stringValue,t:.time.stringValue,e:.endTime.stringValue,h:(.durationHours.doubleValue // .durationHours.integerValue),p:._patch.booleanValue,g:.game.stringValue,v:(.vods.arrayValue.values // [] | map(.stringValue // .mapValue.fields.url.stringValue))}' m.json | sort | cut -c1-300
+          echo "== $M"; jq -c '.fields.items.mapValue.fields | to_entries[] | .value.mapValue.fields | {d:.date.stringValue,t:.time.stringValue,e:.endTime.stringValue,h:(.durationHours.doubleValue // .durationHours.integerValue),p:._patch.booleanValue}' m.json | sort | head -12
           done
-          curl -sS https://uzuhama.vercel.app/data/historical_logs.json > h.json; head -c 300 h.json; echo; jq -c '.. | objects | select((.date? // "")|tostring|test("08-18"))' h.json | cut -c1-500 | head
-          curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/admin_data/dataCheck?key=$K" | head -c 300
