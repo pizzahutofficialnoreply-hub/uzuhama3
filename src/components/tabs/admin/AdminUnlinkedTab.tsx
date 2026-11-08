@@ -44,7 +44,6 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
   const [msg, setMsg] = useState('');
 
   const logs = useMemo(() => Object.values(data?.logs || {}).filter((l: any) => l?.date && !l.isAbsence) as BroadcastLog[], [data?.logs]);
-  const logDates = useMemo(() => [...new Set(logs.map((l) => l.date))].sort(), [logs]);
   const videoTitle = useMemo(() => new Map(videos.map((v) => [v.videoId, v.title] as const)), [videos]);
   const shortTitle = useMemo(() => new Map(shorts.map((v) => [v.videoId, cleanShortsTitle(v.title)] as const)), [shorts]);
 
@@ -82,12 +81,26 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
       .sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''));
   }, [src, status, q, overrides, refs, related, shortsOfVideo, kind]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const guessDate = (publishedAt: string) => {
-    const d = kstDate(publishedAt);
-    if (!d) return '';
-    let best = '';
-    for (const ld of logDates) { if (ld <= d) best = ld; else break; }
-    return best;
+  /**
+   * 방송일 추천: 올리기 전 21일 안의 방송 중 '영상 제목에 그 방송 게임 이름이 들어 있는' 가장 가까운 날
+   * (예전에는 '올리기 직전 방송'으로 정해서 대부분 틀렸음). 못 찾으면 비워 두고 직접 고르게
+   */
+  const sq = (t: string) => String(t || '').toLowerCase().replace(/[^0-9a-z가-힣ぁ-んァ-ン一-龥]/g, '');
+  const guess = (title: string, publishedAt: string): { date: string; why: string } => {
+    const up = kstDate(publishedAt);
+    if (!up) return { date: '', why: '' };
+    const t = sq(title);
+    const lo = new Date(Date.parse(`${up}T00:00:00Z`) - 21 * 86400000).toISOString().slice(0, 10);
+    const cands = logs.filter((l) => l.date <= up && l.date >= lo).sort((x, y) => y.date.localeCompare(x.date));
+    for (const l of cands) {
+      const names = (l.games?.length ? l.games.map((g) => g.name) : [l.game]).filter(Boolean) as string[];
+      const hit = names.find((n) => {
+        const parts = [n, ...n.split(/[|:(（\[\]/·,]/)].map(sq).filter((x) => x.length >= 2);
+        return parts.some((x) => t.includes(x));
+      });
+      if (hit) return { date: l.date, why: `제목에 「${hit}」` };
+    }
+    return { date: '', why: '' };
   };
 
   const run = async (key: string, fn: () => Promise<void>, done: string) => {
@@ -180,7 +193,8 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
         const ov = kind === 'short' ? overrides.shorts[id] : undefined; // undefined: 자동 / '': 끊음 / id: 직접 지정
         const autoVid = kind === 'short' ? autoRelated[id] : undefined;
         const linkedShorts = kind === 'video' ? shortsOfVideo.get(id) || [] : [];
-        const date = dates[id] ?? guessDate(v.publishedAt);
+        const g = dates[id] === undefined ? guess(v.title, v.publishedAt) : { date: dates[id], why: '' };
+        const date = g.date;
         const dayLogs = logs.filter((l) => l.date === date);
         return (
           <div key={id} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 shadow-sm flex flex-col sm:flex-row gap-3">
@@ -265,6 +279,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
                     <div className="flex items-center gap-2">
                       <label className="text-[11px] font-bold text-zinc-500">방송일</label>
                       <input type="date" value={date} onChange={(e) => setDates((d) => ({ ...d, [id]: e.target.value }))} className="px-2 py-1.5 text-xs rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" />
+                      {g.why ? <span className="text-[10.5px] text-emerald-600 truncate">추천: {g.why}</span> : dates[id] === undefined && <span className="text-[10.5px] text-zinc-400">게임 이름으로 못 찾았어요 · 날짜를 골라 주세요</span>}
                     </div>
                     {date && (dayLogs.length ? dayLogs.map((l) => (
                       <LogLine key={l.id} log={l} right={
