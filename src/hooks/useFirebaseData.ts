@@ -192,7 +192,7 @@ export function useFirebaseData() {
   };
 
   const lastFetchTimeRef = useRef<number>(0);
-  const FULL_READ_AT_KEY = 'uzuhama_fs_full_read_at_v1';
+  const FULL_READ_AT_KEY = 'uzuhama_fs_full_read_at_v2';
   const COMPILATIONS_CACHE_KEY = 'uzuhama_fs_compilations_v1';
   const FULL_READ_TTL = 30 * 60 * 1000;
 
@@ -222,6 +222,7 @@ export function useFirebaseData() {
       const isAdminUser = auth.currentUser?.email?.toLowerCase() === 'saramoriyo@gmail.com';
       let cachedMerged: Record<string, BroadcastLog> | null = null;
       try { cachedMerged = JSON.parse(localStorage.getItem('uzuhama_logs_cache_v4') || 'null'); } catch {}
+      let overlayFailed = false;
       const doFull = isAdminUser || !cachedMerged || Object.keys(cachedMerged).length === 0 || now - lastFull > FULL_READ_TTL;
       try {
         if (doFull) {
@@ -249,6 +250,9 @@ export function useFirebaseData() {
         }
       } catch (e: any) {
         console.warn('logs_by_month 컬렉션 조회 경고:', e?.message);
+        // 못 읽었으면(사용량 초과·오프라인 등) 수정분 없는 아카이브로 덮어쓰지 않고 기기에 저장해 둔 결과를 그대로 씀
+        overlayFailed = true;
+        if (cachedMerged && Object.keys(cachedMerged).length) Object.assign(logsMap, cachedMerged);
       }
 
       // 4. Firestore compilations (몰아보기) 컬렉션 조회:
@@ -362,11 +366,11 @@ export function useFirebaseData() {
       }
 
       // 5. 로컬 캐시 갱신 및 화면 반영
-      if (Object.keys(logsMap).length > 0) {
+      if (Object.keys(logsMap).length > 0 && !(overlayFailed && !cachedMerged)) {
         updateCache(logsMap);
       }
       lastFetchTimeRef.current = Date.now();
-      if (doFull) { try { localStorage.setItem(FULL_READ_AT_KEY, String(Date.now())); } catch {} }
+      if (doFull && !overlayFailed) { try { localStorage.setItem(FULL_READ_AT_KEY, String(Date.now())); } catch {} }
       setData(prev => {
         if (!prev) return prev;
         return { ...prev, logs: logsMap };

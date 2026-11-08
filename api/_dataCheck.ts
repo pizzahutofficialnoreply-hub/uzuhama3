@@ -91,7 +91,7 @@ export function writtenDate(text: string, near: string): string | null {
   return best;
 }
 /** 검증 방식 버전: 바뀌면 그날 이미 했어도 한 번 더 */
-export const DC_VER = 9;
+export const DC_VER = 10;
 const ytIdOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
 const sq = (s: string) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
 const kstDate = (iso: string) => new Date(Date.parse(iso) + KST).toISOString().slice(0, 10);
@@ -152,6 +152,56 @@ async function patchLinks(db: any, list: { l: any; fill: Record<string, any> }[]
   }
 }
 
+/**
+ * 유튜브 영상 정보(제목·설명란 앞부분·생방 시작/끝·올린 날) — 한 번 받아 오면 youtube_cache/vinfo_0..7 에 저장해 두고 다시 씀
+ * 끝나지 않은 생방(끝 시각 없음)만 다음에 다시 받음
+ */
+const VINFO_SHARDS = 8;
+const shardOf = (id: string) => (id.charCodeAt(0) + id.charCodeAt(10)) % VINFO_SHARDS;
+type VInfo = { t: string; d: string; p: string; s?: string; e?: string; x?: 1 };
+function makeInfoStore(db: any) {
+  const cache = new Map<string, VInfo>();
+  const dirty = new Set<number>();
+  let loaded = false;
+  const toItem = (id: string, v: VInfo) => ({ id, snippet: { title: v.t, description: v.d, publishedAt: v.p }, ...(v.s ? { liveStreamingDetails: { actualStartTime: v.s, ...(v.e ? { actualEndTime: v.e } : {}) } } : {}) });
+  return {
+    stats: { cached: 0, fetched: 0 },
+    async load() {
+      if (loaded) return; loaded = true;
+      const snaps = await Promise.all(Array.from({ length: VINFO_SHARDS }, (_, i) => db.collection('youtube_cache').doc(`vinfo_${i}`).get().catch(() => null)));
+      snaps.forEach((sn: any) => Object.entries(sn?.data?.()?.items || {}).forEach(([k, v]) => cache.set(k, v as VInfo)));
+    },
+    /** ids 의 정보를 info 에 채움 (저장된 것 먼저, 없는 것만 유튜브에서) */
+    async fill(ids: string[], info: Map<string, any>, deadline = Infinity) {
+      await this.load();
+      const miss: string[] = [];
+      ids.forEach((id) => { const c = cache.get(id); if (c && !(c.s && !c.e)) { if (!c.x) info.set(id, toItem(id, c)); this.stats.cached++; } else miss.push(id); });
+      for (let i = 0; i < miss.length && ytApiKey() && Date.now() < deadline; i += 50) {
+        const chunk = miss.slice(i, i + 50);
+        try {
+          const j = await ytApi(`videos?part=snippet,liveStreamingDetails&id=${chunk.join(',')}`);
+          const got = new Set<string>();
+          (j.items || []).forEach((it: any) => {
+            got.add(it.id); info.set(it.id, it); this.stats.fetched++;
+            const ls = it.liveStreamingDetails || {};
+            cache.set(it.id, { t: String(it.snippet?.title || '').slice(0, 120), d: String(it.snippet?.description || '').slice(0, 500), p: it.snippet?.publishedAt || '', ...(ls.actualStartTime ? { s: ls.actualStartTime } : {}), ...(ls.actualEndTime ? { e: ls.actualEndTime } : {}) });
+            dirty.add(shardOf(it.id));
+          });
+          // 없는(지워진·비공개) 영상도 표시해 둬서 매번 묻지 않음
+          chunk.filter((id) => !got.has(id)).forEach((id) => { cache.set(id, { t: '', d: '', p: '', x: 1 }); dirty.add(shardOf(id)); });
+        } catch { break; }
+      }
+    },
+    async save() {
+      for (const sh of dirty) {
+        const items: Record<string, VInfo> = {};
+        cache.forEach((v, k) => { if (shardOf(k) === sh) items[k] = v; });
+        try { await db.collection('youtube_cache').doc(`vinfo_${sh}`).set({ items, updatedAt: new Date().toISOString() }); } catch { /* */ }
+      }
+    },
+  };
+}
+
 const idsIn = (text: string) => [...String(text || '').matchAll(/(?:youtu\.be\/|v=|\/live\/|\/shorts\/|\/embed\/)([\w-]{11})/g)].map((m) => m[1]);
 const itemId = (x: any) => ytIdOf(typeof x === 'string' ? x : x?.url);
 
@@ -162,7 +212,7 @@ const itemId = (x: any) => ytIdOf(typeof x === 'string' ? x : x?.url);
  *  C) 같은 날 기록 둘 이상: 한쪽에 생방이 없으면 B와 같이 합치고, 둘 다 생방이 있으면 각 생방의 실제 방송일을 알려 줌
  * 바꾼 내용은 applied 에 (이전 값 포함) 남김
  */
-async function cleanupLinks(db: any, logs: any[], info: Map<string, any>, historical: Record<string, any>) {
+async function cleanupLinks(db: any, logs: any[], info: Map<string, any>, historical: Record<string, any>, store: ReturnType<typeof makeInfoStore>) {
   const issues: Issue[] = [];
   const summary: any = { dupLives: 0, removedLinks: 0, movedVideos: 0, deletedLogs: 0, sameDay: 0, actions: [] as any[] };
   const deleted = new Set<string>();
@@ -173,10 +223,7 @@ async function cleanupLinks(db: any, logs: any[], info: Map<string, any>, histor
   // 편집 영상 정보도 필요 (생방 없는 기록 · 같은 날 기록)
   const need = new Set<string>();
   logs.forEach((l: any) => { if (!(l.vods || []).some(itemId) || logs.some((o) => o !== l && o.date === l.date)) (l.edited || []).forEach((e: any) => { const id = itemId(e); if (id && !info.has(id)) need.add(id); }); });
-  const ids = [...need];
-  for (let i = 0; i < ids.length && ytApiKey(); i += 50) {
-    try { const j = await ytApi(`videos?part=snippet,liveStreamingDetails&id=${ids.slice(i, i + 50).join(',')}`); (j.items || []).forEach((it: any) => info.set(it.id, it)); } catch { break; }
-  }
+  await store.fill([...need], info);
   const textOf = (id: string) => { const sn = info.get(id)?.snippet; return sn ? `${sn.title}\n${sn.description || ''}` : ''; };
   const liveDate = (id: string) => {
     const it = info.get(id); if (!it) return '';
@@ -222,10 +269,7 @@ async function cleanupLinks(db: any, logs: any[], info: Map<string, any>, histor
     const free = (q?.items || []).filter((x: any) => x.kind === 'live' && !linked.has(x.id));
     const noLive = logs.filter((l: any) => !(cur(l).vods || []).some(itemId) && ((cur(l).edited || []).length || names(cur(l)).length));
     const near = free.filter((x: any) => noLive.some((l: any) => x.publishedAt && dayGap(kstDate(x.publishedAt), l.date) <= 2));
-    const miss = near.map((x: any) => x.id).filter((id: string) => !info.has(id));
-    for (let i = 0; i < miss.length && ytApiKey(); i += 50) {
-      try { const j = await ytApi(`videos?part=snippet,liveStreamingDetails&id=${miss.slice(i, i + 50).join(',')}`); (j.items || []).forEach((it: any) => info.set(it.id, it)); } catch { break; }
-    }
+    await store.fill(near.map((x: any) => x.id).filter((id: string) => !info.has(id)), info);
     summary.freeLives = free.length; summary.freeNear = near.length; summary.noLive = noLive.length;
     const used = new Set<string>();
     for (const l of noLive) {
@@ -328,20 +372,14 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
   const vidToLog = new Map<string, any>();
   logs.forEach((l: any) => (l.vods || []).forEach((v: any) => { const id = ytIdOf(typeof v === 'string' ? v : v?.url); if (id && !vidToLog.has(id)) vidToLog.set(id, l); }));
   const info = new Map<string, any>();
-  if (ytApiKey()) {
-    const ids = [...vidToLog.keys()];
-    for (let i = 0; i < ids.length && Date.now() - t0 < 60000; i += 50) {
-      try {
-        const j = await ytApi(`videos?part=snippet,liveStreamingDetails&id=${ids.slice(i, i + 50).join(',')}`);
-        (j.items || []).forEach((it: any) => info.set(it.id, it));
-      } catch { break; }
-    }
-  }
+  const store = makeInfoStore(db);
+  await store.fill([...vidToLog.keys()], info, t0 + 60000);
   stats.videos = info.size;
+  stats.ytInfo = store.stats;
 
   // ── 0) 링크 정리 (영상 설명란 기준): 같은 생방이 여러 기록에 / 생방 없는 기록의 영상 / 같은 날 기록 둘 ──
   try {
-    const r = await cleanupLinks(db, logs, info, site.historical);
+    const r = await cleanupLinks(db, logs, info, site.historical, store);
     stats.cleanup = r.summary;
     r.issues.forEach((i) => issues.push(i));
     if (r.deleted.size) logs = logs.filter((l: any) => !r.deleted.has(l.id));
@@ -457,6 +495,7 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
   const kept = issues.filter((i) => !ignored.includes(i.id)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 400);
   const urls = new Set(links.map((x) => x.url));
   const cache = Object.fromEntries(Object.entries(linkCache).filter(([u]) => urls.has(u)));
+  await store.save();
   const out = { v: DC_VER, at: new Date().toISOString(), ms: Date.now() - t0, stats, issues: kept, applied: [...(prev.applied || []), ...(stats.cleanup?.actions || []), ...autoFilled].slice(-400), counts: kept.reduce((a: any, i) => { a[i.type] = (a[i.type] || 0) + 1; return a; }, {}), ignored, linkCache: cache };
   await ref.set(JSON.parse(JSON.stringify(out)));
   return { at: out.at, ms: out.ms, stats, counts: out.counts };
