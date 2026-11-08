@@ -32,7 +32,7 @@ import { CalendarSubscribeModal } from '../CalendarSubscribeModal';
 import { SelectiveCalendarModal } from '../modals/SelectiveCalendarModal';
 import { GameTitle } from '../common/GameTitle';
 import { GlassPlayButton } from '../common/MediaIcons';
-import { VideoLengthBadge, VideoLengthText } from '../common/VideoLengthBadge';
+import { VideoLengthBadge } from '../common/VideoLengthBadge';
 import { motion, AnimatePresence } from 'motion/react';
 
 const ShortsIcon = ({ className }: { className?: string }) => (
@@ -1127,7 +1127,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                           {format(selectedDate, 'M월 d일')} <span className="text-base sm:text-lg font-medium text-zinc-500 dark:text-zinc-400">{format(selectedDate, 'EEEE', { locale: ko })}</span>
                         </h3>
                       </div>
-                      {(Boolean(selectedLog.time) || (selectedLog.durationHours && selectedLog.durationHours > 0)) && (
+                      {(Boolean(selectedLog.time) || Number(selectedLog.durationHours) > 0) && (
                         <div className="text-purple-600 dark:text-purple-400 font-medium flex items-center gap-2 text-sm sm:text-base">
                           <div className="w-2 h-2 rounded-full bg-purple-500"></div>
                           {formatTimeRange(selectedLog.time, selectedLog.endTime, selectedLog.durationHours)}
@@ -1963,7 +1963,6 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                 >
                                   <PlaySquare className="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400 group-hover/btn:scale-110 transition-transform" />
                                   <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed group-hover/btn:underline">{v.title}</span>
-                                  <VideoLengthText id={ytId} />
                                 </button>
                               ) : (
                                 <a 
@@ -2081,7 +2080,6 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                 >
                                   <ShortsIcon className="w-4 h-4 shrink-0 text-red-500 group-hover/btn:scale-110 transition-transform" />
                                   <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed group-hover/btn:underline">{v.title}</span>
-                                  <VideoLengthText id={ytId} />
                                 </button>
                               ) : (
                                 <a 

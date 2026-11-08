@@ -91,7 +91,7 @@ export function writtenDate(text: string, near: string): string | null {
   return best;
 }
 /** 검증 방식 버전: 바뀌면 그날 이미 했어도 한 번 더 */
-export const DC_VER = 10;
+export const DC_VER = 11;
 const ytIdOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
 const sq = (s: string) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
 const kstDate = (iso: string) => new Date(Date.parse(iso) + KST).toISOString().slice(0, 10);
@@ -157,13 +157,14 @@ async function patchLinks(db: any, list: { l: any; fill: Record<string, any> }[]
  * 끝나지 않은 생방(끝 시각 없음)만 다음에 다시 받음
  */
 const VINFO_SHARDS = 8;
+const isoSec = (iso: string) => { const m = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso || ''); return m ? (+m[1] || 0) * 86400 + (+m[2] || 0) * 3600 + (+m[3] || 0) * 60 + (+m[4] || 0) : 0; };
 const shardOf = (id: string) => (id.charCodeAt(0) + id.charCodeAt(10)) % VINFO_SHARDS;
-type VInfo = { t: string; d: string; p: string; s?: string; e?: string; x?: 1 };
+type VInfo = { t: string; d: string; p: string; s?: string; e?: string; l?: number; x?: 1 };
 function makeInfoStore(db: any) {
   const cache = new Map<string, VInfo>();
   const dirty = new Set<number>();
   let loaded = false;
-  const toItem = (id: string, v: VInfo) => ({ id, snippet: { title: v.t, description: v.d, publishedAt: v.p }, ...(v.s ? { liveStreamingDetails: { actualStartTime: v.s, ...(v.e ? { actualEndTime: v.e } : {}) } } : {}) });
+  const toItem = (id: string, v: VInfo) => ({ id, lengthSec: v.l || 0, snippet: { title: v.t, description: v.d, publishedAt: v.p }, ...(v.s ? { liveStreamingDetails: { actualStartTime: v.s, ...(v.e ? { actualEndTime: v.e } : {}) } } : {}) });
   return {
     stats: { cached: 0, fetched: 0 },
     async load() {
@@ -175,16 +176,16 @@ function makeInfoStore(db: any) {
     async fill(ids: string[], info: Map<string, any>, deadline = Infinity) {
       await this.load();
       const miss: string[] = [];
-      ids.forEach((id) => { const c = cache.get(id); if (c && !(c.s && !c.e)) { if (!c.x) info.set(id, toItem(id, c)); this.stats.cached++; } else miss.push(id); });
+      ids.forEach((id) => { const c = cache.get(id); if (c && !(c.s && !c.e) && (c.x || c.l != null)) { if (!c.x) info.set(id, toItem(id, c)); this.stats.cached++; } else miss.push(id); });
       for (let i = 0; i < miss.length && ytApiKey() && Date.now() < deadline; i += 50) {
         const chunk = miss.slice(i, i + 50);
         try {
-          const j = await ytApi(`videos?part=snippet,liveStreamingDetails&id=${chunk.join(',')}`);
+          const j = await ytApi(`videos?part=snippet,liveStreamingDetails,contentDetails&id=${chunk.join(',')}`);
           const got = new Set<string>();
           (j.items || []).forEach((it: any) => {
-            got.add(it.id); info.set(it.id, it); this.stats.fetched++;
+            got.add(it.id); it.lengthSec = isoSec(it.contentDetails?.duration); info.set(it.id, it); this.stats.fetched++;
             const ls = it.liveStreamingDetails || {};
-            cache.set(it.id, { t: String(it.snippet?.title || '').slice(0, 120), d: String(it.snippet?.description || '').slice(0, 500), p: it.snippet?.publishedAt || '', ...(ls.actualStartTime ? { s: ls.actualStartTime } : {}), ...(ls.actualEndTime ? { e: ls.actualEndTime } : {}) });
+            cache.set(it.id, { t: String(it.snippet?.title || '').slice(0, 120), d: String(it.snippet?.description || '').slice(0, 500), p: it.snippet?.publishedAt || '', ...(ls.actualStartTime ? { s: ls.actualStartTime } : {}), ...(ls.actualEndTime ? { e: ls.actualEndTime } : {}), l: it.lengthSec });
             dirty.add(shardOf(it.id));
           });
           // 없는(지워진·비공개) 영상도 표시해 둬서 매번 묻지 않음
@@ -391,15 +392,18 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
   const pending: { l: any; fill: any }[] = [];
   const dateFixed: any[] = [];
   for (const l of logs) {
-    const lives = (l.vods || []).map((v: any) => info.get(ytIdOf(typeof v === 'string' ? v : v?.url))?.liveStreamingDetails).filter((x: any) => x?.actualStartTime);
-    if (!lives.length) continue;
+    // 방송 시간 = 생방송 다시보기 영상의 재생 시간 (여러 개면 합) · 시작 = 유튜브 실제 시작 · 끝 = 시작 + 재생 시간
+    const liveItems = (l.vods || []).map((v: any) => info.get(ytIdOf(typeof v === 'string' ? v : v?.url))).filter((x: any) => x?.liveStreamingDetails?.actualStartTime);
+    if (!liveItems.length) continue;
     stats.timeChecked++;
-    const startIso = lives.map((x: any) => x.actualStartTime).sort()[0];
-    const ends = lives.map((x: any) => x.actualEndTime).filter(Boolean).sort();
-    const endIso = ends[ends.length - 1] || '';
+    liveItems.sort((a: any, b: any) => a.liveStreamingDetails.actualStartTime.localeCompare(b.liveStreamingDetails.actualStartTime));
+    const startIso = liveItems[0].liveStreamingDetails.actualStartTime;
+    const totalSec = liveItems.reduce((a: number, x: any) => a + (x.lengthSec || 0), 0);
+    const lastLive = liveItems[liveItems.length - 1];
+    const endMs = lastLive.lengthSec ? Date.parse(lastLive.liveStreamingDetails.actualStartTime) + lastLive.lengthSec * 1000 : Date.parse(lastLive.liveStreamingDetails.actualEndTime || '');
     const sDate = kstDate(startIso); const sTime = kstTime(startIso);
-    const eTime = endIso ? kstTime(endIso) : '';
-    const hours = endIso ? Math.round(((Date.parse(endIso) - Date.parse(startIso)) / 3600000) * 10) / 10 : 0;
+    const eTime = Number.isFinite(endMs) ? kstTime(new Date(endMs).toISOString()) : '';
+    const hours = totalSec > 0 ? Math.round((totalSec / 3600) * 10000) / 10000 : 0;
     // 날짜가 하루 넘게 다르면 다른 방송의 영상일 수 있음 → 건드리지 않음
     if (Math.abs(Date.parse(`${sDate}T00:00:00Z`) - Date.parse(`${l.date}T00:00:00Z`)) > 86400000) continue;
     // 유튜브 생방송 기록이 있으면 그 시간이 정답 → 다르면 바로 바꿈 (1분 이내 차이는 그대로)
@@ -419,7 +423,7 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
     const off = (x: string, y: string) => !x || Math.abs(minutesOf('2000-01-01', x) - minutesOf('2000-01-01', y)) > 1;
     if (off(l.time, sTime)) fill.time = sTime;
     if (eTime && off(l.endTime, eTime)) fill.endTime = eTime;
-    if (hours > 0 && hours < 30 && Math.abs((Number(l.durationHours) || 0) - hours) > 0.05) fill.durationHours = hours;
+    if (hours > 0 && hours < 30 && Math.abs((Number(l.durationHours) || 0) - hours) > 0.005) fill.durationHours = hours;
     if (Object.keys(fill).length) {
       pending.push({ l, fill });
       autoFilled.push({ id: `fill:${l.id}`, at: new Date().toISOString(), logId: l.id, patch: fill, from: { time: l.time || '', endTime: l.endTime || '', durationHours: l.durationHours || 0 } });
