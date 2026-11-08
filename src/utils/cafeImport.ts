@@ -144,81 +144,114 @@ export type CafePlan = {
   lives: CafeLink[];
   videos: CafeLink[];
   shorts: CafeLink[];
+  /** 생방 없는 다른 기록(예전 가져오기로 잘못 만든 기록 등)에서 이 기록으로 옮겨 올 영상 */
+  moves: { from: any; video: CafeLink }[];
   via: { title: string; postDate: string }[];
   notes: string[];
   status: 'new-log' | 'add';
 };
 
+const idOfItem = (x: any) => youtubeIdOf(typeof x === 'string' ? x : x?.url || '');
+const isComp = (e: any) => Boolean(e?.isCompilation || e?.compilationId);
+
 /**
- * 영상 링크 기준으로 맞춤:
- * 1) 사이트에 이미 있는 영상이면 → 그 영상이 들어 있는 방송 기록에, 없는 생방 링크만 추가
- * 2) 사이트에 없는 영상이면 → 글의 날짜 기록에 영상·생방 추가 (그날 기록이 없으면 새 기록)
- * - 다른 기록에 이미 있는 링크는 넣지 않고 skipped 로 알려 줌
+ * 영상과 생방을 같은 방송 기록에 모음 (생방이 있는 기록이 기준):
+ * 1) 생방이 이미 어떤 기록에 있으면 → 영상도 그 기록에. 영상이 생방 없는 다른 기록에 들어가 있으면 옮겨 옴
+ * 2) 생방은 없고 영상이 이미 어떤 기록에 있으면 → 그 기록에 생방 추가
+ * 3) 둘 다 사이트에 없으면 → 글의 날짜 기록에 (그날 기록이 없으면 새 기록)
+ * - 영상과 생방이 각각 '생방이 있는' 서로 다른 기록에 있으면 건드리지 않고 알려 줌
  */
 export function planCafeImport(days: CafeDay[], logs: any[], titleOf: Map<string, string> = new Map()): { plans: CafePlan[]; skipped: string[]; already: number } {
-    const editedAt = new Map<string, any>();
-    const linkAt = new Map<string, any>();
-    logs.forEach((l) => {
-      (l.edited || []).forEach((e: any) => { const id = youtubeIdOf(e?.url || ''); if (id && !e.isCompilation && !e.compilationId && !editedAt.has(id)) editedAt.set(id, l); });
-      [...(l.vods || []), ...(l.edited || []), ...(l.shorts || [])].forEach((x: any) => { const id = youtubeIdOf(typeof x === 'string' ? x : x?.url || ''); if (id && !linkAt.has(id)) linkAt.set(id, l); });
-    });
-    const byKey = new Map<string, CafePlan>();
-    const planFor = (log: any | null, date: string): CafePlan => {
-      const key = log ? log.id : `new:${date}`;
-      let p = byKey.get(key);
-      if (!p) { p = { key, log, date: log?.date || date, lives: [], videos: [], shorts: [], via: [], notes: [], status: log ? 'add' : 'new-log' }; byKey.set(key, p); }
-      return p;
-    };
-    const has = (list: CafeLink[], id: string) => list.some((x) => x.id === id);
-    const skippedList: string[] = [];
-    let alreadyCount = 0;
+  const editedAt = new Map<string, any>();
+  const liveAt = new Map<string, any>();
+  const linkAt = new Map<string, any>();
+  logs.forEach((l) => {
+    (l.edited || []).forEach((e: any) => { const id = idOfItem(e); if (id && !isComp(e) && !editedAt.has(id)) editedAt.set(id, l); });
+    (l.vods || []).forEach((v: any) => { const id = idOfItem(v); if (id && !liveAt.has(id)) liveAt.set(id, l); });
+    [...(l.vods || []), ...(l.edited || []), ...(l.shorts || [])].forEach((x: any) => { const id = idOfItem(x); if (id && !linkAt.has(id)) linkAt.set(id, l); });
+  });
+  const hasLive = (l: any) => (l?.vods || []).some((v: any) => idOfItem(v));
+  const byKey = new Map<string, CafePlan>();
+  const planFor = (log: any | null, date: string): CafePlan => {
+    const key = log ? log.id : `new:${date}`;
+    let p = byKey.get(key);
+    if (!p) { p = { key, log, date: log?.date || date, lives: [], videos: [], shorts: [], moves: [], via: [], notes: [], status: log ? 'add' : 'new-log' }; byKey.set(key, p); }
+    return p;
+  };
+  const has = (list: CafeLink[], id: string) => list.some((x) => x.id === id);
+  const skippedList: string[] = [];
+  let alreadyCount = 0;
+  const titleFor = (video: CafeLink, inLog?: any) => (inLog?.edited || []).find((e: any) => idOfItem(e) === video.id)?.title || titleOf.get(video.id) || video.title || '';
 
-    days.forEach((day) => {
-      const dateLog = logs.find((l) => l.date === day.date && !l.isAbsence) || null;
-      day.pairs.forEach(({ video, lives }) => {
-        const target = editedAt.get(video.id) || null;
-        if (target) {
-          lives.forEach((live) => {
-            const at = linkAt.get(live.id);
-            if (at && at.id === target.id) { alreadyCount++; return; }
-            if (at) { skippedList.push(`생방 ${live.id}: 영상은 ${target.date} 기록에 있는데 이 생방 링크는 ${at.date} 기록에 있어요`); return; }
-            const p = planFor(target, target.date);
-            if (!has(p.lives, live.id)) p.lives.push(live);
-            const t = (target.edited || []).find((e: any) => youtubeIdOf(e?.url || '') === video.id)?.title || titleOf.get(video.id) || video.title || video.id;
-            if (!p.via.some((v) => v.title === t)) p.via.push({ title: t, postDate: day.date });
-            if (day.date !== target.date) p.notes.push(`글의 날짜는 ${day.date}, 영상이 있는 기록은 ${target.date}`);
-          });
-          if (!lives.length) alreadyCount++;
-          return;
-        }
-        // 사이트에 없는 영상: 글의 날짜 기록으로
-        const at = linkAt.get(video.id);
-        if (at) { alreadyCount++; return; }
-        const p = planFor(dateLog, day.date);
-        if (!has(p.videos, video.id)) p.videos.push({ ...video, title: titleOf.get(video.id) || video.title || '' });
-        lives.forEach((live) => {
-          const lat = linkAt.get(live.id);
-          if (lat && (!dateLog || lat.id !== dateLog.id)) { skippedList.push(`생방 ${live.id}: 이미 ${lat.date} 기록에 있어요`); return; }
-          if (lat) { alreadyCount++; return; }
-          if (!has(p.lives, live.id)) p.lives.push(live);
+  days.forEach((day) => {
+    const dateLog = logs.find((l) => l.date === day.date && !l.isAbsence) || null;
+    day.pairs.forEach(({ video, lives }) => {
+      const vLog = editedAt.get(video.id) || null;
+      const liveLogs = lives.map((lv) => liveAt.get(lv.id)).filter(Boolean);
+      const home = liveLogs[0] || null; // 생방이 들어 있는 기록
+      if (home) {
+        // 1) 생방 기록 기준
+        const p = planFor(home, home.date);
+        if (vLog && vLog.id === home.id) alreadyCount++;
+        else if (vLog && hasLive(vLog)) { skippedList.push(`영상 「${titleFor(video, vLog) || video.id}」: ${vLog.date} 기록에 있는데 생방은 ${home.date} 기록에 있어요 (둘 다 생방이 있는 기록이라 그대로 둠)`); return; }
+        else if (vLog) { if (!p.moves.some((m) => m.video.id === video.id)) p.moves.push({ from: vLog, video: { ...video, title: titleFor(video, vLog) } }); }
+        else if (!has(p.videos, video.id)) p.videos.push({ ...video, title: titleFor(video) });
+        lives.forEach((lv) => {
+          const at = liveAt.get(lv.id) || linkAt.get(lv.id);
+          if (at && at.id === home.id) return;
+          if (at) { skippedList.push(`생방 ${lv.id}: 이미 ${at.date} 기록에 있어요`); return; }
+          if (!has(p.lives, lv.id)) p.lives.push(lv);
         });
-      });
-      // 영상 없이 생방 링크만 있는 날: 그날 기록에
-      const paired = new Set(day.pairs.flatMap((p) => p.lives.map((l) => l.id)));
-      day.lives.filter((l) => !paired.has(l.id)).forEach((live) => {
-        const lat = linkAt.get(live.id);
-        if (lat) { if (dateLog && lat.id === dateLog.id) alreadyCount++; else skippedList.push(`생방 ${live.id}: 이미 ${lat.date} 기록에 있어요`); return; }
-        const p = planFor(dateLog, day.date);
-        if (!has(p.lives, live.id)) p.lives.push(live);
-      });
-      day.shorts.forEach((sh) => {
-        if (linkAt.has(sh.id)) { alreadyCount++; return; }
-        const p = planFor(dateLog, day.date);
-        if (!has(p.shorts, sh.id)) p.shorts.push({ ...sh, title: titleOf.get(sh.id) || sh.title || '' });
+        if (home.date !== day.date) p.notes.push(`글의 날짜는 ${day.date}, 생방이 있는 기록은 ${home.date}`);
+        return;
+      }
+      if (vLog) {
+        // 2) 영상이 있는 기록에 생방 추가
+        if (!lives.length) { alreadyCount++; return; }
+        lives.forEach((lv) => {
+          const at = linkAt.get(lv.id);
+          if (at && at.id === vLog.id) { alreadyCount++; return; }
+          if (at) { skippedList.push(`생방 ${lv.id}: 영상은 ${vLog.date} 기록에 있는데 이 생방 링크는 ${at.date} 기록에 있어요`); return; }
+          const p = planFor(vLog, vLog.date);
+          if (!has(p.lives, lv.id)) p.lives.push(lv);
+          const t = titleFor(video, vLog) || video.id;
+          if (!p.via.some((v) => v.title === t)) p.via.push({ title: t, postDate: day.date });
+          if (day.date !== vLog.date) p.notes.push(`글의 날짜는 ${day.date}, 영상이 있는 기록은 ${vLog.date}`);
+        });
+        return;
+      }
+      // 3) 둘 다 없음: 글의 날짜 기록으로
+      if (linkAt.get(video.id)) { alreadyCount++; return; }
+      const p = planFor(dateLog, day.date);
+      if (!has(p.videos, video.id)) p.videos.push({ ...video, title: titleFor(video) });
+      lives.forEach((lv) => {
+        const lat = linkAt.get(lv.id);
+        if (lat && (!dateLog || lat.id !== dateLog.id)) { skippedList.push(`생방 ${lv.id}: 이미 ${lat.date} 기록에 있어요`); return; }
+        if (lat) { alreadyCount++; return; }
+        if (!has(p.lives, lv.id)) p.lives.push(lv);
       });
     });
-    const list = [...byKey.values()].filter((p) => p.lives.length + p.videos.length + p.shorts.length > 0)
-      .map((p) => ({ ...p, notes: [...new Set(p.notes)] }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-    return { plans: list, skipped: skippedList, already: alreadyCount };
+    // 영상 없이 생방 링크만 있는 날: 그날 기록에
+    const paired = new Set(day.pairs.flatMap((p) => p.lives.map((l) => l.id)));
+    day.lives.filter((l) => !paired.has(l.id)).forEach((live) => {
+      const lat = linkAt.get(live.id);
+      if (lat) { if (dateLog && lat.id === dateLog.id) alreadyCount++; else alreadyCount++; return; }
+      const p = planFor(dateLog, day.date);
+      if (!has(p.lives, live.id)) p.lives.push(live);
+    });
+    day.shorts.forEach((sh) => {
+      if (linkAt.has(sh.id)) { alreadyCount++; return; }
+      const p = planFor(dateLog, day.date);
+      if (!has(p.shorts, sh.id)) p.shorts.push({ ...sh, title: titleOf.get(sh.id) || sh.title || '' });
+    });
+  });
+  const list = [...byKey.values()].filter((p) => p.lives.length + p.videos.length + p.shorts.length + p.moves.length > 0)
+    .map((p) => ({ ...p, notes: [...new Set(p.notes)] }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return { plans: list, skipped: skippedList, already: alreadyCount };
+}
+
+/** 옮긴 뒤 빈 기록인지 (게임·시간·생방·영상·쇼츠 아무것도 없음) */
+export function isEmptyLog(l: any): boolean {
+  return !(l.vods || []).length && !(l.edited || []).length && !(l.shorts || []).length && !(l.games || []).length && !l.game && !l.time;
 }

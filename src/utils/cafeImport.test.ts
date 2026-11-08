@@ -36,3 +36,25 @@ describe('카페 정리 글', () => {
     expect(plans.find((p) => p.key === 'b')?.lives.map((l) => l.id)).toEqual(['CCCCCCCCCCC']);
   });
 });
+
+describe('생방 기록 기준으로 모음', () => {
+  const post = `[생방날짜: 2017. 10. 19]
+생방링크
+: https://youtu.be/HS7jvcdsyF8
+
+영상링크
+: https://youtu.be/F4aNNqUT784
+[PUBG] 늪지대 엔딩 '하마메타' 여기 완전 개꿀자리자너~? | 우주하마`;
+  const archive = { id: '2017-10-18_archive_1960', date: '2017-10-18', vods: [{ url: 'https://youtu.be/HS7jvcdsyF8' }], edited: [] };
+  it('생방이 다른 날 기록에 있으면 영상을 그 기록에', () => {
+    const { plans } = planCafeImport(parseCafePost(post), [archive]);
+    expect(plans).toHaveLength(1);
+    expect(plans[0]).toMatchObject({ key: archive.id, videos: [{ id: 'F4aNNqUT784' }], lives: [] });
+  });
+  it('예전에 생방 없이 따로 만든 기록의 영상은 옮겨 옴', () => {
+    const cafe = { id: 'cafe_20171019_x', date: '2017-10-19', vods: [], edited: [{ url: 'https://youtu.be/F4aNNqUT784', title: 't' }] };
+    const { plans } = planCafeImport(parseCafePost(post), [archive, cafe]);
+    expect(plans).toHaveLength(1);
+    expect(plans[0].moves.map((m) => [m.from.id, m.video.id])).toEqual([['cafe_20171019_x', 'F4aNNqUT784']]);
+  });
+});

@@ -80,7 +80,7 @@ export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAll
 
       {/* Main Tab Content */}
       <div className="pb-32 sm:pb-0">
-        {viewMode === 'add' && <AdminAddTab onAddLog={onAddLog} onUpdateLog={onUpdateLog} data={data} />}
+        {viewMode === 'add' && <AdminAddTab onAddLog={onAddLog} onUpdateLog={onUpdateLog} onDeleteLog={onDeleteLog} data={data} />}
         
         {viewMode === 'edit' && (
           <AdminLogsTab 

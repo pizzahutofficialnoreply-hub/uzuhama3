@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { CheckSquare, ClipboardPaste, Loader2, Square, Wand2 } from 'lucide-react';
 import type { AppData, BroadcastLog, LinkItem } from '../../../types';
 import { cn } from '../../../utils';
-import { parseCafePost, planCafeImport, type CafeDay, type CafeLink, type CafePlan } from '../../../utils/cafeImport';
+import { isEmptyLog, parseCafePost, planCafeImport, youtubeIdOf, type CafeDay, type CafeLink, type CafePlan } from '../../../utils/cafeImport';
 import { useChannelVideos } from '../../../hooks/useChannelVideos';
 
 /**
@@ -14,10 +14,11 @@ import { useChannelVideos } from '../../../hooks/useChannelVideos';
  */
 type Plan = CafePlan;
 
-export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
+export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
   data: AppData;
   onAddLog: (log: BroadcastLog) => Promise<void>;
   onUpdateLog?: (log: BroadcastLog) => Promise<void>;
+  onDeleteLog?: (id: string) => Promise<void>;
 }) {
   const [text, setText] = useState('');
   const [source, setSource] = useState('');
@@ -56,16 +57,32 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
     setBusy({ done: 0, total: todo.length });
     let ok = 0;
     const fails: string[] = [];
+    // 반영하는 동안 바뀐 기록을 따라가며 씀 (같은 기록을 두 번 고쳐도 앞의 것이 지워지지 않게)
+    const work: Record<string, any> = { ...(data.logs as any) };
+    const save = async (l: any) => { await onUpdateLog!(l); work[l.id] = l; };
     for (const p of todo) {
       try {
         if (p.log) {
           if (!onUpdateLog) throw new Error('기록 수정 기능을 못 찾았어요');
-          await onUpdateLog({
-            ...p.log,
-            vods: [...(p.log.vods || []), ...p.lives.map((l) => toItem(l, '생방송'))],
-            edited: [...(p.log.edited || []), ...p.videos.map((l) => toItem(l, '편집본'))],
-            shorts: [...(p.log.shorts || []), ...p.shorts.map((l) => toItem(l, '쇼츠'))],
+          const cur: any = work[p.log.id] || p.log;
+          // 다른 기록에서 옮겨 오는 영상은 원래 항목(제목·출처) 그대로
+          const moved = p.moves.map((m) => (m.from.edited || []).find((e: any) => youtubeIdOf(e?.url || '') === m.video.id) || toItem(m.video, '편집본'));
+          await save({
+            ...cur,
+            vods: [...(cur.vods || []), ...p.lives.map((l) => toItem(l, '생방송'))],
+            edited: [...(cur.edited || []), ...p.videos.map((l) => toItem(l, '편집본')), ...moved],
+            shorts: [...(cur.shorts || []), ...p.shorts.map((l) => toItem(l, '쇼츠'))],
           });
+          // 옮긴 영상은 원래 기록에서 빼고, 빈 기록이 되면 지움
+          const bySrc = new Map<string, string[]>();
+          p.moves.forEach((m) => bySrc.set(m.from.id, [...(bySrc.get(m.from.id) || []), m.video.id]));
+          for (const [srcId, ids] of bySrc) {
+            const src: any = work[srcId];
+            if (!src) continue;
+            const next = { ...src, edited: (src.edited || []).filter((e: any) => !ids.includes(youtubeIdOf(e?.url || '') || '')) };
+            if (isEmptyLog(next) && onDeleteLog) { await onDeleteLog(srcId); delete work[srcId]; }
+            else await save(next);
+          }
         } else {
           await onAddLog({
             id: `cafe_${p.date.replace(/-/g, '')}_${Math.random().toString(36).slice(2, 7)}`,
@@ -93,7 +110,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
     <div className="space-y-5">
       <div className="p-4 rounded-2xl border border-purple-200 dark:border-purple-900/60 bg-purple-50/50 dark:bg-purple-950/20 text-xs sm:text-sm text-purple-900 dark:text-purple-200 leading-relaxed">
         팬카페의 '영상 생방링크 정리' 글을 통째로 복사해서 붙여 넣으세요. 날짜별로 나눠서 <b>기록에 아직 없는 링크만</b> 보여 줘요.
-        사이트에 이미 있는 영상이면 <b>그 영상이 들어 있는 방송 기록에 생방 링크</b>를 넣어요. 확인하고 고른 것만 반영돼요. 정리해 준 팬의 글 링크를 출처로 남겨 두면 좋아요.
+        영상은 <b>생방이 들어 있는 방송 기록</b>에 같이 넣어요. 예전에 생방 없이 따로 만들어진 기록의 영상은 생방 기록으로 옮기고, 빈 기록은 지워요. 확인하고 고른 것만 반영돼요. 정리해 준 팬의 글 링크를 출처로 남겨 두면 좋아요.
       </div>
 
       <div className="space-y-3">
@@ -115,7 +132,8 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
       {days && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="font-bold">글에서 {days.length}일 · 영상 {days.reduce((a, d) => a + d.pairs.length, 0)}개 · 생방 {days.reduce((a, d) => a + d.lives.length, 0)}개 찾음</span>
+            {plans.some((p) => p.moves.length) && <span className="px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300 font-bold">옮길 영상 {plans.reduce((a, p) => a + p.moves.length, 0)}</span>}
+          <span className="font-bold">글에서 {days.length}일 · 영상 {days.reduce((a, d) => a + d.pairs.length, 0)}개 · 생방 {days.reduce((a, d) => a + d.lives.length, 0)}개 찾음</span>
             <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 font-bold">넣을 생방 링크 {liveCount}</span>
             {count('new-log') > 0 && <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 font-bold">새 기록 {count('new-log')}</span>}
             <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-zinc-800 font-bold">이미 있음 {already}</span>
@@ -127,7 +145,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
           </div>
 
           {plans.length === 0 ? (
-            <p className="text-xs text-zinc-500 py-4 text-center">넣을 게 없어요. 글의 링크가 모두 기록에 이미 있어요.</p>
+            <p className="text-xs text-zinc-500 py-4 text-center">{skipped.length ? `넣을 게 없어요. 건너뛴 링크 ${skipped.length}개는 아래에서 이유를 볼 수 있어요.` : '넣을 게 없어요. 글의 영상·생방이 이미 같은 기록에 함께 들어 있어요.'}</p>
           ) : (
             <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800 overflow-hidden">
               {plans.map((p) => (
@@ -146,6 +164,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
                     {p.via.map((v) => <li key={v.title} className="text-zinc-500">영상 「{v.title}」 기준</li>)}
                     {p.lives.map((l) => <li key={l.id}><b className="text-purple-600">+ 생방</b> <a href={l.url} target="_blank" rel="noreferrer" className="underline text-zinc-600 dark:text-zinc-300">{l.url}</a></li>)}
                     {p.videos.map((l) => <li key={l.id}><b className="text-red-600">+ 영상</b> {l.title || <i className="text-zinc-400">제목 없음</i>} <a href={l.url} target="_blank" rel="noreferrer" className="underline text-zinc-400">{l.id}</a></li>)}
+                    {p.moves.map((m) => <li key={`mv-${m.video.id}`}><b className="text-sky-600">↪ 영상 옮김</b> {m.video.title || m.video.id} <span className="text-zinc-400">(생방 없는 {m.from.date} 기록에서)</span></li>)}
                     {p.shorts.map((l) => <li key={l.id}><b className="text-pink-600">+ 쇼츠</b> {l.title || ''} <a href={l.url} target="_blank" rel="noreferrer" className="underline text-zinc-400">{l.id}</a></li>)}
                     {p.notes.map((n) => <li key={n} className="text-amber-600">{n}</li>)}
                   </ul>
@@ -155,8 +174,8 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
           )}
 
           {skipped.length > 0 && (
-            <details className="text-xs text-zinc-500">
-              <summary className="cursor-pointer font-bold">건너뛴 링크 {skipped.length}개 (다른 기록에 이미 있음)</summary>
+            <details open={plans.length === 0} className="text-xs text-zinc-500">
+              <summary className="cursor-pointer font-bold">건너뛴 링크 {skipped.length}개 (이유 보기)</summary>
               <ul className="mt-1.5 ml-4 list-disc space-y-0.5">{skipped.map((t) => <li key={t}>{t}</li>)}</ul>
             </details>
           )}

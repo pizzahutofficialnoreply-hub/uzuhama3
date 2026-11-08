@@ -44,10 +44,12 @@ const cleanTime = (t: string, originalLine?: string) => {
 export function AdminAddTab({ 
   onAddLog, 
   onUpdateLog, 
+  onDeleteLog,
   data 
 }: { 
   onAddLog: (log: BroadcastLog) => Promise<void>, 
   onUpdateLog?: (log: BroadcastLog) => Promise<void>, 
+  onDeleteLog?: (id: string) => Promise<void>,
   data: AppData 
 }) {
   const [entryMode, setEntryMode] = useState<'standard' | 'molabogi' | 'cafe'>('standard');
@@ -344,7 +346,7 @@ export function AdminAddTab({
       </div>
 
       {entryMode === 'cafe' ? (
-        <AdminCafeImport data={data} onAddLog={onAddLog} onUpdateLog={onUpdateLog} />
+        <AdminCafeImport data={data} onAddLog={onAddLog} onUpdateLog={onUpdateLog} onDeleteLog={onDeleteLog} />
       ) : entryMode === 'molabogi' ? (
         <AdminMolabogiSection data={data} onUpdateLog={onUpdateLog} />
       ) : (
