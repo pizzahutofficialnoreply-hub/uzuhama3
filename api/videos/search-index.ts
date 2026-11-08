@@ -202,7 +202,7 @@ export default async function handler(req: any, res: any) {
         if (Date.now() - last < 20 * 3600000 && prevDc.stats?.autoFilled !== undefined) return res.status(200).json({ skipped: '오늘 이미 함', at: new Date(last).toISOString() });
         const dc = await import('../_dataCheck.js');
         const r = await dc.runDataCheck(db);
-        return res.status(200).json({ ok: true, at: r.at, counts: r.counts, ms: r.ms });
+        return res.status(200).json({ ok: true, at: r.at, counts: r.counts, ms: r.ms, stats: r.stats });
       }
       if (aiMode === 'status') {
         res.setHeader('Cache-Control', 'no-store');
