@@ -227,7 +227,7 @@ export default async function handler(req: any, res: any) {
           e2e: results.e2e || null,
           live: results.live ? { summary: results.live.summary, problems: (results.live.runs || []).filter((r: any) => !r.ok || r.pageerror?.length || r.console?.length || r.overflow > 2 || r.broken?.length).slice(0, 40).map((r: any) => ({ host: r.host, view: r.view, scheme: r.scheme, page: r.page, err: r.err, pageerror: r.pageerror, console: (r.console || []).slice(0, 5), failed: (r.failed || []).slice(0, 5), overflow: r.overflow, wide: r.wide, broken: r.broken })) } : null,
           api: results.api ? { summary: results.api.summary, stats: results.api.stats, checks: results.api.checks } : null,
-          selftest: results.selftest ? { summary: results.selftest.summary, error: results.selftest.error || '', results: (results.selftest.results || []).map((r: any) => ({ group: r.group, name: r.name, ok: r.ok, warn: Boolean(r.warn), err: r.err || '', ms: r.ms })) } : null,
+          selftest: results.selftest ? { summary: results.selftest.summary, error: results.selftest.error || '', results: (results.selftest.results || []).map((r: any) => ({ group: r.group, name: r.name, ok: r.ok, warn: Boolean(r.warn), err: r.err || '', ms: r.ms, details: (r.details || []).slice(0, 40).map((d: any) => String(d).slice(0, 200)) })) } : null,
         },
         server,
       };

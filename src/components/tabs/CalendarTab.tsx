@@ -1706,6 +1706,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                   <button
                     key={p.key}
                     type="button"
+                    aria-pressed={isSelected}
                     onClick={() => {
                       triggerHaptic(10);
                       handleApplyPreset(p.key);
@@ -1958,7 +1959,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                 </button>
                               ) : (
                                 <a 
-                                  href={v.url || '#'} 
+                                  href={v.url || undefined} aria-disabled={!v.url || undefined} 
                                   target="_blank" 
                                   rel="noopener noreferrer" 
                                   title={v.title || '생방송 다시보기'}
@@ -2016,7 +2017,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                   </button>
                                 ) : (
                                   <a 
-                                    href={v.url || '#'} 
+                                    href={v.url || undefined} aria-disabled={!v.url || undefined} 
                                     target="_blank" 
                                     rel="noopener noreferrer" 
                                     title={v.title || '유튜브 편집본'}
@@ -2075,7 +2076,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                 </button>
                               ) : (
                                 <a 
-                                  href={v.url || '#'} 
+                                  href={v.url || undefined} aria-disabled={!v.url || undefined} 
                                   target="_blank" 
                                   rel="noopener noreferrer" 
                                   title={v.title || '유튜브 쇼츠'}

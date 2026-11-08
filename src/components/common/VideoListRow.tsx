@@ -63,7 +63,8 @@ export function VideoListRow({
   }, [menuOpen]);
 
   // 사이트에서 보던 곳이 있으면 거기부터
-  const link = withResume(href || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : '#'), videoId);
+  const rawLink = href || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : '');
+  const link = rawLink ? withResume(rawLink, videoId) : undefined;
   const progress = useProgress(videoId || '');
   const upload = meta?.publishedAt ? `${toKstDate(meta.publishedAt)} · ${formatRelativeTime(meta.publishedAt)}` : '';
   const validShorts = shorts.filter((s) => s?.url);

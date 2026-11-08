@@ -24,40 +24,44 @@ interface SmartTrendLabelProps {
  */
 /**
  * 이름표를 달 점 고르기 (공유 이미지용)
- * - 같은 값이 이어지면 그 첫 점만
- * - 오르다 내리거나 내리다 오르는 꺾이는 점(봉우리·골짜기)
+ * - 꺾이는 점은 전부: 오르다 내리는 봉우리(위), 내리다 오르는 골짜기(아래)
+ * - 같은 값이 이어지면 그 첫 점만 (평평한 봉우리·골짜기도 첫 점에)
  * - 처음·끝 점
- * - 이름표끼리 너무 붙으면(minGap 칸 이내) 큰 변화 쪽만 남김
+ * - 같은 쪽 이름표가 가까우면 높이를 번갈아(level 0/1) 겹치지 않게
  */
-export function pickTrendLabels(values: number[], minGap = 1): Map<number, 'up' | 'down'> {
-  const out = new Map<number, 'up' | 'down'>();
+export type TrendPick = { dir: 'up' | 'down'; level: number };
+export function pickTrendLabels(values: number[], nearGap = 2): Map<number, TrendPick> {
+  const out = new Map<number, TrendPick>();
   const n = values.length;
   if (!n) return out;
-  // 같은 값 묶음(run)으로
   const runs: { start: number; v: number }[] = [];
   values.forEach((v, i) => { if (!runs.length || runs[runs.length - 1].v !== v) runs.push({ start: i, v }); });
-  const cand: { i: number; dir: 'up' | 'down'; w: number }[] = [];
-  const hi = Math.max(...values);
+  const picks: { i: number; dir: 'up' | 'down' }[] = [];
   runs.forEach((r, k) => {
     const prev = runs[k - 1]?.v;
     const next = runs[k + 1]?.v;
-    const isPeak = (prev === undefined || r.v > prev) && (next === undefined || r.v > next);
-    const isValley = (prev === undefined || r.v < prev) && (next === undefined || r.v < next);
-    if (k === 0 || isPeak || isValley) {
-      const w = Math.abs(r.v - (prev ?? r.v)) + Math.abs(r.v - (next ?? r.v)) + (k === 0 ? 0.5 : 0) + (r.v === hi ? 4 : 0);
-      cand.push({ i: r.start, dir: isValley && !isPeak ? 'down' : 'up', w });
-    }
+    const peak = (prev === undefined || r.v > prev) && (next === undefined || r.v > next);
+    const valley = (prev === undefined || r.v < prev) && (next === undefined || r.v < next);
+    if (k === 0) picks.push({ i: r.start, dir: valley && !peak ? 'down' : 'up' });
+    else if (peak) picks.push({ i: r.start, dir: 'up' });
+    else if (valley) picks.push({ i: r.start, dir: 'down' });
   });
-  // 마지막 점 (같은 값이 이어지는 중이어도 지금 값은 보여 줌)
-  if (!cand.some((c) => c.i === n - 1) && runs[runs.length - 1].start !== n - 1) cand.push({ i: n - 1, dir: 'up', w: 0.4 });
-  // 가까운 것끼리는 변화가 큰 쪽만
-  const kept: typeof cand = [];
-  [...cand].sort((a, b) => b.w - a.w).forEach((c) => { if (kept.every((k) => Math.abs(k.i - c.i) >= minGap)) kept.push(c); });
-  kept.forEach((c) => out.set(c.i, c.dir));
+  if (!picks.some((p) => p.i === n - 1) && runs[runs.length - 1].start !== n - 1) picks.push({ i: n - 1, dir: 'up' });
+  const lastAt: Record<string, { i: number; level: number }> = {};
+  picks.forEach((p) => {
+    const prev = lastAt[p.dir];
+    const level = prev && p.i - prev.i <= nearGap ? (prev.level + 1) % 2 : 0;
+    lastAt[p.dir] = { i: p.i, level };
+    out.set(p.i, { dir: p.dir, level });
+  });
   return out;
 }
 
-const pickCache = new Map<string, Map<number, 'up' | 'down'>>();
+const pickCache = new Map<string, Map<number, TrendPick>>();
+// 이번 그래프에서 이미 놓은 이름표 자리 (왼쪽부터 차례로 그려짐 → 겹치면 높이·방향을 바꾸고, 끝내 자리가 없으면 그 이름표만 생략)
+type Box = { x1: number; x2: number; y1: number; y2: number };
+const placedBoxes = new Map<string, Box[]>();
+const hit = (a: Box, b: Box) => a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
 
 export const SmartTrendLabel: React.FC<SmartTrendLabelProps & { values?: number[] }> = (props) => {
   const {
@@ -78,22 +82,43 @@ export const SmartTrendLabel: React.FC<SmartTrendLabelProps & { values?: number[
 
   // 값 목록이 있으면: 첫 점·꺾이는 점·끝 점에만, 아래(골짜기)·위(봉우리)로
   if (values && values.length) {
-    // 이름표가 그래프 하나에 14개 안팎이 되게 (서로 안 겹치게)
-    const minGap = Math.max(1, Math.ceil(values.length / 14));
-    const key = `${minGap}|${values.join(',')}`;
+    // 같은 쪽 이름표가 이 칸 수 안에 붙으면 높이를 번갈아
+    const nearGap = Math.max(2, Math.ceil(values.length / 16));
+    const key = `${nearGap}|${values.join(',')}`;
     let picks = pickCache.get(key);
     if (!picks) {
-      picks = pickTrendLabels(values, minGap);
+      picks = pickTrendLabels(values, nearGap);
       if (pickCache.size > 30) pickCache.clear();
       pickCache.set(key, picks);
     }
-    const dir = picks.get(index);
-    if (!dir) return null;
-    // 골짜기는 아래에, 단 맨 아래 값이면 축 글씨와 겹치니 위로
-    const down = dir === 'down' && Number(value) > Math.min(...values);
-    const lead = 12;
-    const ty = down ? y + lead + 12 : y - lead - 4;
+    const pick = picks.get(index);
+    if (!pick) return null;
+    const first = Math.min(...picks.keys());
+    if (index === first) placedBoxes.set(key, []);
+    const boxes = placedBoxes.get(key) || [];
     const txt = typeof value === 'number' ? `${value}${unit}` : `${value}`;
+    const w = txt.length * 7 + 6;
+    // 골짜기는 아래, 봉우리는 위가 먼저. 맨 아래 값은 축 글씨와 겹치니 위로
+    const prefDown = pick.dir === 'down' && Number(value) > Math.min(...values);
+    const tries: { down: boolean; lead: number }[] = [
+      { down: prefDown, lead: 11 }, { down: prefDown, lead: 25 }, { down: prefDown, lead: 39 },
+      { down: !prefDown, lead: 11 }, { down: !prefDown, lead: 25 },
+    ].filter((t) => !(t.down && Number(value) <= Math.min(...values)));
+    let spot: { down: boolean; lead: number; box: Box } | null = null;
+    for (const t of tries) {
+      const ty = t.down ? y + t.lead + 12 : y - t.lead - 4;
+      const box = { x1: x - w / 2, x2: x + w / 2, y1: ty - 11, y2: ty + 2 };
+      if (box.y1 < 4) continue;
+      if (boxes.some((b) => hit(b, box))) continue;
+      spot = { ...t, box };
+      break;
+    }
+    if (!spot) return null;
+    boxes.push(spot.box);
+    placedBoxes.set(key, boxes);
+    const down = spot.down;
+    const lead = spot.lead;
+    const ty = down ? y + lead + 12 : y - lead - 4;
     return (
       <g className={className}>
         <line x1={x} y1={down ? y + 3 : y - 3} x2={x} y2={down ? y + lead : y - lead} stroke={strokeColor} strokeWidth={1.4} strokeDasharray="2 2" opacity={0.9} />

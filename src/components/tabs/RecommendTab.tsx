@@ -517,7 +517,7 @@ export const VideoCard = ({
         
         <div className="mt-auto pt-4 flex flex-col gap-2 relative">
           <a 
-            href={video.videoUrl ? withResume(video.videoUrl, video.id) : '#'} 
+            href={video.videoUrl ? withResume(video.videoUrl, video.id) : undefined} aria-disabled={!video.videoUrl || undefined} 
             target="_blank"
             rel="noreferrer"
             onClick={(e) => {

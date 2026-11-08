@@ -48,7 +48,7 @@ export function SelfTestRunner({ auto = false, embedded = false }: { auto?: bool
       setResults((p) => [...p, r]);
       setStage(`${r.group} · ${r.name}`);
       (window as any).__selftest.results.push(r);
-    });
+    }, (() => { const o = new URLSearchParams(window.location.search).get('only'); return o ? { only: o.split(',') } : {}; })());
     try { localStorage.removeItem(SELFTEST_FLAG); } catch { /* */ }
     (window as any).__selftest = { done: true, results: out.results, errors: out.errors.slice(0, 20) };
     setRunning(false); setDone(true);
@@ -60,7 +60,7 @@ export function SelfTestRunner({ auto = false, embedded = false }: { auto?: bool
   const warn = results.filter((r) => r.warn);
   const groups = [...new Set(results.map((r) => r.group))];
   const copy = () => {
-    const text = results.map((r) => `${r.ok ? (r.warn ? '⚠️' : '✅') : '❌'} [${r.group}] ${r.name}${r.err ? ` — ${r.err}` : ''} (${r.ms}ms)`).join('\n');
+    const text = results.map((r) => `${r.ok ? (r.warn ? '⚠️' : '✅') : '❌'} [${r.group}] ${r.name}${r.err ? ` — ${r.err}` : ''} (${r.ms}ms)${(r.details || []).map((d) => `\n    · ${d}`).join('')}`).join('\n');
     try { navigator.clipboard.writeText(text); } catch { /* */ }
   };
 
@@ -98,7 +98,14 @@ export function SelfTestRunner({ auto = false, embedded = false }: { auto?: bool
                 {results.filter((r) => r.group === g).map((r, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs">
                     {r.ok ? (r.warn ? <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />) : <XCircle className="w-4 h-4 text-red-500 shrink-0" />}
-                    <span className="flex-1 break-keep">{r.name}{r.err && <span className="block text-[11px] text-zinc-500 break-all">{r.err}</span>}</span>
+                    <span className="flex-1 break-keep">{r.name}{r.err && <span className="block text-[11px] text-zinc-500 break-all">{r.err}</span>}
+                      {r.details && r.details.length > 0 && (
+                        <details className="mt-1 text-[11px] text-zinc-500">
+                          <summary className="cursor-pointer font-semibold">{r.details[0]} · 자세히</summary>
+                          <ul className="mt-1 space-y-0.5 max-h-48 overflow-auto">{r.details.slice(1).map((d, j) => <li key={j} className="break-all">{d}</li>)}</ul>
+                        </details>
+                      )}
+                    </span>
                     <span className="text-[10px] text-zinc-400 tabular-nums">{r.ms}ms</span>
                   </li>
                 ))}

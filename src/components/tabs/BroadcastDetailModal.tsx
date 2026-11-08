@@ -387,7 +387,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
 
               const primaryVideo = dayVideos[0];
               const primaryYtId = primaryVideo?.ytId || (dayVods[0] ? extractYoutubeId(dayVods[0]) : null);
-              const primaryUrl = primaryVideo?.url || dayVods[0] || (dayShorts[0]?.url) || '#';
+              const primaryUrl = primaryVideo?.url || dayVods[0] || (dayShorts[0]?.url) || '';
               const displayTitle = primaryVideo?.title || (matchedLog?.game ? `${matchedLog.game} 방송` : `${formattedDate} 생방송`);
               
               // 페이지 당 1번부터 리셋이 아니라 각각 고유 1번부터 시작하는 연속 번호
@@ -494,7 +494,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
                   <div className="p-4 flex-1 flex flex-col">
                     <div className="flex items-start justify-between gap-2">
                       <a
-                        href={primaryUrl}
+                        href={primaryUrl || undefined}
                         target="_blank"
                         rel="noreferrer"
                         className="font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex-1 text-sm sm:text-base font-hanna font-pro"

@@ -1098,6 +1098,7 @@ function MainApp() {
             <button
               type="button"
               id="header-title-btn"
+              aria-current={activeTab === 'summary' ? 'page' : undefined}
               onClick={() => {
                 handleTabChange('summary', true);
               }}

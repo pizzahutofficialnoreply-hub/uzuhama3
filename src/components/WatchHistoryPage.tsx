@@ -101,7 +101,7 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
           </div>
           <div className="px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar">
             {FILTERS.map(([k, label]) => (
-              <button key={k} type="button" onClick={() => setFilter(k)} className={cn('shrink-0 px-4 py-1.5 rounded-lg text-sm font-semibold cursor-pointer transition-colors', filter === k ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200')}>{label}</button>
+              <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)} className={cn('shrink-0 px-4 py-1.5 rounded-lg text-sm font-semibold cursor-pointer transition-colors', filter === k ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200')}>{label}</button>
             ))}
           </div>
         </header>

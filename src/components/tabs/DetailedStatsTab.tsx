@@ -895,6 +895,7 @@ export function DetailedStatsTab({
                 <button
                   key={p.key}
                   type="button"
+                  aria-pressed={isSelected}
                   onClick={() => handleApplyPreset(p.key)}
                   className={cn(
                     "px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer",

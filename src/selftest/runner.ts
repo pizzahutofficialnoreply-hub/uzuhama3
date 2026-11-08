@@ -4,7 +4,7 @@
  * - 관리자 › 시스템 › 자동화 › '화면·기능 전체 점검' 에서 손으로, 주간 점검 때 자동으로 같은 걸 돌림
  * - 점검 전 이 기기의 저장 내용(설정·재생목록·기록)을 그대로 돌려놓음
  */
-export type StepResult = { group: string; name: string; ok: boolean; ms: number; err?: string; warn?: boolean };
+export type StepResult = { group: string; name: string; ok: boolean; ms: number; err?: string; warn?: boolean; details?: string[] };
 
 const API = (import.meta.env.VITE_VERCEL_API_URL ||
   (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')
@@ -41,6 +41,23 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
       (w as any).__selftestHooked = true;
       w.addEventListener('error', (e: any) => errors.push(String(e?.message || e)));
       w.addEventListener('unhandledrejection', (e: any) => errors.push(String(e?.reason?.message || e?.reason || e)));
+      // 바깥으로 나가는 동작은 실제로 하지 않고 '불렸는지'만 셈 (새 창·공유·복사·확인창·다운로드·알림 권한·인쇄)
+      const calls = ((w as any).__stubCalls = { n: 0, last: '' });
+      const note = (what: string) => { calls.n++; calls.last = what; };
+      try { (w as any).open = (u?: any) => { note(`새 창 ${String(u || '').slice(0, 60)}`); return null; }; } catch { /* */ }
+      try { (w as any).confirm = (m?: any) => { note(`확인창 ${String(m || '').slice(0, 40)}`); return false; }; } catch { /* */ }
+      try { (w as any).alert = (m?: any) => { note(`알림창 ${String(m || '').slice(0, 40)}`); }; } catch { /* */ }
+      try { (w as any).prompt = () => { note('입력창'); return null; }; } catch { /* */ }
+      try { (w as any).print = () => note('인쇄'); } catch { /* */ }
+      try { Object.defineProperty(w.navigator, 'share', { configurable: true, value: async () => { note('공유'); } }); } catch { /* */ }
+      try { Object.defineProperty(w.navigator, 'canShare', { configurable: true, value: () => true }); } catch { /* */ }
+      try { Object.defineProperty(w.navigator, 'clipboard', { configurable: true, value: { writeText: async () => { note('복사'); }, write: async () => { note('복사'); }, readText: async () => '' } }); } catch { /* */ }
+      try { if ((w as any).Notification) (w as any).Notification.requestPermission = async () => { note('알림 권한'); return 'default'; }; } catch { /* */ }
+      try {
+        const A = (w as any).HTMLAnchorElement.prototype;
+        const orig = A.click;
+        A.click = function (this: HTMLAnchorElement) { if (this.download || /^blob:|^data:/.test(this.href)) { note(`다운로드 ${this.download || ''}`); return; } return orig.call(this); };
+      } catch { /* */ }
     } catch { /* */ }
   };
   const waitFor = async <T,>(fn: () => T | null | undefined | false, ms = 12000, what = '화면'): Promise<T> => {
@@ -82,18 +99,21 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
     if (issues.length) throw Object.assign(new Error(`${where}: ${issues.join(', ')}`), { warn: !over && !broken });
   };
 
-  const step = async (group: string, name: string, fn: () => Promise<void>) => {
+  let stepDetails: string[] | undefined;
+  const step = async (group: string, name: string, fn: () => Promise<void>, limitMs = 30000) => {
+    stepDetails = undefined;
     if (opts.only && !opts.only.includes(group)) return;
     const t0 = Date.now();
     const before = errors.length;
     let r: StepResult;
     try {
-      await Promise.race([fn(), sleep(30000).then(() => { throw new Error('30초 넘게 걸려요'); })]);
+      await Promise.race([fn(), sleep(limitMs).then(() => { throw new Error(`${Math.round(limitMs / 1000)}초 넘게 걸려요`); })]);
       const newErr = errors.slice(before).filter((m) => !/Firestore|firebase|network|Failed to fetch|Load failed|ResizeObserver/i.test(m));
       r = newErr.length ? { group, name, ok: false, ms: Date.now() - t0, err: `화면 오류: ${newErr[0].slice(0, 160)}` } : { group, name, ok: true, ms: Date.now() - t0 };
     } catch (e: any) {
       r = { group, name, ok: Boolean(e?.warn), warn: Boolean(e?.warn), ms: Date.now() - t0, err: String(e?.message || e).slice(0, 200) };
     }
+    if (stepDetails?.length) r.details = stepDetails.slice(0, 60);
     results.push(r);
     onStep(r);
   };
@@ -244,6 +264,180 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
       await go('/no-such-page-xyz');
       await waitFor(() => W().location.pathname === '/', 6000, '홈으로 이동');
     });
+
+    /* ── 6-2. 누를 수 있는 건 전부 눌러 보기 ──
+     * 화면마다 버튼·링크·탭·스위치를 하나씩 누르고: 화면 오류가 없는지, 뭔가 반응하는지(화면·주소·열림 상태·창),
+     * 누르면 나오는 메뉴·창 안의 항목까지 한 번 더 눌러 봄. 지우기·보내기·구독 같은 되돌릴 수 없는 건 안 누름.
+     * 바깥 링크는 누르지 않고 주소가 제대로인지만 봄. 새 창·공유·복사·다운로드는 실제로 안 하고 불렸는지만 셈 */
+    // 이 기기 안에서만 바뀌는 것(검색 기록 지우기·보기 방식 등)은 점검 뒤 되돌리니 누름. 서버·바깥으로 나가거나 되돌릴 수 없는 것만 안 누름
+    const SKIP = /로그아웃|연결 끊기|(?<!내)보내기|제출|신고하기|구독하기|알림 (켜|끄)|알림 받기|허용|설치|홈 화면에 추가|기기 연결 만들기|QR·연결 코드|먼저 봐 달라|의견 남기기|패치 등록|많이 보고 싶어요|투표/;
+    const CTRL = 'button, a[href], [role="button"], [role="tab"], [role="menuitem"], [role="switch"], [role="option"], input[type="checkbox"], input[type="radio"], summary';
+    const labelOf = (el: HTMLElement) => (el.getAttribute('aria-label') || el.getAttribute('title') || el.innerText || (el as HTMLInputElement).value || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    const keyOf = (el: HTMLElement) => `${el.tagName}|${el.getAttribute('role') || ''}|${labelOf(el).replace(/[\d,.:%]+/g, '#')}`;
+    const isVisible = (el: HTMLElement) => {
+      if (!el.getClientRects().length) return false;
+      const cs = W().getComputedStyle(el);
+      if (cs.visibility === 'hidden' || cs.pointerEvents === 'none' || Number(cs.opacity) === 0) return false;
+      return !(el as HTMLButtonElement).disabled && el.getAttribute('aria-disabled') !== 'true';
+    };
+    const overlays = () => {
+      const list = $$('[role="dialog"], [role="menu"], [aria-modal="true"], [role="listbox"]').filter(isVisible);
+      // role 없이 메뉴 항목만 있는 것도 (항목들의 부모)
+      $$('[role="menuitem"]').filter(isVisible).forEach((m) => { const p = m.parentElement as HTMLElement | null; if (p && !list.some((x) => x.contains(p))) list.push(p); });
+      return list;
+    };
+    const sig = () => `${W().location.pathname}${W().location.search}|${overlays().length}`;
+    const controls = (root: ParentNode = D()) => {
+      const seen = new Map<string, number>();
+      const out: { el: HTMLElement; id: string; label: string }[] = [];
+      (Array.from(root.querySelectorAll(CTRL)) as HTMLElement[]).forEach((el) => {
+        if (!isVisible(el) || el.closest('[data-selftest-skip]')) return;
+        const k = keyOf(el);
+        const n = (seen.get(k) || 0) + 1;
+        seen.set(k, n);
+        if (n > 2) return; // 같은 모양(카드마다 있는 ⋮ 등)은 2개까지만
+        out.push({ el, id: `${k}#${n}`, label: labelOf(el) || el.tagName.toLowerCase() });
+      });
+      return out;
+    };
+    const snap = (el?: HTMLElement) => ({
+      url: W().location.href,
+      ov: overlays().length,
+      text: D().body.innerText.length,
+      html: D().body.innerHTML.length,
+      aria: el ? `${el.getAttribute('aria-expanded')}|${el.getAttribute('aria-pressed')}|${el.getAttribute('aria-checked')}|${el.getAttribute('aria-selected')}|${(el as HTMLInputElement).checked}|${el.className}` : '',
+      calls: (W() as any).__stubCalls?.n || 0,
+      y: W().scrollY,
+    });
+    const reacted = (a: ReturnType<typeof snap>, b: ReturnType<typeof snap>) =>
+      a.url !== b.url || a.ov !== b.ov || a.text !== b.text || Math.abs(a.html - b.html) > 20 || a.aria !== b.aria || a.calls !== b.calls || Math.abs(a.y - b.y) > 40;
+    // 이미 골라져 있는 것(지금 탭·지금 보기 방식)은 눌러도 바뀌는 게 없는 게 맞음
+    const already = (el: HTMLElement) => ['aria-pressed', 'aria-selected', 'aria-checked'].some((a) => el.getAttribute(a) === 'true') || Boolean(el.getAttribute('aria-current'));
+    const press = async (el: HTMLElement) => {
+      try { el.scrollIntoView({ block: 'center' }); } catch { /* */ }
+      await sleep(60);
+      el.click();
+      await sleep(450);
+    };
+    const checkLink = (a: HTMLAnchorElement): string => {
+      const raw = a.getAttribute('href') || '';
+      if (!raw || raw === '#' || /undefined|null|NaN/.test(raw)) return `빈 링크/잘못된 주소: '${labelOf(a)}' → ${raw || '(없음)'}`;
+      if (/^javascript:/i.test(raw)) return `자바스크립트 링크: '${labelOf(a)}'`;
+      try { new URL(a.href); } catch { return `주소 형식 오류: '${labelOf(a)}' → ${raw}`; }
+      return '';
+    };
+    const tapAll = async (screen: string, setup: () => Promise<void>, opts2: { max?: number; nested?: number } = {}) => step('전부 눌러 보기', screen, async () => {
+      const max = opts2.max ?? 70;
+      const nestedMax = opts2.nested ?? 6;
+      const notes: string[] = [];
+      const dead: string[] = [];
+      const broken: string[] = [];
+      let pressed = 0;
+      let nestedDone = 0;
+      restore(); // 앞 화면에서 바꾼 설정(기간·보기 방식 등)이 넘어오지 않게
+      try { localStorage.setItem('uzuhama_onboarding_version', '999'); localStorage.setItem('uzuhama_tutorial_done_v1', '1'); } catch { /* */ }
+      await setup();
+      const base = sig();
+      const reset = async () => {
+        if (sig() === base) return;
+        try { D().dispatchEvent(new (W() as any).KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); } catch { /* */ }
+        await sleep(250);
+        if (sig() !== base && W().location.href !== '' ) { try { W().history.back(); } catch { /* */ } await sleep(600); }
+        if (sig() !== base) await setup();
+      };
+      const done = new Set<string>();
+      const t0 = Date.now();
+      while (pressed < max && Date.now() - t0 < 200000) {
+        const next = controls().find((c) => !done.has(c.id));
+        if (!next) break;
+        done.add(next.id);
+        const el = next.el;
+        // 되돌릴 수 없는 건 안 누름
+        if (SKIP.test(next.label)) { notes.push(`안 누름(되돌릴 수 없음): ${next.label}`); continue; }
+        // 링크: 바깥 링크는 주소만 확인
+        if (el.tagName === 'A') {
+          const bad = checkLink(el as HTMLAnchorElement);
+          if (bad) { broken.push(bad); continue; }
+          const a = el as HTMLAnchorElement;
+          const external = new URL(a.href).origin !== W().location.origin || a.target === '_blank';
+          if (external) continue;
+        }
+        const errBefore = errors.length;
+        const before = snap(el);
+        const ovBefore = overlays();
+        await press(el);
+        pressed++;
+        const after = snap(el);
+        const newErr = errors.slice(errBefore).filter((m) => !/Firestore|firebase|network|Failed to fetch|Load failed|ResizeObserver|youtube|googlevideo/i.test(m));
+        if (newErr.length) broken.push(`'${next.label}' 누르면 화면 오류: ${newErr[0].slice(0, 100)}`);
+        else if (!reacted(before, after) && !already(el)) dead.push(next.label);
+        // 같은 주소 안 링크로 갔으면 그 화면이 비어 있지 않은지
+        if (before.url !== after.url && D().body.innerText.trim().length < 30) broken.push(`'${next.label}' → 빈 화면 (${W().location.pathname})`);
+        // 눌러서 새로 열린 메뉴·창 안의 것도 한 번씩
+        const opened = overlays().filter((o) => !ovBefore.includes(o));
+        if (opened.length && nestedDone < nestedMax) {
+          nestedDone++;
+          const inner = controls(opened[opened.length - 1]).slice(0, 10);
+          for (const c of inner) {
+            if (SKIP.test(c.label)) { notes.push(`안 누름: ${next.label} › ${c.label}`); continue; }
+            if (c.el.tagName === 'A') { const bad = checkLink(c.el as HTMLAnchorElement); if (bad) broken.push(`${next.label} › ${bad}`); continue; }
+            // 매번 그 메뉴를 다시 열고 누름
+            if (!c.el.isConnected || !isVisible(c.el)) {
+              await reset();
+              const again = controls().find((x) => x.id === next.id);
+              if (!again) break;
+              await press(again.el);
+            }
+            const cur = controls(overlays().pop() || D()).find((x) => x.id === c.id);
+            if (!cur) continue;
+            const e0 = errors.length;
+            const b2 = snap(cur.el);
+            await press(cur.el);
+            pressed++;
+            const a2 = snap(cur.el);
+            const ne = errors.slice(e0).filter((m) => !/Firestore|firebase|network|Failed to fetch|Load failed|ResizeObserver|youtube|googlevideo/i.test(m));
+            if (ne.length) broken.push(`'${next.label} › ${c.label}' 화면 오류: ${ne[0].slice(0, 100)}`);
+            else if (!reacted(b2, a2) && !already(cur.el)) dead.push(`${next.label} › ${c.label}`);
+          }
+        }
+        await reset();
+      }
+      stepDetails = [
+        `눌러 본 것 ${pressed}개 (메뉴·창 안 ${nestedDone}곳 포함)`,
+        ...broken.map((x) => `❌ ${x}`),
+        ...dead.map((x) => `반응 없음: ${x}`),
+        ...notes,
+      ];
+      if (broken.length) throw new Error(`${screen}: 문제 ${broken.length}개 — ${broken[0]}`);
+      if (dead.length) throw Object.assign(new Error(`${screen}: 눌렀는데 반응 없는 것 ${dead.length}개 (${dead.slice(0, 4).join(', ')})`), { warn: true });
+    }, 260000);
+
+    await tapAll('홈(요약)', async () => { await go('/'); await waitFor(() => /\d+\s*%/.test(D().body.innerText), 15000, '확률'); });
+    await tapAll('기록(달력)', async () => { await go('/'); (await waitFor(() => tab('기록'), 6000, '기록 탭')).click(); await waitFor(() => $('[data-testid="cal-day"]'), 10000, '달력'); });
+    for (const sub of ['trend', 'day', 'category']) {
+      await tapAll(`분석 · ${sub === 'trend' ? '방송 추이' : sub === 'day' ? '요일별' : '카테고리'}`, async () => {
+        await go('/');
+        (await waitFor(() => tab('분석'), 6000, '분석 탭')).click();
+        await waitFor(() => $('[data-testid^="stats-tab-"]'), 10000, '분석 화면');
+        const b = await waitFor(() => $(`[data-testid="stats-tab-${sub}"]`), 3000, '하위 탭').catch(() => null);
+        if (!b) throw Object.assign(new Error('지금 고른 기간에서는 없는 하위 탭이에요'), { warn: true });
+        b.click();
+        await sleep(600);
+      }, { max: 50 });
+    }
+    await tapAll('검색 결과', async () => {
+      await go('/');
+      (await waitFor(() => $('button[aria-label="영상 검색 및 추천"]'), 6000, '검색 버튼')).click();
+      const inp = await waitFor(() => $('input[name="search_query"]') as HTMLInputElement, 8000, '검색창');
+      setInput(inp, '공포');
+      await waitFor(() => /총\s*\d+\s*개/.test(D().body.innerText), 10000, '검색 결과');
+      inp.blur();
+    }, { max: 60 });
+    await tapAll('설정', async () => {
+      await go('/?settings=true');
+      await waitFor(() => $('[data-settings-section]'), 10000, '설정');
+    }, { max: 80, nested: 4 });
+    await tapAll('패치노트', async () => { await go('/patch'); await waitFor(() => $('[id^="patch-card-"]'), 12000, '패치노트'); }, { max: 40 });
 
     /* ── 7. 서버(API·DB) ── */
     const api = async (name: string, path: string, ok: (j: any, r: Response, text: string) => boolean, init?: RequestInit) => step('서버', name, async () => {
