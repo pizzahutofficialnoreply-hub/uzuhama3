@@ -87,7 +87,7 @@ export function writtenDate(text: string, near: string): string | null {
   return best;
 }
 /** 검증 방식 버전: 바뀌면 그날 이미 했어도 한 번 더 */
-export const DC_VER = 5;
+export const DC_VER = 6;
 const ytIdOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
 const sq = (s: string) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
 const kstDate = (iso: string) => new Date(Date.parse(iso) + KST).toISOString().slice(0, 10);
@@ -209,6 +209,31 @@ async function cleanupLinks(db: any, logs: any[], info: Map<string, any>, histor
       summary.actions.push({ id: `dedupe:${vid}:${l.id}`, at: new Date().toISOString(), logId: l.id, kind: '중복 생방 뺌', msg: `생방 ${vid}: ${keep.date} 기록에 남기고 ${l.date} 기록에서 뺌 (설명란${real ? ` 방송일 ${real}` : ''})`, from: { vods: before } });
     }
   }
+
+  // ── D) 생방이 빠진 기록: 채널의 생방송 중 아무 기록에도 안 걸린 것에서, 방송일(설명란 날짜 → 시작일)이 같은 것을 찾아 넣음 ──
+  try {
+    const q = (await db.collection('youtube_cache').doc('ai_queue').get()).data();
+    const linked = new Set<string>();
+    logs.forEach((l: any) => (cur(l).vods || []).concat(cur(l).edited || [], cur(l).shorts || []).forEach((v: any) => { const id = itemId(v); if (id) linked.add(id); }));
+    const free = (q?.items || []).filter((x: any) => x.kind === 'live' && !linked.has(x.id));
+    const noLive = logs.filter((l: any) => !(cur(l).vods || []).some(itemId) && ((cur(l).edited || []).length || names(cur(l)).length));
+    const near = free.filter((x: any) => noLive.some((l: any) => x.publishedAt && dayGap(kstDate(x.publishedAt), l.date) <= 2));
+    const miss = near.map((x: any) => x.id).filter((id: string) => !info.has(id));
+    for (let i = 0; i < miss.length && ytApiKey(); i += 50) {
+      try { const j = await ytApi(`videos?part=snippet,liveStreamingDetails&id=${miss.slice(i, i + 50).join(',')}`); (j.items || []).forEach((it: any) => info.set(it.id, it)); } catch { break; }
+    }
+    const used = new Set<string>();
+    for (const l of noLive) {
+      const c = near.filter((x: any) => !used.has(x.id) && info.get(x.id)?.liveStreamingDetails?.actualStartTime && liveDate(x.id) === l.date);
+      const byGame = c.filter((x: any) => names(cur(l)).some((n: string) => looseMatch(textOf(x.id), n)));
+      const pick = c.length === 1 ? c[0] : byGame.length === 1 ? byGame[0] : null;
+      if (!pick) { if (c.length > 1) issues.push({ id: `nolive:${l.id}`, type: 'dup', logId: l.id, date: l.date, msg: `${l.date} 기록에 생방이 없는데 그날 생방송이 ${c.length}개라 못 골랐어요 (${c.map((x: any) => x.id).join(', ')})` }); continue; }
+      used.add(pick.id);
+      set(l, { vods: [...(cur(l).vods || []), { title: info.get(pick.id)?.snippet?.title || '우주하마 생방송!', url: `https://youtu.be/${pick.id}`, category: '종합' }] });
+      summary.addedLives = (summary.addedLives || 0) + 1;
+      summary.actions.push({ id: `addlive:${l.id}`, at: new Date().toISOString(), logId: l.id, kind: '생방 넣음', msg: `${l.date} 기록에 생방 ${pick.id} (방송일 ${l.date}, 어느 기록에도 없던 생방송)`, from: { vods: [] } });
+    }
+  } catch (e: any) { summary.addLiveError = String(e?.message || e).slice(0, 120); }
 
   // ── B·C) 생방 없는 기록의 편집 영상 → 맞는 생방 기록으로 ──
   const liveOfVideo = new Map<string, any>(); // 생방 설명란에 걸린 편집 영상 → 그 생방 기록
