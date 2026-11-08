@@ -4,12 +4,5 @@ jobs:
   p:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22 }
       - run: |
-          K=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM
-          curl -sS https://uzuhama.vercel.app/data/historical_logs.json > h.json
-          curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month?key=$K&pageSize=300" > all.json
-          head -c 200 all.json; echo
-          node --experimental-strip-types .github/probe/t.mjs
+          for n in 1 2; do curl -sS --max-time 295 "https://uzuhama.vercel.app/api/videos/search-index?ai=check" | jq -c '{ok, skipped, ms, s: (.stats|{ytInfo, videos, dateFixed, autoFilled})}'; done
