@@ -91,7 +91,7 @@ export function writtenDate(text: string, near: string): string | null {
   return best;
 }
 /** 검증 방식 버전: 바뀌면 그날 이미 했어도 한 번 더 */
-export const DC_VER = 8;
+export const DC_VER = 9;
 const ytIdOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
 const sq = (s: string) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
 const kstDate = (iso: string) => new Date(Date.parse(iso) + KST).toISOString().slice(0, 10);
@@ -257,6 +257,11 @@ async function cleanupLinks(db: any, logs: any[], info: Map<string, any>, histor
         const wd = sn ? writtenDate(textOf(id), kstDate(sn.publishedAt)) : null;
         const cands = wd ? logs.filter((o: any) => o !== l && !deleted.has(o.id) && o.date === wd && (cur(o).vods || []).some(itemId)) : [];
         if (cands.length === 1) { to = cands[0]; why = `영상 설명란 날짜 ${wd}`; }
+      }
+      // 게임도 없는 빈 기록(예전 카페 가져오기 등): 실제 방송일(설명란 날짜 → 유튜브 시작일)이 이 날인 생방 기록
+      if (!to && !names(cur(l)).length) {
+        const cands = logs.filter((o: any) => o !== l && !deleted.has(o.id) && (cur(o).vods || []).some((v: any) => { const vid = itemId(v); return vid && liveDate(vid) === l.date; }));
+        if (cands.length === 1) { to = cands[0]; why = `생방의 실제 방송일이 ${l.date}`; }
       }
       if (to && to !== l) moves.push({ item: e, to, why });
     }
