@@ -24,9 +24,12 @@ logs.forEach((l) => ['vods', 'edited', 'shorts'].forEach((k) => (l[k] || []).for
 // 유튜브 페이지에서 실제 날짜
 const pageInfo = async (id) => {
   try {
-    const t = await (await fetch(`https://www.youtube.com/watch?v=${id}`, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'ko' } })).text();
-    const g = (re) => (t.match(re) || [])[1] || '';
-    return { start: g(/"startTimestamp":"([^"]+)"/), publish: g(/"publishDate":"([^"]+)"/), live: /"isLiveContent":true/.test(t), title: g(/<meta name="title" content="([^"]*)"/), gone: /"status":"(ERROR|UNPLAYABLE|LOGIN_REQUIRED)"/.test(t) && !g(/"publishDate":"([^"]+)"/) };
+    const r = await fetch(`https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/watch?v=${id}`);
+    if (r.status === 401 || r.status === 403) return { gone: '비공개/퍼가기 막힘' };
+    if (r.status === 404 || r.status === 400) return { gone: '없는 영상' };
+    if (!r.ok) return {};
+    const j = await r.json();
+    return { title: j.title, author: j.author_name };
   } catch { return {}; }
 };
 const kst = (iso) => iso ? new Date(Date.parse(iso) + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ') : '';
@@ -46,11 +49,11 @@ for (const [id, list] of byLog) {
     const w = where.get(a.id) || [];
     const ap = [];
     if (w.length > 1) ap.push(`중복: ${w.join(', ')}`);
-    if (p.gone) ap.push('영상 없음/비공개');
-    if (a.kind === '생방' && p.live === false && p.publish) ap.push('라이브 영상이 아님');
-    if (a.kind === '생방' && p.start) { const d = kst(p.start).slice(0, 10); if (d !== l.date) ap.push(`실제 방송일 ${d}`); }
-    if (a.kind === '영상' && p.live) ap.push('생방 영상인데 영상 칸에');
-    lines.push(`   ${ap.length ? '❗' : '·'} ${a.kind} ${a.id} ${(a.title || p.title || '').slice(0, 40)}${p.start ? ` [생방 ${kst(p.start)}]` : p.publish ? ` [올림 ${p.publish.slice(0, 10)}]` : ''}${ap.length ? ' — ' + ap.join(' / ') : ''}`);
+    if (p.gone) ap.push(p.gone);
+    if (p.author && !/우주하마|astrohippo|hama/i.test(p.author)) ap.push(`다른 채널(${p.author})`);
+    if (a.kind === '생방' && p.title && !/생방|live|라이브|LIVE|방송/i.test(p.title)) ap.push('제목이 생방송 같지 않음');
+    if (a.kind === '영상' && p.title && /^우주하마 (생방송|LIVE)|생방송!$/i.test(p.title)) ap.push('생방 영상인데 영상 칸에');
+    lines.push(`   ${ap.length ? '❗' : '·'} ${a.kind} ${a.id} ${(a.title || p.title || '').slice(0, 40)}${ap.length ? ' — ' + ap.join(' / ') : ''}`);
   }
   out.push({ bad: probs.length || lines.some((x) => x.includes('❗')), text: `${l.date} ${hist[id] ? '' : '[새 기록] '}${l.game || (l.games || []).map((g) => g.name).join(', ') || '(게임 없음)'}${probs.length ? ' — ' + probs.join(' / ') : ''}\n${lines.join('\n')}` });
 }
