@@ -392,9 +392,11 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
     if (!sn) continue;
     stats.gameChecked++;
     const text = `${sn.title} ${sn.description || ''}`;
+    // 제목·설명란에 이미 있으면 AI 결과는 안 읽음 (DB 읽기 아낌)
+    if (names.some((n) => looseMatch(text, n))) continue;
     const ai = (await db.collection('ai_video').doc(vid).get().catch(() => null))?.data?.();
     const aiGames: string[] = (ai?.status === 'done' ? ai.games || [] : []).flatMap((g: any) => [g.name, g.ko]).filter(Boolean);
-    const seen = names.some((n) => looseMatch(text, n) || aiGames.some((a) => looseMatch(a, n)));
+    const seen = aiGames.some((a) => names.some((n) => looseMatch(a, n)));
     if (!seen) suspects.push({ l, vid, title: sn.title, desc: String(sn.description || '').slice(0, 500), aiGames });
   }
   const aiLimit = opts.aiLimit ?? 40;
