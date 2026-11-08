@@ -26,15 +26,28 @@ export function youtubeIdOf(url: string): string | null {
 }
 
 function cleanLine(s: string) {
-  return s.replace(/[​‌‍﻿ ]/g, ' ').replace(/\s+/g, ' ').trim();
+  return s.replace(/[​‌‍﻿ ]/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim()
+    // 글머리 기호 (•, -, *, ·, ▶, 1. 등)
+    .replace(/^(?:[•·\-*◦▪●○■□▶►▷➤✔✓☞→]|\d{1,2}[.)](?!\d))\s*/, '').trim();
 }
 
-function labelOf(line: string): 'live' | 'video' | 'shorts' | null {
-  const t = line.replace(/\s+/g, '');
-  if (/쇼츠|shorts/i.test(t) && !/https?:/.test(line)) return 'shorts';
-  if (/생방(송)?(링크|다시보기|풀영상|원본)|다시보기|풀영상/.test(t)) return 'live';
-  if (/(영상|편집본|편집영상)(링크)?[:：]?$|^영상링크|편집본/.test(t)) return 'video';
+type Kind = 'live' | 'video' | 'shorts' | 'game';
+/** 줄 앞머리(링크 앞 글)로 무엇의 링크인지: '생방: …', '영상: 제목, …', '게임: …', '쇼츠 …' */
+function labelOf(line: string): Kind | null {
+  const head = line.split(/https?:\/\//)[0].replace(/\s+/g, '').toLowerCase();
+  if (!head) return null;
+  if (/^(게임|game|스팀|steam)/.test(head)) return 'game';
+  if (/^(쇼츠|shorts|숏츠)/.test(head)) return 'shorts';
+  if (/^(생방|라이브|live|다시보기|풀영상|원본|방송링크|방송[:：])/.test(head) || /생방(송)?(링크|다시보기|풀영상|원본)?[:：]?$/.test(head)) return 'live';
+  if (/^(영상|편집|업로드|유튜브영상|video)/.test(head)) return 'video';
   return null;
+}
+
+/** '영상: 제목, https://…' 에서 제목 */
+function inlineTitle(line: string): string {
+  const head = line.split(/https?:\/\//)[0];
+  const t = head.replace(/^[^:：]{0,12}[:：]\s*/, '').replace(/[,，\s]+$/, '').trim();
+  return t && !/^(생방|영상|쇼츠|게임)(링크)?$/.test(t) ? t : '';
 }
 
 /** 날짜로 쓸 수 있는 줄인지 (머리말의 '2017. 2018. 3월' 같은 건 제외) */
@@ -43,16 +56,17 @@ function dateOf(line: string): string | null {
   if (!m) return null;
   const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
   if (y < 2010 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31) return null;
-  // 날짜만 있는 줄이거나 '생방날짜/날짜/방송일' 이 붙은 줄만 (본문 중간 날짜는 무시)
-  const rest = line.replace(m[0], '').replace(/[\[\]()<>:：\s]/g, '');
-  if (rest && !/^(생방)?(날짜|방송일|일자)/.test(rest)) return null;
+  if (/https?:\/\//.test(line)) return null;
+  // 날짜만 있는 줄이거나 '생방날짜/날짜/방송일' 이 붙은 줄, 요일이 붙은 줄만 (본문 중간 날짜는 무시)
+  const rest = line.replace(m[0], '').replace(/[\[\]()<>:：\s.,·]/g, '').replace(/^\(?[월화수목금토일](요일)?\)?/, '').replace(/^[월화수목금토일](요일)?$/, '');
+  if (rest && !/^(생방|방송)?(날짜|방송일|일자)/.test(rest) && !/^(생방|방송)(날짜|일)?$/.test(rest)) return null;
   return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 export function parseCafePost(text: string): CafeDay[] {
   const days = new Map<string, CafeDay>();
   let cur = null as CafeDay | null;
-  let label = null as 'live' | 'video' | 'shorts' | null;
+  let label = null as Kind | null;
   let lastVideo = null as CafeLink | null;
   // 지금 묶음(날짜 줄 하나 아래)의 생방·영상: 묶음이 끝나면 영상마다 그 묶음의 생방을 짝지음
   let blockLives: CafeLink[] = [];
@@ -71,7 +85,7 @@ export function parseCafePost(text: string): CafeDay[] {
 
   const add = (list: CafeLink[], link: CafeLink) => {
     const hit = list.find((x) => x.id === link.id);
-    if (hit) return hit;
+    if (hit) { if (!hit.title && link.title) hit.title = link.title; return hit; }
     list.push(link);
     return link;
   };
@@ -101,14 +115,18 @@ export function parseCafePost(text: string): CafeDay[] {
     }
     if (!cur) return;
     const kind = lineLabel || label;
+    if (kind === 'game') return; // 게임 링크(스팀 등)는 여기서 안 씀
+    const title = inlineTitle(line);
     urls.forEach((u) => {
       const url = u.replace(/[.,]+$/, '');
       const id = youtubeIdOf(url);
       if (!id) return; // 유튜브 링크만 (치지직 등은 아직 기록 형식이 달라 제외)
       const isShortUrl = /\/shorts\//.test(url);
-      if (kind === 'live') { const l = add(cur!.lives, { id, url }); if (!blockLives.includes(l)) blockLives.push(l); }
-      else if (kind === 'shorts' || isShortUrl) lastVideo = add(cur!.shorts, { id, url });
-      else { lastVideo = add(cur!.videos, { id, url }); if (!blockVideos.includes(lastVideo)) blockVideos.push(lastVideo); }
+      // 표시가 없으면 주소로: /live/ 는 생방
+      const k = kind || (/\/live\//.test(url) ? 'live' : isShortUrl ? 'shorts' : 'video');
+      if (k === 'live') { const l = add(cur!.lives, { id, url }); if (!blockLives.includes(l)) blockLives.push(l); }
+      else if (k === 'shorts' || isShortUrl) lastVideo = add(cur!.shorts, { id, url, ...(title ? { title } : {}) });
+      else { lastVideo = add(cur!.videos, { id, url, ...(title ? { title } : {}) }); if (!blockVideos.includes(lastVideo)) blockVideos.push(lastVideo); }
     });
   });
 
@@ -184,6 +202,14 @@ export function planCafeImport(days: CafeDay[], logs: any[], titleOf: Map<string
           if (lat) { alreadyCount++; return; }
           if (!has(p.lives, live.id)) p.lives.push(live);
         });
+      });
+      // 영상 없이 생방 링크만 있는 날: 그날 기록에
+      const paired = new Set(day.pairs.flatMap((p) => p.lives.map((l) => l.id)));
+      day.lives.filter((l) => !paired.has(l.id)).forEach((live) => {
+        const lat = linkAt.get(live.id);
+        if (lat) { if (dateLog && lat.id === dateLog.id) alreadyCount++; else skippedList.push(`생방 ${live.id}: 이미 ${lat.date} 기록에 있어요`); return; }
+        const p = planFor(dateLog, day.date);
+        if (!has(p.lives, live.id)) p.lives.push(live);
       });
       day.shorts.forEach((sh) => {
         if (linkAt.has(sh.id)) { alreadyCount++; return; }

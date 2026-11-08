@@ -60,6 +60,24 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
       try { Object.defineProperty(w.navigator, 'canShare', { configurable: true, value: () => true }); } catch { /* */ }
       try { Object.defineProperty(w.navigator, 'clipboard', { configurable: true, value: { writeText: async () => { note('복사'); }, write: async () => { note('복사'); }, readText: async () => '' } }); } catch { /* */ }
       try { if ((w as any).Notification) (w as any).Notification.requestPermission = async () => { note('알림 권한'); return 'default'; }; } catch { /* */ }
+      // 영상 재생: 눌렀을 때 플레이어가 생기는지만 보고 실제로는 안 틀어 둠
+      // (점검 창 안에서 유튜브가 여러 개 돌면 휴대폰이 버벅이다 멈춤)
+      try {
+        const M = (w as any).HTMLMediaElement.prototype;
+        M.play = function () { note('재생'); return Promise.resolve(); };
+      } catch { /* */ }
+      try {
+        const blank = (el: any) => {
+          if (el?.tagName !== 'IFRAME') return;
+          const src = String(el.getAttribute('src') || '');
+          if (/youtube|youtu\.be|chzzk|naver|twitch/i.test(src)) { note(`재생 ${src.slice(0, 50)}`); el.setAttribute('data-selftest-src', src); el.setAttribute('src', 'about:blank'); }
+        };
+        const mo = new (w as any).MutationObserver((list: MutationRecord[]) => list.forEach((m) => {
+          if (m.type === 'attributes') blank(m.target);
+          m.addedNodes.forEach((n: any) => { blank(n); n?.querySelectorAll?.('iframe').forEach(blank); });
+        }));
+        mo.observe(w.document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+      } catch { /* */ }
       try {
         const A = (w as any).HTMLAnchorElement.prototype;
         const orig = A.click;

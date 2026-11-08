@@ -219,7 +219,7 @@ export default async function handler(req: any, res: any) {
           if (log._patch) {
             // 같은 날짜의 옛 전체 사본(id 가 다른 항목) 정리
             Object.entries(snap.data()?.items || {}).forEach(([k, v]: [string, any]) => {
-              if (k !== log.id && v?.date === log.date) updates[`items.${k}`] = FieldValue.delete();
+              if (k !== log.id && v?.date === log.date && !v?._patch) updates[`items.${k}`] = FieldValue.delete();
             });
           }
           tx.update(monthRef, updates);
@@ -303,7 +303,7 @@ export default async function handler(req: any, res: any) {
       message: error?.message || error
     });
     return res.status(error?.status || 500).json({
-      error: error?.status ? error.message : 'Server error occurred during data mutation',
+      error: error?.status ? error.message : `저장 중 서버 오류: ${String(error?.message || error).slice(0, 120)}`,
       ...(error?.code === 'mfa_required' ? { code: 'mfa_required' } : {}),
     });
   }

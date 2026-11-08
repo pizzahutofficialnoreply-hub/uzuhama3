@@ -48,8 +48,14 @@ async function executeAdminMutation(action: string, payload: any): Promise<boole
     }
     const errJson = await res.json().catch(() => ({}));
     console.warn('[Admin Mutate Warning]', errJson);
+    // 서버가 거절한 경우(인증·검사 실패 등)는 조용히 넘어가지 않고 이유를 알림
+    // (예전에는 기기에서 직접 쓰기로 넘어갔다가 권한이 없어 저장이 안 된 채 끝났음)
+    if (res.status !== 404 && res.status !== 405) {
+      throw Object.assign(new Error(String(errJson?.error || errJson?.message || `서버 오류 ${res.status}`)), { server: true });
+    }
     return false;
-  } catch (e) {
+  } catch (e: any) {
+    if (e?.server) throw e;
     console.debug('[Admin Mutate Network Error, falling back]:', e);
     return false;
   }
@@ -616,7 +622,7 @@ export function useFirebaseData() {
             const updates: Record<string, any> = { updatedAt: new Date().toISOString(), [`items.${sanitizedLog.id}`]: sanitizedLog };
             if (archivePatch) {
               Object.entries(snap.data()?.items || {}).forEach(([k, v]: [string, any]) => {
-                if (k !== sanitizedLog.id && v?.date === sanitizedLog.date) updates[`items.${k}`] = deleteField();
+                if (k !== sanitizedLog.id && v?.date === sanitizedLog.date && !v?._patch) updates[`items.${k}`] = deleteField();
               });
             }
             await updateDoc(docRef, updates);

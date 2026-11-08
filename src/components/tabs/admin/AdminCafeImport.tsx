@@ -55,16 +55,18 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
     if (!confirm(`${todo.length}일치 기록에 반영할까요?\n(새 기록 ${todo.filter((p) => p.status === 'new-log').length}개 포함)`)) return;
     setBusy({ done: 0, total: todo.length });
     let ok = 0;
+    const fails: string[] = [];
     for (const p of todo) {
       try {
-        if (p.log && onUpdateLog) {
+        if (p.log) {
+          if (!onUpdateLog) throw new Error('기록 수정 기능을 못 찾았어요');
           await onUpdateLog({
             ...p.log,
             vods: [...(p.log.vods || []), ...p.lives.map((l) => toItem(l, '생방송'))],
             edited: [...(p.log.edited || []), ...p.videos.map((l) => toItem(l, '편집본'))],
             shorts: [...(p.log.shorts || []), ...p.shorts.map((l) => toItem(l, '쇼츠'))],
           });
-        } else if (!p.log) {
+        } else {
           await onAddLog({
             id: `cafe_${p.date.replace(/-/g, '')}_${Math.random().toString(36).slice(2, 7)}`,
             date: p.date, time: '', game: '', games: [], category: '', durationHours: 0,
@@ -75,11 +77,11 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
           } as any);
         }
         ok++;
-      } catch (e) { console.error('cafe import', p.date, e); }
+      } catch (e: any) { console.error('cafe import', p.date, e); fails.push(`${p.date}: ${String(e?.message || e).slice(0, 80)}`); }
       setBusy({ done: ok, total: todo.length });
     }
     setBusy(null);
-    setMessage(`반영했어요: ${ok}/${todo.length}일. 아래 목록은 반영된 상태로 다시 계산돼요.`);
+    setMessage(`반영했어요: ${ok}/${todo.length}일.${fails.length ? ` 실패 ${fails.length}개 — ${fails.slice(0, 3).join(' / ')}` : ' 아래 목록은 반영된 상태로 다시 계산돼요.'}`);
     setPicked(new Set());
   };
 
@@ -97,7 +99,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
       <div className="space-y-3">
         <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="출처 (선택): 카페 글 링크나 정리해 준 분 닉네임"
           className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-purple-500" />
-        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={10} placeholder={'[생방날짜: 2017. 3. 31]\n생방링크\n: https://youtu.be/...\n영상링크\n: https://youtu.be/...\n영상 제목'}
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={10} placeholder={'• 2022.05.06\n• 영상: 영상 제목, https://youtu.be/...\n• 게임: 게임 이름, https://store.steampowered.com/...\n• 생방: https://youtu.be/...'}
           className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-sm font-mono outline-none focus:ring-2 focus:ring-purple-500" />
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={async () => { try { setText(await navigator.clipboard.readText()); } catch { /* 권한 없음 */ } }} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer">
@@ -113,7 +115,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog }: {
       {days && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="font-bold">글에서 {days.length}일 · 영상 {days.reduce((a, d) => a + d.pairs.length, 0)}개 찾음</span>
+            <span className="font-bold">글에서 {days.length}일 · 영상 {days.reduce((a, d) => a + d.pairs.length, 0)}개 · 생방 {days.reduce((a, d) => a + d.lives.length, 0)}개 찾음</span>
             <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 font-bold">넣을 생방 링크 {liveCount}</span>
             {count('new-log') > 0 && <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 font-bold">새 기록 {count('new-log')}</span>}
             <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-zinc-800 font-bold">이미 있음 {already}</span>
