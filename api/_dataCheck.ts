@@ -72,8 +72,22 @@ async function patchSiteLogs(db: any, list: { l: any; fill: Record<string, any> 
 }
 
 const KST = 9 * 3600000;
+/** 제목·설명란에 적힌 방송 날짜 (유튜브 날짜와 이틀 안쪽인 것만, 여러 개면 가장 가까운 것) */
+export function writtenDate(text: string, near: string): string | null {
+  const re = /(20\d{2})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*일?|(?<![\d.])(\d{2})\s*[.]\s*(\d{1,2})\s*[.]\s*(\d{1,2})(?![\d])/g;
+  const base = Date.parse(`${near}T00:00:00Z`);
+  let best: string | null = null; let bestDiff = Infinity;
+  for (const m of String(text || '').matchAll(re)) {
+    const y = Number(m[1] || (m[4] ? `20${m[4]}` : 0)); const mo = Number(m[2] || m[5]); const d = Number(m[3] || m[6]);
+    if (!y || mo < 1 || mo > 12 || d < 1 || d > 31) continue;
+    const iso = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const diff = Math.abs(Date.parse(`${iso}T00:00:00Z`) - base);
+    if (diff <= 2 * 86400000 && diff < bestDiff) { best = iso; bestDiff = diff; }
+  }
+  return best;
+}
 /** 검증 방식 버전: 바뀌면 그날 이미 했어도 한 번 더 */
-export const DC_VER = 3;
+export const DC_VER = 4;
 const ytIdOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
 const sq = (s: string) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
 const kstDate = (iso: string) => new Date(Date.parse(iso) + KST).toISOString().slice(0, 10);
@@ -133,6 +147,7 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
   //   비어 있는 시작·끝·방송 시간은 유튜브 값으로 바로 채움 (덮어쓰지는 않음), 다르면 고칠 제안
   const autoFilled: any[] = [];
   const pending: { l: any; fill: any }[] = [];
+  const dateFixed: any[] = [];
   for (const l of logs) {
     const lives = (l.vods || []).map((v: any) => info.get(ytIdOf(typeof v === 'string' ? v : v?.url))?.liveStreamingDetails).filter((x: any) => x?.actualStartTime);
     if (!lives.length) continue;
@@ -147,6 +162,18 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
     if (Math.abs(Date.parse(`${sDate}T00:00:00Z`) - Date.parse(`${l.date}T00:00:00Z`)) > 86400000) continue;
     // 유튜브 생방송 기록이 있으면 그 시간이 정답 → 다르면 바로 바꿈 (1분 이내 차이는 그대로)
     const fill: any = {};
+    // 방송 날짜: 영상 설명란·제목에 적힌 날짜가 있으면 그게 우선, 없으면 유튜브 시작 시각(한국 시간)의 날짜
+    //  (옛 스프레드시트 기록은 자정 넘어 시작한 방송을 전날로 적은 경우가 있음)
+    const firstVid = (l.vods || []).map((v: any) => ytIdOf(typeof v === 'string' ? v : v?.url)).find((id: string) => info.get(id)?.liveStreamingDetails?.actualStartTime);
+    const sn = firstVid ? info.get(firstVid)?.snippet : null;
+    const written = writtenDate(`${sn?.title || ''}\n${sn?.description || ''}`, sDate);
+    const realDate = written || sDate;
+    if (realDate !== l.date) {
+      const taken = logs.some((o: any) => o !== l && o.date === realDate);
+      const crossMonth = realDate.slice(0, 7) !== String(l.date).slice(0, 7);
+      if (!taken && !crossMonth) { fill.date = realDate; dateFixed.push({ id: l.id, from: l.date, to: realDate, by: written ? '설명란' : '유튜브 시작 시각' }); }
+      else issues.push({ id: `date:${l.id}`, type: 'time', logId: l.id, date: l.date, video: firstVid || '', msg: `실제 방송일은 ${realDate}(${written ? '설명란' : '유튜브 시작 시각'})인데 기록은 ${l.date}${taken ? ` — ${realDate}에 다른 기록이 있어서 그대로 둠` : crossMonth ? ' — 달이 바뀌는 날짜라 직접 확인 필요' : ''}` } as any);
+    }
     const off = (x: string, y: string) => !x || Math.abs(minutesOf('2000-01-01', x) - minutesOf('2000-01-01', y)) > 1;
     if (off(l.time, sTime)) fill.time = sTime;
     if (eTime && off(l.endTime, eTime)) fill.endTime = eTime;
@@ -159,6 +186,8 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
   }
   try { await patchSiteLogs(db, pending, site.historical); } catch (e: any) { stats.fillError = String(e?.message || e).slice(0, 200); }
   stats.autoFilled = autoFilled.length;
+  stats.dateFixed = dateFixed.length;
+  stats.dateFixedSample = dateFixed.slice(0, 5);
 
   // ── 2) 게임 이름: 제목·설명란·AI가 본 게임에 방송 기록의 게임이 하나도 없으면 AI에게 물어봄 ──
   const suspects: { l: any; vid: string; title: string; desc: string; aiGames: string[] }[] = [];

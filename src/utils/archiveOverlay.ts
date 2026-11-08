@@ -84,10 +84,10 @@ export function overlayMonthDocs(historical: Record<string, any>, monthDocs: any
   const logsMap: Record<string, any> = { ...historical };
   const byDate = new Map<string, any>();
   Object.values(historical).forEach((l: any) => { if (l?.date && !byDate.has(l.date)) byDate.set(l.date, l); });
-  const entries: { key: string; val: any }[] = [];
+  const entries: { key: string; val: any; dc?: boolean }[] = [];
   monthDocs.forEach((docData) => {
     if (docData?.items && typeof docData.items === 'object') {
-      Object.entries(docData.items).forEach(([k, val]: [string, any]) => entries.push({ key: val?.id || k, val }));
+      Object.entries(docData.items).forEach(([k, val]: [string, any]) => entries.push({ key: val?.id || k, val, dc: k.endsWith('__dc') }));
     }
     Object.entries(docData || {}).forEach(([key, val]: [string, any]) => {
       if (key !== 'month' && key !== 'updatedAt' && key !== 'items' && val && typeof val === 'object' && val.date) {
@@ -96,7 +96,8 @@ export function overlayMonthDocs(historical: Record<string, any>, monthDocs: any
     });
   });
   // 옛 전체 사본을 먼저, 새 방식 수정분(_patch)을 나중에 적용
-  entries.sort((x, y) => Number(Boolean(x.val?._patch)) - Number(Boolean(y.val?._patch)));
+  // 자동 데이터 검증(__dc: 유튜브 기준 날짜·시간)은 맨 나중에
+  entries.sort((x, y) => Number(Boolean(x.val?._patch)) - Number(Boolean(y.val?._patch)) || Number(Boolean(x.dc)) - Number(Boolean(y.dc)));
   entries.forEach(({ key, val }) => {
     if (!val || !val.date) return;
     const base = historical[key] || byDate.get(val.date);
