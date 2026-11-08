@@ -1,0 +1,16 @@
+name: probe
+on: { workflow_dispatch: {} }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          K=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM
+          curl -sS https://uzuhama.vercel.app/data/historical_logs.json > h.json
+          echo "== json"; jq -c '.[] | select(tostring|test("F4aNNqUT784|HS7jvcdsyF8"))' h.json | cut -c1-1500
+          for M in 2017-10 2017-09 2017-11; do
+            echo "== $M"; curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month/$M?key=$K" | jq -c '.fields.items.mapValue.fields // {} | to_entries[] | select(tostring|test("F4aNNqUT784|HS7jvcdsyF8|2017-10-1[89]|2017-10-2"))' | cut -c1-2500
+          done
+          echo "== all months containing ids"
+          curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month?key=$K&pageSize=300" > all.json
+          jq -r '.documents[] | select(tostring|test("F4aNNqUT784|HS7jvcdsyF8")) | .name' all.json
