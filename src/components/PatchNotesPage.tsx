@@ -437,6 +437,7 @@ export function PatchNotesPage({ version: propVersion }: { version?: string } = 
                         <button
                           key={catKey}
                           type="button"
+                          aria-pressed={isSelected}
                           onClick={() => setSelectedCategory(catKey)}
                           className={cn(
                             "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer select-none",

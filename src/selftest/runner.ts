@@ -270,7 +270,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
      * 누르면 나오는 메뉴·창 안의 항목까지 한 번 더 눌러 봄. 지우기·보내기·구독 같은 되돌릴 수 없는 건 안 누름.
      * 바깥 링크는 누르지 않고 주소가 제대로인지만 봄. 새 창·공유·복사·다운로드는 실제로 안 하고 불렸는지만 셈 */
     // 이 기기 안에서만 바뀌는 것(검색 기록 지우기·보기 방식 등)은 점검 뒤 되돌리니 누름. 서버·바깥으로 나가거나 되돌릴 수 없는 것만 안 누름
-    const SKIP = /로그아웃|연결 끊기|(?<!내)보내기|제출|신고하기|구독하기|알림 (켜|끄)|알림 받기|허용|설치|홈 화면에 추가|기기 연결 만들기|QR·연결 코드|먼저 봐 달라|의견 남기기|패치 등록|많이 보고 싶어요|투표/;
+    const SKIP = /로그아웃|연결 끊기|(?<!내)보내기|제출|신고하기|구독하기|알림 (켜|끄)|알림 받기|허용|설치하기|앱 설치|홈 화면에 추가|기기 연결 만들기|QR·연결 코드|먼저 봐 달라|의견 남기기|패치 등록|많이 보고 싶어요|투표/;
     const CTRL = 'button, a[href], [role="button"], [role="tab"], [role="menuitem"], [role="switch"], [role="option"], input[type="checkbox"], input[type="radio"], summary';
     const labelOf = (el: HTMLElement) => (el.getAttribute('aria-label') || el.getAttribute('title') || el.innerText || (el as HTMLInputElement).value || '').replace(/\s+/g, ' ').trim().slice(0, 40);
     const keyOf = (el: HTMLElement) => `${el.tagName}|${el.getAttribute('role') || ''}|${labelOf(el).replace(/[\d,.:%]+/g, '#')}`;
@@ -367,7 +367,10 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
         const ovBefore = overlays();
         await press(el);
         pressed++;
-        const after = snap(el);
+        let after = snap(el);
+        // 오래 걸리는 동작(PDF·CSV 만들기, 화면 이동 뒤 불러오기)은 조금 더 기다려 봄
+        for (let w = 0; w < 10 && !reacted(before, after); w++) { await sleep(300); after = snap(el); }
+        if (before.url !== after.url) { await waitFor(() => D().body.innerText.trim().length >= 30, 8000, '이동한 화면').catch(() => null); after = snap(el); }
         const newErr = errors.slice(errBefore).filter((m) => !/Firestore|firebase|network|Failed to fetch|Load failed|ResizeObserver|youtube|googlevideo/i.test(m));
         if (newErr.length) broken.push(`'${next.label}' 누르면 화면 오류: ${newErr[0].slice(0, 100)}`);
         else if (!reacted(before, after) && !already(el)) dead.push(next.label);
@@ -394,7 +397,8 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
             const b2 = snap(cur.el);
             await press(cur.el);
             pressed++;
-            const a2 = snap(cur.el);
+            let a2 = snap(cur.el);
+            for (let w = 0; w < 6 && !reacted(b2, a2); w++) { await sleep(300); a2 = snap(cur.el); }
             const ne = errors.slice(e0).filter((m) => !/Firestore|firebase|network|Failed to fetch|Load failed|ResizeObserver|youtube|googlevideo/i.test(m));
             if (ne.length) broken.push(`'${next.label} › ${c.label}' 화면 오류: ${ne[0].slice(0, 100)}`);
             else if (!reacted(b2, a2) && !already(cur.el)) dead.push(`${next.label} › ${c.label}`);

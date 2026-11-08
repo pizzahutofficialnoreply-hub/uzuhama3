@@ -1054,11 +1054,12 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                 </button>
                 <button
                   type="button"
+                  disabled={selectedDates.size === 0}
                   onClick={() => {
                     triggerHaptic(10);
                     setSelectedDates(new Set());
                   }}
-                  className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-xs cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-xs cursor-pointer disabled:opacity-40 disabled:cursor-default"
                 >
                   선택 해제
                 </button>
@@ -1657,11 +1658,12 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                 </button>
                 <button
                   type="button"
+                  disabled={selectedDates.size === 0}
                   onClick={() => {
                     triggerHaptic(10);
                     setSelectedDates(new Set());
                   }}
-                  className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-xs font-medium border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-xs font-medium border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-default"
                 >
                   선택 해제
                 </button>
