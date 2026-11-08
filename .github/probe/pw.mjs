@@ -3,8 +3,8 @@ const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 390, height: 844 } });
 const logs = [];
 p.on('console', (m) => { if (/warn|error/.test(m.type())) logs.push(`${m.type()}: ${m.text().slice(0, 200)}`); });
-await p.goto('https://uzuhama.vercel.app/', { waitUntil: 'networkidle' });
-await p.waitForTimeout(8000);
+await p.goto('https://uzuhama.vercel.app/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+await p.waitForTimeout(20000);
 const r = await p.evaluate(() => {
   const c = JSON.parse(localStorage.getItem('uzuhama_logs_cache_v4') || '{}');
   const v = Object.values(c);
