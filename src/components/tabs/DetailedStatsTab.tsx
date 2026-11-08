@@ -1058,7 +1058,7 @@ export function DetailedStatsTab({
                               content={(props: any) => (
                                 <SmartTrendLabel 
                                   {...props} 
-                                  totalPoints={stats.trendStatsArray.length} 
+                                  totalPoints={stats.trendStatsArray.length} values={stats.trendStatsArray.map((d: any) => d.count)} 
                                   strokeColor="#7791c1" 
                                   textColor="#5d76a6"
                                   className="chart-capture-only-label"
@@ -1175,7 +1175,7 @@ export function DetailedStatsTab({
                             content={(props: any) => (
                               <SmartTrendLabel 
                                 {...props} 
-                                totalPoints={stats.trendStatsArray.length} 
+                                totalPoints={stats.trendStatsArray.length} values={stats.trendStatsArray.map((d: any) => d.count)} 
                                 strokeColor="#7791c1" 
                                 textColor="#5d76a6"
                                 className="chart-capture-only-label"
@@ -1742,7 +1742,7 @@ export function DetailedStatsTab({
                         content={(props: any) => (
                           <SmartTrendLabel 
                             {...props} 
-                            totalPoints={stats.trendStatsArray.length} 
+                            totalPoints={stats.trendStatsArray.length} values={stats.trendStatsArray.map((d: any) => d.count)} 
                             strokeColor="#7791c1" 
                             textColor="#5d76a6"
                             className="pdf-smart-trend-label"
