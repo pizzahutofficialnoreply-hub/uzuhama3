@@ -1,3 +1,4 @@
+import { startOverlayScrollLock } from './utils/overlayLock';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
@@ -22,6 +23,7 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   });
 }
 
+startOverlayScrollLock();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

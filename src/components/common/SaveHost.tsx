@@ -84,7 +84,7 @@ function ReportSheet({ target, onClose }: { target: ReportTarget; onClose: () =>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
       <motion.div role="dialog" aria-modal="true" aria-label="신고하기"
         initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-        className="relative w-full sm:max-w-sm bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] border border-zinc-200 dark:border-zinc-800 shadow-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        className="sheet-fill relative w-full sm:max-w-sm bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] border border-zinc-200 dark:border-zinc-800 shadow-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-base font-black text-zinc-900 dark:text-white flex items-center gap-1.5"><Flag className="w-4 h-4 text-red-500" /> 무엇이 문제인가요?</h3>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
@@ -244,7 +244,7 @@ function SaveSheetHost() {
               role="dialog" aria-modal="true" aria-label="저장할 곳 고르기"
               initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-              className="relative w-full sm:max-w-sm bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] border border-zinc-200 dark:border-zinc-800 shadow-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+              className="sheet-fill relative w-full sm:max-w-sm bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] border border-zinc-200 dark:border-zinc-800 shadow-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             >
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-base font-black text-zinc-900 dark:text-white">어디에 저장할까요?</h3>

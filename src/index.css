@@ -584,3 +584,13 @@ button:active:not(:disabled),
   padding-right: max(1rem, env(safe-area-inset-right, 0px));
 }
 
+
+/* 밑에서 올라오는 창: 아이폰 키보드가 올라와 창이 위로 밀릴 때 창과 키보드 사이로 뒷화면이 보이지 않게
+   창 아래쪽을 같은 색으로 길게 채움 (휴대폰 크기에서만, 창 자체 그림자는 유지) */
+:root { --sheet-bg: #ffffff; }
+.dark { --sheet-bg: var(--color-zinc-900); }
+@media (max-width: 639px) {
+  .sheet-fill { box-shadow: 0 70vh 0 0 var(--sheet-bg), 0 25px 50px -12px rgb(0 0 0 / 0.25) !important; }
+}
+/* 팝업이 떠 있는 동안 뒷화면이 끌려 움직이지 않게 */
+html.overlay-open { overscroll-behavior: none; }

@@ -256,7 +256,7 @@ export function AiSummaryHost() {
           <motion.div
             ref={scroller}
             initial={{ y: 40 }} animate={{ y: 0 }} exit={{ y: 40 }}
-            className="relative w-full sm:max-w-lg max-h-[90dvh] overflow-y-auto overscroll-contain bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] shadow-2xl pb-[calc(env(safe-area-inset-bottom,0px)+16px)]"
+            className="sheet-fill relative w-full sm:max-w-lg max-h-[90dvh] overflow-y-auto overscroll-contain bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] shadow-2xl pb-[calc(env(safe-area-inset-bottom,0px)+16px)]"
             role="dialog" aria-label="AI 영상 요약" data-testid="ai-summary"
           >
             {/* 머리 + 플레이어: 내려도 위에 붙어 있음 → 아래 시간을 눌러도 바로 보임 */}
