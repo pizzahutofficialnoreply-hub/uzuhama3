@@ -4,4 +4,6 @@ jobs:
   p:
     runs-on: ubuntu-latest
     steps:
-      - run: curl -sS "https://uzuhama.vercel.app/api/videos/search-index?ai=diag"
+      - run: |
+          curl -sS --max-time 299 "https://uzuhama.vercel.app/api/videos/search-index?ai=run" | head -c 3000; echo
+          curl -sS "https://uzuhama.vercel.app/api/videos/search-index?ai=diag" | jq -c '.state'

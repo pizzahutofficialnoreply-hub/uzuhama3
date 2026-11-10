@@ -6,7 +6,7 @@
  *  - Gemini 가 유튜브 주소를 직접 봄 (영상을 내려받지 않음). 긴 영상은 10분씩 나눠서 (시간 초과면 그 영상은 더 잘게)
  *  - 무료 한도: 유튜브 영상은 하루 8시간까지 → 기본 7시간(AI_VIDEO_DAILY_SEC)까지만, 한도에 걸리면 다음 날까지 쉼
  *  - 영상을 다 보면: 전체 요약 + 나온 게임을 구글 검색으로 찾아 어떤 게임인지 정리 (다른 유튜버 플레이 반응 포함)
- *  - 모델: GEMINI_VIDEO_MODEL → gemini-3.8-flash → gemini-flash-latest (최신 Flash 계열, 2.5 는 새 사용자에게 막힘)
+ *  - 모델: GEMINI_VIDEO_MODEL → 3.8 → 3.7 → 3.6 → 3.5 Flash → … → Flash-Lite (무료 한도가 모델마다 따로라 차례로)
  *
  * 저장
  *  - ai_video/{videoId}: { title, kind, publishedAt, duration, status, pos(여기까지 봄), seg, segTotal, segSec, summary, parts[], scenes[{t,d,k}], keywords, games, mood, kw[] }
@@ -25,10 +25,11 @@ const DAILY_CALLS = Number(process.env.AI_VIDEO_DAILY_CALLS || 180);
 const QUEUE_TTL = 12 * 3600 * 1000;
 // 최신 Flash 가 붐비거나 무료 한도가 차면 최신 Flash-Lite 로 이어서 (분석이 멈추지 않게)
 // 영상 분석은 정확도 우선: 가벼운 Lite 모델로는 하지 않음 (붐비거나 한도면 기다렸다가 이어서)
-const MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest'].filter(Boolean) as string[];
+// 무료 한도는 모델마다 따로라서, 하나가 하루 한도에 걸리면 다음 모델로 (좋은 것부터 → 가벼운 것)
+const MODELS = [...new Set([process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'].filter(Boolean))] as string[];
 /** 분석 방식 버전: 바뀌면 예전 방식(가벼운 모델·낮은 화질)으로 본 영상을 다시 봄 */
 const PV = 4; // 4: 생방송 노가리·오팬무 // 3: 한 말·함께한 사람도 기록
-const TEXT_MODELS = [process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'].filter(Boolean) as string[];
+const TEXT_MODELS = [...new Set([process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest'].filter(Boolean))] as string[];
 
 type QItem = { id: string; title: string; publishedAt: string; kind?: 'video' | 'short' | 'live'; duration?: number; live?: string; logDate?: string; games?: string[]; gameLinks?: Record<string, string>; comp?: boolean };
 const QUEUE_VER = 3; // 2: 방송 기록의 생방송 다시보기 포함, 3: 몰아보기 표시(분석 안 함)
@@ -708,12 +709,14 @@ export async function runAiVideoLoop(db: any, budgetMs = 150000, opts: { kind?: 
     const r = await runAiVideoStep(db, opts);
     steps.push(r);
     // 영상 하나의 실패(시간 초과 등)는 그 영상만 표시하고 다음으로 계속, 한도·쉬는 중·잠금이면 멈춤
-    if (r?.cool || r?.busy || r?.skipped || r?.done || r?.queue || (r?.error && !r?.id)) break;
+    // 목록만 새로 받은 차례면 이어서 바로 분석
+    if (r?.queue) { if (Date.now() - t0 > budgetMs) break; continue; }
+    if (r?.cool || r?.busy || r?.skipped || r?.done || (r?.error && !r?.id)) break;
     if (Date.now() - t0 > budgetMs) break;
   }
   const last = steps[steps.length - 1] || {};
   // 이어서 더 돌려도 되는지 (한도·쉬는 중·다른 실행 중·다 끝남이 아니면)
-  const more = !(last.cool || last.busy || last.skipped || last.done || last.queue || (last.error && !last.id));
+  const more = !(last.cool || last.busy || last.skipped || last.done || (last.error && !last.id));
   return { steps, ms: Date.now() - t0, more };
 }
 
