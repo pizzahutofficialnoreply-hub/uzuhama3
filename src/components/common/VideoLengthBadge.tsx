@@ -1,28 +1,26 @@
-import { useVideoMeta } from '../../hooks/useVideoDuration';
+import { useVideoMeta, formatDuration, toKstDate, formatRelativeTime } from '../../hooks/useVideoDuration';
 import { cn } from '../../utils';
 
-/** 영상 길이를 'N시간 M분' 으로 (유튜브에서 한 번 받아 온 길이는 서버·기기에 저장해 두고 다시 씀) */
-export function lengthLabel(sec: number) {
-  const h = Math.floor(sec / 3600);
-  const m = Math.round((sec % 3600) / 60);
-  if (h > 0) return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
-  return m > 0 ? `${m}분` : `${sec}초`;
-}
-
-/** 썸네일 오른쪽 아래 길이 표시 */
+/** 썸네일 오른쪽 아래 재생 시간 (홈·동영상 영상 카드와 같은 모양·표기) */
 export function VideoLengthBadge({ id, className }: { id?: string | null; className?: string }) {
   const meta = useVideoMeta(id);
   if (!meta?.durationSec) return null;
   return (
-    <span className={cn('absolute bottom-1.5 right-1.5 z-10 px-1.5 py-0.5 rounded-md bg-black/80 text-white text-[11px] font-semibold tabular-nums pointer-events-none', className)}>
-      {lengthLabel(meta.durationSec)}
+    <span className={cn('absolute bottom-2 right-2 z-20 bg-black/80 text-white text-xs font-bold px-1.5 py-1 rounded backdrop-blur-sm shadow-sm select-none tabular-nums pointer-events-none', className)}>
+      {formatDuration(meta.durationSec)}
     </span>
   );
 }
 
-/** 글 옆에 붙이는 길이 */
-export function VideoLengthText({ id, className }: { id?: string | null; className?: string }) {
+/** 제목 아래 '업로드일 · 경과 시간' (영상 카드와 같은 표기) */
+export function VideoUploadLine({ id, className }: { id?: string | null; className?: string }) {
   const meta = useVideoMeta(id);
-  if (!meta?.durationSec) return null;
-  return <span className={cn('text-xs text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0', className)}>{lengthLabel(meta.durationSec)}</span>;
+  if (!meta?.publishedAt) return null;
+  return (
+    <p className={cn('mt-1 text-xs text-zinc-500 dark:text-zinc-400 tabular-nums', className)}>
+      <span>{toKstDate(meta.publishedAt)}</span>
+      <span aria-hidden="true" className="mx-1">·</span>
+      <span>{formatRelativeTime(meta.publishedAt)}</span>
+    </p>
+  );
 }

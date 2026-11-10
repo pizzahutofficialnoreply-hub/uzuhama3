@@ -9,6 +9,7 @@ import { ShareButton } from '../../common/ShareButton';
 import { GlassPlayButton, YoutubeLogo } from '../../common/MediaIcons';
 import { useViewStyle } from '../../../hooks/useViewStyle';
 import { VideoCard } from '../RecommendTab';
+import { useLogIndex } from './PlaylistsFeed';
 import { toast } from '../../common/ItemMenu';
 import {
   deleteList, embedQueueUrl, exportLink, importList, parseImport, moveItem, removeFromList, renameList, setDefaultList, useMyPlaylists, youtubeQueueUrl, type MyList,
@@ -22,7 +23,8 @@ import {
 const thumbOf = (l: MyList) => (l.items[0] ? `https://i.ytimg.com/vi/${l.items[0].id}/mqdefault.jpg` : '');
 const urlOf = (kind: string, id: string) => (kind === 'short' ? `https://www.youtube.com/shorts/${id}` : `https://www.youtube.com/watch?v=${id}`);
 
-export function MyPlaylists({ searchTerm }: { searchTerm: string }) {
+export function MyPlaylists({ searchTerm, logs, onNavigateToCalendar }: { searchTerm: string; logs?: any; onNavigateToCalendar?: (date: string) => void }) {
+  const logIndex = useLogIndex(logs);
   const { lists, defaultListId } = useMyPlaylists();
   const [openId, setOpenId] = useState<string | null>(null);
   const term = searchTerm.trim().toLowerCase().replace(/\s+/g, '');
@@ -53,7 +55,7 @@ export function MyPlaylists({ searchTerm }: { searchTerm: string }) {
             <AnimatePresence mode="wait" initial={false}>
               {openId === l.id ? (
                 <motion.div key="open" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}>
-                  <MyListDetail list={l} isDefault={defaultListId === l.id} onClose={() => setOpenId(null)} />
+                  <MyListDetail list={l} isDefault={defaultListId === l.id} onClose={() => setOpenId(null)} logs={logs} logIndex={logIndex} onNavigateToCalendar={onNavigateToCalendar} />
                 </motion.div>
               ) : (
                 <motion.div key="card" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}>
@@ -112,7 +114,7 @@ function MyListCard({ list, isDefault, onOpen }: { list: MyList; isDefault: bool
   );
 }
 
-function MyListDetail({ list, isDefault, onClose }: { list: MyList; isDefault: boolean; onClose: () => void }) {
+function MyListDetail({ list, isDefault, onClose, logs, logIndex, onNavigateToCalendar }: { list: MyList; isDefault: boolean; onClose: () => void; logs?: any; logIndex: Map<string, { log: any; edit: any }>; onNavigateToCalendar?: (date: string) => void }) {
   const [viewStyle, setViewStyle] = useViewStyle('playlist');
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(list.name);
@@ -191,7 +193,10 @@ function MyListDetail({ list, isDefault, onClose }: { list: MyList; isDefault: b
       ) : viewStyle === 'card' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 px-1.5">
           {list.items.map((x) => (
-            <VideoCard key={x.id} video={{ id: x.id, videoTitle: x.title, videoUrl: urlOf(x.kind, x.id), isLive: x.kind === 'live', category: '', allBroadcastDates: [] }} />
+            // 밖(홈·동영상)과 같은 카드: 그 영상이 들어 있는 방송 기록을 붙여서 생방일·게임·생방송 버튼이 같게
+            (() => { const hit = logIndex.get(x.id); return (
+              <VideoCard key={x.id} video={{ id: x.id, videoTitle: x.title, videoUrl: urlOf(x.kind, x.id), isLive: x.kind === 'live', category: hit?.edit?.category || '', parentLog: hit?.log, allBroadcastDates: hit?.log?.date ? [hit.log.date] : [], games: Array.isArray(hit?.edit?.games) ? hit.edit.games : [] }} allLogs={logs} onNavigateToCalendar={onNavigateToCalendar} />
+            ); })()
           ))}
         </div>
       ) : (

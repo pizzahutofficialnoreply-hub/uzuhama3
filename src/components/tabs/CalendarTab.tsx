@@ -33,7 +33,7 @@ import { CalendarSubscribeModal } from '../CalendarSubscribeModal';
 import { SelectiveCalendarModal } from '../modals/SelectiveCalendarModal';
 import { GameTitle } from '../common/GameTitle';
 import { GlassPlayButton } from '../common/MediaIcons';
-import { VideoLengthBadge } from '../common/VideoLengthBadge';
+import { VideoLengthBadge, VideoUploadLine } from '../common/VideoLengthBadge';
 import { motion, AnimatePresence } from 'motion/react';
 
 const ShortsIcon = ({ className }: { className?: string }) => (
@@ -155,9 +155,7 @@ const VideoLinkCard = ({
           />
           {!isShortsPair && <VideoLengthBadge id={ytId} />}
           <div className="absolute inset-0 bg-black/25 group-hover/thumb:bg-black/15 transition-colors flex items-center justify-center">
-            <div className="w-11 h-11 rounded-full bg-red-600/90 group-hover/thumb:bg-red-600 text-white flex items-center justify-center shadow-lg group-hover/thumb:scale-110 transition-transform">
-              <Play className="w-5 h-5 fill-current ml-0.5" />
-            </div>
+            <GlassPlayButton size="md" />
           </div>
         </div>
       ) : null}
@@ -165,9 +163,10 @@ const VideoLinkCard = ({
       {/* 3. 콘텐츠 정보 및 하단 액션 영역 */}
       <div className={cn("flex flex-col p-3.5 gap-2.5 flex-1 justify-between", textClass)}>
         <div>
-          <div className="font-bold text-zinc-900 dark:text-white leading-snug line-clamp-2 text-sm sm:text-base mb-1.5" title={title}>
+          <div className="font-bold text-zinc-900 dark:text-white leading-snug line-clamp-2 text-sm sm:text-base" title={title}>
             {title}
           </div>
+          {!isShortsPair && <VideoUploadLine id={ytId} className="mb-1.5" />}
 
           {catList.length > 0 && (
             <div className="flex flex-wrap gap-1">
@@ -1413,6 +1412,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                 )} title={title}>
                                   {title}
                                 </div>
+                                {!isVertical && <VideoUploadLine id={ytId} />}
                                 {resolvedGames.length > 0 && !isVertical && (
                                   <div className="flex flex-wrap items-center gap-1 mt-1">
                                     {resolvedGames.map((g, idx) => {

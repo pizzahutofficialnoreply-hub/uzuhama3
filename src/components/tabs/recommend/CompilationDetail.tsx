@@ -5,7 +5,8 @@ import { CollectionPanel } from '../../common/CollectionPanel';
 import { VideoListRow } from '../../common/VideoListRow';
 import { Pagination } from '../../common/Pagination';
 import { useViewStyle } from '../../../hooks/useViewStyle';
-import { BroadcastDetailModal, getBroadcastDates } from '../BroadcastDetailModal';
+import { getBroadcastDates } from '../BroadcastDetailModal';
+import { VideoCard } from '../RecommendTab';
 import { usePrefs } from '../../../utils/userPrefs';
 import { X } from 'lucide-react';
 
@@ -56,6 +57,7 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
       title: primary?.title || (games.length ? `${games.join(', ')} 방송` : `${date} 생방송`),
       games,
       liveUrl,
+      log,
       shorts: (Array.isArray(log?.shorts) ? log.shorts : []).map((s: any) => (typeof s === 'string' ? { url: s } : s)).filter((s: any) => s?.url),
     };
   }), [dates, logsList, video, isCompilation]);
@@ -96,7 +98,33 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
           ))}
         </div>
       ) : (
-        <BroadcastDetailModal video={video} allLogs={allLogs} onClose={onClose} onNavigateToCalendar={onNavigateToCalendar} hideMainVideoBanner bare />
+        // 카드 보기: 밖(홈·동영상)과 같은 영상 카드 (재생 시간·업로드일·생방일·게임 표시가 같음)
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 px-1.5">
+            {pageRows.map((r) => {
+              const vid = r.videoId || extractYoutubeId(r.liveUrl || '') || '';
+              return (
+                <VideoCard
+                  key={r.date}
+                  video={{
+                    id: vid,
+                    videoTitle: r.title,
+                    videoUrl: r.href || (vid ? `https://www.youtube.com/watch?v=${vid}` : ''),
+                    isLive: !r.videoId && Boolean(r.liveUrl),
+                    category: '',
+                    parentLog: r.log,
+                    allBroadcastDates: [r.date],
+                    games: [],
+                  }}
+                  linkedShorts={r.shorts.length ? r.shorts.map((x: any) => ({ url: x.url, title: x.title })) : undefined}
+                  allLogs={allLogs}
+                  onNavigateToCalendar={onNavigateToCalendar}
+                />
+              );
+            })}
+          </div>
+          <Pagination currentPage={page} totalPages={totalPages} onChange={setPage} className="flex justify-center items-center gap-1 sm:gap-2 mt-5" />
+        </>
       )}
       {viewStyle === 'list' && (
         <Pagination currentPage={page} totalPages={totalPages} onChange={setPage} className="flex justify-center items-center gap-1 sm:gap-2 mt-5" />

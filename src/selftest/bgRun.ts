@@ -30,7 +30,10 @@ let state: BgState = { running: false, deep: false, results: [], stage: '', done
 (function recover() {
   if (typeof window === 'undefined' || window.top !== window) return; // 점검 창 안에서는 안 함
   const alive = Number(localStorage.getItem(ALIVE_KEY) || 0);
-  if (Date.now() - alive < 20000) return; // 다른 창에서 지금 돌고 있음
+  // 이 탭에서 돌리던 점검이면(새로 고침·앱 다시 열림) 바로 복구, 다른 탭이 지금 돌리는 중이면 건드리지 않음
+  let mine = false;
+  try { mine = sessionStorage.getItem('uzuhama_selftest_owner') === '1'; sessionStorage.removeItem('uzuhama_selftest_owner'); } catch { /* */ }
+  if (!mine && Date.now() - alive < 20000) return;
   try {
     const bk = read<Record<string, string | null> | null>(BACKUP_KEY, null);
     if (bk) {
@@ -77,7 +80,7 @@ export async function startSelfTestBg(deep: boolean, resume = false) {
   // 화면 밖으로 보내면 브라우저가 멈춰 버릴 수 있어서, 화면 안 맨 아래 층에 투명하게
   Object.assign(frame.style, { position: 'fixed', left: '0', top: '0', width: '390px', height: '760px', opacity: '0', pointerEvents: 'none', zIndex: '-1', border: '0' });
   document.body.appendChild(frame);
-  try { localStorage.setItem(SELFTEST_FLAG, String(Date.now() + 30 * 60 * 1000)); } catch { /* */ }
+  try { localStorage.setItem(SELFTEST_FLAG, String(Date.now() + 30 * 60 * 1000)); sessionStorage.setItem('uzuhama_selftest_owner', '1'); } catch { /* */ }
   const beat = window.setInterval(() => { try { localStorage.setItem(ALIVE_KEY, String(Date.now())); } catch { /* */ } }, 5000);
   try { localStorage.setItem(ALIVE_KEY, String(Date.now())); } catch { /* */ }
   try {
@@ -94,7 +97,7 @@ export async function startSelfTestBg(deep: boolean, resume = false) {
     emit({ stage: `점검이 멈췄어요: ${String(e?.message || e).slice(0, 80)}` });
   } finally {
     window.clearInterval(beat);
-    try { localStorage.removeItem(SELFTEST_FLAG); localStorage.removeItem(ALIVE_KEY); } catch { /* */ }
+    try { localStorage.removeItem(SELFTEST_FLAG); localStorage.removeItem(ALIVE_KEY); sessionStorage.removeItem('uzuhama_selftest_owner'); } catch { /* */ }
     frame.remove();
     emit({ running: false, done: true, endedAt: Date.now() });
     pushHistory({ id: String(state.startedAt), deep: state.deep, startedAt: state.startedAt, endedAt: state.endedAt, results: state.results });

@@ -2224,7 +2224,7 @@ export function RecommendTab({
       )}
       {subTab === 'playlists' ? (
         <>
-          <MyPlaylists searchTerm={searchTerm} />
+          <MyPlaylists searchTerm={searchTerm} logs={data?.logs} onNavigateToCalendar={onNavigateToCalendar} />
           <PlaylistsFeed searchTerm={searchTerm} logs={data?.logs} onNavigateToCalendar={onNavigateToCalendar} />
         </>
       ) : (<>

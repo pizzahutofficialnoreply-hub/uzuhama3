@@ -29,7 +29,8 @@ const CARDS_PER_PAGE = 9;
 const IOS_SPRING = { type: 'spring' as const, stiffness: 340, damping: 32, mass: 1 };
 
 /** 유튜브 영상 ID → 그 영상이 등록된 방송 기록 (생방송·쇼츠 버튼, 카드 미리보기용) */
-function useLogIndex(logs: any) {
+export function useLogIndex(logs: any) {
+  // 편집본 + 생방(다시보기)도: 내 재생목록에는 생방이 담길 수도 있음
   return useMemo(() => {
     const map = new Map<string, { log: any; edit: any }>();
     const list = Array.isArray(logs) ? logs : Object.values(logs || {});
@@ -37,6 +38,10 @@ function useLogIndex(logs: any) {
       (Array.isArray(log?.edited) ? log.edited : []).forEach((edit: any) => {
         const id = extractYoutubeId(edit?.url || '');
         if (id && !map.has(id)) map.set(id, { log, edit });
+      });
+      (Array.isArray(log?.vods) ? log.vods : []).forEach((v: any) => {
+        const id = extractYoutubeId(typeof v === 'string' ? v : v?.url || '');
+        if (id && !map.has(id)) map.set(id, { log, edit: null });
       });
     });
     return map;

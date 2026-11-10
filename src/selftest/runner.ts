@@ -56,6 +56,18 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
       const w = W();
       if ((w as any).__selftestHooked) return;
       (w as any).__selftestHooked = true;
+      // 점검 창의 방문 기록은 바깥 앱과 한 줄로 이어져 있음 → 점검 창이 기록을 쌓거나 진짜로 뒤로 가면
+      // 바깥에서 설정을 닫을 때(뒤로) 점검 창이 대신 뒤로 가서 점검이 끊기고, 반대로 바깥 화면이 뒤로 가기도 함
+      // → 점검 창 안에서는 기록을 쌓지 않고(바꾸기만), 뒤로·앞으로는 그 창 안에서만 일어난 것처럼 알림
+      try {
+        const H = (w as any).History.prototype;
+        const rep = H.replaceState;
+        H.pushState = function (st: any, t: string, u?: string | URL | null) { return rep.call(this, st, t, u); };
+        const fakePop = () => setTimeout(() => { try { w.dispatchEvent(new (w as any).PopStateEvent('popstate', { state: w.history.state })); } catch { /* */ } }, 0);
+        H.back = function () { fakePop(); };
+        H.go = function (n?: number) { if (n) fakePop(); };
+        H.forward = function () { /* */ };
+      } catch { /* */ }
       w.addEventListener('error', (e: any) => errors.push(String(e?.message || e)));
       w.addEventListener('unhandledrejection', (e: any) => errors.push(String(e?.reason?.message || e?.reason || e)));
       // 바깥으로 나가는 동작은 실제로 하지 않고 '불렸는지'만 셈 (새 창·공유·복사·확인창·다운로드·알림 권한·인쇄)
@@ -107,7 +119,10 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
     await new Promise<void>((res) => {
       const t = setTimeout(res, 15000);
       frame.onload = () => { clearTimeout(t); res(); };
-      frame.src = path;
+      // 방문 기록을 남기지 않고 바꿈 (남기면 바깥 앱의 '뒤로'가 점검 창을 뒤로 보내서 점검이 끊김)
+      let replaced = false;
+      try { const cw = frame.contentWindow; if (cw && cw.location.href !== 'about:blank') { cw.location.replace(path); replaced = true; } } catch { /* */ }
+      if (!replaced) frame.src = path;
     });
     hook();
     await waitFor(() => D()?.body && D().body.innerText.length > 30, 15000, '내용');
