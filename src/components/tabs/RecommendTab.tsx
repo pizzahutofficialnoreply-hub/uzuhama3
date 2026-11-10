@@ -1,3 +1,4 @@
+import { useYoutubeViews } from '../../hooks/useYoutubeViews';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { embedSrc, progressOf, trackYoutubeFrame, useProgress, useWatchHistory, withResume } from '../../utils/watchHistory';
 import { openWatchHistory } from '../WatchHistoryPage';
@@ -1539,7 +1540,9 @@ export function RecommendTab({
   };
 
   // 추천 탭은 항상 추천순 (검색 중에는 정확도순 유지)
-  const effectiveSortOrder = subTab === 'recommend' && sortOrder !== 'accuracy' ? 'recommend' : sortOrder;
+  const effectiveSortOrder = subTab === 'recommend' && sortOrder !== 'accuracy' && sortOrder !== 'popular' ? 'recommend' : sortOrder;
+  // 유튜브 인기순: 고를 때만 조회수를 받아 옴 (화면에 숫자로는 안 보여 줌)
+  const ytViews = useYoutubeViews(effectiveSortOrder === 'popular');
 
   // 라이브 탭: 방송 기록의 생방송 다시보기 (유튜브 링크가 있는 것, 영상 길이·편집본·쇼츠까지 다른 카드와 같은 모양)
   const liveVideos = useMemo(() => {
@@ -1948,6 +1951,9 @@ export function RecommendTab({
         if (timeA !== timeB) return timeB - timeA;
         return (b.parentLog?.date || '').localeCompare(a.parentLog?.date || '');
       });
+    } else if (effectiveSortOrder === 'popular') {
+      const vw = (v: any) => ytViews?.[extractYoutubeId(v.videoUrl || '') || ''] ?? -1;
+      scoredVids.sort((a, b) => (vw(b) - vw(a)) || (getVideoSortTime(b) - getVideoSortTime(a)));
     } else if (effectiveSortOrder === 'asc') {
       scoredVids.sort((a, b) => {
         const timeA = getVideoSortTime(a);
@@ -2013,7 +2019,7 @@ export function RecommendTab({
     }
 
     return scoredVids;
-  }, [allVideos, categoryIndex, categories, selectedCategories, literalTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos, planBundle, docOf, chos, useRelated, sOpts, intent, excludedIds]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, categoryIndex, categories, selectedCategories, literalTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos, planBundle, docOf, chos, useRelated, sOpts, intent, excludedIds, ytViews]); // Removed ratings and history to prevent jumping on watch
 
   // 보던 영상 (3~95% 본 영상, 최근 5개)
   const watchHistory = useWatchHistory();
@@ -2370,6 +2376,7 @@ export function RecommendTab({
                 {Boolean(searchTerm.trim()) && <option value="accuracy">정확도순</option>}
                 <option value="desc">{isDateQuery ? '날짜 최신순' : '최신순'}</option>
                 <option value="asc">{isDateQuery ? '날짜 과거순' : '과거순 (첫 기록부터)'}</option>
+                <option value="popular">유튜브 인기순</option>
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
             </div>
@@ -2431,7 +2438,7 @@ export function RecommendTab({
           chosung={chos}
           exclude={excludedIds}
           selectedCategories={selectedCategories}
-          order={sortOrder === 'asc' ? 'asc' : sortOrder === 'accuracy' && searchTerm.trim() ? 'accuracy' : 'desc'}
+          order={sortOrder === 'asc' ? 'asc' : sortOrder === 'popular' ? 'popular' : sortOrder === 'accuracy' && searchTerm.trim() ? 'accuracy' : 'desc'}
           onCount={setShortsCount}
           onNavigateToCalendar={onNavigateToCalendar}
           genresOfLog={genresOfLog}

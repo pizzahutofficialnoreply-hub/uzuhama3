@@ -1,3 +1,4 @@
+import { usePrefs } from '../../utils/userPrefs';
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -40,7 +41,8 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
   const { lists } = useMyPlaylists();
   const saved = Boolean(id) && lists.some((l) => l.items.some((x) => x.id === id));
   const [open, setOpen] = useState(false);
-  const aiStarted = useAiStarted(id, open); // AI가 보기 시작한 영상만 'AI 영상 요약'
+  const labAi = usePrefs().labAiSummary; // 설정 › 실험실에서 끌 수 있음
+  const aiStarted = useAiStarted(id, open && labAi); // AI가 보기 시작한 영상만 'AI 영상 요약'
   const btn = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; up: boolean }>({ top: 0, left: 0, up: false });
@@ -100,7 +102,7 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
                     {x.icon}{x.label}
                   </button>
                 ))}
-                {/^[\w-]{11}$/.test(id) && aiStarted && (
+                {/^[\w-]{11}$/.test(id) && labAi && aiStarted && (
                   <button type="button" role="menuitem" className={cn(item, extraItems.length > 0 && 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); openAiSummary({ id, title, kind }); }}>
                     <Sparkles className="w-4 h-4 text-purple-500" />
                     AI 영상 요약

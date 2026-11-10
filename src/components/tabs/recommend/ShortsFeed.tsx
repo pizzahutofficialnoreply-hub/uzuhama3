@@ -1,3 +1,4 @@
+import { useYoutubeViews } from '../../../hooks/useYoutubeViews';
 import React, { useEffect, useMemo, useState } from 'react';
 import { fuzzyKoreanMatch } from '../../../utils';
 import { extractYoutubeId } from '../../../utils/urlUtils';
@@ -29,7 +30,7 @@ interface ShortsFeedProps {
   /** 방송 기록 → 장르 목록 (추천 영상 카테고리 필터와 같은 기준) */
   genresOfLog?: (log: any) => string[];
   /** 위 필터 카드의 정렬을 따름 (주면 이 화면의 장르·순서 버튼은 숨김) */
-  order?: 'desc' | 'asc' | 'accuracy';
+  order?: 'desc' | 'asc' | 'accuracy' | 'popular';
   onCount?: (n: number) => void;
 }
 
@@ -101,9 +102,10 @@ export function ShortsFeed({ logs, searchTerm, plan, chosung = true, exclude, se
   const [sortBy, setSortBy] = useState<'live' | 'upload'>(() => { const v = sessionStorage.getItem('rec_shorts_sort'); return v === 'live' || v === 'upload' ? v : getPrefs().shortsSortBy; });
   const changeSort = (v: 'live' | 'upload') => { setSortBy(v); setPage(1); try { sessionStorage.setItem('rec_shorts_sort', v); } catch {} };
   // 순서: 최신순 / 과거순
-  const [orderState, setOrder] = useState<'desc' | 'asc'>(() => { const v = sessionStorage.getItem('rec_shorts_order'); return v === 'asc' || v === 'desc' ? v : getPrefs().shortsOrder; });
-  const order: 'desc' | 'asc' | 'accuracy' = controlled ? orderProp! : orderState;
-  const changeOrder = (v: 'desc' | 'asc') => { setOrder(v); setPage(1); try { sessionStorage.setItem('rec_shorts_order', v); } catch {} };
+  const [orderState, setOrder] = useState<'desc' | 'asc' | 'popular'>(() => { const v = sessionStorage.getItem('rec_shorts_order'); return v === 'asc' || v === 'desc' || v === 'popular' ? v : getPrefs().shortsOrder; });
+  const order: 'desc' | 'asc' | 'accuracy' | 'popular' = controlled ? orderProp! : orderState;
+  const ytViews = useYoutubeViews(order === 'popular');
+  const changeOrder = (v: 'desc' | 'asc' | 'popular') => { setOrder(v); setPage(1); try { sessionStorage.setItem('rec_shorts_order', v); } catch {} };
   // 장르 (연결된 방송에서 한 게임의 장르)
   const [genre, setGenre] = useState<string>(() => sessionStorage.getItem('rec_shorts_genre') || '전체');
   const changeGenre = (v: string) => { setGenre(v); setPage(1); try { sessionStorage.setItem('rec_shorts_genre', v); } catch {} };
@@ -263,11 +265,12 @@ export function ShortsFeed({ logs, searchTerm, plan, chosung = true, exclude, se
       return [...desc].sort((a, b) => hit(a) - hit(b));
     }
     if (order === 'desc') return desc;
+    if (order === 'popular') return [...desc].sort((a, b) => (ytViews?.[b.id] ?? -1) - (ytViews?.[a.id] ?? -1));
     // 과거순: 날짜를 모르는 것은 맨 뒤
     const known = desc.filter((s) => (sortBy === 'upload' ? t(s) > 0 : Boolean(s.date)));
     const unknown = desc.filter((s) => !(sortBy === 'upload' ? t(s) > 0 : Boolean(s.date)));
     return [...known.reverse(), ...unknown];
-  }, [filtered, sortBy, order, metaMap, plan]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filtered, sortBy, order, metaMap, plan, ytViews]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const captionOf = (s: ShortEntry) => (sortBy === 'upload' && uploadedAt(s)
     ? `${toKstDate(uploadedAt(s))} 업로드`
@@ -299,7 +302,7 @@ export function ShortsFeed({ logs, searchTerm, plan, chosung = true, exclude, se
           )}
           {([
             ['정렬 기준', [['upload', '업로드일'], ['live', '방송일']], sortBy, changeSort],
-            ...(controlled ? [] : [['순서', [['desc', '최신순'], ['asc', '과거순']], order, changeOrder]]),
+            ...(controlled ? [] : [['순서', [['desc', '최신순'], ['asc', '과거순'], ['popular', '유튜브 인기순']], order, changeOrder]]),
           ] as any[]).map(([label, opts, value, onChange]) => (
             <div key={label} className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60" role="group" aria-label={`쇼츠 ${label}`}>
               {opts.map(([v, text]) => (

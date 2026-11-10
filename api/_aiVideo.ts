@@ -818,3 +818,25 @@ export async function aiDiag(db: any) {
   } catch (e: any) { models = [`목록 실패: ${String(e?.message || e).slice(0, 80)}`]; }
   return { using: MODELS, models, state: { day: st.day, usedSec: st.usedSec, calls: st.calls, coolUntil: st.coolUntil ? new Date(st.coolUntil).toISOString() : null, modelCool: Object.fromEntries(Object.entries(st.modelCool || {}).map(([k, v]) => [k, new Date(Number(v)).toISOString()])), modelWhy: st.modelWhy, lastError: String(st.lastError || '').slice(0, 400), doneCount: st.doneCount, lastId: st.lastId } };
 }
+
+/**
+ * 유튜브 조회수 (정렬 '유튜브 인기순'에만 씀): 채널 영상 + 방송 기록의 생방 다시보기
+ * youtube_cache/views 에 6시간 저장 → 그 사이에는 문서 1개만 읽음
+ */
+export async function youtubeViews(db: any) {
+  const ref = db.collection('youtube_cache').doc('views');
+  const cur = (await ref.get()).data();
+  if (cur?.v && Date.now() - Date.parse(cur.at || '0') < 6 * 3600000) return { views: cur.v, at: cur.at };
+  const q = (await db.collection('youtube_cache').doc('ai_queue').get()).data();
+  const ids: string[] = [...new Set<string>((q?.items || []).map((x: any) => String(x.id)).filter((id: string) => /^[\w-]{11}$/.test(id)))];
+  const v: Record<string, number> = { ...(cur?.v || {}) };
+  for (let i = 0; i < ids.length; i += 50) {
+    try {
+      const j = await yt(`videos?part=statistics&id=${ids.slice(i, i + 50).join(',')}`);
+      (j.items || []).forEach((it: any) => { v[it.id] = Number(it.statistics?.viewCount || 0); });
+    } catch { break; }
+  }
+  const at = new Date().toISOString();
+  try { await ref.set({ v, at }); } catch { /* */ }
+  return { views: v, at };
+}

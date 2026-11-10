@@ -1,3 +1,4 @@
+import { getPrefs } from '../../utils/userPrefs';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, Pin, Play, Sparkles, X } from 'lucide-react';
 import { openAiSummary } from './AiSummaryHost';
@@ -70,7 +71,7 @@ function ExtraCard({ c }: { c: Card }) {
           ))}
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] text-zinc-400">시간을 누르면 10초 전부터 재생돼요{c.partial ? ' · 아직 영상 앞부분만 분석했어요' : ''}</p>
-            {c.from === 'ai' && c.hasSummary && (
+            {c.from === 'ai' && c.hasSummary && getPrefs().labAiSummary && (
               <button type="button" onClick={() => openAiSummary({ id: c.id, title: c.title, kind: c.kind, t: first ? Math.max(0, first.t - 10) : undefined })} className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[11px] font-bold cursor-pointer">
                 <BookOpen className="w-3 h-3" /> AI 요약 보기
               </button>

@@ -1,0 +1,9 @@
+name: probe
+on: { workflow_dispatch: {} }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sS "https://uzuhama.vercel.app/api/videos/search-index?ai=views" | jq -c '{at, n: (.views|length), top: (.views|to_entries|sort_by(-.value)|.[0:3])}'
+          curl -sS "https://uzuhama.vercel.app/api/videos/search-index?ai=diag" | jq -c '.state|{usedSec,calls,lastId,doneCount,coolUntil}'

@@ -187,6 +187,10 @@ export default async function handler(req: any, res: any) {
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(await ai.aiPrioritize(db, String(req.query?.id || '')));
       }
+      if (aiMode === 'views') {
+        res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=21600');
+        return res.status(200).json(await ai.youtubeViews(db));
+      }
       if (aiMode === 'diag') {
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(await ai.aiDiag(db));

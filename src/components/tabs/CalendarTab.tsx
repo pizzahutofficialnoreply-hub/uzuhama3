@@ -1,3 +1,4 @@
+import { useYoutubeViews, ytIdOf } from '../../hooks/useYoutubeViews';
 import { makeMatcher } from '../../utils/textMatch';
 import { usePrefs } from '../../utils/userPrefs';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -315,7 +316,10 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
   const [appliedEndDate, setAppliedEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [searchTerm, setSearchTerm] = useState('');
   const searchPrefs = usePrefs();
-  const [sortOrder, setSortOrder] = useState<'desc'|'asc'>('desc');
+  const [sortOrder, setSortOrder] = useState<'desc'|'asc'|'popular'>('desc');
+  // 유튜브 인기순: 그 방송의 생방·편집본·쇼츠 조회수 합 (고를 때만 받아 옴, 숫자는 안 보여 줌)
+  const ytViews = useYoutubeViews(sortOrder === 'popular');
+  const logViews = (l: any) => [...(l.vods || []), ...(l.edited || []), ...(l.shorts || [])].reduce((a: number, x: any) => a + (ytViews?.[ytIdOf(x)] || 0), 0);
   const [hasCustomFilter, setHasCustomFilter] = useState(false);
   const [exportedLogId, setExportedLogId] = useState<string | null>(null);
   const [isExportingBatch, setIsExportingBatch] = useState(false);
@@ -1760,12 +1764,13 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                 value={sortOrder}
                 onChange={(e) => {
                   triggerHaptic(10);
-                  setSortOrder(e.target.value as 'desc' | 'asc');
+                  setSortOrder(e.target.value as 'desc' | 'asc' | 'popular');
                 }}
                 className="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none cursor-pointer"
               >
                 <option value="desc">최신순</option>
                 <option value="asc">오래된순</option>
+                <option value="popular">유튜브 인기순</option>
               </select>
             </div>
           </div>
@@ -1850,6 +1855,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {tableLogs.sort((a, b) => {
+                if (sortOrder === 'popular') return logViews(b) - logViews(a) || b.date.localeCompare(a.date);
                 const diff = a.date.localeCompare(b.date);
                 return sortOrder === 'desc' ? -diff : diff;
               }).map((log) => {

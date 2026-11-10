@@ -1,4 +1,4 @@
-import { Stethoscope } from 'lucide-react';
+import { FlaskConical, Stethoscope } from 'lucide-react';
 import { makeMatcher } from '../utils/textMatch';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { setDefaultList, setDefaultYoutube, useMyPlaylists } from '../utils/myPlaylists';
@@ -82,7 +82,7 @@ export function SettingsView({
   const isAdmin = isAdminUser(user);
   const [showAdminVerifyModal, setShowAdminVerifyModal] = useState(false);
   const deviceLinked = Boolean(useDeviceLink());
-  const [activeSection, setActiveSection] = useState<'notification' | 'viewPrefs' | 'recommend' | 'theme' | 'share' | 'devices' | 'deviceInfo' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(() => initialSection || null);
+  const [activeSection, setActiveSection] = useState<'notification' | 'viewPrefs' | 'recommend' | 'theme' | 'share' | 'devices' | 'deviceInfo' | 'labs' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(() => initialSection || null);
   // 긴 항목을 접었을 때(다른 항목을 열어서 닫힌 경우 포함): 다음 항목(또는 연 항목)이 화면 가운데 살짝 위에 오게 스크롤 (끝까지 가서 더 못 가면 거기까지)
   const prevSectionRef = useRef<string | null>(activeSection);
   useEffect(() => {
@@ -779,6 +779,32 @@ export function SettingsView({
             </AnimatePresence>
           </div>
 
+          {/* 실험실: 아직 다듬는 중인 기능 켜고 끄기 */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setActiveSection(activeSection === 'labs' ? null : 'labs')}
+              data-settings-section="labs"
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <FlaskConical className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <span className="text-sm font-semibold text-zinc-900 dark:text-white">실험실</span>
+              </div>
+              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'labs' && "rotate-90")} />
+            </button>
+            <AnimatePresence initial={false}>
+              {activeSection === 'labs' && (
+                <motion.div key="settings-accordion-labs" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }} className="overflow-hidden">
+                  <div className="px-4 pb-4 pt-2 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50 space-y-2">
+                    <p className="text-xs text-zinc-500 break-keep">아직 다듬는 중인 기능이에요. 마음에 안 들면 꺼 둘 수 있어요.</p>
+                    <LabToggle k="labAiSummary" title="AI 영상 요약" desc="영상 ⋮ 메뉴와 검색 결과에 AI가 정리한 이야기별 요약·노가리를 보여 줘요. AI는 실수할 수 있어요." />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           {/* 이 기기 정보 (의견 보낼 때 붙는 기기 이름) */}
           <div>
             <button
@@ -1458,5 +1484,22 @@ function ViewPrefsPanel() {
         })}
       </div>
     </div>
+  );
+}
+
+/** 실험실 켜고 끄기 */
+function LabToggle({ k, title, desc }: { k: 'labAiSummary'; title: string; desc: string }) {
+  const prefs = usePrefs();
+  const on = Boolean(prefs[k]);
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={() => setPref(k, !on)} className="w-full flex items-center justify-between gap-3 p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-left cursor-pointer">
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-zinc-900 dark:text-white">{title}</span>
+        <span className="block text-[11.5px] text-zinc-500 break-keep">{desc}</span>
+      </span>
+      <span className={cn('relative shrink-0 w-11 h-6 rounded-full transition-colors', on ? 'bg-purple-600' : 'bg-zinc-300 dark:bg-zinc-700')}>
+        <span className={cn('absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all', on ? 'left-[22px]' : 'left-0.5')} />
+      </span>
+    </button>
   );
 }
