@@ -803,3 +803,15 @@ JSON 으로만: {"found":true,"moments":[{"t":"MM:SS 또는 H:MM:SS","d":"한 �
 
 /** 데이터 검증(_dataCheck)에서 같이 씀 */
 export { gen as aiGen, parseJson as aiParseJson, yt as ytApi, ytKey as ytApiKey, TEXT_MODELS as AI_TEXT_MODELS, parseDur as ytParseDur };
+
+/** 진단: 쓸 수 있는 Gemini 모델 목록 + 지금 상태 (어느 모델이 왜 쉬는지) */
+export async function aiDiag(db: any) {
+  const st = (await db.collection('youtube_cache').doc('ai_state').get()).data() || {};
+  let models: string[] = [];
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${aiKey()}`);
+    const j: any = await r.json();
+    models = (j.models || []).filter((m: any) => (m.supportedGenerationMethods || []).includes('generateContent')).map((m: any) => String(m.name).replace('models/', ''));
+  } catch (e: any) { models = [`목록 실패: ${String(e?.message || e).slice(0, 80)}`]; }
+  return { using: MODELS, models, state: { day: st.day, usedSec: st.usedSec, calls: st.calls, coolUntil: st.coolUntil ? new Date(st.coolUntil).toISOString() : null, modelCool: Object.fromEntries(Object.entries(st.modelCool || {}).map(([k, v]) => [k, new Date(Number(v)).toISOString()])), modelWhy: st.modelWhy, lastError: String(st.lastError || '').slice(0, 400), doneCount: st.doneCount, lastId: st.lastId } };
+}

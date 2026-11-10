@@ -187,6 +187,10 @@ export default async function handler(req: any, res: any) {
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(await ai.aiPrioritize(db, String(req.query?.id || '')));
       }
+      if (aiMode === 'diag') {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json(await ai.aiDiag(db));
+      }
       if (aiMode === 'ids') {
         // AI가 보기 시작한 영상 목록 (⋮ 메뉴에 'AI 영상 요약'을 보여 줄지)
         // 문서 전체를 읽으면 영상 수만큼 읽기가 들어서, 목록을 문서 하나에 모아 두고 1시간에 한 번만 새로 만듦
