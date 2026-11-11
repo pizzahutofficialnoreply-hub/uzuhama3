@@ -3,12 +3,17 @@ on: { workflow_dispatch: {} }
 jobs:
   p:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - run: |
-          npm ci --no-audit --no-fund > ci.log 2>&1; echo "ci exit $?"; tail -5 ci.log
-          npx playwright install --with-deps webkit > pw.log 2>&1; echo "pw exit $?"; tail -3 pw.log
-          node -e "import('playwright').then(m=>console.log('pw ok', typeof m.webkit.launch))"
-          node scripts/cloud-selftest.mjs; echo "script exit $?"
+      - name: ci
+        timeout-minutes: 5
+        run: npm ci --no-audit --no-fund 2>&1 | tail -5
+      - name: pw
+        timeout-minutes: 6
+        run: npx playwright install --with-deps webkit 2>&1 | tail -5
+      - name: script
+        timeout-minutes: 2
+        run: node scripts/cloud-selftest.mjs; echo "script exit $?"
