@@ -1,0 +1,10 @@
+name: probe4
+on: { workflow_dispatch: {} }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          PNG=$(printf '\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x01\0\0\0\x01\x08\x06\0\0\0\x1f\x15\xc4\x89\0\0\0\rIDATx\x9cc\xf8\xcf\xc0\xf0\x1f\0\x05\0\x01\xff\x89\x99=\x1d\0\0\0\0IEND\xaeB`\x82' | base64 -w0)
+          r=$(curl -sS -X POST -H 'Content-Type: application/json' -d "{\"data\":\"data:image/png;base64,$PNG\",\"vid\":\"claude-test\"}" "https://uzuhama.vercel.app/api/health?img=upload"); echo "$r"
+          url=$(echo "$r" | jq -r .url); curl -sS -o out.png -D - "$url" | grep -i "content-type\|cache-control\|HTTP/"; ls -la out.png
