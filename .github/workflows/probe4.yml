@@ -1,0 +1,13 @@
+name: probe4
+on: { workflow_dispatch: {} }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci --no-audit --no-fund >/dev/null 2>&1
+      - run: timeout 300 npx playwright install --with-deps chromium >/dev/null 2>&1; echo "pw $?"
+      - run: SELFTEST_DRY=1 timeout 1500 node scripts/cloud-selftest.mjs
