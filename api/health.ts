@@ -207,6 +207,37 @@ async function cloudSelftest(op: string, req: any, res: any) {
     if (d && (d.status === 'queued' || d.status === 'running')) await ref.set({ status: 'cancel', endedAt: new Date().toISOString() }, { merge: true });
     return res.status(200).json({ ok: true });
   }
+  // ── 백그라운드 작업(GitHub)이 가져가고 진행을 적음: 실제로 돌고 있는 이 저장소의 worker 실행인지 GitHub 에 확인 ──
+  if (op === 'claim') {
+    const q = await col.where('status', '==', 'queued').limit(5).get();
+    if (q.empty) return res.status(200).json({});
+    const runId = String(body.run || '');
+    if (!/^\d{5,20}$/.test(runId)) return res.status(400).json({ error: 'run' });
+    const gr = await fetch(`https://api.github.com/repos/${REPO}/actions/runs/${runId}`, { headers: { 'User-Agent': 'uzuhama-worker', Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(8000) }).catch(() => null);
+    const run: any = gr && gr.ok ? await gr.json() : null;
+    if (!run || !/worker\.yml$/.test(run.path || '') || run.status === 'completed') return res.status(403).json({ error: 'not a worker run' });
+    const first = q.docs.sort((a: any, b: any) => String(a.data().queuedAt).localeCompare(String(b.data().queuedAt)))[0];
+    const took = await db.runTransaction(async (tx: any) => {
+      const d = (await tx.get(first.ref)).data();
+      if (d?.status !== 'queued') return null;
+      tx.update(first.ref, { status: 'running', runId, startedAt: new Date().toISOString(), beatAt: new Date().toISOString(), stage: '아이폰 모양 브라우저를 여는 중…' });
+      return d;
+    });
+    return res.status(200).json(took ? { id: first.id, deep: Boolean(took.deep) } : {});
+  }
+  if (op === 'progress') {
+    const id = String(body.id || '');
+    if (!/^[\w-]{6,40}$/.test(id)) return res.status(400).json({ error: 'id' });
+    const ref = col.doc(id);
+    const d = (await ref.get()).data();
+    if (!d || String(d.runId || '') !== String(body.run || '')) return res.status(403).json({ error: 'run' });
+    if (d.status !== 'running') return res.status(200).json({ status: d.status });
+    const results = (Array.isArray(body.results) ? body.results : []).slice(0, 400).map((r: any) => ({ group: String(r.group || '').slice(0, 40), name: String(r.name || '').slice(0, 160), ok: Boolean(r.ok), warn: Boolean(r.warn), ms: Number(r.ms) || 0, ...(r.err ? { err: String(r.err).slice(0, 300) } : {}), details: (Array.isArray(r.details) ? r.details : []).slice(0, 15).map((x: any) => String(x).slice(0, 200)) }));
+    const upd: any = { beatAt: new Date().toISOString(), stage: String(body.stage || '').slice(0, 200), results };
+    if (body.final === 'done' || body.final === 'error') Object.assign(upd, { status: body.final, endedAt: new Date().toISOString(), error: String(body.error || '').slice(0, 300) });
+    await ref.set(upd, { merge: true });
+    return res.status(200).json({ status: upd.status || 'running' });
+  }
   if (op === 'request') {
     const vid = String(body.vid || '').replace(/[^\w-]/g, '').slice(0, 40) || 'anon';
     const day = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);

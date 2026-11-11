@@ -28,8 +28,6 @@ jobs:
           npm ci --no-audit --no-fund >/dev/null 2>&1 || true
           npx playwright install --with-deps webkit >/dev/null 2>&1 || true
       - name: Keep calling tick, AI analysis, cloud self-check
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}
         run: |
           end=$(( $(date +%s) + 340*60 ))
           n=0
