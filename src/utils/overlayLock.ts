@@ -30,8 +30,9 @@ function lock() {
   locked = true;
   const b = document.body;
   savedY = window.scrollY;
-  saved = { position: b.style.position, top: b.style.top, left: b.style.left, right: b.style.right, width: b.style.width, overflow: b.style.overflow };
-  Object.assign(b.style, { position: 'fixed', top: `-${savedY}px`, left: '0', right: '0', width: '100%', overflow: 'hidden' });
+  // overflow 는 건드리지 않음 (창마다 쓰는 다른 잠금(lockBodyScroll)과 겹쳐서, 되돌릴 때 'hidden' 이 남아 스크롤이 안 되던 문제)
+  saved = { position: b.style.position, top: b.style.top, left: b.style.left, right: b.style.right, width: b.style.width };
+  Object.assign(b.style, { position: 'fixed', top: `-${savedY}px`, left: '0', right: '0', width: '100%' });
   document.documentElement.classList.add('overlay-open');
 }
 
@@ -51,6 +52,11 @@ export function startOverlayScrollLock() {
   if (typeof window === 'undefined' || (window as any).__overlayLock) return;
   (window as any).__overlayLock = true;
   new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['role', 'aria-modal', 'data-overlay', 'hidden'] });
+  // 다른 화면(PDF 미리보기 등)에 갔다 돌아오면 다시 확인: 떠 있는 창이 없으면 잠금·overflow 모두 풀기
+  const recheck = () => { check(); if (!anyOverlay() && document.body.style.overflow === 'hidden' && !document.querySelector('[role="dialog"]')) document.body.style.overflow = ''; };
+  window.addEventListener('pageshow', recheck);
+  window.addEventListener('focus', recheck);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') recheck(); });
   schedule();
 }
 

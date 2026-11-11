@@ -331,8 +331,23 @@ export function AiSummaryHost() {
 
               {data?.compilation && (
                 <div className="space-y-4">
+                  {data.overview && (data.overview.opening || data.overview.theme) && (
+                    <div className="rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 p-3.5 space-y-2">
+                      {data.overview.theme && <p className="text-[13px] font-bold text-zinc-900 dark:text-white break-keep">{data.overview.theme}</p>}
+                      {data.overview.opening && <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 break-keep leading-relaxed"><b className="text-purple-600">오프닝</b> {data.overview.opening}</p>}
+                      {(data.topics || []).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {(data.topics || []).map((t: any, i: number) => (
+                            <button key={i} type="button" onClick={() => (t.t != null ? seek(t.t) : search(t.title))} className="px-2 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-purple-200/70 dark:border-purple-900/60 text-[11.5px] font-semibold text-zinc-700 dark:text-zinc-200 cursor-pointer">
+                              {t.t != null && <b className="text-purple-600 tabular-nums mr-1">{fmtTime(t.t)}</b>}{t.title}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <p className="text-xs text-zinc-600 dark:text-zinc-300 break-keep">몰아보기 영상이라 들어 있는 방송 {data.dates?.length || 0}개의 원본 영상 {data.sourceCount || 0}개 중 AI가 다 본 {data.sources?.length || 0}개를 모아 보여줘요. 시간은 원본 영상 기준이에요.</p>
-                  {!data.found && <p className="text-xs font-bold text-amber-600">아직 원본 영상을 AI가 다 보지 않았어요.</p>}
+                  {!(data.sources || []).length && <p className="text-xs font-bold text-amber-600">아직 원본 영상을 AI가 다 보지 않았어요.</p>}
                   {(data.sources || []).map((src: any) => (
                     <div key={src.id} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 p-3.5 space-y-3">
                       <button type="button" onClick={() => seek(0, src.id)} className="text-left text-[13px] font-black text-zinc-900 dark:text-white line-clamp-2 cursor-pointer">{src.title}</button>

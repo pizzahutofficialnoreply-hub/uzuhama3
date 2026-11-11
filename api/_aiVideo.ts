@@ -277,8 +277,9 @@ scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'
   // mimeType 을 붙이면 유튜브 주소를 느린 방식으로 읽어 시간 초과가 남 → 주소만
   const part: any = { fileData: { fileUri: `https://www.youtube.com/watch?v=${item.id}` } };
   if (!whole) part.videoMetadata = { startOffset: `${start}s`, endOffset: `${end}s` };
-  // 화질은 기본(중간): 낮은 화질보다 귀신·글자·표정 같은 화면 내용을 훨씬 잘 봄
-  const { text, model } = await gen([part, { text: prompt }], true, AI_TIMEOUT, MODELS);
+  // 화질은 '낮음': 무료 한도가 분당·하루 글자(토큰) 수라, 기본 화질이면 6분 한 구간만으로 분당 한도를 거의 다 씀
+  // (낮음은 같은 영상을 약 3분의 1 토큰으로 봄 → 같은 한도로 3배 가까이 봄. 소리·말은 그대로 들음)
+  const { text, model } = await gen([part, { text: prompt }], true, AI_TIMEOUT, MODELS, { mediaResolution: 'MEDIA_RESOLUTION_LOW' });
   const out = parseJson(text);
   let scenes: Scene[] = (Array.isArray(out.scenes) ? out.scenes : []).map((s: any) => ({ t: toSec(s?.t), d: String(s?.d || '').slice(0, 160), k: words(s?.k, 8), ...(s?.sure === false ? { u: 1 } : {}), ...(String(s?.say || '').trim() ? { q: String(s.say).trim().slice(0, 80) } : {}), ...(words(s?.who, 4, 20).length ? { w: words(s?.who, 4, 20) } : {}) }))
     .filter((s: Scene) => Number.isFinite(s.t) && s.d);
@@ -362,6 +363,32 @@ ${scenes}`;
   return { summary: String(j.summary || '').slice(0, 800), chapters, gameStories, nogari: String(j.nogari || '').trim().slice(0, 2000) || nogariRaw.replace(/\[[^\]]+\]\s*/g, '').slice(0, 2000), opanmu: String(opanmu).slice(0, 30) };
 }
 
+/** 몰아보기 가볍게 보기: 오프닝 10분 + 설명란으로 주제·구성 */
+async function compOverview(item: QItem, desc: string) {
+  const prompt = `이 영상은 스트리머 '우주하마' 채널의 몰아보기(여러 방송을 모은 영상)야. 제목: ${item.title}
+설명란: ${desc || '(없음)'}
+앞부분(오프닝 약 10분)을 보고, 설명란 목차가 있으면 참고해서 JSON 으로만 답해:
+{
+ "opening": "오프닝에서 무슨 말·장면으로 시작하는지 2~4문장 (시청자가 말하듯 편하게)",
+ "theme": "이 몰아보기가 어떤 주제·기준으로 모은 영상인지 1~2문장",
+ "topics": [{"t": "시작 시각(초, 설명란 목차에 있으면 그 시각, 모르면 null)", "title": "다루는 게임·주제 이름"}],
+ "games": [{"name": "게임 원래 이름", "ko": "한국어 이름(있으면)"}],
+ "keywords": ["검색어 5~12개 (한국어)"]
+}
+보이고 들린 것·설명란에 적힌 것만. 모르는 건 빈칸.`;
+  const part: any = { fileData: { fileUri: `https://www.youtube.com/watch?v=${item.id}` }, videoMetadata: { startOffset: '0s', endOffset: `${Math.min(600, Number(item.duration || 600))}s`, fps: 0.5 } };
+  const { text, model } = await gen([part, { text: prompt }], true, AI_TIMEOUT, MODELS, { mediaResolution: 'MEDIA_RESOLUTION_LOW' });
+  const out = parseJson(text);
+  const topics = (Array.isArray(out.topics) ? out.topics : []).map((x: any) => ({ t: Number.isFinite(Number(x?.t)) && x?.t !== null ? Math.max(0, Math.round(Number(x.t))) : null, title: String(x?.title || '').trim().slice(0, 80) })).filter((x: any) => x.title).slice(0, 40);
+  return {
+    model,
+    overview: { opening: String(out.opening || '').trim().slice(0, 600), theme: String(out.theme || '').trim().slice(0, 300) },
+    topics,
+    games: (Array.isArray(out.games) ? out.games : []).map((g: any) => ({ name: String(g?.name || '').trim().slice(0, 80), ko: String(g?.ko || '').trim().slice(0, 80) })).filter((g: any) => g.name).slice(0, 30),
+    keywords: words(out.keywords, 12),
+  };
+}
+
 export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Promise<any> {
   if (!aiKey()) return { skipped: 'GEMINI_API_KEY 없음' };
   if (!ytKey()) return { skipped: 'YOUTUBE_API_KEY 없음' };
@@ -389,7 +416,7 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
     let cur: any;
     const col = db.collection('ai_video');
     // 방문자가 '먼저 봐 달라'고 한 영상부터
-    const pr: string[] = (st.priority || []).filter((pid: string) => queue.some((q) => q.id === pid && !q.comp));
+    const pr: string[] = (st.priority || []).filter((pid: string) => queue.some((q) => q.id === pid));
     for (const pid of pr) {
       if (opts.kind) break;
       const d = (await col.doc(pid).get()).data();
@@ -397,8 +424,16 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
       item = queue.find((q) => q.id === pid); cur = d?.pv === PV ? d : null; break;
     }
 
+    // 하던 영상부터 (매번 목록 앞에서부터 30개씩 읽으면 DB 읽기가 많이 듦)
+    if (!item && !opts.kind && st.lastId) {
+      const q = queue.find((x) => x.id === st.lastId && x.live !== 'live' && x.live !== 'upcoming');
+      if (q) {
+        const d = (await col.doc(q.id).get()).data();
+        if (d && d.pv === PV && d.status !== 'done' && d.status !== 'skip' && !(d.status === 'error' && (d.tries || 0) >= 3)) { item = q; cur = d; }
+      }
+    }
     for (let i = 0; i < queue.length && !item; i += 30) {
-      const part = queue.slice(i, i + 30).filter((q) => !q.comp && q.live !== 'live' && q.live !== 'upcoming' && (!opts.kind || q.kind === opts.kind));
+      const part = queue.slice(i, i + 30).filter((q) => q.live !== 'live' && q.live !== 'upcoming' && (!opts.kind || q.kind === opts.kind));
       if (!part.length) continue;
       const snaps = await db.getAll(...part.map((q) => col.doc(q.id)));
       for (let j = 0; j < part.length; j++) {
@@ -413,6 +448,30 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
     if (!item) { await release({ lastError: '', idle: true }); return { done: true, message: '모든 영상을 분석했어요' }; }
 
     const ref = col.doc(item.id);
+    // 몰아보기: 장면 하나하나는 원본 방송 분석을 모아서 보여 주므로, 여기서는 가볍게 한 번만
+    //  → 오프닝(앞 10분)을 보고 무슨 주제·구성의 몰아보기인지 (설명란의 목차도 참고)
+    if (item.comp) {
+      let desc = '';
+      try { desc = String((await yt(`videos?part=snippet&id=${item.id}`))?.items?.[0]?.snippet?.description || '').replace(/https?:\/\/\S+/g, ' ').slice(0, 2500); } catch { /* */ }
+      try {
+        const ov = await compOverview(item, desc);
+        await ref.set({ id: item.id, title: item.title, kind: item.kind || 'video', comp: true, overview: ov.overview, topics: ov.topics, summary: ov.overview.theme, games: ov.games, keywords: ov.keywords, kw: buildKw({ summary: ov.overview.theme, keywords: ov.keywords, games: ov.games }), status: 'done', pv: PV, sv: SV, model: ov.model, doneAt: new Date().toISOString() }, { merge: true });
+        await release({ calls: calls + 1, lastError: '', lastId: item.id, model: ov.model, idle: false, doneCount: Number(st.doneCount || 0) + 1 });
+        return { id: item.id, title: item.title, comp: true, model: ov.model };
+      } catch (e: any) {
+        const msg = String(e?.message || e).slice(0, 300);
+        if (isRate(msg) || isBusy(msg)) {
+          const waits = MODELS.map((m) => modelCool[m] || 0);
+          const cool = waits.every((w) => w > Date.now()) ? Math.min(...waits) : Date.now() + 5 * 60000;
+          await release({ coolUntil: cool, lastError: msg, calls: calls + 1 });
+          return { error: msg, cool: new Date(cool).toISOString() };
+        }
+        const tries = Number(cur?.tries || 0) + 1;
+        await ref.set({ id: item.id, title: item.title, comp: true, status: tries >= 3 ? 'error' : 'partial', tries, error: msg, pv: PV }, { merge: true });
+        await release({ lastError: msg });
+        return { id: item.id, error: msg };
+      }
+    }
     const dur = Number(item.duration || 0);
     const segSec = Number(cur?.segSec || (item.kind === 'live' ? 5 * 60 : SEG_SEC)); // 생방송은 처음부터 5분씩
     const whole = item.kind === 'short' || !dur;
@@ -623,6 +682,11 @@ export async function aiSearch(db: any, q: string, sceneLimit = 3) {
 export async function aiVideoDetail(db: any, id: string) {
   if (!/^[\w-]{11}$/.test(id)) return { found: false };
   const d = (await db.collection('ai_video').doc(id).get()).data();
+  if (d?.comp) {
+    // 몰아보기: 가볍게 본 오프닝·주제 + 들어 있는 방송들의 분석 모음
+    const comp = (await compilationSources(db, id)) || { found: false, compilation: true, id, title: d.title, dates: [], games: [], sources: [], sourceCount: 0 };
+    return { ...comp, found: comp.found || d.status === 'done', title: comp.title || d.title, overview: d.status === 'done' ? d.overview : null, topics: d.status === 'done' ? d.topics || [] : [] };
+  }
   if (!d || !(d.parts?.length || d.summary)) {
     // 몰아보기: 따로 분석하지 않고, 들어 있는 방송(원본 영상)들의 분석을 모아서
     const comp = await compilationSources(db, id);

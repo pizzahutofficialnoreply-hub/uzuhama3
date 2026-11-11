@@ -3,7 +3,7 @@ name: Background Worker
 # GitHub 예약 실행은 '5분마다'로 적어도 실제로는 몇 시간에 한 번만 돌아서(무료 저장소는 밀림),
 # 한 번 시작되면 약 5시간 50분 동안 깨어 있으면서 직접 몇 분마다 부름:
 #  - 알림 점검(tick): 2분마다 (방송 시작·유력 시간 알림)
-#  - AI 영상 분석: 3분마다 (분석 쪽 잠금으로 한 번에 하나만, 한도로 쉬는 중이면 바로 끝남)
+#  - AI 영상 분석: 4분마다 (분석 쪽 잠금으로 한 번에 하나만, 한도로 쉬는 중이면 바로 끝남)
 # 다음 예약 실행은 앞의 것이 끝날 때까지 기다림 (겹치지 않음)
 on:
   schedule:
@@ -25,10 +25,10 @@ jobs:
           n=0
           while [ $(date +%s) -lt $end ]; do
             curl -sS --max-time 60 "https://uzuhama.vercel.app/api/notifications/tick?src=worker" -o /dev/null || true
-            if [ $((n % 3)) -eq 0 ]; then
+            if [ $((n % 2)) -eq 0 ]; then
               out=$(curl -sS --max-time 295 "https://uzuhama.vercel.app/api/videos/search-index?ai=run&src=worker" | head -c 300 || true)
               echo "$(date -u +%H:%M) $out"
             fi
             n=$((n+1))
-            sleep 60
+            sleep 120
           done
