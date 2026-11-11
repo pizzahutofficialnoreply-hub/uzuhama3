@@ -3,6 +3,7 @@ import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { History, Loader2, RotateCcw } from 'lucide-react';
 import { db } from '../../../lib/firebase';
 import type { BroadcastLog, SystemConfig } from '../../../types';
+import { confirmSheet } from '../../../utils/ui';
 
 /**
  * 관리자 > 이력: 누가 언제 방송 기록·시스템 설정을 바꿨는지, 그리고 되돌리기
@@ -33,7 +34,7 @@ export function AdminAuditTab({ onAddLog, onUpdateLog, onDeleteLog, onUpdateSyst
 
   const undo = async (x: any) => {
     const what = `${x.at?.slice(0, 16).replace('T', ' ')} ${LABEL[x.action] || x.action}${x.date ? ` (${x.date})` : ''}`;
-    if (!window.confirm(`${what} 을(를) 되돌릴까요?`)) return;
+    if (!await confirmSheet(`${what} 을(를) 되돌릴까요?`)) return;
     setBusy(x.id);
     try {
       if (x.action === 'updateSystemConfig') await onUpdateSystemConfig?.(x.before || {});

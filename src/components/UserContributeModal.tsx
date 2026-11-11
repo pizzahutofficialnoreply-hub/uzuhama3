@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useBodyScrollLock, cn, fuzzyKoreanMatch, fuzzyDateMatch } from '../utils';
 import { extractYoutubeId, matchLogMedia } from '../utils/urlUtils';
 import { DraftsListModal } from './modals/DraftsListModal';
+import { confirmSheet, toast } from '../utils/ui';
 
 interface UserContributeModalProps {
   type?: 'live' | 'video' | 'shorts';
@@ -194,7 +195,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
   // Manual save handler
   const handleManualSave = () => {
     if (!checkHasContent()) {
-      alert('저장할 내용이 없어요. 최소 한 개 이상의 항목을 입력해주세요.');
+      toast('저장할 내용이 없어요. 항목을 하나 이상 적어 주세요', 'error');
       return;
     }
 
@@ -243,8 +244,8 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
   };
 
   // Clear all drafts
-  const handleClearAllDrafts = () => {
-    if (!window.confirm('임시 저장된 모든 목록을 삭제할까요?')) return;
+  const handleClearAllDrafts = async () => {
+    if (!await confirmSheet('임시 저장된 모든 목록을 삭제할까요?')) return;
     setSavedDrafts([]);
     localStorage.removeItem(`uzuhama_contribute_saved_drafts_${type}`);
   };
@@ -355,7 +356,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
     if (currentType === 'live') {
       const validEntries = liveEntries.filter(e => e.liveDate.trim() && e.gameName.trim());
       if (validEntries.length === 0) {
-        alert('최소 한 개 이상의 생방송 항목에 날짜와 게임 이름을 입력해주세요.');
+        toast('생방송 항목에 날짜와 게임 이름을 적어 주세요', 'error');
         return;
       }
 
@@ -399,7 +400,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
       });
 
       if (validItems.length === 0) {
-        alert('최소 한 개 이상의 영상에 제목과 링크를 입력해주세요.');
+        toast('영상에 제목과 링크를 적어 주세요', 'error');
         return;
       }
 

@@ -4,6 +4,7 @@ import type { AppData, BroadcastLog, LinkItem } from '../../../types';
 import { cn } from '../../../utils';
 import { isEmptyLog, parseCafePost, planCafeImport, youtubeIdOf, type CafeDay, type CafeLink, type CafePlan } from '../../../utils/cafeImport';
 import { useChannelVideos } from '../../../hooks/useChannelVideos';
+import { confirmSheet } from '../../../utils/ui';
 
 /**
  * 관리자 > 기록 추가 > 카페 정리 글 가져오기
@@ -53,7 +54,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
   const apply = async () => {
     const todo = plans.filter((p) => picked.has(p.key));
     if (!todo.length) return;
-    if (!confirm(`${todo.length}일치 기록에 반영할까요?\n(새 기록 ${todo.filter((p) => p.status === 'new-log').length}개 포함)`)) return;
+    if (!await confirmSheet(`${todo.length}일치 기록에 반영할까요?\n(새 기록 ${todo.filter((p) => p.status === 'new-log').length}개 포함)`)) return;
     setBusy({ done: 0, total: todo.length });
     let ok = 0;
     const fails: string[] = [];

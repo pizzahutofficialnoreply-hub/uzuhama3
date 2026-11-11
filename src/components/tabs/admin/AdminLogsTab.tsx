@@ -12,6 +12,7 @@ const ShortsIcon = ({ className }: { className?: string }) => (
 );
 import { LogEditorForm } from './LogEditorForm';
 import { format } from 'date-fns';
+import { confirmSheet } from '../../../utils/ui';
 
 export function AdminLogsTab({ 
   data, 
@@ -86,7 +87,7 @@ export function AdminLogsTab({
           </div>
           <button 
             onClick={async () => {
-              if (confirm('정말로 기록을 전체 초기화할까요? (필터 무관 모든 데이터) 이 작업은 되돌릴 수 없어요.')) {
+              if (await confirmSheet('정말로 기록을 전체 초기화할까요? (필터 무관 모든 데이터) 이 작업은 되돌릴 수 없어요.')) {
                 await onDeleteAllLogs();
               }
             }}
@@ -177,9 +178,9 @@ export function AdminLogsTab({
                     {log.shorts?.length > 0 && <span className="flex items-center gap-1 text-xs text-red-600" title="쇼츠"><ShortsIcon className="w-3 h-3"/> {log.shorts.length}</span>}
                   </div>
                   <button 
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      if(confirm('이 기록을 삭제할까요?')) onDeleteLog(log.id);
+                      if(await confirmSheet('이 기록을 삭제할까요?')) onDeleteLog(log.id);
                     }}
                     className="p-1.5 sm:p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-xs sm:text-sm"
                   >

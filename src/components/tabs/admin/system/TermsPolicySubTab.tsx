@@ -6,6 +6,7 @@ import { format, addDays, differenceInCalendarDays } from 'date-fns';
 import { TermsRevisionModal } from '../../../TermsRevisionModal';
 import { deleteField, doc, setDoc } from 'firebase/firestore';
 import { db } from '../../../../lib/firebase';
+import { confirmSheet } from '../../../../utils/ui';
 
 interface TermsPolicySubTabProps {
   systemEdit: Partial<SystemConfig>;
@@ -109,7 +110,7 @@ export const TermsPolicySubTab: React.FC<TermsPolicySubTabProps> = ({
   };
 
   const handleCancelActiveRevision = async () => {
-    if (!window.confirm('현재 활성화된 약관 개정 안내 팝업을 중단하시겠습니까?')) {
+    if (!await confirmSheet('현재 활성화된 약관 개정 안내 팝업을 중단하시겠습니까?')) {
       return;
     }
     const updatedSystem: any = {
@@ -275,8 +276,8 @@ export const TermsPolicySubTab: React.FC<TermsPolicySubTabProps> = ({
           <h3 className="text-base font-bold text-zinc-900 dark:text-white">이용약관 및 개인정보처리방침 원문 편집</h3>
           <button
             type="button"
-            onClick={() => {
-              if (!window.confirm(`${LEGAL_VERSION_DATE} 기준 새 기본 문서로 편집 칸을 바꿀까요?\n저장 전까지는 반영되지 않아요.\n이미 공개된 문서를 바꾸는 거라면 위 '개정 공지'로 7일(불리하면 30일) 전에 알리세요.`)) return;
+            onClick={async () => {
+              if (!await confirmSheet(`${LEGAL_VERSION_DATE} 기준 새 기본 문서로 편집 칸을 바꿀까요?\n저장 전까지는 반영되지 않아요.\n이미 공개된 문서를 바꾸는 거라면 위 '개정 공지'로 7일(불리하면 30일) 전에 알리세요.`)) return;
               handleChange('termsOfService', DEFAULT_TERMS);
               handleChange('privacyPolicy', DEFAULT_PRIVACY);
             }}
@@ -351,7 +352,7 @@ function PublishLegalButton({ systemEdit, handleChange, onUpdateSystemConfig }: 
   const same = systemEdit.termsOfService === DEFAULT_TERMS && systemEdit.privacyPolicy === DEFAULT_PRIVACY;
   const publish = async () => {
     const effective = format(addDays(new Date(), days), 'yyyy-MM-dd');
-    if (!window.confirm(`새 이용약관·개인정보처리방침을 지금 저장하고, 이미 사이트를 쓰던 사람에게 '약관이 바뀌었어요' 안내를 띄울까요?\n적용일: ${effective} (${days}일 뒤)`)) return;
+    if (!await confirmSheet(`새 이용약관·개인정보처리방침을 지금 저장하고, 이미 사이트를 쓰던 사람에게 '약관이 바뀌었어요' 안내를 띄울까요?\n적용일: ${effective} (${days}일 뒤)`)) return;
     setBusy(true);
     try {
       const version = (Number(systemEdit.onboardingVersion) || 1) + 1;

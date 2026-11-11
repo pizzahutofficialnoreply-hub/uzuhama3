@@ -28,6 +28,7 @@ import {
   X,
   Sparkles
 } from 'lucide-react';
+import { confirmSheet } from '../../../utils/ui';
 
 interface AdminMolabogiSectionProps {
   data: AppData;
@@ -621,7 +622,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
 
   // 몰아보기 삭제 실행
   const handleDeleteCompilation = async (comp: ExistingCompilation) => {
-    if (!confirm(comp.kind === 'multi'
+    if (!await confirmSheet(comp.kind === 'multi'
       ? `[${comp.title}]의 여러 생방 연결을 해제할까요?\n영상은 가장 이른 방송 기록에만 일반 영상으로 남아요.`
       : `몰아보기 영상 [${comp.title}]을(를) 삭제할까요?\n연동된 ${comp.associatedLogIds.length}개 생방 기록에서 모두 제거돼요.`)) {
       return;

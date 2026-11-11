@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { collection, deleteDoc, doc, getDocs, limit, query, where } from 'firebase/firestore';
 import { AlertTriangle, Trash2 } from 'lucide-react';
 import { db } from '../../../../lib/firebase';
+import { confirmSheet } from '../../../../utils/ui';
 
 /** 관리자 > 자동화: 방문자 화면에서 난 오류 (같은 오류끼리 묶어서) */
 export function ClientErrorsCard() {
@@ -28,7 +29,7 @@ export function ClientErrorsCard() {
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-1.5"><AlertTriangle className={`w-4 h-4 ${recent ? 'text-amber-500' : 'text-zinc-400'}`} /> 사이트 오류 {groups.length}종 {recent > 0 && <span className="text-[11px] text-amber-600">(최근 하루 {recent}종)</span>}</h3>
-        {groups.length > 0 && <button type="button" onClick={() => window.confirm('오류 기록을 모두 지울까요?') && remove(groups.flatMap((g) => g.ids))} className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer">모두 지우기</button>}
+        {groups.length > 0 && <button type="button" onClick={async () => await confirmSheet('오류 기록을 모두 지울까요?') && remove(groups.flatMap((g) => g.ids))} className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer">모두 지우기</button>}
       </div>
       <p className="text-[11px] text-zinc-500">방문자 화면에서 오류가 나면 자동으로 쌓여요 (같은 오류는 기기마다 하루 한 번). 확장 프로그램·네트워크 끊김은 빼요.</p>
       {items === null ? <p className="text-xs text-zinc-400">불러오는 중…</p> : groups.length === 0 ? <p className="text-xs text-emerald-600 font-bold">오류 기록이 없어요.</p> : (

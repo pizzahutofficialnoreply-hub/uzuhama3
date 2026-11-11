@@ -5,6 +5,7 @@ import { auth, db } from '../../../../lib/firebase';
 import { loadSearchTuning } from '../../../../hooks/useSearchTuning';
 import { SearchAddForm } from '../../../SearchAddForm';
 import { aiSearch, fmtTime, type AiResult } from '../../../../utils/aiSearch';
+import { confirmSheet } from '../../../../utils/ui';
 
 /**
  * 관리자 > 자동화: 검색 조정
@@ -75,7 +76,7 @@ export function SearchTuningCard() {
       </div>
       <div className="flex flex-wrap gap-2">
         <button type="button" disabled={!!busy} onClick={() => run('tune', () => mutate('tuneSearch'))} className={`${btn} bg-purple-600 text-white`}>{busy === 'tune' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} 지금 조정</button>
-        <button type="button" disabled={!!busy} onClick={() => window.confirm('검색 조정을 모두 지울까요? (신고 기록은 남아요)') && run('reset', () => mutate('resetSearchTuning'))} className={`${btn} bg-zinc-100 dark:bg-zinc-800`}><RotateCcw className="w-3.5 h-3.5" /> 조정 초기화</button>
+        <button type="button" disabled={!!busy} onClick={async () => await confirmSheet('검색 조정을 모두 지울까요? (신고 기록은 남아요)') && run('reset', () => mutate('resetSearchTuning'))} className={`${btn} bg-zinc-100 dark:bg-zinc-800`}><RotateCcw className="w-3.5 h-3.5" /> 조정 초기화</button>
       </div>
       {msg && <p className="text-xs font-bold text-purple-700 dark:text-purple-300">{msg}</p>}
 

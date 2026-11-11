@@ -11,6 +11,7 @@ import { Pagination } from '../../common/Pagination';
 import { cn, formatTo12Hour } from '../../../utils';
 import { applyShortsOverrides, setIgnored, setShortsLink, useLinkOverrides } from '../../../utils/linkOverrides';
 import { cleanShortsTitle } from '../../../utils/videoSearch';
+import { confirmSheet } from '../../../utils/ui';
 
 /**
  * 관리자 > 연동: 유튜브 채널 영상·쇼츠가 어느 방송 기록·어느 영상과 이어져 있는지 보고 고치기
@@ -115,8 +116,8 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
     await onUpdateLog(kind === 'video' ? { ...log, edited: [...(log.edited || []), item] } : { ...log, shorts: [...(log.shorts || []), item] });
   }, `${log.date} 방송에 연결했어요.`);
 
-  const unlinkFromLog = (id: string, r: Ref) => {
-    if (!window.confirm(`${r.log.date} 방송 기록의 ${SLOT_LABEL[r.slot]}에서 빼요. 계속할까요?`)) return;
+  const unlinkFromLog = async (id: string, r: Ref) => {
+    if (!await confirmSheet(`${r.log.date} 방송 기록의 ${SLOT_LABEL[r.slot]}에서 빼요. 계속할까요?`)) return;
     run(`${id}:${r.log.id}:${r.slot}`, async () => {
       const arr = ((r.log as any)[r.slot] || []).filter((it: any) => extractYoutubeId(typeof it === 'string' ? it : it?.url || '') !== id);
       await onUpdateLog({ ...r.log, [r.slot]: arr } as BroadcastLog);
@@ -233,7 +234,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
                           <p className="font-semibold text-zinc-800 dark:text-zinc-100 line-clamp-2">{videoTitle.get(relVid) || relVid}</p>
                         </div>
                         <div className="flex flex-col gap-1">
-                          <button type="button" disabled={busy === id} onClick={() => window.confirm('이 쇼츠와 본영상의 연결을 끊을까요?') && run(id, () => setShortsLink(id, ''), '본영상 연결을 끊었어요.')} className={cn(chip, 'text-red-600 bg-red-50 dark:bg-red-950/30')}><Unlink className="w-3.5 h-3.5" /> 끊기</button>
+                          <button type="button" disabled={busy === id} onClick={async () => await confirmSheet('이 쇼츠와 본영상의 연결을 끊을까요?') && run(id, () => setShortsLink(id, ''), '본영상 연결을 끊었어요.')} className={cn(chip, 'text-red-600 bg-red-50 dark:bg-red-950/30')}><Unlink className="w-3.5 h-3.5" /> 끊기</button>
                           {ov && <button type="button" disabled={busy === id} onClick={() => run(id, () => setShortsLink(id, null), '자동 연결로 되돌렸어요.')} className={cn(chip, 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600')}><Undo2 className="w-3.5 h-3.5" /> 자동</button>}
                         </div>
                       </div>
@@ -255,7 +256,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
                         <div key={sid} className="flex items-center gap-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 px-2 py-1.5">
                           <Thumb id={sid} k="short" />
                           <p className="min-w-0 flex-1 text-xs font-medium text-zinc-700 dark:text-zinc-200 line-clamp-2">{shortTitle.get(sid) || sid}{overrides.shorts[sid] ? <span className="text-purple-500"> (직접)</span> : null}</p>
-                          <button type="button" disabled={busy === sid} onClick={() => window.confirm('이 쇼츠와의 연결을 끊을까요?') && run(sid, () => setShortsLink(sid, ''), '쇼츠 연결을 끊었어요.')} className={cn(chip, 'text-red-600 bg-red-50 dark:bg-red-950/30')}><Unlink className="w-3.5 h-3.5" /> 끊기</button>
+                          <button type="button" disabled={busy === sid} onClick={async () => await confirmSheet('이 쇼츠와의 연결을 끊을까요?') && run(sid, () => setShortsLink(sid, ''), '쇼츠 연결을 끊었어요.')} className={cn(chip, 'text-red-600 bg-red-50 dark:bg-red-950/30')}><Unlink className="w-3.5 h-3.5" /> 끊기</button>
                         </div>
                       ))}
                     </div>
@@ -358,7 +359,7 @@ function DeadVideos({ logs, onUpdateLog }: { logs: BroadcastLog[]; onUpdateLog: 
   const removeFromLog = async (id: string, info: any) => {
     const log = logs.find((l) => l.id === info.logId);
     if (!log) { alert('그 방송 기록을 찾지 못했어요.'); return; }
-    if (!window.confirm(`${log.date} 기록의 ${info.slot === 'edited' ? '편집본' : info.slot === 'shorts' ? '쇼츠' : '다시보기'}에서 이 링크를 뺄까요?`)) return;
+    if (!await confirmSheet(`${log.date} 기록의 ${info.slot === 'edited' ? '편집본' : info.slot === 'shorts' ? '쇼츠' : '다시보기'}에서 이 링크를 뺄까요?`)) return;
     setBusy(id);
     try {
       const arr = ((log as any)[info.slot] || []).filter((it: any) => extractYoutubeId(typeof it === 'string' ? it : it?.url || '') !== id);

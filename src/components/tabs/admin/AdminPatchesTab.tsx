@@ -22,6 +22,7 @@ import { PatchCategory, PatchNote } from '../../../types';
 import { cn } from '../../../utils';
 import Markdown from 'react-markdown';
 import { RichTextEditor } from '../../common/RichTextEditor';
+import { confirmSheet } from '../../../utils/ui';
 
 const TEMPLATES: Record<PatchCategory, { title: string; highlights: string[]; content: string }> = {
   patch: {
@@ -180,7 +181,7 @@ export function AdminPatchesTab() {
   };
 
   const handleDelete = async (id: string, ver: string) => {
-    if (window.confirm(`v${ver} 패치노트를 정말 삭제할까요?`)) {
+    if (await confirmSheet(`v${ver} 패치노트를 정말 삭제할까요?`)) {
       await deletePatchNote(id);
       if (editingId === id) resetForm();
     }

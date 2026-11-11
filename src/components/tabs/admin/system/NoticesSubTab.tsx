@@ -23,6 +23,7 @@ export const DEFAULT_PREFACE_TEMPLATE = `### 📖 서비스 이용 일러두기
 
 import { DdayEventsCard } from './DdayEventsCard';
 import { TitleDecorCard } from './TitleDecorCard';
+import { confirmSheet } from '../../../../utils/ui';
 
 interface NoticesSubTabProps {
   systemEdit: Partial<SystemConfig>;
@@ -152,8 +153,8 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
     setNoticeLinks([]);
   };
 
-  const handleDeleteNotice = (id: string) => {
-    if (!confirm('삭제할까요?')) return;
+  const handleDeleteNotice = async (id: string) => {
+    if (!await confirmSheet('삭제할까요?')) return;
     const currentList = systemEdit.noticeList || [];
     handleChange('noticeList', currentList.filter(n => n.id !== id));
     if (editingNoticeId === id) {
@@ -591,8 +592,8 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
           </div>
           <button
             type="button"
-            onClick={() => {
-              if (window.confirm('기본 일러두기 템플릿 문구를 불러올까요? 현재 작성 중인 내용이 대체돼요.')) {
+            onClick={async () => {
+              if (await confirmSheet('기본 일러두기 템플릿 문구를 불러올까요? 현재 작성 중인 내용이 대체돼요.')) {
                 handleChange('preface', DEFAULT_PREFACE_TEMPLATE);
               }
             }}

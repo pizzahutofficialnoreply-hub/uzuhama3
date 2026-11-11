@@ -602,3 +602,7 @@ html.overlay-open { overscroll-behavior: none; }
 @keyframes title-decor-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 @keyframes title-decor-bob { 0%, 100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-3px) rotate(8deg); } }
 @media (prefers-reduced-motion: reduce) { .title-decor > span, .title-decor-text { animation: none !important; } }
+
+/* 입력 칸 인라인 오류 */
+.field-invalid { border-color: rgb(239 68 68) !important; box-shadow: 0 0 0 2px rgb(239 68 68 / 0.25) !important; }
+.field-error::before { content: '!'; display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 999px; background: rgb(239 68 68); color: #fff; font-size: 10px; font-weight: 800; }

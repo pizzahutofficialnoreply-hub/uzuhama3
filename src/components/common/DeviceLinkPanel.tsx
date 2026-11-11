@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { Check, Copy, Loader2, RefreshCw, Unlink } from 'lucide-react';
 import { createPairCode, joinWithCode, syncNow, unlinkAll, unlinkThisDevice, useDeviceLink } from '../../utils/deviceSync';
+import { confirmSheet } from '../../utils/ui';
 
 /**
  * 설정 › 기기 연결: QR·8자리 코드로 다른 기기와 검색 기록·시청 기록·재생목록 맞추기 (로그인 없음)
@@ -46,8 +47,8 @@ export function DeviceLinkPanel() {
           <p className="text-[11px] text-zinc-500">마지막으로 맞춘 때: {ago(link.lastSync)}{link.lastError ? ` · 문제: ${link.lastError}` : ''}</p>
           <div className="flex flex-wrap gap-1.5">
             <button type="button" disabled={busy} onClick={() => run(syncNow)} className={`${btn} bg-white dark:bg-zinc-800`}><RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} /> 지금 맞추기</button>
-            <button type="button" onClick={() => { if (window.confirm('이 기기만 연결을 끊을까요? 이 기기의 기록은 그대로 남아요.')) { unlinkThisDevice(); setPair(null); } }} className={`${btn} bg-white dark:bg-zinc-800`}><Unlink className="w-3.5 h-3.5" /> 이 기기 연결 끊기</button>
-            <button type="button" onClick={() => { if (window.confirm('연결된 모든 기기의 연결을 끊을까요? 각 기기의 기록은 그대로 남고, 서버에 맞춰 둔 내용만 지워져요.')) run(async () => { await unlinkAll(); setPair(null); }); }} className={`${btn} text-red-600 bg-red-500/10`}>모든 기기 연결 끊기</button>
+            <button type="button" onClick={async () => { if (await confirmSheet('이 기기만 연결을 끊을까요? 이 기기의 기록은 그대로 남아요.')) { unlinkThisDevice(); setPair(null); } }} className={`${btn} bg-white dark:bg-zinc-800`}><Unlink className="w-3.5 h-3.5" /> 이 기기 연결 끊기</button>
+            <button type="button" onClick={async () => { if (await confirmSheet('연결된 모든 기기의 연결을 끊을까요? 각 기기의 기록은 그대로 남고, 서버에 맞춰 둔 내용만 지워져요.')) run(async () => { await unlinkAll(); setPair(null); }); }} className={`${btn} text-red-600 bg-red-500/10`}>모든 기기 연결 끊기</button>
           </div>
         </div>
       ) : null}

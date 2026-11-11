@@ -4,6 +4,7 @@ import { cn } from '../../utils';
 import { useWatchHistory } from '../../utils/watchHistory';
 import { openWatchHistory } from '../WatchHistoryPage';
 import { clearInterest, clearWatchHistory, interestSummary, isInterestPaused, setInterestPaused } from '../../utils/interest';
+import { confirmSheet } from '../../utils/ui';
 
 export const INTEREST_CLEARED_EVENT = 'uzuhama-interest-cleared';
 
@@ -71,7 +72,7 @@ export function RecommendPrefsPanel() {
               <p className="text-xs text-zinc-500 dark:text-zinc-400">본 영상 표시를 지워요. 본 영상도 다시 추천될 수 있어요.</p>
             </div>
           </div>
-          <button type="button" onClick={() => { if (confirm('시청 기록을 지울까요?')) { clearWatchHistory(); refresh('시청 기록을 지웠어요.'); } }} className={cn(btn, 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700')}>
+          <button type="button" onClick={async () => { if (await confirmSheet('시청 기록을 지울까요?')) { clearWatchHistory(); refresh('시청 기록을 지웠어요.'); } }} className={cn(btn, 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700')}>
             지우기
           </button>
         </div>
@@ -84,7 +85,7 @@ export function RecommendPrefsPanel() {
               <p className="text-xs text-zinc-500 dark:text-zinc-400">관심 게임·장르와 시청 기록을 모두 지우고 처음부터 다시 맞춰요.</p>
             </div>
           </div>
-          <button type="button" onClick={() => { if (confirm('맞춤 추천 기록을 모두 지울까요?')) { clearInterest(); refresh('맞춤 추천을 초기화했어요.'); } }} className={cn(btn, 'text-red-600 border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/30')}>
+          <button type="button" onClick={async () => { if (await confirmSheet('맞춤 추천 기록을 모두 지울까요?')) { clearInterest(); refresh('맞춤 추천을 초기화했어요.'); } }} className={cn(btn, 'text-red-600 border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/30')}>
             초기화
           </button>
         </div>

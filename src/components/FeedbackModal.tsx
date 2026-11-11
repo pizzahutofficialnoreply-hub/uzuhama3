@@ -1,3 +1,4 @@
+import { fieldError } from '../utils/ui';
 import React, { useState, useMemo, useEffect } from 'react';
 import { FeedbackCompose } from './feedback/FeedbackCompose';
 import { UserSelfCheck } from './common/UserSelfCheck';
@@ -524,17 +525,17 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      alert('제목을 입력해주세요.');
+      fieldError('fb-title', '제목을 입력해 주세요');
       return;
     }
 
     if (tab === 'data_request' && dataRequestType !== 'add' && selectedItemsList.length === 0 && !content.trim()) {
-      alert('수정 또는 삭제할 항목을 검색하여 1개 이상 선택하거나 변경 내용을 작성해주세요.');
+      fieldError('fb-content', '바꾸거나 지울 항목을 1개 이상 고르거나, 바뀐 내용을 적어 주세요');
       return;
     }
 
     if (tab !== 'data_request' && !content.trim()) {
-      alert('상세 내용을 입력해주세요.');
+      fieldError('fb-content', '자세한 내용을 적어 주세요');
       return;
     }
 
@@ -1335,6 +1336,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                     제목 <span className="text-purple-500">*</span>
                   </label>
                   <input 
+                    id="fb-title"
                     type="text" 
                     value={title}
                     onChange={e => setTitle(e.target.value)}
@@ -1424,6 +1426,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                     }
                   </label>
                   <textarea 
+                    id="fb-content"
                     value={content}
                     onChange={e => setContent(e.target.value)}
                     placeholder={

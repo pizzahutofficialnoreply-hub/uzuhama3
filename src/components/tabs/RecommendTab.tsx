@@ -47,6 +47,7 @@ import { buildVocab, correctQuery, isKeysmash, squash, type Correction } from '.
 import { isDateQuery as isDateQueryFn, titleMatches, titleHasHashtag } from '../../utils/videoSearch';
 import { buildGameCatalog, buildPlaylistGameMap } from '../../utils/playlistGames';
 import { useSearchIndex, matchTag, matchRelated, gamesMatchingKeyword, normSearch } from '../../hooks/useSearchIndex';
+import { confirmSheet } from '../../utils/ui';
 
 type RecommendSubTab = 'home' | 'recommend' | 'videos' | 'shorts' | 'live' | 'playlists';
 // 순서: 검색 결과를 옆으로 넘기며 볼 수 있는 탭(홈·동영상·Shorts·재생목록) 먼저, 검색과 상관없는 추천은 맨 끝
@@ -1408,7 +1409,7 @@ export function RecommendTab({
             ))}
             <button 
               type="button" 
-              onClick={() => { if (window.confirm('최근 검색어를 모두 지울까요?')) clearAllRecentSearches(); }} 
+              onClick={async () => { if (await confirmSheet('최근 검색어를 모두 지울까요?')) clearAllRecentSearches(); }} 
               className="px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 ml-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 border border-red-200/70 dark:border-red-900/50 cursor-pointer"
             >
               모두 지우기

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CalendarCheck, ChevronDown, ExternalLink, Loader2, RotateCcw } from 'lucide-react';
 import { mutate } from './SearchTuningCard';
+import { confirmSheet } from '../../../../utils/ui';
 
 /**
  * 관리자 > 자동화: 주간 점검 보고서
@@ -111,7 +112,7 @@ function RulesRow() {
       <p className="font-bold">{st.error ? `보안 규칙 확인 실패: ${st.error}` : st.same ? '✅ DB 보안 규칙: 최신이에요' : '❌ DB 보안 규칙: 지금 적용된 규칙이 예전 것이라 방문자가 푸시 알림 구독 목록을 읽고 지울 수 있어요'}</p>
       {st.deployedAt && <p className="text-[11px] text-zinc-500">지금 적용된 규칙: {String(st.deployedAt).slice(0, 19).replace('T', ' ')}</p>}
       {!st.same && !st.error && (
-        <button type="button" disabled={busy} onClick={async () => { if (!window.confirm('저장소의 최신 보안 규칙(firestore.rules)을 바로 적용할까요?')) return; setBusy(true); try { const r = await mutate('deployRules'); setMsg(r.summary || '적용했어요'); await load(); } catch (e: any) { setMsg('오류: ' + (e?.message || e)); } finally { setBusy(false); } }}
+        <button type="button" disabled={busy} onClick={async () => { if (!await confirmSheet('저장소의 최신 보안 규칙(firestore.rules)을 바로 적용할까요?')) return; setBusy(true); try { const r = await mutate('deployRules'); setMsg(r.summary || '적용했어요'); await load(); } catch (e: any) { setMsg('오류: ' + (e?.message || e)); } finally { setBusy(false); } }}
           className="px-3 py-1.5 rounded-xl bg-red-600 text-white font-bold cursor-pointer disabled:opacity-60">{busy ? '적용 중…' : '최신 보안 규칙 적용'}</button>
       )}
       {msg && <p className="font-bold">{msg}</p>}

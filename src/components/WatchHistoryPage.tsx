@@ -11,6 +11,7 @@ import { isInterestPaused, setInterestPaused } from '../utils/interest';
 import { ItemMenu } from './common/ItemMenu';
 import { ProgressBar } from './common/ProgressBar';
 import { useBackToClose } from '../hooks/useBackToClose';
+import { confirmSheet } from '../utils/ui';
 
 /**
  * 시청 기록 전체 보기 (유튜브 '기록' 화면처럼)
@@ -88,7 +89,7 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
                 {paused ? <><PlayCircle className="w-4 h-4" /> 기록 다시 켜기</> : <><PauseCircle className="w-4 h-4" /> 기록 일시 중지</>}
               </button>
               {all.length > 0 && (
-                <button type="button" onClick={() => window.confirm('시청 기록을 모두 지울까요? (이어 보기 위치도 지워져요)') && clearWatchEntries()} className="px-3 py-1.5 rounded-full text-xs font-bold text-red-600 flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer">
+                <button type="button" onClick={async () => await confirmSheet('시청 기록을 모두 지울까요? (이어 보기 위치도 지워져요)') && clearWatchEntries()} className="px-3 py-1.5 rounded-full text-xs font-bold text-red-600 flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer">
                   <Trash2 className="w-4 h-4" /> 모두 지우기
                 </button>
               )}

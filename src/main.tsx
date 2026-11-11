@@ -24,6 +24,8 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
 }
 
 startOverlayScrollLock();
+// 안내만 하는 alert 창은 모두 토스트로 (화면을 막지 않음)
+try { window.alert = (m?: any) => { void import('./utils/ui').then((u) => u.toast(String(m ?? ''))); }; } catch { /* */ }
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

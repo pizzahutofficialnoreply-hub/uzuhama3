@@ -75,6 +75,10 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
       const note = (what: string) => { calls.n++; calls.last = what; };
       try { (w as any).open = (u?: any) => { note(`새 창 ${String(u || '').slice(0, 60)}`); return null; }; } catch { /* */ }
       try { (w as any).confirm = (m?: any) => { note(`확인창 ${String(m || '').slice(0, 40)}`); return false; }; } catch { /* */ }
+      // 앱의 확인 시트(지우기·보내기 등)도 '아니요'로 바로 닫음 → 점검이 실제로 지우거나 보내지 않게
+      try {
+        w.addEventListener('uzuhama-confirm', (e: any) => { note(`확인창 ${String(e?.detail?.title || e?.detail?.message || '').slice(0, 40)}`); try { e.detail?.resolve?.(false); } catch { /* */ } e.stopImmediatePropagation(); }, true);
+      } catch { /* */ }
       try { (w as any).alert = (m?: any) => { note(`알림창 ${String(m || '').slice(0, 40)}`); }; } catch { /* */ }
       try { (w as any).prompt = () => { note('입력창'); return null; }; } catch { /* */ }
       try { (w as any).print = () => note('인쇄'); } catch { /* */ }

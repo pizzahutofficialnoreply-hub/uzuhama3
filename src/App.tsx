@@ -10,6 +10,7 @@ import { OPEN_HISTORY_EVENT, WatchHistoryPage } from './components/WatchHistoryP
 import { layerHandledPop } from './hooks/useBackToClose';
 import { setYoutubeClientId } from './utils/youtubeAccount';
 import { SaveHost } from './components/common/SaveHost';
+import { UiHost } from './components/common/UiHost';
 import { Routes, Route, Link, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
 import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink, AlertTriangle, CheckCircle2, Check, ChevronDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -77,6 +78,7 @@ import { SELFTEST_FLAG } from './selftest/flag';
 const SelfTestPage = lazy(() => import('./components/SelfTestPage').then((m) => ({ default: m.SelfTestPage })));
 import { AiSummaryHost, GO_SEARCH_EVENT } from './components/common/AiSummaryHost';
 import { activeDdays } from './utils/dday';
+import { confirmSheet } from './utils/ui';
 import { joinWithCode, startDeviceSync } from './utils/deviceSync';
 import { FluidBackdrop } from './components/common/FluidBackdrop';
 
@@ -296,8 +298,8 @@ function MainApp() {
     if (!code) return;
     sp.delete('link');
     window.history.replaceState(null, '', `${window.location.pathname}${sp.toString() ? `?${sp}` : ''}${window.location.hash}`);
-    window.setTimeout(() => {
-      if (!window.confirm('이 기기를 연결할까요?\n연결한 기기끼리 검색 기록·시청 기록·재생목록이 맞춰져요. 이 기기의 기록은 지워지지 않고 합쳐져요.')) return;
+    window.setTimeout(async () => {
+      if (!await confirmSheet('이 기기를 연결할까요?\n연결한 기기끼리 검색 기록·시청 기록·재생목록이 맞춰져요. 이 기기의 기록은 지워지지 않고 합쳐져요.')) return;
       joinWithCode(code).then(() => window.alert('연결했어요. 설정 › 기기 연결에서 언제든 끊을 수 있어요.')).catch((e) => window.alert(String(e?.message || e)));
     }, 800);
   }, []);
@@ -324,10 +326,11 @@ function MainApp() {
       const pl = params.get('pl');
       if (pl) {
         const parsed = parseImport(pl);
-        if (parsed && window.confirm(`'${parsed.name}' 재생목록(${parsed.items.length}개)을 이 기기의 내 재생목록으로 가져올까요?`)) {
+        if (parsed) void confirmSheet(`'${parsed.name}' 재생목록(${parsed.items.length}개)을 이 기기의 내 재생목록으로 가져올까요?`).then((ok) => {
+          if (!ok) return;
           importList(parsed);
           window.setTimeout(() => toast(`'${parsed.name}'을 가져왔어요 · 검색 › 재생목록에서 볼 수 있어요`), 300);
-        }
+        });
         window.history.replaceState(window.history.state, '', window.location.pathname);
       }
       if (v && /^[\w-]{11}$/.test(v)) handleNavigateToRecommend(undefined, params.get('kind') === 'short' ? v : undefined, params.get('kind') === 'short' ? undefined : v);
@@ -1529,6 +1532,8 @@ function MainApp() {
 export default function App() {
   return (
     <Suspense fallback={<LoadingScreen progress={60} statusText="불러오는 중" />}>
+      {/* 토스트·확인 시트 (모든 화면 공통) */}
+      <UiHost />
       <Routes>
         <Route path="/" element={<MainApp />} />
         <Route path="/admin" element={<AdminRoute />} />

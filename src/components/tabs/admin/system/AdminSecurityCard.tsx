@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Fingerprint, RotateCcw } from 'lucide-react';
 import { mutate } from './SearchTuningCard';
 import { adminLogoutAll } from '../../../AdminMfaGate';
+import { confirmSheet } from '../../../../utils/ui';
 
 /** 관리자 > 자동화: 관리자 보안 (2단계 인증 상태·최근 로그인·다시 설정·모든 기기 로그아웃) */
 export function AdminSecurityCard() {
@@ -41,9 +42,9 @@ export function AdminSecurityCard() {
         </details>
       )}
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={async () => { if (!window.confirm('다른 기기(이 기기 포함)의 관리자 로그인을 모두 끊을까요?')) return; try { await adminLogoutAll(); window.location.href = '/'; } catch (e: any) { setMsg(String(e?.message || e)); } }} className={`${btn} bg-red-600 text-white`}>모든 기기에서 로그아웃</button>
-        {st?.enabled && <button type="button" onClick={async () => { if (!window.confirm('복구 코드를 새로 받을까요? 인증 앱은 그대로 쓰고, 예전 복구 코드는 모두 못 쓰게 돼요.')) return; try { const r = await mutate('mfaNewRecovery'); setCodes(r.recoveryCodes || []); load(); } catch (e: any) { setMsg(String(e?.message || e)); } }} className={`${btn} bg-purple-600 text-white`}>복구 코드 새로 받기</button>}
-        {st?.enabled && <button type="button" onClick={async () => { if (!window.confirm('인증 앱을 다시 설정할까요? 지금 앱의 코드와 복구 코드는 더 이상 안 돼요.')) return; try { await mutate('mfaReset'); const { auth } = await import('../../../../lib/firebase'); await auth.currentUser?.getIdToken(true); window.location.reload(); } catch (e: any) { setMsg(String(e?.message || e)); } }} className={`${btn} bg-zinc-100 dark:bg-zinc-800`}>인증 앱 다시 설정 (새 복구 코드)</button>}
+        <button type="button" onClick={async () => { if (!await confirmSheet('다른 기기(이 기기 포함)의 관리자 로그인을 모두 끊을까요?')) return; try { await adminLogoutAll(); window.location.href = '/'; } catch (e: any) { setMsg(String(e?.message || e)); } }} className={`${btn} bg-red-600 text-white`}>모든 기기에서 로그아웃</button>
+        {st?.enabled && <button type="button" onClick={async () => { if (!await confirmSheet('복구 코드를 새로 받을까요? 인증 앱은 그대로 쓰고, 예전 복구 코드는 모두 못 쓰게 돼요.')) return; try { const r = await mutate('mfaNewRecovery'); setCodes(r.recoveryCodes || []); load(); } catch (e: any) { setMsg(String(e?.message || e)); } }} className={`${btn} bg-purple-600 text-white`}>복구 코드 새로 받기</button>}
+        {st?.enabled && <button type="button" onClick={async () => { if (!await confirmSheet('인증 앱을 다시 설정할까요? 지금 앱의 코드와 복구 코드는 더 이상 안 돼요.')) return; try { await mutate('mfaReset'); const { auth } = await import('../../../../lib/firebase'); await auth.currentUser?.getIdToken(true); window.location.reload(); } catch (e: any) { setMsg(String(e?.message || e)); } }} className={`${btn} bg-zinc-100 dark:bg-zinc-800`}>인증 앱 다시 설정 (새 복구 코드)</button>}
       </div>
       {codes.length > 0 && (
         <div className="rounded-xl border border-emerald-300/60 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-3 space-y-2">

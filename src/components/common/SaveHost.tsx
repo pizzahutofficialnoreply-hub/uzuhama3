@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Check, Flag, ListPlus, Plus, X } from 'lucide-react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { REPORT_EVENT, TOAST_EVENT, type ReportTarget } from './ItemMenu';
+import { REPORT_EVENT, type ReportTarget } from './ItemMenu';
 import { useBackToClose } from '../../hooks/useBackToClose';
 import { checkSubmit, noteSubmit, visitorId } from '../../utils/submitGuard';
 import { addToYoutubePlaylist, createYoutubePlaylist, listMyYoutubePlaylists, onYoutubeConfig, youtubeSaveEnabled, type YtPlaylist } from '../../utils/youtubeAccount';
@@ -170,12 +170,7 @@ function SaveSheetHost() {
     return () => window.removeEventListener(SAVE_EVENT, on);
   }, []);
 
-  // 다른 곳에서 띄우는 짧은 알림 (예: 사이트 링크 복사)
-  useEffect(() => {
-    const on = (e: Event) => setToast({ text: String((e as CustomEvent).detail || ''), item: null as any });
-    window.addEventListener(TOAST_EVENT, on);
-    return () => window.removeEventListener(TOAST_EVENT, on);
-  }, []);
+  // 다른 곳에서 띄우는 짧은 알림은 UiHost 가 맡음 (여기는 저장 알림만)
   useEffect(() => {
     if (!toast) return;
     const t = window.setTimeout(() => setToast(null), 3200);

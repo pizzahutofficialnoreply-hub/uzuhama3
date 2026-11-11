@@ -7,6 +7,7 @@ import {
   Onboarding, DEFAULT_ONBOARDING, ONBOARDING_START_EVENT, STEP_TYPE_LABEL,
   type OnboardingConfig, type OnboardingStep, type OnboardingStepType, type OnboardingSection,
 } from '../../../Onboarding';
+import { confirmSheet } from '../../../../utils/ui';
 
 /**
  * 관리자 > 처음 시작 화면: 환영·약관·안내·자판·소개 단계를 추가·삭제·수정·순서 바꾸기
@@ -59,7 +60,7 @@ export function OnboardingSubTab({ systemEdit, handleChange, onSave, saving, onU
   const save = async () => {
     if (reshowMode === 'terms') {
       if (!tu.summary.trim()) { alert('바뀐 내용을 적어 주세요.'); return; }
-      if (!(noticeGap >= 7) && !window.confirm(`적용일이 알린 날부터 ${noticeGap}일 뒤예요. 보통 7일(이용자에게 불리하면 30일) 전에 알려야 해요. 그래도 저장할까요?`)) return;
+      if (!(noticeGap >= 7) && !await confirmSheet(`적용일이 알린 날부터 ${noticeGap}일 뒤예요. 보통 7일(이용자에게 불리하면 30일) 전에 알려야 해요. 그래도 저장할까요?`)) return;
     }
     setBusy(true);
     try {
@@ -118,7 +119,7 @@ export function OnboardingSubTab({ systemEdit, handleChange, onSave, saving, onU
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 cursor-pointer" aria-label="위로"><ArrowUp className="w-4 h-4" /></button>
               <button type="button" onClick={() => move(i, 1)} disabled={i === cfg.steps.length - 1} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 cursor-pointer" aria-label="아래로"><ArrowDown className="w-4 h-4" /></button>
-              <button type="button" onClick={() => window.confirm('이 단계를 지울까요?') && setSteps(cfg.steps.filter((_, j) => j !== i))} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer" aria-label="삭제"><Trash2 className="w-4 h-4" /></button>
+              <button type="button" onClick={async () => await confirmSheet('이 단계를 지울까요?') && setSteps(cfg.steps.filter((_, j) => j !== i))} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer" aria-label="삭제"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
           <select value={st.type} onChange={(e) => update(i, { type: e.target.value as OnboardingStepType, sections: e.target.value === 'terms' ? (st.sections || []) : st.sections })} className={input}>
@@ -186,7 +187,7 @@ export function OnboardingSubTab({ systemEdit, handleChange, onSave, saving, onU
           <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(ONBOARDING_START_EVENT, { detail: cfg }))} className="px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold flex items-center gap-1.5 cursor-pointer">
             <Eye className="w-4 h-4" /> 미리보기
           </button>
-          <button type="button" onClick={() => window.confirm('기본 내용으로 되돌릴까요? (저장해야 반영돼요)') && setCfg(JSON.parse(JSON.stringify({ ...DEFAULT_ONBOARDING, version: cfg.version })))} className="px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer">
+          <button type="button" onClick={async () => await confirmSheet('기본 내용으로 되돌릴까요? (저장해야 반영돼요)') && setCfg(JSON.parse(JSON.stringify({ ...DEFAULT_ONBOARDING, version: cfg.version })))} className="px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer">
             기본값
           </button>
           <button type="button" onClick={save} disabled={busy} className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60">

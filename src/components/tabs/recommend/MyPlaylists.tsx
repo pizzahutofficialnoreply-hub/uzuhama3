@@ -14,6 +14,7 @@ import { toast } from '../../common/ItemMenu';
 import {
   deleteList, embedQueueUrl, exportLink, importList, parseImport, moveItem, removeFromList, renameList, setDefaultList, useMyPlaylists, youtubeQueueUrl, type MyList,
 } from '../../../utils/myPlaylists';
+import { confirmSheet } from '../../../utils/ui';
 
 /**
  * 재생목록 탭 맨 위: 내가 저장한 재생목록 (이 기기에만 있음)
@@ -124,7 +125,7 @@ function MyListDetail({ list, isDefault, onClose, logs, logIndex, onNavigateToCa
   useEffect(() => onYoutubeConfig(() => setYtOn(youtubeSaveEnabled())), []);
   const [ytMsg, setYtMsg] = useState('');
   const sendToYoutube = async () => {
-    if (!window.confirm(`'${list.name}' 이름으로 내 유튜브에 비공개 재생목록을 만들고 영상 ${ids.length}개를 담을까요?`)) return;
+    if (!await confirmSheet(`'${list.name}' 이름으로 내 유튜브에 비공개 재생목록을 만들고 영상 ${ids.length}개를 담을까요?`)) return;
     try {
       setYtMsg('구글 로그인 중…');
       const p = await createYoutubePlaylist(list.name);
@@ -183,7 +184,7 @@ function MyListDetail({ list, isDefault, onClose, logs, logIndex, onNavigateToCa
             else { await navigator.clipboard.writeText(link); toast('가져오기 링크를 복사했어요. 다른 기기에서 열면 돼요'); }
           } catch { /* 취소 */ }
         }} className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold flex items-center gap-1 cursor-pointer"><Send className="w-3.5 h-3.5" /> 다른 기기로 옮기기·나눠 주기</button>
-        <button type="button" onClick={() => { if (window.confirm(`'${list.name}' 재생목록을 지울까요?`)) { deleteList(list.id); onClose(); } }} className="ml-auto px-3 py-1.5 rounded-xl text-red-600 text-xs font-bold flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /> 목록 지우기</button>
+        <button type="button" onClick={async () => { if (await confirmSheet(`'${list.name}' 재생목록을 지울까요?`)) { deleteList(list.id); onClose(); } }} className="ml-auto px-3 py-1.5 rounded-xl text-red-600 text-xs font-bold flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /> 목록 지우기</button>
       </div>
       {ytMsg && <p className="px-1 -mt-1 mb-2 text-xs font-bold text-red-600">{ytMsg}</p>}
       {ids.length > 0 && <p className="px-1 -mt-1 mb-3 text-[11px] text-zinc-500">유튜브에서 이어 보기를 누르면 유튜브가 임시 재생목록으로 열어 줘요. 거기서 '저장'을 누르면 내 유튜브 재생목록이 돼요 (쇼츠 제외, 50개까지).</p>}
