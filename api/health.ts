@@ -258,6 +258,18 @@ export default async function handler(req: any, res: any) {
 
   const sync = String(req.query?.sync || '');
   if (sync) return syncHandler(sync, req, res);
+  if (req.query?.storagetest === '1') {
+    // 임시: 파일 저장소(Firebase Storage) 쓸 수 있는지 확인
+    try {
+      const { adminApp: app } = await import('./_firebase.js') as any;
+      const { getStorage } = await import('firebase-admin/storage');
+      const out: any = {};
+      for (const name of ['uzuhama.firebasestorage.app', 'uzuhama.appspot.com']) {
+        try { const b = getStorage(app).bucket(name); const [ex] = await b.exists(); out[name] = ex; if (ex) { await b.file('probe/hello.txt').save('hi', { contentType: 'text/plain' }); out[name + ':write'] = 'ok'; } } catch (e: any) { out[name] = String(e?.message || e).slice(0, 200); }
+      }
+      return res.status(200).json(out);
+    } catch (e: any) { return res.status(200).json({ error: String(e?.message || e).slice(0, 300) }); }
+  }
   const st = String(req.query?.selftest || '');
   if (st) return cloudSelftest(st, req, res);
   const weekly = String(req.query?.weekly || '');
