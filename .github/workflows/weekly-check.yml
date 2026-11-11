@@ -68,7 +68,7 @@ jobs:
         continue-on-error: true
         run: npm audit --omit=dev --json > weekly-out/audit.json || true
 
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install chromium
       - name: e2e (빌드한 사이트를 브라우저로 눌러 보기)
         continue-on-error: true
         run: |
