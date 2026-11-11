@@ -459,7 +459,7 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
         await release({ calls: calls + 1, lastError: '', lastId: item.id, model: ov.model, idle: false, doneCount: Number(st.doneCount || 0) + 1 });
         return { id: item.id, title: item.title, comp: true, model: ov.model };
       } catch (e: any) {
-        const msg = String(e?.message || e).slice(0, 300);
+        const msg = String(e?.message || e).slice(0, 1500);
         if (isRate(msg) || isBusy(msg)) {
           const waits = MODELS.map((m) => modelCool[m] || 0);
           const cool = waits.every((w) => w > Date.now()) ? Math.min(...waits) : Date.now() + 5 * 60000;
@@ -493,7 +493,7 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
       try {
         r = await analyzeSegment(item, start, end, desc);
       } catch (e: any) {
-        const msg = String(e?.message || e).slice(0, 300);
+        const msg = String(e?.message || e).slice(0, 1500);
         if (isRate(msg) || isBusy(msg)) {
           // 쓸 수 있는 모델이 다 쉬는 중이면 가장 먼저 풀리는 때까지 쉼
           const waits = MODELS.map((m) => modelCool[m] || 0);
@@ -566,7 +566,7 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
     await release({ calls: calls + 1, doneCount: Number(st.doneCount || 0) + 1 });
     return { id: item.id, title: item.title, finished: true };
   } catch (e: any) {
-    const msg = String(e?.message || e).slice(0, 300);
+    const msg = String(e?.message || e).slice(0, 1500);
     await release({ lastError: msg });
     return { error: msg };
   }
@@ -882,7 +882,7 @@ export async function aiDiag(db: any) {
   } catch (e: any) { models = [`목록 실패: ${String(e?.message || e).slice(0, 80)}`]; }
   let aiDocs = -1;
   try { aiDocs = (await db.collection('ai_video').count().get()).data().count; } catch { /* */ }
-  return { aiDocs, using: MODELS, models: models.length, state: { day: st.day, usedSec: st.usedSec, calls: st.calls, coolUntil: st.coolUntil ? new Date(st.coolUntil).toISOString() : null, modelCool: Object.fromEntries(Object.entries(st.modelCool || {}).map(([k, v]) => [k, new Date(Number(v)).toISOString()])), modelWhy: st.modelWhy, lastError: String(st.lastError || '').slice(0, 400), doneCount: st.doneCount, lastId: st.lastId } };
+  return { aiDocs, using: MODELS, models: models.length, state: { day: st.day, usedSec: st.usedSec, calls: st.calls, coolUntil: st.coolUntil ? new Date(st.coolUntil).toISOString() : null, modelCool: Object.fromEntries(Object.entries(st.modelCool || {}).map(([k, v]) => [k, new Date(Number(v)).toISOString()])), modelWhy: st.modelWhy, lastError: String(st.lastError || '').slice(0, 1500), doneCount: st.doneCount, lastId: st.lastId } };
 }
 
 /**
