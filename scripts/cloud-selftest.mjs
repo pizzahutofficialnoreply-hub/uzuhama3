@@ -10,7 +10,7 @@ const BASE = process.env.SELFTEST_BASE || 'https://uzuhama.vercel.app';
 const RUN = process.env.GITHUB_RUN_ID || '';
 const DRY = process.env.SELFTEST_DRY === '1'; // 시험: 서버에 안 알리고 돌려만 봄
 const api = async (op, body) => {
-  if (DRY) return op === 'claim' ? { id: 'dry-run', deep: false } : {};
+  if (DRY) return op === 'claim' ? { id: 'dry-run', deep: process.env.SELFTEST_DEEP === '1' } : {};
   const r = await fetch(`${BASE}/api/health?selftest=${op}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ run: RUN, ...body }), signal: AbortSignal.timeout(20000) });
   return r.json().catch(() => ({}));
 };

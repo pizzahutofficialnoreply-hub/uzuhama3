@@ -3,11 +3,11 @@ on: { workflow_dispatch: {} }
 jobs:
   p:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm ci --no-audit --no-fund >/dev/null 2>&1
       - run: timeout 300 npx playwright install chromium >/dev/null 2>&1; echo "pw $?"
-      - run: SELFTEST_DRY=1 timeout 1500 node scripts/cloud-selftest.mjs
+      - run: SELFTEST_DRY=1 SELFTEST_DEEP=1 timeout 1700 node scripts/cloud-selftest.mjs
