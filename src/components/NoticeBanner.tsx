@@ -628,6 +628,7 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
                       type="button"
                       onClick={() => handleSelectIndex(idx)}
                       aria-label={`${idx + 1}번째 공지 보기`}
+                      aria-current={idx === safeIndex ? 'true' : undefined}
                       title={`${idx + 1}/${totalItems} ${item.title}`}
                       className={cn(
                         "h-1.5 rounded-full transition-all duration-300 cursor-pointer touch-manipulation",
