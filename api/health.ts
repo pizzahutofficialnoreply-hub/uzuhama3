@@ -173,7 +173,7 @@ ${text}`, config: { responseMimeType: 'application/json', temperature: 0.2, http
 }
 
 /**
- * 클라우드 점검: 휴대폰 대신 서버 쪽(GitHub 백그라운드 작업의 아이폰 모양 브라우저)에서 '내 앱 점검'을 돌림
+ * 클라우드 점검: 휴대폰 대신 서버 쪽(GitHub 백그라운드 작업의 브라우저, 아이폰 크기·터치)에서 '내 앱 점검'을 돌림
  *  POST ?selftest=request {deep, vid} → 줄 세우기 (한 번에 하나, 기기당 하루 5번)
  *  GET  ?selftest=status&id=          → 진행 상황·결과
  *  POST ?selftest=cancel&id=          → 중단
@@ -220,7 +220,7 @@ async function cloudSelftest(op: string, req: any, res: any) {
     const took = await db.runTransaction(async (tx: any) => {
       const d = (await tx.get(first.ref)).data();
       if (d?.status !== 'queued') return null;
-      tx.update(first.ref, { status: 'running', runId, startedAt: new Date().toISOString(), beatAt: new Date().toISOString(), stage: '아이폰 모양 브라우저를 여는 중…' });
+      tx.update(first.ref, { status: 'running', runId, startedAt: new Date().toISOString(), beatAt: new Date().toISOString(), stage: '점검 서버가 브라우저를 여는 중…' });
       return d;
     });
     return res.status(200).json(took ? { id: first.id, deep: Boolean(took.deep) } : {});

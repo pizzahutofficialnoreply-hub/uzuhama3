@@ -19,7 +19,7 @@ export function UserSelfCheck({ onResult, onAttach }: { onResult: (text: string)
         <div>
           <p className="text-sm font-bold text-zinc-900 dark:text-white">내 앱 점검하기</p>
           <p className="mt-1 text-xs text-zinc-500 leading-relaxed break-keep">{where === 'cloud'
-            ? '점검 서버의 아이폰 모양 브라우저(사파리와 같은 엔진)가 사이트를 열어 화면을 하나씩 눌러 봐요. 이 기기 화면·설정은 건드리지 않고, 앱을 완전히 닫아도 계속 돌아요. 다시 열면 결과가 와 있어요.'
+            ? '점검 서버의 브라우저가 아이폰 크기·터치로 사이트를 열어 화면을 하나씩 눌러 봐요. 이 기기 화면·설정은 건드리지 않고, 앱을 완전히 닫아도 계속 돌아요. 다시 열면 결과가 와 있어요.'
             : '이 기기에서 사이트를 화면 뒤에 띄워 화면을 하나씩 열어 보고 서버 연결까지 확인해요. 이 창을 닫아도 계속 돌고, 앱을 완전히 닫았다가 다시 열면 멈춘 곳부터 이어서 할 수 있어요. 점검이 바꾼 설정은 끝나면 원래대로 돌려놔요.'}</p>
         </div>
         {s.interrupted && !s.running && (

@@ -1,10 +1,10 @@
 /**
  * 클라우드 점검 (백그라운드 작업에서 2분마다 부름)
  *  - 서버에 줄 선 점검이 있으면 하나 받아서(이 실행이 진짜 이 저장소의 worker 인지 서버가 GitHub 에 확인),
- *    아이폰 모양(WebKit = 사파리 엔진) 브라우저로 /selftest 를 돌림
+ *    아이폰 크기·터치를 흉내 낸 브라우저(크롬 엔진)로 /selftest 를 돌림
  *  - 15초마다 진행 상황을 서버에 알리고, 사용자가 '중단'하면 바로 멈춤
  */
-import { webkit, devices } from 'playwright';
+import { chromium, devices } from 'playwright';
 
 const BASE = process.env.SELFTEST_BASE || 'https://uzuhama.vercel.app';
 const RUN = process.env.GITHUB_RUN_ID || '';
@@ -17,7 +17,7 @@ const job = await api('claim', {}).catch(() => ({}));
 if (!job?.id) process.exit(0);
 console.log('selftest', job.id, job.deep ? 'deep' : 'quick');
 
-const b = await webkit.launch();
+const b = await chromium.launch();
 const ctx = await b.newContext({ ...devices['iPhone 15'] });
 await ctx.addInitScript(() => { try { localStorage.setItem('uzuhama_onboarding_version', '999'); localStorage.setItem('uzuhama_tutorial_done_v1', '1'); } catch {} });
 const p = await ctx.newPage();

@@ -12,7 +12,7 @@ import { visitorId } from '../utils/submitGuard';
 export type BgState = {
   running: boolean; deep: boolean; results: StepResult[]; stage: string; done: boolean;
   startedAt: number; endedAt: number; estimate: number; interrupted: boolean;
-  /** 클라우드 점검(서버 쪽 아이폰 모양 브라우저)이면 그 실행 번호 */
+  /** 클라우드 점검(점검 서버의 브라우저)이면 그 실행 번호 */
   cloudId?: string; stopped?: boolean;
 };
 export type HistoryEntry = { id: string; deep: boolean; startedAt: number; endedAt: number; interrupted?: boolean; stopped?: boolean; cloud?: boolean; results: StepResult[] };
@@ -147,7 +147,7 @@ async function startCloud(deep: boolean) {
   }
 }
 
-const STATUS_TEXT: Record<string, string> = { queued: '점검 서버가 받아 가기를 기다리는 중… (최대 2~3분)', running: '아이폰 모양 브라우저로 점검 중' };
+const STATUS_TEXT: Record<string, string> = { queued: '점검 서버가 받아 가기를 기다리는 중… (최대 2~3분)', running: '점검 서버에서 점검 중' };
 async function pollCloud() {
   window.clearTimeout(pollTimer);
   if (!state.running || !state.cloudId) return;

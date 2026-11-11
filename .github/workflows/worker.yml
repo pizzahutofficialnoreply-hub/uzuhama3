@@ -4,7 +4,7 @@ name: Background Worker
 # 한 번 시작되면 약 5시간 50분 동안 깨어 있으면서 직접 몇 분마다 부름:
 #  - 알림 점검(tick): 2분마다 (방송 시작·유력 시간 알림)
 #  - AI 영상 분석: 4분마다 (분석 쪽 잠금으로 한 번에 하나만, 한도로 쉬는 중이면 바로 끝남)
-#  - 클라우드 점검: 2분마다 줄 선 점검이 있는지 보고, 있으면 아이폰 모양 브라우저로 돌림 (뒤에서, 한 번에 하나)
+#  - 클라우드 점검: 2분마다 줄 선 점검이 있는지 보고, 있으면 아이폰 크기 브라우저로 돌림 (뒤에서, 한 번에 하나)
 # 다음 예약 실행은 앞의 것이 끝날 때까지 기다림 (겹치지 않음)
 on:
   schedule:
@@ -26,7 +26,7 @@ jobs:
       - name: Install (클라우드 점검용)
         run: |
           npm ci --no-audit --no-fund >/dev/null 2>&1 || true
-          npx playwright install --with-deps webkit >/dev/null 2>&1 || true
+          timeout 300 npx playwright install --with-deps chromium >/dev/null 2>&1 || true
       - name: Keep calling tick, AI analysis, cloud self-check
         run: |
           end=$(( $(date +%s) + 340*60 ))
