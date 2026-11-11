@@ -172,12 +172,63 @@ ${text}`, config: { responseMimeType: 'application/json', temperature: 0.2, http
   return out;
 }
 
+/**
+ * 클라우드 점검: 휴대폰 대신 서버 쪽(GitHub 백그라운드 작업의 아이폰 모양 브라우저)에서 '내 앱 점검'을 돌림
+ *  POST ?selftest=request {deep, vid} → 줄 세우기 (한 번에 하나, 기기당 하루 5번)
+ *  GET  ?selftest=status&id=          → 진행 상황·결과
+ *  POST ?selftest=cancel&id=          → 중단
+ */
+async function cloudSelftest(op: string, req: any, res: any) {
+  res.setHeader('Cache-Control', 'no-store');
+  const { db, hasAdminCredentials } = await import('./_firebase.js');
+  if (!hasAdminCredentials) return res.status(500).json({ error: 'no admin credentials' });
+  const col = db.collection('selftest_runs');
+  const body = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body || {});
+  const pub = (id: string, d: any) => ({ id, status: d.status, deep: d.deep, stage: d.stage || '', results: d.results || [], queuedAt: d.queuedAt, startedAt: d.startedAt || null, endedAt: d.endedAt || null, error: d.error || '', position: d.position || 0 });
+  if (op === 'status') {
+    const id = String(req.query?.id || '');
+    if (!/^[\w-]{6,40}$/.test(id)) return res.status(400).json({ error: 'id' });
+    const d = (await col.doc(id).get()).data();
+    if (!d) return res.status(404).json({ error: '없어요' });
+    // 오래 소식 없는 실행은 끝난 것으로 (작업이 꺼진 경우)
+    const last = Date.parse(d.beatAt || d.startedAt || d.queuedAt || 0);
+    if ((d.status === 'running' && Date.now() - last > 10 * 60000) || (d.status === 'queued' && Date.now() - last > 30 * 60000)) {
+      await col.doc(id).set({ status: 'error', error: d.status === 'queued' ? '점검 서버가 받아 가지 않았어요' : '점검이 중간에 멈췄어요', endedAt: new Date().toISOString() }, { merge: true });
+      d.status = 'error';
+    }
+    return res.status(200).json(pub(id, d));
+  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'POST' });
+  if (op === 'cancel') {
+    const id = String(req.query?.id || body.id || '');
+    if (!/^[\w-]{6,40}$/.test(id)) return res.status(400).json({ error: 'id' });
+    const ref = col.doc(id);
+    const d = (await ref.get()).data();
+    if (d && (d.status === 'queued' || d.status === 'running')) await ref.set({ status: 'cancel', endedAt: new Date().toISOString() }, { merge: true });
+    return res.status(200).json({ ok: true });
+  }
+  if (op === 'request') {
+    const vid = String(body.vid || '').replace(/[^\w-]/g, '').slice(0, 40) || 'anon';
+    const day = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+    const mine = await col.where('vid', '==', vid).where('day', '==', day).limit(6).get();
+    if (mine.size >= 5) return res.status(429).json({ error: '오늘은 클라우드 점검을 5번 했어요. 내일 다시 해 주세요.' });
+    const active = await col.where('status', 'in', ['queued', 'running']).limit(5).get();
+    const ref = col.doc();
+    const d = { status: 'queued', deep: Boolean(body.deep), vid, day, queuedAt: new Date().toISOString(), position: active.size };
+    await ref.set(d);
+    return res.status(200).json(pub(ref.id, d));
+  }
+  return res.status(400).json({ error: 'op' });
+}
+
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   const sync = String(req.query?.sync || '');
   if (sync) return syncHandler(sync, req, res);
+  const st = String(req.query?.selftest || '');
+  if (st) return cloudSelftest(st, req, res);
   const weekly = String(req.query?.weekly || '');
   if (!weekly) {
     return res.status(200).json({ status: 'ok', serverTime: new Date().toISOString(), message: 'Vercel Serverless Function 연결 정상' });

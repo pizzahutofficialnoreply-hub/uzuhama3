@@ -4,6 +4,7 @@ name: Background Worker
 # 한 번 시작되면 약 5시간 50분 동안 깨어 있으면서 직접 몇 분마다 부름:
 #  - 알림 점검(tick): 2분마다 (방송 시작·유력 시간 알림)
 #  - AI 영상 분석: 4분마다 (분석 쪽 잠금으로 한 번에 하나만, 한도로 쉬는 중이면 바로 끝남)
+#  - 클라우드 점검: 2분마다 줄 선 점검이 있는지 보고, 있으면 아이폰 모양 브라우저로 돌림 (뒤에서, 한 번에 하나)
 # 다음 예약 실행은 앞의 것이 끝날 때까지 기다림 (겹치지 않음)
 on:
   schedule:
@@ -19,12 +20,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 355
     steps:
-      - name: Keep calling tick and AI analysis
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Install (클라우드 점검용)
         run: |
-          end=$(( $(date +%s) + 350*60 ))
+          npm ci --no-audit --no-fund >/dev/null 2>&1 || true
+          npx playwright install --with-deps webkit >/dev/null 2>&1 || true
+      - name: Keep calling tick, AI analysis, cloud self-check
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}
+        run: |
+          end=$(( $(date +%s) + 340*60 ))
           n=0
           while [ $(date +%s) -lt $end ]; do
             curl -sS --max-time 60 "https://uzuhama.vercel.app/api/notifications/tick?src=worker" -o /dev/null || true
+            # 클라우드 점검: 돌고 있지 않으면 줄 선 것 확인 (뒤에서 실행 → 알림·분석 호출은 계속)
+            if [ ! -f st.pid ] || ! kill -0 $(cat st.pid) 2>/dev/null; then
+              ( node scripts/cloud-selftest.mjs >> selftest.log 2>&1 ) & echo $! > st.pid
+            fi
             if [ $((n % 2)) -eq 0 ]; then
               out=$(curl -sS --max-time 295 "https://uzuhama.vercel.app/api/videos/search-index?ai=run&src=worker" | head -c 300 || true)
               echo "$(date -u +%H:%M) $out"
@@ -32,3 +46,4 @@ jobs:
             n=$((n+1))
             sleep 120
           done
+          tail -40 selftest.log 2>/dev/null || true

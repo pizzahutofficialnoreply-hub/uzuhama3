@@ -15,7 +15,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** 점검 중 앱을 닫아도 되돌릴 수 있게: 점검 창이 바꾼 저장 항목의 원래 값을 여기에 적어 둠 (bgRun 이 다음 실행 때 되돌림) */
 export const SELFTEST_BACKUP = 'uzuhama_selftest_backup_v1';
 
-export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepResult) => void, opts: { only?: string[]; skip?: string[]; skipSteps?: Set<string>; onProgress?: (t: string) => void } = {}) {
+export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepResult) => void, opts: { only?: string[]; skip?: string[]; skipSteps?: Set<string>; onProgress?: (t: string) => void; signal?: AbortSignal } = {}) {
   const results: StepResult[] = [];
   const errors: string[] = [];
   const W = () => frame.contentWindow as any as Window & typeof globalThis;
@@ -88,6 +88,20 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
         const M = (w as any).HTMLMediaElement.prototype;
         M.play = function () { note('재생'); return Promise.resolve(); };
       } catch { /* */ }
+      // 영상 플레이어(iframe)는 주소가 들어가는 순간 막음: 들어간 뒤에 바꾸면 이미 유튜브가 불러와지기 시작해서
+      // 휴대폰 점검 창이 '재생'에서 멈추곤 했음
+      try {
+        const isVid = (u: any) => /youtube|youtu\.be|chzzk|twitch|player\./i.test(String(u || ''));
+        const E = (w as any).Element.prototype;
+        const setA = E.setAttribute;
+        E.setAttribute = function (name: string, value: any) {
+          if (this.tagName === 'IFRAME' && String(name).toLowerCase() === 'src' && isVid(value)) { note(`재생 ${String(value).slice(0, 50)}`); this.dataset.selftestSrc = String(value); return setA.call(this, name, 'about:blank'); }
+          return setA.call(this, name, value);
+        };
+        const F = (w as any).HTMLIFrameElement.prototype;
+        const desc = Object.getOwnPropertyDescriptor(F, 'src');
+        if (desc?.set) Object.defineProperty(F, 'src', { ...desc, set(v: any) { if (isVid(v)) { note(`재생 ${String(v).slice(0, 50)}`); (this as any).dataset.selftestSrc = String(v); return desc.set!.call(this, 'about:blank'); } return desc.set!.call(this, v); } });
+      } catch { /* */ }
       try {
         const blank = (el: any) => {
           if (el?.tagName !== 'IFRAME') return;
@@ -158,6 +172,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
     if (opts.only && !opts.only.includes(group)) return;
     if (opts.skip && opts.skip.includes(group)) return;
     if (opts.skipSteps?.has(`${group}|${name}`)) return; // 이어서 점검: 앞에서 끝낸 단계
+    if (opts.signal?.aborted) return; // 중단
     const t0 = Date.now();
     const before = errors.length;
     let r: StepResult;
@@ -441,7 +456,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
       const seenKey = new Map<string, number>();
       let setups = 0;
       const t0 = Date.now();
-      while (pressed < max && Date.now() - t0 < 200000 && setups < 30) {
+      while (pressed < max && Date.now() - t0 < 200000 && setups < 30 && !opts.signal?.aborted) {
         const next = controls().find((c) => !done.has(c.id) && (seenKey.get(c.id.replace(/#\d+$/, '')) || 0) < 2);
         if (!next) break;
         done.add(next.id);

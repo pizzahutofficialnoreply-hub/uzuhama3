@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronDown, History, Loader2, Play, RotateCcw, XCircle } from 'lucide-react';
-import { discardInterrupted, selfTestHistory, selfTestProgress, startSelfTestBg, useSelfTestBg, type HistoryEntry } from '../../selftest/bgRun';
+import { AlertTriangle, CheckCircle2, ChevronDown, Cloud, History, Loader2, Play, RotateCcw, Smartphone, Square, XCircle } from 'lucide-react';
+import { discardInterrupted, selfTestHistory, selfTestProgress, startSelfTestBg, stopSelfTest, useSelfTestBg, type HistoryEntry } from '../../selftest/bgRun';
 import { resultText } from '../../selftest/format';
 
 /** 의견 보내기 › 앱 점검 (일반 사용자): 화면 뒤에서 돌고, 창을 닫아도 계속 (헤더 아래 선으로 진행률) */
 export function UserSelfCheck({ onResult, onAttach }: { onResult: (text: string) => void; onAttach: () => void }) {
   const s = useSelfTestBg();
   const [deep, setDeep] = useState(false);
+  const [where, setWhere] = useState<'cloud' | 'device'>(() => { try { return (localStorage.getItem('uzuhama_selftest_where') as any) || 'cloud'; } catch { return 'cloud'; } });
+  const pickWhere = (w: 'cloud' | 'device') => { setWhere(w); try { localStorage.setItem('uzuhama_selftest_where', w); } catch { /* */ } };
   useEffect(() => { if ((s.done || s.interrupted) && s.results.length) onResult(resultText(s.results)); }, [s.done, s.interrupted, s.results]); // eslint-disable-line react-hooks/exhaustive-deps
   const fail = s.results.filter((r) => !r.ok);
   const warn = s.results.filter((r) => r.ok && r.warn);
@@ -16,7 +18,9 @@ export function UserSelfCheck({ onResult, onAttach }: { onResult: (text: string)
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] p-4 space-y-3">
         <div>
           <p className="text-sm font-bold text-zinc-900 dark:text-white">내 앱 점검하기</p>
-          <p className="mt-1 text-xs text-zinc-500 leading-relaxed break-keep">이 기기에서 사이트를 화면 뒤에 띄워 화면을 하나씩 열어 보고 서버 연결까지 확인해요. 이 창을 닫아도 계속 돌고, 맨 위 헤더 아래 선으로 진행률이 보여요. 앱을 완전히 닫아도 결과가 남고, 다시 열면 멈춘 곳부터 이어서 할 수 있어요. 점검이 바꾼 설정은 끝나면 원래대로 돌려놔요.</p>
+          <p className="mt-1 text-xs text-zinc-500 leading-relaxed break-keep">{where === 'cloud'
+            ? '점검 서버의 아이폰 모양 브라우저(사파리와 같은 엔진)가 사이트를 열어 화면을 하나씩 눌러 봐요. 이 기기 화면·설정은 건드리지 않고, 앱을 완전히 닫아도 계속 돌아요. 다시 열면 결과가 와 있어요.'
+            : '이 기기에서 사이트를 화면 뒤에 띄워 화면을 하나씩 열어 보고 서버 연결까지 확인해요. 이 창을 닫아도 계속 돌고, 앱을 완전히 닫았다가 다시 열면 멈춘 곳부터 이어서 할 수 있어요. 점검이 바꾼 설정은 끝나면 원래대로 돌려놔요.'}</p>
         </div>
         {s.interrupted && !s.running && (
           <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 p-3 space-y-2">
@@ -29,14 +33,21 @@ export function UserSelfCheck({ onResult, onAttach }: { onResult: (text: string)
         )}
         {!s.running && !s.interrupted && (
           <>
+            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-800">
+              {([['cloud', '클라우드에서', Cloud], ['device', '이 기기에서', Smartphone]] as const).map(([k, label, Icon]) => (
+                <button key={k} type="button" aria-pressed={where === k} onClick={() => pickWhere(k)} className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer ${where === k ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500'}`}><Icon className="w-3.5 h-3.5" /> {label}</button>
+              ))}
+            </div>
             <label className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300"><input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} /> 누를 수 있는 건 전부 눌러 보기 (5~15분, 더 꼼꼼하게)</label>
-            <button type="button" onClick={() => startSelfTestBg(deep)} className="w-full py-3 rounded-2xl bg-purple-600 text-white text-sm font-bold flex items-center justify-center gap-2 cursor-pointer"><Play className="w-4 h-4" /> {s.done ? '다시 점검' : '점검 시작'}</button>
+            <button type="button" onClick={() => startSelfTestBg(deep, false, where === 'cloud')} className="w-full py-3 rounded-2xl bg-purple-600 text-white text-sm font-bold flex items-center justify-center gap-2 cursor-pointer"><Play className="w-4 h-4" /> {s.done ? '다시 점검' : '점검 시작'}</button>
           </>
         )}
+        {!s.running && /못했어요|멈췄어요/.test(s.stage) && <p className="text-[11.5px] text-red-500 break-keep">{s.stage}</p>}
         {s.running && (
           <div className="space-y-1.5">
             <div className="h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden"><div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} /></div>
             <p className="text-[11.5px] text-purple-600 dark:text-purple-400 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> <span className="truncate">{pct}% · {s.stage}</span></p>
+            <button type="button" onClick={() => stopSelfTest()} className="mt-1 w-full py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-200 flex items-center justify-center gap-1.5 cursor-pointer"><Square className="w-3 h-3 fill-current" /> 점검 중단</button>
           </div>
         )}
       </div>
@@ -80,7 +91,7 @@ function SelfCheckHistory() {
               <button type="button" onClick={() => setOpen(open === e.id ? null : e.id)} className="w-full flex items-center gap-2 text-left text-xs cursor-pointer" aria-expanded={open === e.id}>
                 {fail ? <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" /> : warn ? <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
                 <span className="font-semibold text-zinc-800 dark:text-zinc-200 tabular-nums">{when(e.startedAt)}</span>
-                <span className="text-zinc-400 truncate">{e.deep ? '전부 눌러 보기' : '기본'} · {e.results.length}개 · {mins(e)}분{fail ? ` · 문제 ${fail}` : ''}{warn ? ` · 주의 ${warn}` : ''}{e.interrupted ? ' · 중간에 멈춤' : ''}</span>
+                <span className="text-zinc-400 truncate">{e.deep ? '전부 눌러 보기' : '기본'} · {e.results.length}개 · {mins(e)}분{fail ? ` · 문제 ${fail}` : ''}{warn ? ` · 주의 ${warn}` : ''}{e.stopped ? ' · 중단' : e.interrupted ? ' · 중간에 멈춤' : ''}{e.cloud ? ' · 클라우드' : ''}</span>
                 <ChevronDown className={`w-3.5 h-3.5 ml-auto shrink-0 text-zinc-400 transition-transform ${open === e.id ? 'rotate-180' : ''}`} />
               </button>
               {open === e.id && (

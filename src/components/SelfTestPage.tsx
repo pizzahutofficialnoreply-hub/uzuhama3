@@ -52,7 +52,14 @@ export function SelfTestRunner({ auto = false, embedded = false, user = false, o
       setResults((p) => [...p, r]);
       setStage(`${r.group} · ${r.name}`);
       (window as any).__selftest.results.push(r);
-    }, (() => { const o = new URLSearchParams(window.location.search).get('only'); return o ? { only: o.split(',') } : deep ? {} : { skip: ['전부 눌러 보기'] }; })());
+      (window as any).__selftest.stage = `${r.group} · ${r.name}`;
+    }, (() => {
+      const q = new URLSearchParams(window.location.search);
+      const o = q.get('only');
+      // 클라우드 점검: quick=1 이면 '전부 눌러 보기' 빼고
+      const d = q.get('quick') === '1' ? false : deep;
+      return { ...(o ? { only: o.split(',') } : d ? {} : { skip: ['전부 눌러 보기'] }), onProgress: (t: string) => { (window as any).__selftest.stage = t; } };
+    })());
     try { localStorage.removeItem(SELFTEST_FLAG); } catch { /* */ }
     (window as any).__selftest = { done: true, results: out.results, errors: out.errors.slice(0, 20) };
     setRunning(false); setDone(true);
