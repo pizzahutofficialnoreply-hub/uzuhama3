@@ -22,6 +22,7 @@ export const DEFAULT_PREFACE_TEMPLATE = `### 📖 서비스 이용 일러두기
   PWA 웹 푸시 알림 설정 및 테마 설정은 브라우저 로컬 저장소에 안전하게 유지되며, 불필요한 개인 식별 정보를 수집하지 않아요.`;
 
 import { DdayEventsCard } from './DdayEventsCard';
+import { TitleDecorCard } from './TitleDecorCard';
 
 interface NoticesSubTabProps {
   systemEdit: Partial<SystemConfig>;
@@ -205,6 +206,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
   return (
     <div className="space-y-6">
       <DdayEventsCard value={(systemEdit.events as any) || []} onChange={(v) => handleChange('events', v)} />
+      <TitleDecorCard value={((systemEdit as any).titleDecor as any) || []} onChange={(v) => handleChange('titleDecor' as any, v)} />
 
       {/* 1. 기본 글로벌 공지 모드 설정 */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">

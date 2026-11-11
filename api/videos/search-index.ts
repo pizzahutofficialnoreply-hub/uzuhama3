@@ -211,6 +211,8 @@ export default async function handler(req: any, res: any) {
       }
       if (aiMode === 'check') {
         // 데이터 검증: 하루 한 번 (GitHub 정기 실행이 부름). 결과는 관리자만
+        // 예전 의견 사진을 그림 저장소로 (한 번만, 다 옮기면 안 함)
+        try { const { migrateFeedbackImages } = await import('../health.js'); await migrateFeedbackImages(db); } catch { /* 다음에 */ }
         const ref = db.collection('admin_data').doc('dataCheck');
         const prevDc = (await ref.get()).data() || {};
         const last = Date.parse(prevDc.at || '') || 0;

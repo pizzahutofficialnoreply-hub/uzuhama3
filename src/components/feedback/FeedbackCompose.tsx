@@ -58,6 +58,17 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
     const blocked = checkSubmit('feedback', guardKey);
     if (blocked) { setErr(blocked); return; }
     setBusy(true);
+    let imageUrls: string[] = [];
+    try {
+      const base = window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app';
+      imageUrls = await Promise.all(images.map(async (im) => {
+        const r = await fetch(`${base}/api/health?img=upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: im.data, vid: visitorId() }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.url) throw new Error(j.error || '사진을 올리지 못했어요');
+        return String(j.url);
+      }));
+    } catch (e: any) { setErr(String(e?.message || e)); setBusy(false); return; }
+
     try {
       const where = area === '직접 입력' ? customArea.trim() : area;
       await addDoc(collection(db, 'feedbacks'), {
@@ -73,7 +84,8 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
           // 기기 정보를 뺐으면 진단 글에서도 기기·브라우저·화면 줄을 뺌
           diagnose: useDiag && diag ? (useDev ? diag : diag.split('\n').filter((l) => !/^(기기|브라우저|앱|화면): /.test(l)).join('\n')).slice(0, 8000) : null,
           selftest: useTest && selftest ? selftest.slice(0, 8000) : null,
-          images: images.map((i) => i.data),
+          // 사진은 글자(base64)로 문서에 넣지 않고 그림 저장소에 따로 올려 주소만
+          images: imageUrls,
         },
         uid: user?.uid || null,
         email: user?.email || null,

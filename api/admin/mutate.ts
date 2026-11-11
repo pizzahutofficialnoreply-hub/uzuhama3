@@ -66,6 +66,15 @@ export default async function handler(req: any, res: any) {
     };
 
     switch (action) {
+      case 'uploadImage': {
+        // 헤더 장식 그림·GIF: 그림 저장소(images)에 바이너리로 → 주소
+        const { saveImage } = await import('../health.js');
+        try {
+          const out = await saveImage(db, String(payload.data || ''), { kind: 'decor', by: adminUser.email || null });
+          await audit({ action: 'uploadImage', target: out.id });
+          return res.status(200).json({ success: true, ...out });
+        } catch (e: any) { return res.status(e?.status || 500).json({ error: String(e?.message || e) }); }
+      }
       case 'tuneSearch': {
         // 관리자 '지금 조정': 오늘 이미 했어도 다시
         const { tuneSearch } = await import('../_searchTune.js');

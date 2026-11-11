@@ -252,24 +252,81 @@ async function cloudSelftest(op: string, req: any, res: any) {
   return res.status(400).json({ error: 'op' });
 }
 
+/**
+ * 그림 저장소: 의견 보내기 사진·헤더 그림·GIF 를 글자(base64)로 문서 안에 넣지 않고
+ * images/{id} 에 '바이너리'로 따로 두고, 주소(/api/health?img=id)로 그림 파일처럼 내려 줌 (한 번 받으면 브라우저·CDN 이 1년 보관)
+ *  POST ?img=upload {data: dataURL, kind: 'feedback'} → {id, url}   (방문자: 기기당 하루 12장)
+ *  GET  ?img=<id>                                     → 그림
+ * 관리자 그림(헤더 장식)은 admin/mutate 의 uploadImage 로 (같은 저장 방식)
+ */
+const IMG_MAX = 950_000;
+const IMG_TYPES = /^image\/(jpeg|png|gif|webp)$/;
+export async function saveImage(db: any, dataUrl: string, meta: Record<string, any>) {
+  const m = /^data:(image\/[a-z+]+);base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ''));
+  if (!m || !IMG_TYPES.test(m[1])) throw Object.assign(new Error('그림 파일(jpg·png·gif·webp)만 올릴 수 있어요'), { status: 400 });
+  const buf = Buffer.from(m[2], 'base64');
+  if (buf.length > IMG_MAX) throw Object.assign(new Error('그림이 너무 커요 (최대 약 900KB)'), { status: 413 });
+  const ref = db.collection('images').doc();
+  await ref.set({ bytes: buf, type: m[1], size: buf.length, at: new Date().toISOString(), ...meta });
+  return { id: ref.id, url: `https://uzuhama.vercel.app/api/health?img=${ref.id}` };
+}
+/** 예전 의견의 사진(문서 안 base64 글자)을 그림 저장소로 옮기고 주소로 바꿈 (한 번에 최대 100개, 다 옮기면 표시해 두고 안 함) */
+export async function migrateFeedbackImages(db: any) {
+  const flag = db.collection('notification_state').doc('imageMigrate');
+  if ((await flag.get()).data()?.done) return { skipped: true };
+  const snap = await db.collection('feedbacks').orderBy('createdAt', 'desc').limit(300).get();
+  let moved = 0;
+  for (const d of snap.docs) {
+    const imgs = d.data()?.attachments?.images;
+    if (!Array.isArray(imgs) || !imgs.some((x: any) => /^data:image\//.test(String(x)))) continue;
+    const urls: string[] = [];
+    for (const x of imgs) {
+      if (!/^data:image\//.test(String(x))) { urls.push(String(x)); continue; }
+      try { urls.push((await saveImage(db, String(x), { kind: 'feedback', from: d.id })).url); moved++; } catch { /* 너무 크거나 이상한 건 버림 */ }
+    }
+    await d.ref.set({ attachments: { images: urls } }, { merge: true });
+    if (moved >= 100) return { moved, more: true };
+  }
+  await flag.set({ done: true, at: new Date().toISOString(), moved }, { merge: true });
+  return { moved };
+}
+
+async function imageHandler(op: string, req: any, res: any) {
+  const { db, hasAdminCredentials } = await import('./_firebase.js');
+  if (!hasAdminCredentials) return res.status(500).json({ error: 'no admin credentials' });
+  if (op === 'upload') {
+    if (req.method !== 'POST') return res.status(405).json({ error: 'POST' });
+    const body = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body || {});
+    const vid = String(body.vid || '').replace(/[^\w-]/g, '').slice(0, 40) || 'anon';
+    const day = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+    const cRef = db.collection('notification_state').doc('imageUploads');
+    const c = (await cRef.get()).data() || {};
+    const n = c.day === day ? Number(c[vid] || 0) : 0;
+    if (n >= 12) return res.status(429).json({ error: '오늘은 사진을 더 올릴 수 없어요' });
+    try {
+      const out = await saveImage(db, body.data, { kind: 'feedback', vid });
+      await cRef.set(c.day === day ? { [vid]: n + 1 } : { day, [vid]: 1 }, { merge: c.day === day });
+      return res.status(200).json(out);
+    } catch (e: any) { return res.status(e?.status || 500).json({ error: String(e?.message || e) }); }
+  }
+  if (!/^[A-Za-z0-9]{10,40}$/.test(op)) return res.status(400).end();
+  const d = (await db.collection('images').doc(op).get()).data();
+  if (!d?.bytes) return res.status(404).end();
+  const buf: Buffer = Buffer.isBuffer(d.bytes) ? d.bytes : Buffer.from(d.bytes.toUint8Array ? d.bytes.toUint8Array() : d.bytes);
+  res.setHeader('Content-Type', d.type || 'image/jpeg');
+  res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  return res.status(200).send(buf);
+}
+
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   const sync = String(req.query?.sync || '');
   if (sync) return syncHandler(sync, req, res);
-  if (req.query?.storagetest === '1') {
-    // 임시: 파일 저장소(Firebase Storage) 쓸 수 있는지 확인
-    try {
-      const { adminApp: app } = await import('./_firebase.js') as any;
-      const { getStorage } = await import('firebase-admin/storage');
-      const out: any = {};
-      for (const name of ['uzuhama.firebasestorage.app', 'uzuhama.appspot.com']) {
-        try { const b = getStorage(app).bucket(name); const [ex] = await b.exists(); out[name] = ex; if (ex) { await b.file('probe/hello.txt').save('hi', { contentType: 'text/plain' }); out[name + ':write'] = 'ok'; } } catch (e: any) { out[name] = String(e?.message || e).slice(0, 200); }
-      }
-      return res.status(200).json(out);
-    } catch (e: any) { return res.status(200).json({ error: String(e?.message || e).slice(0, 300) }); }
-  }
+  const img = String(req.query?.img || '');
+  if (img) return imageHandler(img, req, res);
   const st = String(req.query?.selftest || '');
   if (st) return cloudSelftest(st, req, res);
   const weekly = String(req.query?.weekly || '');
