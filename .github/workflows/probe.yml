@@ -5,5 +5,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          curl -sS --max-time 299 "https://uzuhama.vercel.app/api/videos/search-index?ai=run" | head -c 1500; echo
-          curl -sS "https://uzuhama.vercel.app/api/videos/search-index?ai=diag" | jq -c '.state|{usedSec,calls,lastId,coolUntil,lastError:(.lastError[0:150])}'
+          curl -sS "https://uzuhama.vercel.app/api/videos/search-index?ai=diag" | jq -c '.state|{usedSec,calls,lastId,coolUntil,lastError}'
