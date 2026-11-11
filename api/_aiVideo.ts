@@ -816,7 +816,9 @@ export async function aiDiag(db: any) {
     const j: any = await r.json();
     models = (j.models || []).filter((m: any) => (m.supportedGenerationMethods || []).includes('generateContent')).map((m: any) => String(m.name).replace('models/', ''));
   } catch (e: any) { models = [`목록 실패: ${String(e?.message || e).slice(0, 80)}`]; }
-  return { using: MODELS, models, state: { day: st.day, usedSec: st.usedSec, calls: st.calls, coolUntil: st.coolUntil ? new Date(st.coolUntil).toISOString() : null, modelCool: Object.fromEntries(Object.entries(st.modelCool || {}).map(([k, v]) => [k, new Date(Number(v)).toISOString()])), modelWhy: st.modelWhy, lastError: String(st.lastError || '').slice(0, 400), doneCount: st.doneCount, lastId: st.lastId } };
+  let aiDocs = -1;
+  try { aiDocs = (await db.collection('ai_video').count().get()).data().count; } catch { /* */ }
+  return { aiDocs, using: MODELS, models: models.length, state: { day: st.day, usedSec: st.usedSec, calls: st.calls, coolUntil: st.coolUntil ? new Date(st.coolUntil).toISOString() : null, modelCool: Object.fromEntries(Object.entries(st.modelCool || {}).map(([k, v]) => [k, new Date(Number(v)).toISOString()])), modelWhy: st.modelWhy, lastError: String(st.lastError || '').slice(0, 400), doneCount: st.doneCount, lastId: st.lastId } };
 }
 
 /**
