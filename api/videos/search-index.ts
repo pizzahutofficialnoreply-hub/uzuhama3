@@ -201,13 +201,16 @@ export default async function handler(req: any, res: any) {
         const cRef = db.collection('youtube_cache').doc('ai_ids');
         const c = (await cRef.get()).data();
         let ids: string[] = Array.isArray(c?.ids) ? c.ids : [];
-        if (!c || Date.now() - Date.parse(c.at || '0') > 3600000) {
+        let done: string[] | null = Array.isArray(c?.done) ? c.done : null;
+        if (!c || !done || Date.now() - Date.parse(c.at || '0') > 3600000) {
           const snap = await db.collection('ai_video').select('status').get();
           ids = snap.docs.filter((d: any) => d.data().status !== 'skip').map((d: any) => d.id);
-          await cRef.set({ ids, at: new Date().toISOString() });
+          // 요약까지 다 끝난 영상 (실험실 '카드 펼쳐 요약과 함께 보기')
+          done = snap.docs.filter((d: any) => d.data().status === 'done').map((d: any) => d.id);
+          await cRef.set({ ids, done, at: new Date().toISOString() });
         }
         res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
-        return res.status(200).json({ ids });
+        return res.status(200).json({ ids, done });
       }
       if (aiMode === 'check') {
         // 데이터 검증: 하루 한 번 (GitHub 정기 실행이 부름). 결과는 관리자만

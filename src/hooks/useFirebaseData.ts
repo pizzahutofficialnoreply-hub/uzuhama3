@@ -1,3 +1,4 @@
+import { setHeldVideos } from '../utils/held';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   collection, 
@@ -378,6 +379,7 @@ export function useFirebaseData() {
       (snap) => {
         if (snap.exists()) {
           setSystemConfig(snap.data() as SystemConfig);
+          setHeldVideos((snap.data() as any)?.heldVideos);
           setData(prev => prev ? { ...prev, system: snap.data() as SystemConfig } : null);
         }
       },

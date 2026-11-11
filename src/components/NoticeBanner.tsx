@@ -623,20 +623,27 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
               {totalItems > 1 && (
                 <div className="flex items-center justify-center gap-1.5 pt-0.5 pb-0.5 select-none">
                   {displayItems.map((item, idx) => (
-                    <button
+                    <motion.button
                       key={item.id}
                       type="button"
                       onClick={() => handleSelectIndex(idx)}
                       aria-label={`${idx + 1}번째 공지 보기`}
                       aria-current={idx === safeIndex ? 'true' : undefined}
                       title={`${idx + 1}/${totalItems} ${item.title}`}
-                      className={cn(
-                        "h-1.5 rounded-full transition-all duration-300 cursor-pointer touch-manipulation",
-                        idx === safeIndex
-                          ? (item.color === 'yellow' ? "w-4 bg-amber-500" : item.color === 'green' ? "w-4 bg-emerald-500" : "w-4 bg-purple-600 dark:bg-purple-400")
-                          : "w-1.5 bg-zinc-300/80 hover:bg-zinc-400 dark:bg-zinc-700/80 dark:hover:bg-zinc-600"
+                      initial={false}
+                      animate={{ width: idx === safeIndex ? 16 : 6 }}
+                      transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                      className="relative h-1.5 rounded-full cursor-pointer touch-manipulation bg-zinc-300/80 hover:bg-zinc-400 dark:bg-zinc-700/80 dark:hover:bg-zinc-600"
+                    >
+                      {/* 켜진 점이 다음 점으로 늘어나며 옮겨 가는 효과 */}
+                      {idx === safeIndex && (
+                        <motion.span
+                          layoutId="notice-dot-active"
+                          transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                          className={cn('absolute inset-0 rounded-full', item.color === 'yellow' ? 'bg-amber-500' : item.color === 'green' ? 'bg-emerald-500' : 'bg-purple-600 dark:bg-purple-400')}
+                        />
                       )}
-                    />
+                    </motion.button>
                   ))}
                 </div>
               )}

@@ -1,3 +1,4 @@
+import { Skeleton, TextSkeleton } from './common/Skeleton';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { DEFAULT_PRIVACY, DEFAULT_TERMS } from '../content/legal';
@@ -22,9 +23,15 @@ export function PolicyPage({ type }: { type: 'terms' | 'privacy' }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center text-zinc-500">
-        <div className="w-8 h-8 border-3 border-purple-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-        <p className="text-sm font-medium">정책 정보를 불러오는 중...</p>
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 px-5 py-10" role="status" aria-label="정책 정보를 불러오는 중">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <Skeleton className="h-8 w-2/3" />
+          <TextSkeleton lines={4} />
+          <Skeleton className="h-5 w-1/3" />
+          <TextSkeleton lines={6} />
+          <Skeleton className="h-5 w-2/5" />
+          <TextSkeleton lines={5} />
+        </div>
       </div>
     );
   }

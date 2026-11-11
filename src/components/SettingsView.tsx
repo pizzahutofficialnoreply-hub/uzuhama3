@@ -799,6 +799,7 @@ export function SettingsView({
                   <div className="px-4 pb-4 pt-2 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50 space-y-2">
                     <p className="text-xs text-zinc-500 break-keep">아직 다듬는 중인 기능이에요. 마음에 안 들면 꺼 둘 수 있어요.</p>
                     <LabToggle k="labAiSummary" title="AI 영상 요약" desc="영상 ⋮ 메뉴와 검색 결과에 AI가 정리한 이야기별 요약·노가리를 보여 줘요. AI는 실수할 수 있어요." />
+                    <LabToggle k="labAiCard" title="카드 펼쳐 요약과 함께 보기" desc="AI 요약이 끝난 영상 카드의 썸네일을 누르면 카드가 커지면서 위에서 바로 재생되고, 제목 아래에 요약이 펼쳐져요. 스포일러는 가릴 수 있어요. (쇼츠·목록 보기 제외)" />
                   </div>
                 </motion.div>
               )}
@@ -1488,7 +1489,7 @@ function ViewPrefsPanel() {
 }
 
 /** 실험실 켜고 끄기 */
-function LabToggle({ k, title, desc }: { k: 'labAiSummary'; title: string; desc: string }) {
+function LabToggle({ k, title, desc }: { k: 'labAiSummary' | 'labAiCard'; title: string; desc: string }) {
   const prefs = usePrefs();
   const on = Boolean(prefs[k]);
   return (

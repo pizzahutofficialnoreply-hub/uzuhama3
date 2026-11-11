@@ -1,3 +1,4 @@
+import { RowSkeleton } from './Skeleton';
 import { getPrefs } from '../../utils/userPrefs';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, Pin, Play, Sparkles, X } from 'lucide-react';
@@ -163,6 +164,7 @@ export function SearchExtras({ query, aiEnabled }: { query: string; aiEnabled: b
       )}
       <div className={cn('grid gap-2.5', cards.length > 1 && 'lg:grid-cols-2')}>
         {cards.map((c) => <ExtraCard key={`${c.from}-${c.id}-${c.scenes[0]?.t || 0}`} c={c} />)}
+        {loading && !cards.length && [0, 1].map((i) => <div key={i} className="rounded-2xl border border-zinc-200 dark:border-zinc-800"><RowSkeleton lines={3} /></div>)}
       </div>
     </section>
   );

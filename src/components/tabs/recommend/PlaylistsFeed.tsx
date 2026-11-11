@@ -1,3 +1,4 @@
+import { CardSkeleton } from '../../common/Skeleton';
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown, ListVideo, Loader2, X } from 'lucide-react';
@@ -214,8 +215,8 @@ export function PlaylistsFeed({ searchTerm, logs, onNavigateToCalendar }: { sear
 
   if (loading && playlists.length === 0) {
     return (
-      <div className="py-16 flex items-center justify-center gap-2 text-sm text-zinc-500">
-        <Loader2 className="w-4 h-4 animate-spin" /> 재생목록을 불러오는 중이에요
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 py-2" role="status" aria-label="재생목록을 불러오는 중">
+        {Array.from({ length: 6 }, (_, i) => <CardSkeleton key={i} />)}
       </div>
     );
   }

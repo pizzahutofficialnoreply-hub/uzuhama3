@@ -1,3 +1,4 @@
+import HoldButton from './HoldButton';
 import { useState, useEffect } from 'react';
 import { 
   collection, 
@@ -247,6 +248,7 @@ export function AdminSuggestionsTab({
                     {item.problemArea && <span className="text-xs px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-800 rounded text-zinc-600 dark:text-zinc-400">{item.problemArea}</span>}
                     
                     <div className="sm:ml-auto flex items-center gap-2 w-full sm:w-auto justify-end mt-1 sm:mt-0">
+                      {(item.type as string) === 'search_report' && <HoldButton videoId={(item as any).videoId} reason={(item as any).reason} />}
                       {(!item.status || item.status === 'pending') && (
                         <button onClick={() => setActionTarget({ id: item.id, type: 'feedback', uid: item.uid, title: item.title })} className="px-2.5 py-1 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer">
                           심사/답변

@@ -185,6 +185,8 @@ export interface DdayEvent {
 export interface SystemConfig {
   events?: DdayEvent[];
   /** 헤더 제목 옆 관리자 그림·GIF (기간) */
+  /** 신고로 확인 전까지 보류한 영상 (videoId → 언제·왜) */
+  heldVideos?: Record<string, { at?: number; reason?: string }>;
   titleDecor?: { id: string; from: string; to: string; image: string; label?: string; enabled?: boolean }[];
   maintenance: boolean;
   maintenanceTitle?: string;

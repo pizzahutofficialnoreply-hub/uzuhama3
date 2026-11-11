@@ -1,3 +1,4 @@
+import { Skeleton, CardSkeleton } from './components/common/Skeleton';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -26,8 +27,9 @@ const DetailedStatsTab = lazy(() => loadDetailedTab().then((m) => ({ default: m.
 const RecommendTab = lazy(() => loadRecommendTab().then((m) => ({ default: m.RecommendTab })));
 const onboardingSeenVersion = () => { try { return Number(localStorage.getItem('uzuhama_onboarding_version') || 0); } catch { return 0; } };
 const TabSpinner = () => (
-  <div className="py-24 flex justify-center" role="status" aria-label="불러오는 중">
-    <div className="w-7 h-7 border-[3px] border-purple-500 border-t-transparent rounded-full animate-spin" />
+  <div className="py-4 space-y-5" role="status" aria-label="불러오는 중">
+    <div className="flex gap-2"><Skeleton className="h-9 w-24 rounded-full" /><Skeleton className="h-9 w-24 rounded-full" /><Skeleton className="h-9 w-20 rounded-full" /></div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{[0, 1, 2, 3, 4, 5].map((i) => <CardSkeleton key={i} />)}</div>
   </div>
 );
 import { NoticeModal } from './components/NoticeModal';
@@ -77,6 +79,8 @@ import { MaintenancePager } from './components/MaintenancePager';
 import { SELFTEST_FLAG } from './selftest/flag';
 const SelfTestPage = lazy(() => import('./components/SelfTestPage').then((m) => ({ default: m.SelfTestPage })));
 import { AiSummaryHost, GO_SEARCH_EVENT } from './components/common/AiSummaryHost';
+import { AiCardExpandHost } from './components/common/AiCardExpand';
+import PullToRefresh from './components/common/PullToRefresh';
 import { activeDdays } from './utils/dday';
 import { confirmSheet } from './utils/ui';
 import { joinWithCode, startDeviceSync } from './utils/deviceSync';
@@ -95,6 +99,8 @@ function MainApp() {
   const { isInstallable, promptInstall } = useInstallPrompt();
   const { user, loginWithGoogle, logout } = useAuth();
   const logsList = useMemo(() => Object.values(data?.logs || {}), [data?.logs]);
+  // 홈 화면 앱에서 당겨서 새로고침: 바뀐 기록만 받아 옴
+  const refreshData = useCallback(() => fetchLatestLogs(true), [fetchLatestLogs]);
   useRealtimeNotification(logsList, data?.system); // 실시간 제보 심사 결과 및 최고 확률 안내 알림 수신 브릿지 활성화
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const saved = (localStorage.getItem('uzuhama_active_tab') as Tab) || 'summary';
@@ -1474,6 +1480,8 @@ function MainApp() {
       </AnimatePresence>
       {/* 저장 버튼 → 저장할 곳 고르기 창·알림 */}
       <AiSummaryHost />
+      <AiCardExpandHost />
+      <PullToRefresh onRefresh={refreshData} />
       <SaveHost />
       {/* 시청 기록 전체 보기 */}
       <AnimatePresence>{historyOpen && <WatchHistoryPage key="history" onClose={() => setHistoryOpen(false)} />}</AnimatePresence>

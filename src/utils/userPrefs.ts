@@ -29,6 +29,8 @@ export interface UserPrefs {
   searchAI: boolean; // AI 검색 (AI가 영상을 미리 보고 정리해 둔 장면에서 찾기)
   /** 실험실: AI 영상 요약 (⋮ 메뉴·검색 결과의 'AI 영상 요약') */
   labAiSummary: boolean;
+  /** 실험실: 요약이 끝난 영상 카드 썸네일을 누르면 카드가 펼쳐지며 요약과 함께 보기 */
+  labAiCard: boolean;
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -47,6 +49,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   searchRelated: true,
   searchAI: true,
   labAiSummary: true,
+  labAiCard: true,
 };
 
 export const PAGE_SIZE_OPTIONS = [8, 12, 20, 30];

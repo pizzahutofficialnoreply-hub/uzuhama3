@@ -1,3 +1,7 @@
+import { useAiDone } from '../common/AiSummaryHost';
+import { openAiCard } from '../common/AiCardExpand';
+import { useIsHeld } from '../../utils/held';
+import HeldCover from '../common/HeldCover';
 import { useYoutubeViews } from '../../hooks/useYoutubeViews';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { embedSrc, progressOf, trackYoutubeFrame, useProgress, useWatchHistory, withResume } from '../../utils/watchHistory';
@@ -129,6 +133,12 @@ export const VideoCard = ({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [isPlayingInline, setIsPlayingInline] = useState(false);
+  const held = useIsHeld(video?.id);
+  // 실험실: 요약이 끝난 영상(쇼츠 아님)은 썸네일을 누르면 카드가 펼쳐지며 요약과 함께
+  const lab = usePrefs();
+  const labCard = lab.labAiCard && lab.labAiSummary && !video?.isShorts && !video?.isShort;
+  const aiDone = useAiDone(video?.id, labCard);
+  const thumbRef = useRef<HTMLDivElement>(null);
 
   // 쇼츠: 이 영상에 직접 연결된 쇼츠 먼저, 그다음 같은 방송 기록의 쇼츠 (중복 제거, 쇼츠 표시 태그는 뗌)
   const shorts = useMemo(() => mergeShorts(linkedShorts, video.parentLog?.shorts), [linkedShorts, video.parentLog?.shorts]);
@@ -270,8 +280,11 @@ export const VideoCard = ({
   return (
     <div 
       ref={trackRef}
+      data-video-card
+      data-ai-card={aiDone ? video.id : undefined}
       className={cn(
         "group relative isolate flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all",
+        held && "video-held",
         isExpanded 
           ? "rounded-t-[24px] rounded-b-none border-b-0 shadow-md z-10" 
           : "rounded-[24px] overflow-hidden hover:shadow-xl hover:-translate-y-1"
@@ -279,8 +292,9 @@ export const VideoCard = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-        {isPlayingInline ? (
+      <div ref={thumbRef} className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+        {held && <HeldCover compact={isCompact} />}
+        {isPlayingInline && !held ? (
           <div className="relative w-full h-full bg-black z-20">
             <iframe
               ref={trackYoutubeFrame}
@@ -310,11 +324,12 @@ export const VideoCard = ({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              setIsPlayingInline(true);
               noteInterest(interestItem, 'play');
+              if (aiDone) { openAiCard(video.id, video.videoTitle || '', thumbRef.current?.closest('[data-video-card]') || thumbRef.current, displayDate ? `${displayDate} 방송` : undefined); return; }
+              setIsPlayingInline(true);
             }}
             className="group/thumb block w-full h-full relative text-left cursor-pointer border-0 p-0 m-0 bg-transparent"
-            title="클릭하여 화면 내에서 바로 영상 재생"
+            title={aiDone ? '눌러서 AI 요약과 함께 보기' : '클릭하여 화면 내에서 바로 영상 재생'}
           >
             <img 
               src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`} 
@@ -324,6 +339,11 @@ export const VideoCard = ({
             <div className="absolute inset-0 bg-black/10 group-hover/thumb:bg-black/0 transition-colors flex items-center justify-center">
               <GlassPlayButton size={isCompact ? 'sm' : 'md'} />
             </div>
+            {aiDone && !held && (
+              <span className="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-[10.5px] font-bold pointer-events-none">
+                <Sparkles className="w-3 h-3 text-purple-300" /> AI 요약
+              </span>
+            )}
           </button>
         )}
 

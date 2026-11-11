@@ -1,3 +1,5 @@
+import { useIsHeld } from '../../utils/held';
+import HeldCover from './HeldCover';
 import React, { useState } from 'react';
 import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { X } from 'lucide-react';
@@ -39,11 +41,13 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
   const ytId = extractYoutubeId(url);
   const [playing, setPlaying] = useState(false);
   const label = cleanShortsTitle(title) || '유튜브 쇼츠';
+  const held = useIsHeld(ytId);
 
   return (
-    <div ref={trackRef} className={cn('flex flex-col min-w-0', className)}>
+    <div ref={trackRef} className={cn('flex flex-col min-w-0', held && 'video-held', className)}>
       <div className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-zinc-900 shadow-sm">
-        {playing && ytId ? (
+        {held && <HeldCover compact />}
+        {playing && ytId && !held ? (
           <>
             <iframe
               ref={trackYoutubeFrame}

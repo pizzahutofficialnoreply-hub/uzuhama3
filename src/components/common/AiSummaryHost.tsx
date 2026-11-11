@@ -1,3 +1,4 @@
+import { Skeleton, TextSkeleton } from './Skeleton';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -27,7 +28,7 @@ const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
 ).replace(/\/+$/, '');
 
 const detailCache = new Map<string, Promise<any>>();
-function loadDetail(id: string, fresh = false) {
+export function loadDetail(id: string, fresh = false) {
   if (fresh || !detailCache.has(id)) {
     const p = fetch(`${API_BASE}/api/videos/search-index?ai=video&id=${encodeURIComponent(id)}`).then((r) => r.json());
     p.catch(() => detailCache.delete(id));
@@ -39,11 +40,22 @@ function loadDetail(id: string, fresh = false) {
 let startedIds: Set<string> | null = null;
 let startedAt = 0;
 let startedP: Promise<Set<string>> | null = null;
+/** 요약까지 다 끝난 영상 */
+let doneIds: Set<string> = new Set();
+const doneSubs = new Set<() => void>();
+export const isAiDone = (id?: string | null) => Boolean(id && doneIds.has(id));
+if (typeof window !== 'undefined') window.addEventListener('uzuhama-data-refresh', () => { startedAt = 0; void aiStartedIds(); });
+export function useAiDone(id: string | undefined, enabled: boolean): boolean {
+  const v = React.useSyncExternalStore((f) => { doneSubs.add(f); return () => { doneSubs.delete(f); }; }, () => isAiDone(id), () => false);
+  React.useEffect(() => { if (enabled) void aiStartedIds(); }, [enabled]);
+  return enabled && v;
+}
 export function aiStartedIds(): Promise<Set<string>> {
   if (startedIds && Date.now() - startedAt < 600000) return Promise.resolve(startedIds);
   if (!startedP) {
     startedP = fetch(`${API_BASE}/api/videos/search-index?ai=ids`).then((r) => r.json()).then((j) => {
       startedIds = new Set<string>(Array.isArray(j?.ids) ? j.ids : []);
+      if (Array.isArray(j?.done)) { doneIds = new Set<string>(j.done); doneSubs.forEach((f) => f()); }
       startedAt = Date.now();
       return startedIds;
     }).catch(() => startedIds || new Set<string>()).finally(() => { startedP = null; });
@@ -98,8 +110,23 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
   );
 }
 
-/** 한 영상의 요약 본문 (몰아보기 원본에도 같이 씀) */
-function SummaryBody({ d, onSeek, onSearch }: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void }) {
+/** 스포일러: 흐리게 가려 두고 누르면 보임 (가리기 꺼져 있으면 그냥 보임) */
+function Spoiler({ on, children, inline }: { on?: boolean; children: React.ReactNode; inline?: boolean }) {
+  const [shown, setShown] = useState(false);
+  useEffect(() => { if (on) setShown(false); }, [on]);
+  if (!on || shown) return <>{children}</>;
+  const Tag: any = inline ? 'span' : 'div';
+  return (
+    <Tag role="button" tabIndex={0} aria-label="스포일러 보기" onClick={(e: any) => { e.stopPropagation(); setShown(true); }} onKeyDown={(e: any) => { if (e.key === 'Enter') setShown(true); }}
+      className={`relative cursor-pointer select-none ${inline ? 'inline-block' : 'block'}`}>
+      <span className="block blur-[6px] opacity-70 pointer-events-none" aria-hidden>{children}</span>
+      <span className="absolute inset-0 flex items-center justify-center"><span className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[10.5px] font-black">스포 · 눌러서 보기</span></span>
+    </Tag>
+  );
+}
+
+/** 한 영상의 요약 본문 (몰아보기 원본에도 같이 씀). spoil: 결말·결과·하이라이트·흐름 내용 가리기 */
+export function SummaryBody({ d, onSeek, onSearch, spoil = false }: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean }) {
   const chapters: any[] = d.chapters || [];
   const stories: any[] = d.gameStories || [];
   const games: any[] = d.games || [];
@@ -134,7 +161,7 @@ function SummaryBody({ d, onSeek, onSearch }: { d: any; onSeek: (t: number) => v
                   <span className="text-[13px] font-bold text-zinc-900 dark:text-white break-keep">{c.title}</span>
                   {c.game && <button type="button" onClick={() => onSearch(c.game)} className="text-[10.5px] font-semibold text-zinc-400 hover:text-purple-600 cursor-pointer">#{c.game}</button>}
                 </div>
-                {c.summary && <p className="mt-0.5 text-[12.5px] text-zinc-600 dark:text-zinc-300 leading-relaxed break-keep">{c.summary}</p>}
+                {c.summary && <Spoiler on={spoil && i > 0}><p className="mt-0.5 text-[12.5px] text-zinc-600 dark:text-zinc-300 leading-relaxed break-keep">{c.summary}</p></Spoiler>}
               </li>
             ))}
           </ol>
@@ -161,16 +188,16 @@ function SummaryBody({ d, onSeek, onSearch }: { d: any; onSeek: (t: number) => v
                   </button>
                   <div className="flex items-center gap-1 shrink-0">
                     {g.horror && <span className="px-1.5 py-0.5 rounded-md bg-red-500/10 text-red-600 text-[10px] font-black">공포</span>}
-                    {s?.result && <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-black">{s.result}</span>}
+                    {s?.result && <Spoiler on={spoil} inline><span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-black">{s.result}</span></Spoiler>}
                   </div>
                 </div>
-                {s?.story ? <p className="text-[12.5px] text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep">{s.story}</p> : g.about ? <p className="text-[12.5px] text-zinc-600 dark:text-zinc-300 leading-relaxed break-keep">{g.about}</p> : null}
+                {s?.story ? <Spoiler on={spoil}><p className="text-[12.5px] text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep">{s.story}</p></Spoiler> : g.about ? <p className="text-[12.5px] text-zinc-600 dark:text-zinc-300 leading-relaxed break-keep">{g.about}</p> : null}
                 {(s?.highlights || []).length > 0 && (
-                  <ul className="space-y-1">
+                  <Spoiler on={spoil}><ul className="space-y-1">
                     {s.highlights.map((h: any, j: number) => (
                       <li key={j} className="flex items-start gap-2 text-[12px] text-zinc-600 dark:text-zinc-300 break-keep"><Star className="w-3 h-3 mt-1 text-amber-500 shrink-0" /><TimeBtn t={h.t} onClick={() => onSeek(Math.max(0, h.t - 5))} /><span>{h.d}</span></li>
                     ))}
-                  </ul>
+                  </ul></Spoiler>
                 )}
                 {(g.genre || (g.tags || []).length > 0) && (
                   <div className="flex flex-wrap gap-1">
@@ -308,7 +335,13 @@ export function AiSummaryHost() {
                 </div>
               )}
 
-              {!data && <div className="flex items-center gap-2 text-sm text-zinc-500"><Loader2 className="w-4 h-4 animate-spin" /> 불러오는 중…</div>}
+              {!data && (
+                <div className="space-y-4">
+                  <TextSkeleton lines={3} />
+                  <Skeleton className="h-4 w-28" />
+                  <div className="space-y-3 pl-4">{[0, 1, 2].map((i) => <div key={i} className="space-y-1.5"><Skeleton className="h-4 w-1/2" /><Skeleton className="h-3.5 w-full" /></div>)}</div>
+                </div>
+              )}
 
               {data && !data.found && !data.compilation && (
                 <div className="space-y-3 text-sm text-zinc-600 dark:text-zinc-300 break-keep">

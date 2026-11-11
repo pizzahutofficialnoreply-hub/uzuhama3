@@ -1,3 +1,4 @@
+import { Skeleton, TextSkeleton } from './common/Skeleton';
 import { makeMatcher } from '../utils/textMatch';
 import { usePrefs } from '../utils/userPrefs';
 import React, { useState, useEffect, useMemo } from 'react';
@@ -476,9 +477,14 @@ export function PatchNotesPage({ version: propVersion }: { version?: string } = 
               </div>
 
               {loading ? (
-                <div className="py-20 text-center text-zinc-400 space-y-2">
-                  <div className="w-7 h-7 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                  <p className="text-xs font-medium">패치노트를 불러오는 중이에요...</p>
+                <div className="space-y-3" role="status" aria-label="패치노트를 불러오는 중">
+                  {Array.from({ length: 4 }, (_, i) => (
+                    <div key={i} className="rounded-2xl border border-zinc-200 dark:border-zinc-800 p-5 space-y-3">
+                      <div className="flex items-center gap-2"><Skeleton className="h-5 w-16 rounded-full" /><Skeleton className="h-4 w-24" /></div>
+                      <Skeleton className="h-5 w-3/4" />
+                      <TextSkeleton lines={2} />
+                    </div>
+                  ))}
                 </div>
               ) : filteredNotes.length === 0 ? (
                 <div className="border border-dashed border-zinc-300 dark:border-zinc-800 rounded-2xl p-12 text-center text-zinc-500">

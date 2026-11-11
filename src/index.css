@@ -606,3 +606,16 @@ html.overlay-open { overscroll-behavior: none; }
 /* 입력 칸 인라인 오류 */
 .field-invalid { border-color: rgb(239 68 68) !important; box-shadow: 0 0 0 2px rgb(239 68 68 / 0.25) !important; }
 .field-error::before { content: '!'; display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 999px; background: rgb(239 68 68); color: #fff; font-size: 10px; font-weight: 800; }
+
+/* 신고로 보류된 영상: 목록에는 두고 회색 + 흐린 썸네일 + 버튼 막기 */
+.video-held img { filter: blur(6px) grayscale(1) brightness(0.9); transform: none !important; }
+.video-held { filter: saturate(0); }
+.video-held button:not([data-held-ok]), .video-held a:not([data-held-ok]), .video-held iframe { pointer-events: none !important; opacity: .45; }
+
+/* 스켈레톤 로딩 */
+.skeleton { position: relative; overflow: hidden; background: rgb(228 228 231 / 0.9); }
+.dark .skeleton { background: rgb(39 39 42 / 0.9); }
+.skeleton::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), transparent); animation: skeleton-shine 1.3s ease-in-out infinite; }
+.dark .skeleton::after { background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.07), transparent); }
+@keyframes skeleton-shine { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; } }
