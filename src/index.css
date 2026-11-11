@@ -594,3 +594,11 @@ button:active:not(:disabled),
 }
 /* 팝업이 떠 있는 동안 뒷화면이 끌려 움직이지 않게 */
 html.overlay-open { overscroll-behavior: none; }
+
+/* 헤더 제목 기념일 장식 */
+.title-decor-text { animation: title-decor-in .5s ease-out both; }
+.title-decor { display: inline-flex; gap: 0.05em; font-size: 0.8em; line-height: 1; flex-shrink: 0; }
+.title-decor > span { display: inline-block; animation: title-decor-bob 2.4s ease-in-out infinite; }
+@keyframes title-decor-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes title-decor-bob { 0%, 100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-3px) rotate(8deg); } }
+@media (prefers-reduced-motion: reduce) { .title-decor > span, .title-decor-text { animation: none !important; } }

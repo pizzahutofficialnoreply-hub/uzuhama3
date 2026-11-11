@@ -32,6 +32,7 @@ const TabSpinner = () => (
 import { NoticeModal } from './components/NoticeModal';
 import { NoticeBanner } from './components/NoticeBanner';
 import { HeaderDday } from './components/common/HeaderDday';
+import { HeaderTitle } from './components/common/HeaderTitle';
 import { SelfTestHeaderLine } from './components/common/UserSelfCheck';
 import { FeedbackModal } from './components/FeedbackModal';
 import { PolicyModal } from './components/PolicyModal';
@@ -1107,9 +1108,7 @@ function MainApp() {
               className="flex items-center gap-1.5 text-left group cursor-pointer select-none focus:outline-none py-1 px-1 -ml-1 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/60 active:scale-95 transition-all touch-manipulation min-w-0"
               title="홈(요약)으로 이동 및 최상단 스크롤"
             >
-              <h1 className="text-xl sm:text-[25px] font-extrabold tracking-tight text-zinc-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">
-                우주하마 방송 예측
-              </h1>
+              <HeaderTitle decor={(data?.system as any)?.titleDecor} />
             </button>
             {(() => { const dd = activeDdays(data?.system?.events); return dd.length > 0 ? <HeaderDday items={dd} /> : null; })()}
           </div>

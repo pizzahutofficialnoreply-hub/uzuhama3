@@ -184,6 +184,8 @@ export interface DdayEvent {
 
 export interface SystemConfig {
   events?: DdayEvent[];
+  /** 헤더 제목 옆 관리자 그림·GIF (기간) */
+  titleDecor?: { id: string; from: string; to: string; image: string; label?: string; enabled?: boolean }[];
   maintenance: boolean;
   maintenanceTitle?: string;
   maintenanceContent?: string;
