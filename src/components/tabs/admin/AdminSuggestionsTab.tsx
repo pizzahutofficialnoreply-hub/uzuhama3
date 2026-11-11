@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   collection, 
   query, 
-  orderBy, 
+  orderBy, limit, 
   onSnapshot, 
   deleteDoc, 
   doc,
@@ -81,7 +81,8 @@ export function AdminSuggestionsTab({
   const [selectedFeedbacks, setSelectedFeedbacks] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    const qFeed = query(collection(db, 'feedbacks'), orderBy('createdAt', 'desc'));
+    // 최근 200개만 (예전엔 화면 오류·검색 만족도까지 전부 실시간으로 받아서, 탭이 다시 연결될 때마다 수천 번씩 읽혔음)
+    const qFeed = query(collection(db, 'feedbacks'), orderBy('createdAt', 'desc'), limit(200));
     const unFeed = onSnapshot(qFeed, (snapshot) => {
       const items: FeedbackItem[] = [];
       // ⋮ › 신고 · 검색 결과 추가도 여기 (검색 만족도 👍👎 와 화면 오류는 자동화 탭에서)
