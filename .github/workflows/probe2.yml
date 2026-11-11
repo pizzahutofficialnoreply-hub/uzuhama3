@@ -1,0 +1,10 @@
+name: probe2
+on: { workflow_dispatch: {} }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm i --no-save firebase-admin@14 >/dev/null 2>&1; SA='${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}' node .github/probe/st.mjs
