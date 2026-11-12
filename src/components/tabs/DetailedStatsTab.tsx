@@ -41,7 +41,8 @@ const TrendTooltip = ({ active, payload, label }: any) => {
     return (
       <div className="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md p-3 rounded-xl shadow-xl border border-zinc-200 dark:border-zinc-700 text-sm pointer-events-none transition-opacity duration-300">
         <p className="font-bold text-zinc-900 dark:text-white mb-1">{payload[0]?.payload?.weekFull || label} 주간</p>
-        <p className="text-purple-600 dark:text-purple-400 font-medium">방송 횟수: {payload[0].value}회</p>
+        <p className="text-purple-600 dark:text-purple-400 font-medium">방송 횟수: {payload[0].payload?.count}회</p>
+        {payload[0].payload?.count2 != null && <p className="font-medium" style={{ color: '#f59e0b' }}>비교 기간 같은 순번 주: {payload[0].payload.count2}회</p>}
         <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-1">방송일: {payload[0].payload.datesDesc}</p>
       </div>
     );
@@ -59,7 +60,10 @@ import { Download, FileText, AlertCircle, X, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BroadcastHeatmap } from '../stats/BroadcastHeatmap';
 import { CategoryStatsTab } from '../stats/CategoryStatsTab';
-import { CompareSection, presets as comparePresets, COLOR_A, COLOR_B, type Range as CmpRange } from '../stats/CompareStats';
+import { presets as comparePresets, type Range as CmpRange } from '../stats/CompareStats';
+/** 지금 기간 = 기존 색, 비교 기간 = 주황 */
+const COLOR_A = '#7791c1';
+const COLOR_B = '#f59e0b';
 import { SmartTrendLabel } from '../stats/SmartTrendLabel';
 import { StatInsightSummary } from '../stats/StatInsightSummary';
 import { WidgetShareButton } from '../common/WidgetShareButton';
@@ -76,6 +80,212 @@ interface DetailedStatsTabProps {
   isActive?: boolean;
   onNavigateToCalendar?: (dateStr: string) => void;
   onNavigateToRecommend?: (category?: string, searchTerm?: string) => void;
+}
+
+/** 비교 기간 표시 띠 (따로 보여 주는 표·카테고리 위) */
+function CompareBadge({ range }: { range: { start: string; end: string } }) {
+  return (
+    <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border" style={{ borderColor: '#f59e0b55', background: '#f59e0b14' }}>
+      <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#f59e0b' }} />
+      <span className="text-sm font-black" style={{ color: '#d97706' }}>비교 기간</span>
+      <span className="text-xs text-zinc-500 tabular-nums">{range.start} ~ {range.end}</span>
+    </div>
+  );
+}
+
+/** 기간 하나의 분석 숫자 (비교 기간에도 같은 계산을 씀) */
+function computeDetailedStats(logsArray: BroadcastLog[], startDate: string, endDate: string) {
+    const dailyMap: Record<string, number> = { '일': 0, '월': 0, '화': 0, '수': 0, '목': 0, '금': 0, '토': 0 };
+    const dailyTimeMap: Record<string, Record<string, number>> = { '일': {}, '월': {}, '화': {}, '수': {}, '목': {}, '금': {}, '토': {} };
+    const hourMap: Record<string, number> = {};
+    for (let i = 0; i < 24; i++) {
+      hourMap[`${i}:00`] = 0;
+    }
+    for (let i = 0; i < 24; i++) {
+      hourMap[`${i}:00`] = 0;
+    }
+    const exactTimeMap: Record<string, number> = {};
+    const durationMap: Record<string, number> = {
+      '1시간 대': 0,
+      '2시간 대': 0,
+      '3시간 대': 0,
+      '4시간 이상': 0,
+    };
+    const trendMap: Record<string, { count: number, dates: Set<string> }> = {};
+
+    let total = logsArray.length;
+    let timedTotal = 0;
+    let durationTotal = 0;
+    const hasValidTime = (l: any) => typeof l?.time === 'string' && /^\s*\d{1,2}:\d{2}/.test(l.time);
+
+    // 조회 기간 내 모든 주차(week)를 사전에 0으로 초기화하여, 방송이 없던 주도 누락 없이 표시
+    let rangeStartWeek: Date | null = null;
+    let rangeEndWeek: Date | null = null;
+    if (startDate && endDate) {
+      const pStart = parseISO(startDate);
+      const pEnd = parseISO(endDate);
+      if (!isNaN(pStart.getTime()) && !isNaN(pEnd.getTime()) && pStart <= pEnd) {
+        rangeStartWeek = startOfWeek(pStart);
+        rangeEndWeek = startOfWeek(pEnd);
+      }
+    }
+    if (!rangeStartWeek || !rangeEndWeek) {
+      if (logsArray.length > 0) {
+        const sortedD = logsArray.map(l => l.date).filter(Boolean).sort();
+        rangeStartWeek = startOfWeek(parseISO(sortedD[0]));
+        rangeEndWeek = startOfWeek(parseISO(sortedD[sortedD.length - 1]));
+      }
+    }
+
+    if (rangeStartWeek && rangeEndWeek && rangeStartWeek <= rangeEndWeek) {
+      let curW = new Date(rangeStartWeek);
+      while (curW <= rangeEndWeek) {
+        const wKey = format(curW, 'yyyy-MM-dd');
+        trendMap[wKey] = { count: 0, dates: new Set() };
+        curW = addDays(curW, 7);
+      }
+    }
+
+    logsArray.forEach(log => {
+      const dateObj = parseISO(log.date);
+      const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+      dailyMap[dayNames[dateObj.getDay()]]++;
+
+      // 시작 시각·방송 길이가 없는 기록(2025년 이전 아카이브 등)은 시간·길이 통계에서 제외
+      // (예전에는 시각 없음 → 0시, 길이 없음 → 4시간 이상으로 잘못 집계됨)
+      if (hasValidTime(log)) {
+        timedTotal++;
+        const timeObj = parseTimeTo24(log.time);
+        const hourLabel = `${timeObj.hour}:00`;
+        hourMap[hourLabel] = (hourMap[hourLabel] || 0) + 1;
+        const exactLabel = `${timeObj.hour}시 대`;
+        exactTimeMap[exactLabel] = (exactTimeMap[exactLabel] || 0) + 1;
+        const dayName = dayNames[dateObj.getDay()];
+        dailyTimeMap[dayName][exactLabel] = (dailyTimeMap[dayName][exactLabel] || 0) + 1;
+      }
+
+      if (typeof log.durationHours === 'number' && log.durationHours > 0) {
+        durationTotal++;
+        if (log.durationHours < 2) durationMap['1시간 대']++;
+        else if (log.durationHours < 3) durationMap['2시간 대']++;
+        else if (log.durationHours < 4) durationMap['3시간 대']++;
+        else durationMap['4시간 이상']++;
+      }
+
+      const weekStart = format(startOfWeek(dateObj), 'yyyy-MM-dd');
+      if (!trendMap[weekStart]) trendMap[weekStart] = { count: 0, dates: new Set() };
+      trendMap[weekStart].count++;
+      trendMap[weekStart].dates.add(log.date);
+    });
+
+    // 조회 기간 내 각 요일이 실제로 몇 번 존재했는지 산출하여 요일별 실제 방송 확률 및 평균 계산
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+    const weekdayOccurrenceMap: Record<string, number> = { '일': 0, '월': 0, '화': 0, '수': 0, '목': 0, '금': 0, '토': 0 };
+
+    let rangeStart = parseISO(startDate);
+    let rangeEnd = parseISO(endDate);
+    const now = new Date();
+    if (rangeEnd > now) rangeEnd = now;
+
+    if (!isNaN(rangeStart.getTime()) && !isNaN(rangeEnd.getTime()) && rangeStart <= rangeEnd) {
+      const cur = new Date(rangeStart);
+      while (cur <= rangeEnd) {
+        const dName = dayNames[cur.getDay()];
+        weekdayOccurrenceMap[dName]++;
+        cur.setDate(cur.getDate() + 1);
+      }
+    } else if (logsArray.length > 0) {
+      const dates = logsArray.map(l => l.date).sort();
+      const minD = parseISO(dates[0]);
+      const maxD = parseISO(dates[dates.length - 1]);
+      const cur = new Date(minD);
+      while (cur <= maxD) {
+        const dName = dayNames[cur.getDay()];
+        weekdayOccurrenceMap[dName]++;
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+
+    // 요일별 실제 방송 진행 일수 집계 (하루에 여러 번 켜도 해당 일자 방송 여부는 1일로 반영)
+    const uniqueDatesByWeekday: Record<string, Set<string>> = {
+      '일': new Set(), '월': new Set(), '화': new Set(), '수': new Set(), '목': new Set(), '금': new Set(), '토': new Set()
+    };
+    logsArray.forEach(log => {
+      const dateObj = parseISO(log.date);
+      const dayName = dayNames[dateObj.getDay()];
+      uniqueDatesByWeekday[dayName].add(log.date);
+    });
+
+    const dailyStatsArray = dayNames.map(day => {
+      const totalWeekdayOccurrences = weekdayOccurrenceMap[day] || 0;
+      const broadcastDays = uniqueDatesByWeekday[day].size;
+      const probability = totalWeekdayOccurrences > 0
+        ? Math.min(100, (broadcastDays / totalWeekdayOccurrences) * 100)
+        : (total > 0 ? (dailyMap[day] / total) * 100 : 0);
+
+      return {
+        day,
+        count: dailyMap[day],
+        broadcastDays,
+        totalDays: totalWeekdayOccurrences,
+        probability
+      };
+    });
+
+    const hourStatsArray = Object.keys(hourMap).map(time => {
+      const h = parseInt(time);
+      return {
+        time,
+        label: `${h >= 12 ? '오후' : '오전'} ${h % 12 || 12}시대`,
+        count: hourMap[time],
+        probability: timedTotal > 0 ? (hourMap[time] / timedTotal) * 100 : 0,
+        hour: h
+      };
+    }).filter(stat => stat.hour >= 12 || stat.count > 0)
+      .sort((a, b) => a.hour - b.hour);
+
+    const exactTimeStatsArray = Object.keys(exactTimeMap).map(label => {
+      return {
+        label,
+        count: exactTimeMap[label],
+        probability: timedTotal > 0 ? (exactTimeMap[label] / timedTotal) * 100 : 0
+      };
+    }).sort((a, b) => b.count - a.count);
+
+    const durationStatsArray = Object.keys(durationMap).map(label => ({
+      label,
+      count: durationMap[label],
+      probability: durationTotal > 0 ? (durationMap[label] / durationTotal) * 100 : 0
+    }));
+
+    const trendStatsArray = Object.keys(trendMap).sort().map(week => {
+      const weekStartDate = parseISO(week);
+      let weekStartLabel = format(weekStartDate, 'MM/dd');
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStartDate);
+        d.setDate(d.getDate() + i);
+        if (d.getMonth() === 0 && d.getDate() === 1) {
+          weekStartLabel = '01/01';
+          break;
+        }
+      }
+      return {
+        week: weekStartLabel,
+        // 축·툴팁은 연도까지 포함한 고유 키로 (기간이 1년을 넘으면 MM/dd 가 겹쳐 툴팁이 엉뚱한 주를 가리키던 문제)
+        weekKey: week,
+        weekFull: format(weekStartDate, 'yyyy.MM.dd'),
+        count: trendMap[week].count,
+        datesDesc: trendMap[week].dates.size > 0 ? Array.from(trendMap[week].dates).sort().map((d) => format(parseISO(d), 'M/d')).join(', ') : '방송 없음 (0회)'
+      };
+    });
+
+    // 요일별 실제 방송 확률의 평균값 (고정 14.3%가 아닌 조회 기간의 실질 일평균 확률 반영)
+    const validProbabilities = dailyStatsArray.map(d => d.probability);
+    const avgDaily = validProbabilities.length > 0
+      ? validProbabilities.reduce((acc, p) => acc + p, 0) / validProbabilities.length
+      : 0;
+
+    return { dailyStatsArray, hourStatsArray, exactTimeStatsArray, durationStatsArray, dailyTimeMap, trendStatsArray, avgDaily, total };
 }
 
 export function DetailedStatsTab({ 
@@ -381,199 +591,44 @@ export function DetailedStatsTab({
     }
   };
 
-  const stats = useMemo(() => {
-    const dailyMap: Record<string, number> = { '일': 0, '월': 0, '화': 0, '수': 0, '목': 0, '금': 0, '토': 0 };
-    const dailyTimeMap: Record<string, Record<string, number>> = { '일': {}, '월': {}, '화': {}, '수': {}, '목': {}, '금': {}, '토': {} };
-    const hourMap: Record<string, number> = {};
-    for (let i = 0; i < 24; i++) {
-      hourMap[`${i}:00`] = 0;
-    }
-    for (let i = 0; i < 24; i++) {
-      hourMap[`${i}:00`] = 0;
-    }
-    const exactTimeMap: Record<string, number> = {};
-    const durationMap: Record<string, number> = {
-      '1시간 대': 0,
-      '2시간 대': 0,
-      '3시간 대': 0,
-      '4시간 이상': 0,
-    };
-    const trendMap: Record<string, { count: number, dates: Set<string> }> = {};
-
-    let total = logsArray.length;
-    let timedTotal = 0;
-    let durationTotal = 0;
-    const hasValidTime = (l: any) => typeof l?.time === 'string' && /^\s*\d{1,2}:\d{2}/.test(l.time);
-
-    // 조회 기간 내 모든 주차(week)를 사전에 0으로 초기화하여, 방송이 없던 주도 누락 없이 표시
-    let rangeStartWeek: Date | null = null;
-    let rangeEndWeek: Date | null = null;
-    if (startDate && endDate) {
-      const pStart = parseISO(startDate);
-      const pEnd = parseISO(endDate);
-      if (!isNaN(pStart.getTime()) && !isNaN(pEnd.getTime()) && pStart <= pEnd) {
-        rangeStartWeek = startOfWeek(pStart);
-        rangeEndWeek = startOfWeek(pEnd);
-      }
-    }
-    if (!rangeStartWeek || !rangeEndWeek) {
-      if (logsArray.length > 0) {
-        const sortedD = logsArray.map(l => l.date).filter(Boolean).sort();
-        rangeStartWeek = startOfWeek(parseISO(sortedD[0]));
-        rangeEndWeek = startOfWeek(parseISO(sortedD[sortedD.length - 1]));
-      }
-    }
-
-    if (rangeStartWeek && rangeEndWeek && rangeStartWeek <= rangeEndWeek) {
-      let curW = new Date(rangeStartWeek);
-      while (curW <= rangeEndWeek) {
-        const wKey = format(curW, 'yyyy-MM-dd');
-        trendMap[wKey] = { count: 0, dates: new Set() };
-        curW = addDays(curW, 7);
-      }
-    }
-
-    logsArray.forEach(log => {
-      const dateObj = parseISO(log.date);
-      const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-      dailyMap[dayNames[dateObj.getDay()]]++;
-
-      // 시작 시각·방송 길이가 없는 기록(2025년 이전 아카이브 등)은 시간·길이 통계에서 제외
-      // (예전에는 시각 없음 → 0시, 길이 없음 → 4시간 이상으로 잘못 집계됨)
-      if (hasValidTime(log)) {
-        timedTotal++;
-        const timeObj = parseTimeTo24(log.time);
-        const hourLabel = `${timeObj.hour}:00`;
-        hourMap[hourLabel] = (hourMap[hourLabel] || 0) + 1;
-        const exactLabel = `${timeObj.hour}시 대`;
-        exactTimeMap[exactLabel] = (exactTimeMap[exactLabel] || 0) + 1;
-        const dayName = dayNames[dateObj.getDay()];
-        dailyTimeMap[dayName][exactLabel] = (dailyTimeMap[dayName][exactLabel] || 0) + 1;
-      }
-
-      if (typeof log.durationHours === 'number' && log.durationHours > 0) {
-        durationTotal++;
-        if (log.durationHours < 2) durationMap['1시간 대']++;
-        else if (log.durationHours < 3) durationMap['2시간 대']++;
-        else if (log.durationHours < 4) durationMap['3시간 대']++;
-        else durationMap['4시간 이상']++;
-      }
-
-      const weekStart = format(startOfWeek(dateObj), 'yyyy-MM-dd');
-      if (!trendMap[weekStart]) trendMap[weekStart] = { count: 0, dates: new Set() };
-      trendMap[weekStart].count++;
-      trendMap[weekStart].dates.add(log.date);
-    });
-
-    // 조회 기간 내 각 요일이 실제로 몇 번 존재했는지 산출하여 요일별 실제 방송 확률 및 평균 계산
-    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-    const weekdayOccurrenceMap: Record<string, number> = { '일': 0, '월': 0, '화': 0, '수': 0, '목': 0, '금': 0, '토': 0 };
-
-    let rangeStart = parseISO(startDate);
-    let rangeEnd = parseISO(endDate);
-    const now = new Date();
-    if (rangeEnd > now) rangeEnd = now;
-
-    if (!isNaN(rangeStart.getTime()) && !isNaN(rangeEnd.getTime()) && rangeStart <= rangeEnd) {
-      const cur = new Date(rangeStart);
-      while (cur <= rangeEnd) {
-        const dName = dayNames[cur.getDay()];
-        weekdayOccurrenceMap[dName]++;
-        cur.setDate(cur.getDate() + 1);
-      }
-    } else if (logsArray.length > 0) {
-      const dates = logsArray.map(l => l.date).sort();
-      const minD = parseISO(dates[0]);
-      const maxD = parseISO(dates[dates.length - 1]);
-      const cur = new Date(minD);
-      while (cur <= maxD) {
-        const dName = dayNames[cur.getDay()];
-        weekdayOccurrenceMap[dName]++;
-        cur.setDate(cur.getDate() + 1);
-      }
-    }
-
-    // 요일별 실제 방송 진행 일수 집계 (하루에 여러 번 켜도 해당 일자 방송 여부는 1일로 반영)
-    const uniqueDatesByWeekday: Record<string, Set<string>> = {
-      '일': new Set(), '월': new Set(), '화': new Set(), '수': new Set(), '목': new Set(), '금': new Set(), '토': new Set()
-    };
-    logsArray.forEach(log => {
-      const dateObj = parseISO(log.date);
-      const dayName = dayNames[dateObj.getDay()];
-      uniqueDatesByWeekday[dayName].add(log.date);
-    });
-
-    const dailyStatsArray = dayNames.map(day => {
-      const totalWeekdayOccurrences = weekdayOccurrenceMap[day] || 0;
-      const broadcastDays = uniqueDatesByWeekday[day].size;
-      const probability = totalWeekdayOccurrences > 0
-        ? Math.min(100, (broadcastDays / totalWeekdayOccurrences) * 100)
-        : (total > 0 ? (dailyMap[day] / total) * 100 : 0);
-
-      return {
-        day,
-        count: dailyMap[day],
-        broadcastDays,
-        totalDays: totalWeekdayOccurrences,
-        probability
-      };
-    });
-
-    const hourStatsArray = Object.keys(hourMap).map(time => {
-      const h = parseInt(time);
-      return {
-        time,
-        label: `${h >= 12 ? '오후' : '오전'} ${h % 12 || 12}시대`,
-        count: hourMap[time],
-        probability: timedTotal > 0 ? (hourMap[time] / timedTotal) * 100 : 0,
-        hour: h
-      };
-    }).filter(stat => stat.hour >= 12 || stat.count > 0)
-      .sort((a, b) => a.hour - b.hour);
-
-    const exactTimeStatsArray = Object.keys(exactTimeMap).map(label => {
-      return {
-        label,
-        count: exactTimeMap[label],
-        probability: timedTotal > 0 ? (exactTimeMap[label] / timedTotal) * 100 : 0
-      };
-    }).sort((a, b) => b.count - a.count);
-
-    const durationStatsArray = Object.keys(durationMap).map(label => ({
-      label,
-      count: durationMap[label],
-      probability: durationTotal > 0 ? (durationMap[label] / durationTotal) * 100 : 0
-    }));
-
-    const trendStatsArray = Object.keys(trendMap).sort().map(week => {
-      const weekStartDate = parseISO(week);
-      let weekStartLabel = format(weekStartDate, 'MM/dd');
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(weekStartDate);
-        d.setDate(d.getDate() + i);
-        if (d.getMonth() === 0 && d.getDate() === 1) {
-          weekStartLabel = '01/01';
-          break;
-        }
-      }
-      return {
-        week: weekStartLabel,
-        // 축·툴팁은 연도까지 포함한 고유 키로 (기간이 1년을 넘으면 MM/dd 가 겹쳐 툴팁이 엉뚱한 주를 가리키던 문제)
-        weekKey: week,
-        weekFull: format(weekStartDate, 'yyyy.MM.dd'),
-        count: trendMap[week].count,
-        datesDesc: trendMap[week].dates.size > 0 ? Array.from(trendMap[week].dates).sort().map((d) => format(parseISO(d), 'M/d')).join(', ') : '방송 없음 (0회)'
-      };
-    });
-
-    // 요일별 실제 방송 확률의 평균값 (고정 14.3%가 아닌 조회 기간의 실질 일평균 확률 반영)
-    const validProbabilities = dailyStatsArray.map(d => d.probability);
-    const avgDaily = validProbabilities.length > 0
-      ? validProbabilities.reduce((acc, p) => acc + p, 0) / validProbabilities.length
-      : 0;
-
-    return { dailyStatsArray, hourStatsArray, exactTimeStatsArray, durationStatsArray, dailyTimeMap, trendStatsArray, avgDaily, total };
-  }, [logsArray, startDate, endDate]);
+  const stats = useMemo(() => computeDetailedStats(logsArray, startDate, endDate), [logsArray, startDate, endDate]);
+  // 비교 기간 (+ 로 더한 것): 같은 계산 → 기존 그래프·표 위에 덧씌움
+  const logs2 = useMemo(() => (range2 ? allLogsList.filter((l) => l.date >= range2.start && l.date <= range2.end) : []), [allLogsList, range2]);
+  const stats2 = useMemo(() => (range2 ? computeDetailedStats(logs2, range2.start, range2.end) : null), [logs2, range2]);
+  // 그래프용: 지금 기간 데이터에 비교 기간 값을 같은 칸(요일·시간대, 주는 같은 순번)에 붙임
+  const trendData = useMemo(() => stats.trendStatsArray.map((d, i) => ({ ...d, count2: stats2 ? (stats2.trendStatsArray[i]?.count ?? null) : undefined })), [stats, stats2]);
+  const dailyData = useMemo(() => stats.dailyStatsArray.map((d) => ({ ...d, probability2: stats2?.dailyStatsArray.find((x) => x.day === d.day)?.probability })), [stats, stats2]);
+  const hourData = useMemo(() => stats.hourStatsArray.map((d: any) => ({ ...d, probability2: stats2 ? ((stats2.hourStatsArray as any[]).find((x) => x.label === d.label)?.probability ?? 0) : undefined })), [stats, stats2]);
+  // 기존 한 줄 정리 자리에 붙는 비교 문장 (앞선 기간 → 나중 기간 순서로)
+  const cmpNote = useMemo(() => {
+    if (!stats2 || !range2) return null;
+    const short = (a: string, b: string) => { const y = (x: string) => `'${x.slice(2, 4)}.${Number(x.slice(5, 7))}`; return a.slice(0, 7) === b.slice(0, 7) ? y(a) : `${y(a)}~${y(b)}`; };
+    const cur = { s: stats, label: `지금 기간(${short(startDate, endDate)})` };
+    const cmp = { s: stats2, label: `비교 기간(${short(range2.start, range2.end)})` };
+    const [o, n] = startDate <= range2.start ? [cur, cmp] : [cmp, cur];
+    const weekAvg = (x: typeof stats) => (x.trendStatsArray.length ? x.trendStatsArray.reduce((a, w) => a + w.count, 0) / x.trendStatsArray.length : 0);
+    const topDay = (x: typeof stats) => (x.total ? [...x.dailyStatsArray].sort((a, b) => b.probability - a.probability)[0] : null);
+    const topHour = (x: typeof stats) => (x.total ? [...(x.hourStatsArray as any[])].sort((a, b) => b.count - a.count)[0] : null);
+    const topDur = (x: typeof stats) => (x.total ? [...x.durationStatsArray].sort((a, b) => b.count - a.count)[0] : null);
+    const B = (t: React.ReactNode) => <strong className="font-bold" style={{ color: COLOR_B }}>{t}</strong>;
+    const wa = weekAvg(o.s), wb = weekAvg(n.s);
+    const weekly = !o.s.total || !n.s.total ? <>{(!o.s.total ? o : n).label}에는 방송 기록이 없어요.</> : Math.abs(wb - wa) < 0.2
+      ? <>{o.label}와 {n.label} 모두 주 평균 {B(`${wb.toFixed(1)}회`)} 정도로 비슷해요.</>
+      : <>{o.label}에는 주 평균 {B(`${wa.toFixed(1)}회`)}였는데, {n.label}로 올수록 {B(`${wb.toFixed(1)}회`)}로 {wb > wa ? '늘었어요' : '줄었어요'}.</>;
+    const da = topDay(o.s), db = topDay(n.s);
+    const daily = !da || !db ? null : da.day === db.day
+      ? <>두 기간 모두 {B(`${db.day}요일`)}에 방송이 가장 많았어요 ({da.probability.toFixed(1)}% → {db.probability.toFixed(1)}%).</>
+      : <>{o.label}에는 {B(`${da.day}요일`)}에 방송이 가장 많았는데, {n.label}로 올수록 {B(`${db.day}요일`)}에 방송이 많아졌어요.</>;
+    const ha = topHour(o.s), hb = topHour(n.s);
+    const hour = !ha || !hb || !ha.count || !hb.count ? null : ha.label === hb.label
+      ? <>두 기간 모두 {B(ha.label)}에 가장 많이 시작했어요.</>
+      : <>{o.label}에는 {B(ha.label)}에 주로 시작했는데, {n.label}로 올수록 {B(hb.label)} 시작이 많아졌어요.</>;
+    const ua = topDur(o.s), ub = topDur(n.s);
+    const duration = !ua || !ub || !ua.count || !ub.count ? null : ua.label === ub.label
+      ? <>두 기간 모두 {B(ua.label)} 방송이 가장 많아요 ({ua.probability.toFixed(1)}% → {ub.probability.toFixed(1)}%).</>
+      : <>{o.label}에는 {B(ua.label)} 방송이 가장 많았는데, {n.label}로 올수록 {B(ub.label)} 방송이 많아졌어요.</>;
+    return { weekly, daily, hour, duration };
+  }, [stats, stats2, range2, startDate, endDate]);
 
   const insights = useMemo(() => {
     // 1. 주간 방송 횟수 추이 한줄 정리
@@ -1097,14 +1152,6 @@ export function DetailedStatsTab({
         </div>
       </div>
 
-      {range2 && (
-        <CompareSection
-          logs={allLogsList}
-          a={{ start: startDate, end: endDate }}
-          b={range2}
-          parts={isLegacyRange ? (activeSubTab === 'category' ? ['category'] : ['summary', 'charts']) : activeSubTab === 'trend' ? ['summary'] : activeSubTab === 'day' ? ['charts'] : ['category']}
-        />
-      )}
       <div className="space-y-6 bg-transparent">
         {/* ~2025 데이터일 때: 방송 추이와 요일별 분석을 합치고 히트맵은 숨김 */}
         {isLegacyRange ? (
@@ -1119,11 +1166,12 @@ export function DetailedStatsTab({
                   </div>
                   <StatInsightSummary>
                     {insights.weeklySummary}
+                    {cmpNote?.weekly && <span className="block mt-1.5 pl-3 border-l-2" style={{ borderColor: COLOR_B }}>{cmpNote.weekly}</span>}
                   </StatInsightSummary>
                   <div className="h-[300px] w-full">
                     {isActive && (
                       <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                        <LineChart data={stats.trendStatsArray} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
+                        <LineChart data={trendData} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                           <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                           <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
@@ -1142,6 +1190,7 @@ export function DetailedStatsTab({
                               )} 
                             />
                           </Line>
+                          {stats2 && <Line type="monotone" dataKey="count2" name="비교 기간" stroke={COLOR_B} strokeWidth={2.5} strokeDasharray="6 4" dot={false} connectNulls animationDuration={300} />}
                         </LineChart>
                       </ResponsiveContainer>
                     )}
@@ -1156,6 +1205,7 @@ export function DetailedStatsTab({
                   </div>
                   <StatInsightSummary>
                     {insights.dailySummary}
+                    {cmpNote?.daily && <span className="block mt-1.5 pl-3 border-l-2" style={{ borderColor: COLOR_B }}>{cmpNote.daily}</span>}
                   </StatInsightSummary>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
@@ -1163,7 +1213,7 @@ export function DetailedStatsTab({
                       <div className="h-[300px] w-full">
                         {isActive && (
                           <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                            <BarChart data={stats.dailyStatsArray} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                               <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                               <XAxis dataKey="day" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                               <YAxis stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`} />
@@ -1172,7 +1222,7 @@ export function DetailedStatsTab({
                                 position={{ y: 0 }}
                                 wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
                                 allowEscapeViewBox={{ x: false, y: true }}
-                                content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '방송 확률']} />} 
+                                content={<CustomTooltip formatter={(value: number, name: string) => [`${Number(value || 0).toFixed(1)}%`, name === 'probability2' ? '비교 기간' : '방송 확률']} />} 
                               />
                               <ReferenceLine y={stats.avgDaily} stroke="#f43f5e" strokeDasharray="3 3" label={{ position: 'top', value: `평균(${stats.avgDaily.toFixed(1)}%)`, fill: '#f43f5e', fontSize: 10 }} />
                               <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
@@ -1180,6 +1230,7 @@ export function DetailedStatsTab({
                                   <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
                                 ))}
                               </Bar>
+                              {stats2 && <Bar dataKey="probability2" fill={COLOR_B} radius={[4, 4, 0, 0]} animationDuration={300} />}
                             </BarChart>
                           </ResponsiveContainer>
                         )}
@@ -1195,6 +1246,7 @@ export function DetailedStatsTab({
                               <th className="px-4 sm:px-7 py-3.5 sm:py-4 w-1/3">요일</th>
                               <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-1/3">방송 횟수</th>
                               <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-1/3">확률</th>
+                              {stats2 && <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right" style={{ color: COLOR_B }}>비교</th>}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -1205,6 +1257,7 @@ export function DetailedStatsTab({
                                 <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
                                   {stat.probability.toFixed(1)}%
                                 </td>
+                                {stats2 && (() => { const x = stats2.dailyStatsArray.find((d) => d.day === stat.day); return <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-bold" style={{ color: COLOR_B }}>{x ? `${x.probability.toFixed(1)}%` : '-'}</td>; })()}
                               </tr>
                             ))}
                           </tbody>
@@ -1217,12 +1270,20 @@ export function DetailedStatsTab({
             )}
 
             {activeSubTab === 'category' && showLegacyCategory && (
+<div className="space-y-6">
               <CategoryStatsTab 
                 logs={logsArray} 
                 isActive={isActive} 
                 onNavigateToCalendar={onNavigateToCalendar}
                 onNavigateToRecommend={onNavigateToRecommend}
               />
+              {range2 && (
+                <div className="space-y-3">
+                  <CompareBadge range={range2} />
+                  <CategoryStatsTab logs={logs2} isActive={isActive} onNavigateToCalendar={onNavigateToCalendar} onNavigateToRecommend={onNavigateToRecommend} />
+                </div>
+              )}
+              </div>
             )}
           </>
         ) : (
@@ -1237,10 +1298,11 @@ export function DetailedStatsTab({
                   </div>
                   <StatInsightSummary>
                     {insights.weeklySummary}
+                    {cmpNote?.weekly && <span className="block mt-1.5 pl-3 border-l-2" style={{ borderColor: COLOR_B }}>{cmpNote.weekly}</span>}
                   </StatInsightSummary>
                   <div className="h-[300px] w-full">
                     {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                      <LineChart data={stats.trendStatsArray} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
+                      <LineChart data={trendData} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                         <XAxis dataKey="weekKey" tickFormatter={(k: string) => formatWeekTick(k, stats.trendStatsArray.length)} minTickGap={12} stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                         <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
@@ -1259,6 +1321,7 @@ export function DetailedStatsTab({
                             )} 
                           />
                         </Line>
+                        {stats2 && <Line type="monotone" dataKey="count2" name="비교 기간" stroke={COLOR_B} strokeWidth={2.5} strokeDasharray="6 4" dot={false} connectNulls animationDuration={300} />}
                       </LineChart>
                     </ResponsiveContainer>)}
                   </div>
@@ -1282,6 +1345,7 @@ export function DetailedStatsTab({
                           <div key={day} className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-xl p-3 flex flex-col items-center">
                             <div className="text-zinc-500 dark:text-zinc-400 font-semibold mb-2">{day}요일</div>
                             <div className="text-sm font-bold text-purple-600 dark:text-purple-400 text-center mb-1">{top1 ? top1 : '기록 없음'}</div>
+                            {stats2 && (() => { const t2 = stats2.dailyTimeMap[day] || {}; const k = Object.keys(t2).sort((a, b) => t2[b] - t2[a])[0]; return <div className="text-xs font-bold text-center" style={{ color: COLOR_B }}>{k || '기록 없음'}</div>; })()}
                           </div>
                         );
                       })}
@@ -1295,10 +1359,11 @@ export function DetailedStatsTab({
                     </div>
                     <StatInsightSummary>
                       {insights.hourSummary}
+                      {cmpNote?.hour && <span className="block mt-1.5 pl-3 border-l-2" style={{ borderColor: COLOR_B }}>{cmpNote.hour}</span>}
                     </StatInsightSummary>
                     <div className="h-[250px] w-full mb-4">
                       {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                        <BarChart data={stats.hourStatsArray} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <BarChart data={hourData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                           <XAxis dataKey="label" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                           <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`} />
@@ -1307,11 +1372,12 @@ export function DetailedStatsTab({
                             position={{ y: 0 }}
                             wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
                             allowEscapeViewBox={{ x: false, y: true }}
-                            content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '비율']} />} 
+                            content={<CustomTooltip formatter={(value: number, name: string) => [`${Number(value || 0).toFixed(1)}%`, name === 'probability2' ? '비교 기간' : '비율']} />} 
                           />
                           <Bar dataKey="probability" radius={[4, 4, 0, 0]} fill="#7791c1" animationDuration={300} animationEasing="ease-out">
                             <LabelList dataKey="probability" position="top" fill="#5d76a6" fontSize={10} offset={4} fontWeight="bold" className="chart-capture-only-label" formatter={(val: number) => val > 0 ? `${val.toFixed(1)}%` : ''} />
                           </Bar>
+                          {stats2 && <Bar dataKey="probability2" fill={COLOR_B} radius={[4, 4, 0, 0]} animationDuration={300} />}
                         </BarChart>
                       </ResponsiveContainer>)}
                     </div>
@@ -1322,6 +1388,7 @@ export function DetailedStatsTab({
                             <th className="px-4 sm:px-7 py-3.5 sm:py-4 w-16 sm:w-20">순위</th>
                             <th className="px-4 sm:px-7 py-3.5 sm:py-4">시간대</th>
                             <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-24 sm:w-28">확률</th>
+                            {stats2 && <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-24 sm:w-28" style={{ color: COLOR_B }}>비교</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -1332,6 +1399,7 @@ export function DetailedStatsTab({
                               <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
                                 {stat.probability.toFixed(1)}%
                               </td>
+                              {stats2 && (() => { const x = (stats2.exactTimeStatsArray as any[]).find((d) => d.label === stat.label); return <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-bold" style={{ color: COLOR_B }}>{x ? `${x.probability.toFixed(1)}%` : '0%'}</td>; })()}
                             </tr>
                           ))}
                         </tbody>
@@ -1346,6 +1414,7 @@ export function DetailedStatsTab({
                     </div>
                     <StatInsightSummary>
                       {insights.durationSummary}
+                      {cmpNote?.duration && <span className="block mt-1.5 pl-3 border-l-2" style={{ borderColor: COLOR_B }}>{cmpNote.duration}</span>}
                     </StatInsightSummary>
                     <div className="overflow-x-auto custom-scrollbar flex-1 w-full">
                       <table className="w-full min-w-[300px] text-left text-xs sm:text-sm whitespace-nowrap table-auto lg:table-fixed">
@@ -1354,6 +1423,7 @@ export function DetailedStatsTab({
                             <th className="px-4 sm:px-7 py-3.5 sm:py-4">방송 진행 시간</th>
                             <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-24 sm:w-28">횟수</th>
                             <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-24 sm:w-28">비율</th>
+                            {stats2 && <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-24 sm:w-28" style={{ color: COLOR_B }}>비교</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -1362,6 +1432,7 @@ export function DetailedStatsTab({
                               <td className="px-4 sm:px-7 py-3.5 sm:py-4 font-bold text-purple-600 dark:text-purple-300">{stat.label}</td>
                               <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-semibold text-emerald-600 dark:text-emerald-400">{stat.count}회</td>
                               <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-bold text-emerald-600 dark:text-emerald-400">{stat.probability.toFixed(1)}%</td>
+                              {stats2 && (() => { const x = stats2.durationStatsArray.find((d) => d.label === stat.label); return <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-bold" style={{ color: COLOR_B }}>{x ? `${x.probability.toFixed(1)}%` : '-'}</td>; })()}
                             </tr>
                           ))}
                         </tbody>
@@ -1381,6 +1452,12 @@ export function DetailedStatsTab({
                   endDate={endDate} 
                   onSelectDate={onNavigateToCalendar}
                 />
+                {range2 && (
+                  <div className="space-y-2">
+                    <CompareBadge range={range2} />
+                    <BroadcastHeatmap logs={logs2} startDate={range2.start} endDate={range2.end} onSelectDate={onNavigateToCalendar} />
+                  </div>
+                )}
 
                 {/* 요일별 방송 빈도 그래프 & 요일별 방송 확률 표 (그래프와 표 함께 캡처) */}
                 <div id="detailed-weekday-combo" className="bg-zinc-50/50 dark:bg-zinc-950/40 p-5 sm:p-6 rounded-[24px] border border-zinc-200/80 dark:border-zinc-800/80 relative space-y-4">
@@ -1390,13 +1467,14 @@ export function DetailedStatsTab({
                   </div>
                   <StatInsightSummary>
                     {insights.dailySummary}
+                    {cmpNote?.daily && <span className="block mt-1.5 pl-3 border-l-2" style={{ borderColor: COLOR_B }}>{cmpNote.daily}</span>}
                   </StatInsightSummary>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
                       <h4 className="font-bold mb-4">요일별 방송 빈도 그래프</h4>
                       <div className="h-[300px] w-full">
                         {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                          <BarChart data={stats.dailyStatsArray} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
                             <XAxis dataKey="day" stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} />
                             <YAxis stroke="#a1a1aa" fontSize={14} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}%`} />
@@ -1405,7 +1483,7 @@ export function DetailedStatsTab({
                               position={{ y: 0 }}
                               wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
                               allowEscapeViewBox={{ x: false, y: true }}
-                              content={<CustomTooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '방송 확률']} />} 
+                              content={<CustomTooltip formatter={(value: number, name: string) => [`${Number(value || 0).toFixed(1)}%`, name === 'probability2' ? '비교 기간' : '방송 확률']} />} 
                             />
                             <ReferenceLine y={stats.avgDaily} stroke="#f43f5e" strokeDasharray="3 3" label={{ position: 'top', value: `평균(${stats.avgDaily.toFixed(1)}%)`, fill: '#f43f5e', fontSize: 10 }} />
                             <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
@@ -1414,6 +1492,7 @@ export function DetailedStatsTab({
                                 <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
                               ))}
                             </Bar>
+                            {stats2 && <Bar dataKey="probability2" fill={COLOR_B} radius={[4, 4, 0, 0]} animationDuration={300} />}
                           </BarChart>
                         </ResponsiveContainer>)}
                       </div>
@@ -1428,6 +1507,7 @@ export function DetailedStatsTab({
                               <th className="px-4 sm:px-7 py-3.5 sm:py-4 w-1/3">요일</th>
                               <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-1/3">방송 횟수</th>
                               <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right w-1/3">확률</th>
+                              {stats2 && <th className="px-4 sm:px-7 py-3.5 sm:py-4 text-right" style={{ color: COLOR_B }}>비교</th>}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -1438,6 +1518,7 @@ export function DetailedStatsTab({
                                 <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
                                   {stat.probability.toFixed(1)}%
                                 </td>
+                                {stats2 && (() => { const x = stats2.dailyStatsArray.find((d) => d.day === stat.day); return <td className="px-4 sm:px-7 py-3.5 sm:py-4 text-right font-bold" style={{ color: COLOR_B }}>{x ? `${x.probability.toFixed(1)}%` : '-'}</td>; })()}
                               </tr>
                             ))}
                           </tbody>
@@ -1450,12 +1531,20 @@ export function DetailedStatsTab({
             )}
 
             {activeSubTab === 'category' && (
+<div className="space-y-6">
               <CategoryStatsTab 
                 logs={logsArray} 
                 isActive={isActive} 
                 onNavigateToCalendar={onNavigateToCalendar}
                 onNavigateToRecommend={onNavigateToRecommend}
               />
+              {range2 && (
+                <div className="space-y-3">
+                  <CompareBadge range={range2} />
+                  <CategoryStatsTab logs={logs2} isActive={isActive} onNavigateToCalendar={onNavigateToCalendar} onNavigateToRecommend={onNavigateToRecommend} />
+                </div>
+              )}
+              </div>
             )}
           </>
         )}
