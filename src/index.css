@@ -636,12 +636,9 @@ html.overlay-open { overscroll-behavior: none; }
 @keyframes ui-toast-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translate3d(0,12px,0) scale(.98); } }
 @media (prefers-reduced-motion: reduce) { .ui-toast, .ui-toast-out { animation-duration: .01s; } }
 
-/* 펼친 카드: 영상 아래 이음새 (영상 끝부분 반사광 + 지나가는 내용 흐림, 아래로 갈수록 투명) */
-.ai-card-seam {
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  backdrop-filter: blur(14px) saturate(1.2);
-  background: linear-gradient(to bottom, rgba(0,0,0,.3), rgba(0,0,0,0));
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 35%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 35%, transparent 100%);
-}
-.ai-card-seam-glow { transform: scaleY(-1) scale(1.15); filter: blur(22px) saturate(1.4); opacity: .55; }
+/* 펼친 카드: 영상 아래 이음새 — 지나가는 내용을 실시간으로 점점 흐리게 (흐림 세 겹을 서로 다른 높이로 겹쳐 단계 없이) */
+.ai-card-seam { background: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.6) 30%, rgba(0,0,0,0) 100%); }
+.ai-card-seam > span { position: absolute; inset: 0; }
+.ai-card-seam .seam-l1 { -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent 100%); mask-image: linear-gradient(to bottom, #000 40%, transparent 100%); }
+.ai-card-seam .seam-l2 { -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); -webkit-mask-image: linear-gradient(to bottom, #000 20%, transparent 70%); mask-image: linear-gradient(to bottom, #000 20%, transparent 70%); }
+.ai-card-seam .seam-l3 { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 45%); mask-image: linear-gradient(to bottom, #000 0%, transparent 45%); }

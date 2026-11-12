@@ -463,6 +463,7 @@ export const VideoCard = ({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (compExpand) { noteInterest(interestItem, 'engage'); expandCompilation(); return; }
                 onOpenBroadcastModal?.(video);
               }}
               className={cn(

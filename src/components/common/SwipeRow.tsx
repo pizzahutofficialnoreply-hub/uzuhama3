@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { motion, animate, useMotionValue, useMotionValueEvent } from 'motion/react';
+import { motion, animate, useMotionValue, useMotionValueEvent, useSpring } from 'motion/react';
 import { cn } from '../../utils';
 
 /**
@@ -59,11 +59,6 @@ export function SwipeRow({ left = [], right = [], radius = 24, disabled = false,
   const st = useRef<{ x0: number; y0: number; base: number; dir: 0 | 1 | 2; moved: boolean } | null>(null);
   const openAt = useRef(0);
   const armedRef = useRef<0 | -1 | 1>(0);
-  const armedChanged = useRef(false);
-  const armedAt = useRef(0);
-  const prevArmed = useRef<0 | -1 | 1>(0);
-  if (prevArmed.current !== armed) { prevArmed.current = armed; armedAt.current = performance.now(); }
-  armedChanged.current = performance.now() - armedAt.current < 280;
 
   useMotionValueEvent(x, 'change', (v) => setDx(v));
 
@@ -152,7 +147,7 @@ export function SwipeRow({ left = [], right = [], radius = 24, disabled = false,
     };
   }); // 매번 최신 actions 사용
 
-  const btnH = Math.max(52, Math.min(84, h - 16));
+  const btnH = Math.max(60, Math.min(96, h - 14));
   const side = (acts: SwipeAction[], sideDir: -1 | 1) => {
     const shown = sideDir === -1 ? Math.max(0, -dx) : Math.max(0, dx);
     if (shown <= 0) return null;
@@ -172,28 +167,17 @@ export function SwipeRow({ left = [], right = [], radius = 24, disabled = false,
           const grow = isArmed && isFull;
           const fade = isArmed && !isFull;
           return (
-            <button
+            <SwipeBtn
               key={a.key}
-              type="button"
-              data-swipe-btn
-              tabIndex={openAt.current === 0 ? -1 : 0}
-              onClick={(e) => { e.stopPropagation(); settle(0); a.onRun(); }}
-              className={cn('shrink-0 flex flex-col items-center justify-center gap-1 overflow-hidden font-bold text-[11.5px] shadow-sm cursor-pointer', a.tone)}
-              style={{
-                height: btnH,
-                width: grow ? growW : fade ? BTN_W * 0.6 : BTN_W,
-                borderRadius: radius,
-                opacity: fade ? 0.25 : Math.min(1, scale * 1.4),
-                transform: `scale(${fade ? 0.6 : 0.7 + 0.3 * scale})`,
-                // 끝까지 밀었을 때 넓어지고 줄어드는 것만 부드럽게 (손가락 따라가는 건 바로)
-                transition: armedChanged.current ? 'width .24s cubic-bezier(.2,.8,.2,1), opacity .2s, transform .24s cubic-bezier(.2,.8,.2,1)' : 'none',
-                willChange: 'width, transform, opacity',
-              }}
-              aria-label={a.label}
-            >
-              <span className="[&>svg]:w-5 [&>svg]:h-5">{a.icon}</span>
-              <span className="whitespace-nowrap">{a.label}</span>
-            </button>
+              a={a}
+              height={btnH}
+              radius={radius}
+              width={grow ? growW : fade ? BTN_W * 0.6 : BTN_W}
+              opacity={fade ? 0.25 : Math.min(1, scale * 1.4)}
+              scale={fade ? 0.6 : 0.7 + 0.3 * scale}
+              tabbable={openAt.current !== 0}
+              onPress={() => { settle(0); a.onRun(); }}
+            />
           );
         })}
       </div>
@@ -208,5 +192,32 @@ export function SwipeRow({ left = [], right = [], radius = 24, disabled = false,
         {children}
       </motion.div>
     </div>
+  );
+}
+
+/** 버튼 하나: 넓이·투명도·크기를 스프링으로 따라감 (끝까지 밀 때 넓어지는 게 중간에 끊기지 않게, 손가락 따라 계속 부드럽게) */
+function SwipeBtn({ a, height, radius, width, opacity, scale, tabbable, onPress }: {
+  a: SwipeAction; height: number; radius: number; width: number; opacity: number; scale: number; tabbable: boolean; onPress: () => void;
+}) {
+  const cfg = { stiffness: 900, damping: 60, mass: 0.6 };
+  const w = useSpring(width, cfg);
+  const o = useSpring(opacity, cfg);
+  const sc = useSpring(scale, cfg);
+  useEffect(() => { w.set(width); }, [width, w]);
+  useEffect(() => { o.set(opacity); }, [opacity, o]);
+  useEffect(() => { sc.set(scale); }, [scale, sc]);
+  return (
+    <motion.button
+      type="button"
+      data-swipe-btn
+      tabIndex={tabbable ? 0 : -1}
+      onClick={(e) => { e.stopPropagation(); onPress(); }}
+      className={cn('shrink-0 flex flex-col items-center justify-center gap-1 overflow-hidden font-bold text-[12px] shadow-sm cursor-pointer', a.tone)}
+      style={{ height, width: w, opacity: o, scale: sc, borderRadius: radius }}
+      aria-label={a.label}
+    >
+      <span className="[&>svg]:w-[22px] [&>svg]:h-[22px]">{a.icon}</span>
+      <span className="whitespace-nowrap">{a.label}</span>
+    </motion.button>
   );
 }

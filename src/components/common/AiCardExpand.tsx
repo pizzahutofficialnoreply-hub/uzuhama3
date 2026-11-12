@@ -93,7 +93,24 @@ export function AiCardExpandHost() {
   const dragRadius = useTransform(dragY, [0, 120], [0, 28]);
   const shadeOpacity = useTransform(dragY, [0, 400], [1, 0.25]);
   const scrollEl = useRef<HTMLDivElement | null>(null);
-  const drag = useRef<{ y0: number; on: boolean; dead: boolean } | null>(null);
+  const drag = useRef<{ y0: number; x0: number; on: boolean; dead: boolean; video: boolean; moved: boolean } | null>(null);
+  /** 재생기 상태 (1 재생, 2 멈춤) — 영상 위를 누르면 재생/멈춤 */
+  const ytState = useRef(-1);
+  useEffect(() => {
+    const on = (ev: MessageEvent) => {
+      if (!frame.current || ev.source !== frame.current.contentWindow) return;
+      try { const d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data; const st = d?.info?.playerState ?? (d?.event === 'onStateChange' ? d.info : undefined); if (typeof st === 'number') ytState.current = st; } catch { /* */ }
+    };
+    window.addEventListener('message', on);
+    return () => window.removeEventListener('message', on);
+  }, []);
+  const togglePlayback = () => {
+    const w = frame.current?.contentWindow;
+    if (!w) return;
+    const playing = ytState.current === 1 || ytState.current === 3;
+    w.postMessage(JSON.stringify({ event: 'command', func: playing ? 'pauseVideo' : 'playVideo', args: [] }), '*');
+    ytState.current = playing ? 2 : 1;
+  };
 
   useEffect(() => {
     const on = (e: any) => {
@@ -129,21 +146,26 @@ export function AiCardExpandHost() {
     // 내용이 맨 위일 때만 (아래로 스크롤해 둔 상태면 그냥 스크롤)
     const atTop = (scrollEl.current?.scrollTop || 0) <= 0;
     const el = e.target as HTMLElement;
-    drag.current = { y0: e.touches[0].clientY, on: false, dead: !atTop || Boolean(el.closest('[data-swipe-row] [data-swipe-btn], input, textarea')) };
+    // 영상 위에서 끌어 내려도 닫힘 (내용 스크롤 위치와 상관없이)
+    const video = Boolean(el.closest('[data-video-drag]'));
+    drag.current = { y0: e.touches[0].clientY, x0: e.touches[0].clientX, on: false, video, moved: false, dead: (!atTop && !video) || Boolean(el.closest('[data-swipe-row] [data-swipe-btn], input, textarea')) };
   };
   const onTouchMove = (e: React.TouchEvent) => {
     const d = drag.current;
     if (!d || d.dead) return;
     const dy = e.touches[0].clientY - d.y0;
+    if (Math.abs(dy) > 6 || Math.abs(e.touches[0].clientX - d.x0) > 6) d.moved = true;
     if (!d.on) {
-      if (dy > 8 && (scrollEl.current?.scrollTop || 0) <= 0) d.on = true;
+      if (dy > 8 && (d.video || (scrollEl.current?.scrollTop || 0) <= 0)) d.on = true;
       else if (dy < -4) { d.dead = true; return; } else return;
     }
     dragY.set(Math.max(0, dy - 8));
   };
-  const onTouchEnd = () => {
+  const onTouchEnd = (e?: React.TouchEvent) => {
     const d = drag.current;
     drag.current = null;
+    // 영상 위를 톡 누르면 재생/멈춤
+    if (d?.video && !d.moved && !d.on) { e?.preventDefault?.(); togglePlayback(); return; }
     if (!d?.on) return;
     if (dragY.get() > DRAG_CLOSE) close();
     else animate(dragY, 0, { type: 'spring', stiffness: 500, damping: 40 });
@@ -210,7 +232,12 @@ export function AiCardExpandHost() {
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                 />
-              ) : (
+              ) : null}
+              {/* 영상 위 투명 막: 끌어 내리면 닫기, 톡 누르면 재생/멈춤 (아래 조작 막대 자리는 비워 둠) */}
+              {play && settled && (
+                <div data-video-drag className="absolute inset-x-0 top-0 bottom-12 z-[5] cursor-pointer" onClick={(e) => { if (e.detail > 0 && !('ontouchstart' in window)) togglePlayback(); }} aria-hidden />
+              )}
+              {play ? null : (
                 <button type="button" onClick={() => setPlay({ t: 0 })} className="absolute inset-0 w-full h-full cursor-pointer" aria-label="여기서 재생">
                   <img src={t.thumb || `https://img.youtube.com/vi/${t.id}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />
                   <AnimatePresence>{settled && <motion.span initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 flex items-center justify-center bg-black/10"><GlassPlayButton size="md" /></motion.span>}</AnimatePresence>
@@ -221,8 +248,9 @@ export function AiCardExpandHost() {
 
             <div className="relative flex-1 min-h-0">
             {/* 영상과 아래 내용 사이: 영상 아랫부분이 비치는 빛 + 밑으로 지나가는 내용은 흐리게 (한 덩어리로 이어 보이게) */}
-            <div className="ai-card-seam pointer-events-none absolute inset-x-0 top-0 z-10 h-14 overflow-hidden" aria-hidden>
-              <img src={t.thumb || `https://img.youtube.com/vi/${t.id}/mqdefault.jpg`} alt="" className="ai-card-seam-glow absolute inset-0 w-full h-full object-cover object-bottom" />
+            {/* 영상 바로 아래: 밑으로 지나가는 내용을 실시간으로 흐리게 (위로 갈수록 더 흐리고 어둡게, 단계 없이 이어지게) */}
+            <div className="ai-card-seam pointer-events-none absolute inset-x-0 top-0 z-10 h-[72px]" aria-hidden>
+              <span className="seam-l1" /><span className="seam-l2" /><span className="seam-l3" />
             </div>
             <motion.div ref={scrollEl} className="absolute inset-0 overflow-y-auto overscroll-contain" initial={{ opacity: 0.35 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: closing ? 0.14 : 0.24 }}>
               <div className="px-5 pt-9 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
