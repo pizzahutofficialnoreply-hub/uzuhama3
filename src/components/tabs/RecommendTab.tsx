@@ -1,3 +1,4 @@
+import { chooseSheet } from '../../utils/ui';
 import { ChevronRight } from 'lucide-react';
 import { VideoSwipe } from '../common/VideoSwipe';
 import { useAiDone } from '../common/AiSummaryHost';
@@ -115,7 +116,10 @@ export const VideoCard = ({
   isCompact = false,
   isExpanded = false,
   linkedShorts,
+  onShowLiveOn,
 }: { 
+  /** 생방일을 눌렀을 때 '검색 탭의 라이브에서 그 날 생방 보기' (없으면 기록 탭으로 바로) */
+  onShowLiveOn?: (dateStr: string) => void;
   /** 이 영상과 연결된 쇼츠 (쇼츠 아래에 이 영상이 걸린 것) */
   linkedShorts?: { url: string; title?: string }[];
   video: any;
@@ -415,12 +419,20 @@ export const VideoCard = ({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  if (mostRecentDate || displayDate) {
-                    onNavigateToCalendar?.(mostRecentDate || displayDate);
-                  }
+                  const d = mostRecentDate || displayDate;
+                  if (!d) return;
+                  // 생방송 다시보기 카드가 아니면: 기록 탭으로 갈지, 검색 탭 라이브에서 그 날 생방을 볼지 고름
+                  if (!onShowLiveOn || video.isLive) { onNavigateToCalendar?.(d); return; }
+                  void chooseSheet({
+                    title: `${d} 생방송`,
+                    options: [
+                      { value: 'live', label: '라이브 탭에서 이 생방 보기', desc: '검색 탭 안에서 그 날 생방송 다시보기를 바로 보여 줘요.' },
+                      { value: 'cal', label: '기록 탭에서 이 날 보기', desc: '방송 기록 표와 달력에서 그 날을 열어요.' },
+                    ],
+                  }).then((v) => { if (v === 'live') onShowLiveOn(d); else if (v === 'cal') onNavigateToCalendar?.(d); });
                 }}
                 className={cn("bg-black/80 hover:bg-black/95 text-white font-normal rounded backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-colors shadow-sm select-none whitespace-nowrap", isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-2 py-1")}
-                title="클릭하여 방송 목록 해당일로 이동"
+                title="눌러서 이 날 생방송 보기"
               >
                 <span>생방일: {mostRecentDate || displayDate}</span>
               </button>
@@ -2714,6 +2726,7 @@ export function RecommendTab({
                           linkedShorts={shortsByVideo.get(extractYoutubeId(video.videoUrl || '') || video.id)}
                           allLogs={data?.logs} 
                           onNavigateToCalendar={onNavigateToCalendar} 
+                          onShowLiveOn={(d) => { changeSubTab('live'); setSearchTerm(d); setHasSearched(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                           onOpenBroadcastModal={(v) => setSelectedBroadcastModalVideo(v)}
                           isExpanded={false}
                           isCompact={mobileViewMode === '2'}

@@ -249,11 +249,11 @@ export function AiCardExpandHost() {
             <div className="relative flex-1 min-h-0">
             {/* 영상과 아래 내용 사이: 영상 아랫부분이 비치는 빛 + 밑으로 지나가는 내용은 흐리게 (한 덩어리로 이어 보이게) */}
             {/* 영상 바로 아래: 밑으로 지나가는 내용을 실시간으로 흐리게 (위로 갈수록 더 흐리고 어둡게, 단계 없이 이어지게) */}
-            <div className="ai-card-seam pointer-events-none absolute inset-x-0 top-0 z-10 h-[72px]" aria-hidden>
+            <div className="ai-card-seam pointer-events-none absolute inset-x-0 top-0 z-10 h-11" aria-hidden>
               <span className="seam-l1" /><span className="seam-l2" /><span className="seam-l3" />
             </div>
             <motion.div ref={scrollEl} className="absolute inset-0 overflow-y-auto overscroll-contain" initial={{ opacity: 0.35 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: closing ? 0.14 : 0.24 }}>
-              <div className="px-5 pt-9 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
+              <div className="px-5 pt-16 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
                 <h2 className="text-[16px] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
                 {t.sub && <p className="mt-1 text-[12px] text-zinc-500 tabular-nums">{t.sub}</p>}
 

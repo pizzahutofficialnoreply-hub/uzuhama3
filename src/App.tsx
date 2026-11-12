@@ -1,4 +1,4 @@
-import { Skeleton, CardSkeleton } from './components/common/Skeleton';
+import { CalendarTabSkeleton, StatsTabSkeleton, SearchTabSkeleton } from './components/common/Skeleton';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -26,12 +26,6 @@ const CalendarTab = lazy(() => loadCalendarTab().then((m) => ({ default: m.Calen
 const DetailedStatsTab = lazy(() => loadDetailedTab().then((m) => ({ default: m.DetailedStatsTab })));
 const RecommendTab = lazy(() => loadRecommendTab().then((m) => ({ default: m.RecommendTab })));
 const onboardingSeenVersion = () => { try { return Number(localStorage.getItem('uzuhama_onboarding_version') || 0); } catch { return 0; } };
-const TabSpinner = () => (
-  <div className="py-4 space-y-5" role="status" aria-label="불러오는 중">
-    <div className="flex gap-2"><Skeleton className="h-9 w-24 rounded-full" /><Skeleton className="h-9 w-24 rounded-full" /><Skeleton className="h-9 w-20 rounded-full" /></div>
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{[0, 1, 2, 3, 4, 5].map((i) => <CardSkeleton key={i} />)}</div>
-  </div>
-);
 import { NoticeModal } from './components/NoticeModal';
 import { NoticeBanner } from './components/NoticeBanner';
 import { HeaderDday } from './components/common/HeaderDday';
@@ -1295,7 +1289,7 @@ function MainApp() {
               </div>
  {mountedTabs.has('calendar') && (
               <div id="calendar-tab-view" className={activeTab === 'calendar' ? 'block' : 'hidden'}>
-                <Suspense fallback={<TabSpinner />}>
+                <Suspense fallback={<CalendarTabSkeleton />}>
                 <CalendarTab 
                   data={data} 
                   fetchLogs={fetchLogsByDateRange} 
@@ -1308,7 +1302,7 @@ function MainApp() {
               )}
               {mountedTabs.has('detailed') && (
               <div id="detailed-tab-view" className={activeTab === 'detailed' ? 'block' : 'hidden'}>
-                <Suspense fallback={<TabSpinner />}>
+                <Suspense fallback={<StatsTabSkeleton />}>
                 <DetailedStatsTab 
                   data={data} 
                   fetchLogs={fetchLogsByDateRange} 
@@ -1321,7 +1315,7 @@ function MainApp() {
               )}
               {mountedTabs.has('recommend') && (
               <div id="recommend-tab-view" className={activeTab === 'recommend' ? 'block' : 'hidden'}>
-                <Suspense fallback={<TabSpinner />}>
+                <Suspense fallback={<SearchTabSkeleton />}>
                 <RecommendTab 
                   data={data} 
                   rateVideo={rateVideo} 

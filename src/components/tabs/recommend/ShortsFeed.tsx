@@ -1,3 +1,4 @@
+import { Skeleton } from '../../common/Skeleton';
 import { useYoutubeViews } from '../../../hooks/useYoutubeViews';
 import React, { useEffect, useMemo, useState } from 'react';
 import { fuzzyKoreanMatch } from '../../../utils';
@@ -323,7 +324,15 @@ export function ShortsFeed({ logs, searchTerm, plan, chosung = true, exclude, se
           ))}
         </div>
       </div>
-      {filtered.length === 0 && (
+      {/* 아직 쇼츠 목록을 받는 중: 쇼츠 모양 자리 */}
+      {allShorts.length === 0 && (
+        <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-3 gap-y-5" role="status" aria-label="쇼츠를 불러오는 중">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="space-y-2"><Skeleton className="w-full aspect-[9/16] rounded-2xl" /><Skeleton className="h-3.5 w-11/12" /><Skeleton className="h-3 w-1/2" /></div>
+          ))}
+        </div>
+      )}
+      {filtered.length === 0 && allShorts.length > 0 && (
         <div className="py-12 text-center text-sm text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px]">
           {emptyText}
         </div>

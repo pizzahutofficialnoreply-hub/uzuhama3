@@ -1893,7 +1893,8 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                     {(Boolean(log.time) || (log.durationHours && log.durationHours > 0)) ? (
                       <div className="text-zinc-500 dark:text-zinc-400 text-xs mt-1.5 leading-relaxed">
                         {formatTimeRange(log.time, log.endTime, log.durationHours)}
-                        {log.durationHours && log.durationHours > 0 ? ` (${formatDuration(log.durationHours)})` : ''}
+                        {/* 방송 길이는 다음 줄로 (옆 게임 이름 칸과 겹치지 않게) */}
+                        {log.durationHours && log.durationHours > 0 ? <span className="block">({formatDuration(log.durationHours)})</span> : null}
                       </div>
                     ) : null}
                   </td>
