@@ -619,6 +619,7 @@ export function RecommendTab({
   onSearchTermChange?: (term: string) => void;
 }) {
 // const { data } = useFirebaseData();
+  const labCardOn = usePrefs().labAiCard;
   const [internalSearchTerm, setInternalSearchTerm] = useState(() => sessionStorage.getItem('rec_searchTerm') || '');
   const searchTerm = propSearchTerm !== undefined ? propSearchTerm : internalSearchTerm;
   const setSearchTerm = (term: string) => {
@@ -2628,7 +2629,10 @@ export function RecommendTab({
                           lives={!video.isLive && !video.isCompilation ? liveLinksFor(video, data?.logs) : undefined}
                           edits={video.isLive ? video.liveEdits : undefined}
                           interest={videoInterestItem(video)}
-                          onLiveClick={video.isCompilation ? toggle : undefined}
+                          onLiveClick={video.isCompilation ? (labCardOn ? () => openAiCard(ytId, video.videoTitle || '', document.querySelector(`[data-ai-card="${ytId}"]`), `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임`, {
+                            compilation: true,
+                            extra: (close) => <CompilationDetail video={video} allLogs={data?.logs} onClose={close} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} listOnly />,
+                          }) : toggle) : undefined}
                           liveActive={isExpanded}
                           shorts={mergeShorts(shortsByVideo.get(ytId), !isMulti ? video.parentLog?.shorts : [])}
                           shareText={() => formatRecommendShareText(video, data?.logs)}

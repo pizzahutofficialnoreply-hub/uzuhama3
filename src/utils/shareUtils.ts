@@ -3,41 +3,9 @@
  * Toast helper for showing brief notification
  */
 function showSimpleToast(message: string) {
-  if (typeof document === 'undefined') return;
-  const existing = document.getElementById('simple-share-toast');
-  if (existing) {
-    existing.remove();
-  }
-
-  const toast = document.createElement('div');
-  toast.id = 'simple-share-toast';
-  toast.textContent = message;
-  toast.style.position = 'fixed';
-  toast.style.bottom = '90px';
-  toast.style.left = '50%';
-  toast.style.transform = 'translateX(-50%)';
-  toast.style.backgroundColor = 'rgba(24, 24, 27, 0.92)';
-  toast.style.color = '#ffffff';
-  toast.style.padding = '10px 18px';
-  toast.style.borderRadius = '9999px';
-  toast.style.fontSize = '13px';
-  toast.style.fontWeight = '600';
-  toast.style.zIndex = '9999';
-  toast.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.25)';
-  toast.style.pointerEvents = 'none';
-  toast.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
-  toast.style.opacity = '0';
-
-  document.body.appendChild(toast);
-  requestAnimationFrame(() => {
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateX(-50%) translateY(-4px)';
-  });
-
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    setTimeout(() => toast.remove(), 250);
-  }, 2200);
+  // 앱 공통 토스트로 (따로 만든 토스트가 겹쳐 깜빡이던 문제)
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('uzuhama-toast', { detail: message }));
 }
 
 /**

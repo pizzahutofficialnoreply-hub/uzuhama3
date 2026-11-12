@@ -12,7 +12,7 @@ import { cn } from '../../utils';
  *  - 토스트: 안내만 하는 알림 (예전 alert 창 대신). 화면 아래에 잠깐 떴다 사라짐, 눌러서 닫기
  *  - 확인 시트: 고르거나 지우는 것처럼 선택이 필요한 확인 (예전 confirm 창 대신). 밑에서 올라옴
  */
-type ToastItem = { id: number; text: string; kind: 'info' | 'success' | 'error' };
+type ToastItem = { id: number; text: string; kind: 'info' | 'success' | 'error'; out?: boolean };
 let seq = 0;
 
 const kindOf = (t: string): ToastItem['kind'] =>
@@ -23,6 +23,11 @@ export function UiHost() {
   const [confirm, setConfirm] = useState<(ConfirmOpts & { resolve: (v: boolean) => void }) | null>(null);
   const okRef = useRef<HTMLButtonElement>(null);
 
+  // 사라질 때: 표시만 바꿔 CSS 로 흐려지며 내려간 뒤 지움 (애니메이션 라이브러리의 퇴장 처리에서 깜빡이던 문제)
+  const dismissToast = (id: number) => {
+    setToasts((list) => list.map((x) => (x.id === id ? { ...x, out: true } : x)));
+    window.setTimeout(() => setToasts((list) => list.filter((x) => x.id !== id)), 260);
+  };
   useEffect(() => {
     const on = (e: Event) => {
       const d: any = (e as CustomEvent).detail;
@@ -31,7 +36,7 @@ export function UiHost() {
       const kind: ToastItem['kind'] = (typeof d === 'object' && d?.kind) || kindOf(text);
       const id = ++seq;
       setToasts((list) => [...list.filter((x) => x.text !== text), { id, text, kind }].slice(-3));
-      window.setTimeout(() => setToasts((list) => list.filter((x) => x.id !== id)), Math.min(7000, 2400 + text.length * 55));
+      window.setTimeout(() => dismissToast(id), Math.min(7000, 2400 + text.length * 55));
     };
     window.addEventListener(TOAST_EVENT, on);
     return () => window.removeEventListener(TOAST_EVENT, on);
@@ -71,27 +76,20 @@ export function UiHost() {
   return createPortal(
     <>
       <div className="fixed left-0 right-0 bottom-[calc(96px+env(safe-area-inset-bottom))] z-[600] flex flex-col items-center gap-2 px-4 pointer-events-none" aria-live="polite">
-        <AnimatePresence initial={false}>
-          {toasts.map((t) => {
-            const I = Icon[t.kind];
-            return (
-              <motion.button
-                key={t.id}
-                type="button"
-                // 끊김 없게: 위치 다시 계산(layout)·뒤 흐림 없이 transform·opacity 만
-                initial={{ y: 24, opacity: 0, scale: 0.97 }}
-                animate={{ y: 0, opacity: 1, scale: 1, transition: { duration: 0.34, ease: [0.22, 1, 0.36, 1] } }}
-                exit={{ y: 10, opacity: 0, scale: 0.98, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } }}
-                style={{ willChange: 'transform, opacity' }}
-                onClick={() => setToasts((list) => list.filter((x) => x.id !== t.id))}
-                className="pointer-events-auto max-w-[min(92vw,480px)] flex items-start gap-2.5 pl-3.5 pr-4 py-2.5 rounded-2xl bg-zinc-900 dark:bg-zinc-800 text-white text-sm shadow-[0_8px_24px_rgba(0,0,0,0.22)] text-left cursor-pointer"
-              >
-                <I className={cn('w-4 h-4 mt-0.5 shrink-0', t.kind === 'error' ? 'text-red-400' : t.kind === 'success' ? 'text-emerald-400' : 'text-purple-300')} />
-                <span className="font-semibold whitespace-pre-line break-keep leading-snug">{t.text}</span>
-              </motion.button>
-            );
-          })}
-        </AnimatePresence>
+        {toasts.map((t) => {
+          const I = Icon[t.kind];
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => dismissToast(t.id)}
+              className={cn('ui-toast pointer-events-auto max-w-[min(92vw,480px)] flex items-start gap-2.5 pl-3.5 pr-4 py-2.5 rounded-2xl bg-zinc-900 dark:bg-zinc-800 text-white text-sm text-left cursor-pointer', t.out && 'ui-toast-out')}
+            >
+              <I className={cn('w-4 h-4 mt-0.5 shrink-0', t.kind === 'error' ? 'text-red-400' : t.kind === 'success' ? 'text-emerald-400' : 'text-purple-300')} />
+              <span className="font-semibold whitespace-pre-line break-keep leading-snug">{t.text}</span>
+            </button>
+          );
+        })}
       </div>
 
       <AnimatePresence>

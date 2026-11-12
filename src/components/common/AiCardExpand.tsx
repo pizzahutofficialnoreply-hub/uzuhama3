@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, animate, useMotionValue, useTransform } from 'motion/react';
 import { ChevronDown, EyeOff, Eye, Sparkles, X } from 'lucide-react';
 import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { useBackToClose } from '../../hooks/useBackToClose';
@@ -53,23 +53,26 @@ function safeInsets(): { top: number; bottom: number } {
   } catch { return { top: 0, bottom: 0 }; }
 }
 
+/** 전체 화면 (넓은 화면은 가운데 세로로 꽉) */
 function finalRect(): Rect {
   const vw = window.innerWidth, vh = window.innerHeight;
-  const mobile = vw < 640;
-  const width = Math.min(560, vw - (mobile ? 16 : 48));
-  const sa = safeInsets();
-  const top = sa.top + (mobile ? 8 : 24);
-  const bottom = sa.bottom + (mobile ? 8 : 24);
-  return { top, left: (vw - width) / 2, width, height: vh - top - bottom };
+  const width = vw < 640 ? vw : Math.min(640, vw - 48);
+  return { top: 0, left: (vw - width) / 2, width, height: vh };
 }
 
-/** 카드 자리(from)를 펼친 카드(to) 기준의 변환으로: 폭을 맞춰 같은 비율로 줄이고 아래는 잘라서 원래 카드 모양 */
-function fromTransform(f: Rect, to: Rect, radius = 24) {
+/** 카드 자리(from)를 펼친 화면(to) 기준의 변환으로: 폭을 맞춰 같은 비율로 줄이고 위(상태 표시줄 칸)·아래는 잘라서 원래 카드 모양 */
+function fromTransform(f: Rect, to: Rect, safeTop: number, radius = 24) {
   const s = Math.max(0.05, f.width / to.width);
-  const visibleH = Math.min(to.height, f.height / s);
-  return { x: f.left - to.left, y: f.top - to.top, scale: s, clipPath: `inset(0px 0px ${Math.max(0, to.height - visibleH)}px 0px round ${radius / s}px)` };
+  const visibleH = Math.min(to.height - safeTop, f.height / s);
+  return {
+    x: f.left - to.left,
+    y: f.top - to.top - safeTop * s,
+    scale: s,
+    clipPath: `inset(${safeTop}px 0px ${Math.max(0, to.height - safeTop - visibleH)}px 0px round ${radius / s}px)`,
+  };
 }
-const OPEN_SHAPE = { x: 0, y: 0, scale: 1, clipPath: 'inset(0px 0px 0px 0px round 28px)' };
+const OPEN_SHAPE = { x: 0, y: 0, scale: 1, clipPath: 'inset(0px 0px 0px 0px round 0px)' };
+const DRAG_CLOSE = 110;
 
 export function AiCardExpandHost() {
   const [t, setT] = useState<Target | null>(null);
@@ -83,10 +86,18 @@ export function AiCardExpandHost() {
   const [settled, setSettled] = useState(false);
   const frame = useRef<HTMLIFrameElement | null>(null);
   const back = useRef<Rect | null>(null);
+  const [safeTop, setSafeTop] = useState(0);
+  // 위에서 아래로 끌어 내리면 닫기
+  const dragY = useMotionValue(0);
+  const dragScale = useTransform(dragY, [0, 600], [1, 0.86]);
+  const dragRadius = useTransform(dragY, [0, 120], [0, 28]);
+  const shadeOpacity = useTransform(dragY, [0, 400], [1, 0.25]);
+  const scrollEl = useRef<HTMLDivElement | null>(null);
+  const drag = useRef<{ y0: number; on: boolean; dead: boolean } | null>(null);
 
   useEffect(() => {
     const on = (e: any) => {
-      setTo(finalRect()); setT(e.detail); setClosing(false); setData(null); setOpen(true); setPlay(null); setSettled(false); back.current = null;
+      setTo(finalRect()); setSafeTop(safeInsets().top); dragY.set(0); setT(e.detail); setClosing(false); setData(null); setOpen(true); setPlay(null); setSettled(false); back.current = null;
       // 원래 카드는 들려 올라간 것처럼 자리만 남김
       try { if (e.detail?.src) e.detail.src.style.visibility = 'hidden'; } catch { /* */ }
     };
@@ -111,6 +122,31 @@ export function AiCardExpandHost() {
     setPlay(null);
     setSettled(false);
     setClosing(true);
+    animate(dragY, 0, { duration: 0.3, ease: [0.4, 0, 0.2, 1] });
+  };
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (closing || e.touches.length !== 1) { drag.current = null; return; }
+    // 내용이 맨 위일 때만 (아래로 스크롤해 둔 상태면 그냥 스크롤)
+    const atTop = (scrollEl.current?.scrollTop || 0) <= 0;
+    const el = e.target as HTMLElement;
+    drag.current = { y0: e.touches[0].clientY, on: false, dead: !atTop || Boolean(el.closest('[data-swipe-row] [data-swipe-btn], input, textarea')) };
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const d = drag.current;
+    if (!d || d.dead) return;
+    const dy = e.touches[0].clientY - d.y0;
+    if (!d.on) {
+      if (dy > 8 && (scrollEl.current?.scrollTop || 0) <= 0) d.on = true;
+      else if (dy < -4) { d.dead = true; return; } else return;
+    }
+    dragY.set(Math.max(0, dy - 8));
+  };
+  const onTouchEnd = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d?.on) return;
+    if (dragY.get() > DRAG_CLOSE) close();
+    else animate(dragY, 0, { type: 'spring', stiffness: 500, damping: 40 });
   };
   useBackToClose(Boolean(t) && !closing, close);
   useEffect(() => {
@@ -137,24 +173,33 @@ export function AiCardExpandHost() {
     if (closing) {
       try { if (t?.src) t.src.style.visibility = ''; } catch { /* */ }
       setT(null); setClosing(false);
-    } else setSettled(true);
+    } else {
+      setSettled(true);
+      // 펼쳐지면 바로 재생
+      setPlay((p) => p || { t: 0 });
+    }
   };
 
   return createPortal(
     <AnimatePresence>
       {t && (
         <motion.div key="ai-card" className="fixed inset-0 z-[320]" initial={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0 } }}>
-          <motion.div className="absolute inset-0 bg-black/55" initial={{ opacity: 0 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: 0.25 }} onClick={close} />
+          <motion.div className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: closing ? 0.3 : 0.35 }} onClick={close}>
+            <motion.div className="absolute inset-0 bg-black" style={{ opacity: shadeOpacity }} />
+          </motion.div>
           <motion.div
             role="dialog" aria-modal="true" aria-label={`${t.title} · 펼쳐 보기`} data-testid="ai-card"
-            initial={fromTransform(t.from, to)}
-            animate={closing ? fromTransform(back.current || t.from, to) : OPEN_SHAPE}
+            initial={fromTransform(t.from, to, safeTop)}
+            animate={closing ? fromTransform(back.current || t.from, to, safeTop) : OPEN_SHAPE}
             transition={closing ? CLOSE_T : OPEN_T}
             onAnimationComplete={finish}
             style={{ top: to.top, left: to.left, width: to.width, height: to.height, transformOrigin: '0 0', willChange: 'transform, clip-path' }}
-            className="fixed overflow-hidden bg-white dark:bg-zinc-900 flex flex-col"
+            className="fixed"
+            onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}
           >
-            {/* 맨 위: 바로 재생 */}
+           <motion.div className="dark absolute inset-0 overflow-hidden bg-black text-white flex flex-col" style={{ y: dragY, scale: dragScale, borderRadius: dragRadius, transformOrigin: '50% 0%' }}>
+            {/* 상태 표시줄 칸 + 맨 위: 바로 재생 */}
+            <div className="shrink-0 bg-black" style={{ height: 'env(safe-area-inset-top)' }} />
             <div className="relative w-full aspect-video bg-black shrink-0">
               {play ? (
                 <iframe
@@ -174,7 +219,7 @@ export function AiCardExpandHost() {
               <button type="button" onClick={close} style={{ opacity: settled ? 1 : 0, transition: 'opacity .2s' }} className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/65 hover:bg-black text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
             </div>
 
-            <motion.div className="flex-1 min-h-0 overflow-y-auto overscroll-contain" initial={{ opacity: 0.35 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: closing ? 0.14 : 0.24 }}>
+            <motion.div ref={scrollEl} className="flex-1 min-h-0 overflow-y-auto overscroll-contain" initial={{ opacity: 0.35 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: closing ? 0.14 : 0.24 }}>
               <div className="px-5 pt-4 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
                 <h2 className="text-[16px] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
                 {t.sub && <p className="mt-1 text-[12px] text-zinc-500 tabular-nums">{t.sub}</p>}
@@ -219,6 +264,7 @@ export function AiCardExpandHost() {
                 {t.extra && <div className="mt-4 -mx-3">{t.extra(close)}</div>}
               </div>
             </motion.div>
+           </motion.div>
           </motion.div>
         </motion.div>
       )}

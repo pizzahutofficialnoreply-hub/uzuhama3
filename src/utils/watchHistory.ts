@@ -140,6 +140,12 @@ export function trackYoutubeFrame(f: HTMLIFrameElement | null) {
 
 /** 퍼가기 주소: 재생 위치를 받을 수 있게 하고, 보던 곳부터 */
 export function embedSrc(id: string, params: Record<string, string | number> = {}) {
+  // 이미 재생 중인 같은 영상이 있으면 그 주소 그대로: 재생 위치가 5초마다 저장되면서 '이어 볼 위치'가 바뀌어
+  // 화면이 다시 그려질 때 주소가 달라지면 재생기가 새로 불러와져 멈추던 문제
+  if (!('start' in params) && typeof document !== 'undefined') {
+    const ex = Array.from(document.querySelectorAll('iframe')).find((f) => (f.getAttribute('src') || '').includes(`/embed/${id}?`));
+    if (ex) return ex.getAttribute('src') as string;
+  }
   const start = resumeAt(id);
   const q = new URLSearchParams({ autoplay: '1', rel: '0', playsinline: '1', enablejsapi: '1', origin: typeof window !== 'undefined' ? window.location.origin : '', ...(start ? { start: String(start) } : {}), ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])) });
   return `https://www.youtube.com/embed/${id}?${q.toString()}`;
