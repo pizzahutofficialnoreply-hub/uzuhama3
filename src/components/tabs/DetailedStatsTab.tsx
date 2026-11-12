@@ -59,7 +59,7 @@ import { Download, FileText, AlertCircle, X, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BroadcastHeatmap } from '../stats/BroadcastHeatmap';
 import { CategoryStatsTab } from '../stats/CategoryStatsTab';
-import { CompareStats } from '../stats/CompareStats';
+import { CompareSection, presets as comparePresets, COLOR_A, COLOR_B, type Range as CmpRange } from '../stats/CompareStats';
 import { SmartTrendLabel } from '../stats/SmartTrendLabel';
 import { StatInsightSummary } from '../stats/StatInsightSummary';
 import { WidgetShareButton } from '../common/WidgetShareButton';
@@ -114,9 +114,10 @@ export function DetailedStatsTab({
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [activeSubTab, setActiveSubTab] = useState<'trend' | 'day' | 'category'>('trend');
-  // 비교: 기간 두 개를 겹쳐 보기 (위 조회 기간과 따로)
-  const [compare, setCompare] = useState(false);
-  const selectSub = (t: 'trend' | 'day' | 'category') => { setCompare(false); setActiveSubTab(t); };
+  // 비교: 날짜 옆 + 로 기간 하나를 더 고르면 지금 분석 위에 덧씌워 비교
+  const [range2, setRange2] = useState<CmpRange | null>(null);
+  const compare = false;
+  const selectSub = (t: 'trend' | 'day' | 'category') => setActiveSubTab(t);
   const [downloadConfirm, setDownloadConfirm] = useState<'csv' | 'pdf' | null>(null);
   useBodyScrollLock(Boolean(downloadConfirm));
   useEffect(() => {
@@ -136,7 +137,7 @@ export function DetailedStatsTab({
 
   const previousRangeBeforePresetRef = useRef<{ start: string; end: string } | null>(null);
 
-  const handleApplyPreset = (preset: '30d' | '1y' | '5y' | 'all') => {
+  const handleApplyPreset = (preset: 'ty' | '30d' | '1y' | '5y' | 'all') => {
     // 이미 선택된 프리셋을 한 번 더 클릭하면 프리셋 누르기 전 상태로 취소 복귀
     if (activePreset === preset) {
       if (previousRangeBeforePresetRef.current) {
@@ -161,7 +162,9 @@ export function DetailedStatsTab({
     let newStart = '';
     let newEnd = todayStr;
 
-    if (preset === '30d') {
+    if (preset === 'ty') {
+      newStart = `${today.getFullYear()}-01-01`;
+    } else if (preset === '30d') {
       newStart = format(subDays(today, 30), 'yyyy-MM-dd');
     } else if (preset === '1y') {
       newStart = format(subYears(today, 1), 'yyyy-MM-dd');
@@ -179,7 +182,7 @@ export function DetailedStatsTab({
     }
   };
 
-  const activePreset = useMemo<'30d' | '1y' | '5y' | 'all' | null>(() => {
+  const activePreset = useMemo<'ty' | '30d' | '1y' | '5y' | 'all' | null>(() => {
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd');
     const d30Start = format(subDays(today, 30), 'yyyy-MM-dd');
@@ -187,6 +190,7 @@ export function DetailedStatsTab({
     const y5Start = format(subYears(today, 5), 'yyyy-MM-dd');
     const allEnd = maxDateStr > todayStr ? maxDateStr : todayStr;
 
+    if (startDate === `${today.getFullYear()}-01-01` && endDate === todayStr) return 'ty';
     if (startDate === d30Start && endDate === todayStr) return '30d';
     if (startDate === y1Start && endDate === todayStr) return '1y';
     if (startDate === y5Start && endDate === todayStr) return '5y';
@@ -894,7 +898,7 @@ export function DetailedStatsTab({
     <div className="space-y-6" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
       
       {/* Filters */}
-      <div id="detailed-main-card" className="w-full max-w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4 xl:gap-6 box-border overflow-hidden relative">
+      <div id="detailed-main-card" className="w-full max-w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col xl:flex-row xl:flex-wrap justify-between items-stretch xl:items-center gap-4 xl:gap-6 box-border overflow-hidden relative">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-zinc-900 dark:text-white">상세 분석</h3>
         </div>
@@ -902,6 +906,7 @@ export function DetailedStatsTab({
           {/* 기간 프리셋 버튼 그룹 */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
             {[
+              { key: 'ty' as const, label: '올해' },
               { key: '30d' as const, label: '최근 30일' },
               { key: '1y' as const, label: '최근 1년' },
               { key: '5y' as const, label: '최근 5년' },
@@ -928,6 +933,7 @@ export function DetailedStatsTab({
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
+            {range2 && <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ background: COLOR_A }} title="기간 1" aria-label="기간 1" />}
             <input 
               type="date" 
               value={startDate} 
@@ -945,6 +951,50 @@ export function DetailedStatsTab({
           <button onClick={handleFilter} className="w-full sm:w-auto px-5 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-sm font-semibold transition-colors shrink-0 cursor-pointer shadow-xs hover:shadow active:scale-[0.98]">
             조회
           </button>
+        </div>
+
+        {/* 비교: + 로 기간 하나 더 → 아래 분석 위에 색을 달리해 겹쳐 보여 줌 */}
+        <div className="w-full xl:basis-full min-w-0">
+          {!range2 ? (
+            <button type="button" data-testid="stats-compare-add"
+              onClick={() => {
+                // 처음엔 바로 앞 같은 길이 기간으로
+                const len = Math.max(1, Math.round((parseISO(endDate).getTime() - parseISO(startDate).getTime()) / 86400000));
+                const e2 = format(subDays(parseISO(startDate), 1), 'yyyy-MM-dd');
+                setRange2({ start: format(subDays(parseISO(e2), len), 'yyyy-MM-dd'), end: e2 });
+              }}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer">
+              <span className="text-base leading-none">+</span> 비교할 기간 더하기
+            </button>
+          ) : (
+            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 p-3 space-y-2.5" style={{ boxShadow: `inset 4px 0 0 ${COLOR_B}` }} data-testid="stats-compare-range">
+              <div className="flex items-center gap-2 pl-1.5">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: COLOR_B }} />
+                <span className="text-sm font-black text-zinc-900 dark:text-white whitespace-nowrap">비교 기간</span>
+                <button type="button" onClick={() => setRange2(null)} className="ml-auto shrink-0 w-7 h-7 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center cursor-pointer" aria-label="비교 끄기"><X className="w-4 h-4 text-zinc-500" /></button>
+              </div>
+              <p className="pl-1.5 text-[11px] text-zinc-500 break-keep">아래 분석에 <b style={{ color: COLOR_A }}>지금 기간</b>과 <b style={{ color: COLOR_B }}>비교 기간</b>을 색을 달리해 겹쳐 보여 줘요</p>
+              <div className="flex gap-1.5 overflow-x-auto hide-scrollbar pl-1.5" data-no-swipe>
+                {comparePresets(firstDateStr).map((p) => {
+                  const on = p.r.start === range2.start && p.r.end === range2.end;
+                  return (
+                    <button key={p.key} type="button" onClick={() => setRange2(p.r)}
+                      className={cn('shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap cursor-pointer', on ? 'text-white' : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300')}
+                      style={on ? { background: COLOR_B } : undefined}>
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-2 pl-1.5">
+                <input type="date" value={range2.start} min={firstDateStr} onChange={(e) => e.target.value && setRange2({ ...range2, start: e.target.value })}
+                  className="flex-1 min-w-0 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm text-zinc-900 dark:text-white" aria-label="비교 기간 시작일" />
+                <span className="text-zinc-400">~</span>
+                <input type="date" value={range2.end} min={range2.start} onChange={(e) => e.target.value && setRange2({ ...range2, end: e.target.value })}
+                  className="flex-1 min-w-0 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm text-zinc-900 dark:text-white" aria-label="비교 기간 종료일" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1005,17 +1055,6 @@ export function DetailedStatsTab({
             </>
           )}
 
-          <button
-            type="button"
-            onClick={() => setCompare(true)} data-testid="stats-tab-compare"
-            className={cn(
-              "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-              compare ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
-            )}
-          >
-            비교
-          </button>
-
           {isLegacyRange && (
             <div className="flex items-center gap-1.5 ml-1 sm:ml-2 shrink-0">
               <span className="text-[11px] font-bold px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
@@ -1058,8 +1097,15 @@ export function DetailedStatsTab({
         </div>
       </div>
 
-      {compare && <CompareStats logs={allLogsList} firstDate={firstDateStr} />}
-      <div className={cn("space-y-6 bg-transparent", compare && "hidden")}>
+      {range2 && (
+        <CompareSection
+          logs={allLogsList}
+          a={{ start: startDate, end: endDate }}
+          b={range2}
+          parts={isLegacyRange ? (activeSubTab === 'category' ? ['category'] : ['summary', 'charts']) : activeSubTab === 'trend' ? ['summary'] : activeSubTab === 'day' ? ['charts'] : ['category']}
+        />
+      )}
+      <div className="space-y-6 bg-transparent">
         {/* ~2025 데이터일 때: 방송 추이와 요일별 분석을 합치고 히트맵은 숨김 */}
         {isLegacyRange ? (
           <>

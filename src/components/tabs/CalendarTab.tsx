@@ -545,7 +545,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
 
   const previousRangeBeforePresetRef = useRef<{ start: string; end: string } | null>(null);
 
-  const handleApplyPreset = (preset: '7d' | '30d' | '90d' | '1y' | '5y' | 'all') => {
+  const handleApplyPreset = (preset: 'ty' | '7d' | '30d' | '90d' | '1y' | '5y' | 'all') => {
     // 이미 선택된 프리셋을 한 번 더 클릭하면 프리셋 누르기 전 상태로 취소 복귀
     if (activePreset === preset) {
       if (previousRangeBeforePresetRef.current) {
@@ -569,7 +569,9 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
     let newStart = '';
     let newEnd = todayStr;
 
-    if (preset === '7d') {
+    if (preset === 'ty') {
+      newStart = `${today.getFullYear()}-01-01`;
+    } else if (preset === '7d') {
       newStart = format(subDays(today, 7), 'yyyy-MM-dd');
     } else if (preset === '30d') {
       newStart = format(subDays(today, 30), 'yyyy-MM-dd');
@@ -591,7 +593,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
     setHasCustomFilter(true);
   };
 
-  const activePreset = useMemo<'7d' | '30d' | '90d' | '1y' | '5y' | 'all' | null>(() => {
+  const activePreset = useMemo<'ty' | '7d' | '30d' | '90d' | '1y' | '5y' | 'all' | null>(() => {
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd');
     const d7Start = format(subDays(today, 7), 'yyyy-MM-dd');
@@ -601,6 +603,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
     const y5Start = format(subYears(today, 5), 'yyyy-MM-dd');
     const allEnd = maxDateStr > todayStr ? maxDateStr : todayStr;
 
+    if (appliedStartDate === `${today.getFullYear()}-01-01` && appliedEndDate === todayStr) return 'ty';
     if (appliedStartDate === d7Start && appliedEndDate === todayStr) return '7d';
     if (appliedStartDate === d30Start && appliedEndDate === todayStr) return '30d';
     if (appliedStartDate === d90Start && appliedEndDate === todayStr) return '90d';
@@ -1706,6 +1709,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
             {/* 며칠 전 등 선택 (기간 프리셋) */}
             <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar shrink-0">
               {[
+                { key: 'ty' as const, label: '올해' },
                 { key: '7d' as const, label: '7일 전' },
                 { key: '30d' as const, label: '30일 전' },
                 { key: '90d' as const, label: '90일 전' },

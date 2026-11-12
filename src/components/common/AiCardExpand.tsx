@@ -73,6 +73,8 @@ function fromTransform(f: Rect, to: Rect, safeTop: number, radius = 24) {
 }
 const OPEN_SHAPE = { x: 0, y: 0, scale: 1, clipPath: 'inset(0px 0px 0px 0px round 0px)' };
 const DRAG_CLOSE = 110;
+/** 상태 표시줄 아래 손잡이 막대 높이 */
+const BAR_H = 40;
 
 export function AiCardExpandHost() {
   const [t, setT] = useState<Target | null>(null);
@@ -211,8 +213,8 @@ export function AiCardExpandHost() {
           </motion.div>
           <motion.div
             role="dialog" aria-modal="true" aria-label={`${t.title} · 펼쳐 보기`} data-testid="ai-card"
-            initial={fromTransform(t.from, to, safeTop)}
-            animate={closing ? fromTransform(back.current || t.from, to, safeTop) : OPEN_SHAPE}
+            initial={fromTransform(t.from, to, safeTop + BAR_H)}
+            animate={closing ? fromTransform(back.current || t.from, to, safeTop + BAR_H) : OPEN_SHAPE}
             transition={closing ? CLOSE_T : OPEN_T}
             onAnimationComplete={finish}
             style={{ top: to.top, left: to.left, width: to.width, height: to.height, transformOrigin: '0 0', willChange: 'transform, clip-path' }}
@@ -221,7 +223,11 @@ export function AiCardExpandHost() {
           >
            <motion.div className="dark absolute inset-0 overflow-hidden bg-black text-white flex flex-col" style={{ y: dragY, scale: dragScale, borderRadius: dragRadius, transformOrigin: '50% 0%' }}>
             {/* 상태 표시줄 칸 + 맨 위: 바로 재생 */}
-            <div className="shrink-0 bg-black" style={{ height: 'env(safe-area-inset-top)' }} />
+            {/* 맨 위 막대: 상태 표시줄 아래 손잡이 + 닫기 — 영상 위에는 아무것도 안 덮음 (유튜브 자막·설정 버튼이 눌리게) */}
+            <div data-video-drag className="shrink-0 bg-black relative flex items-end justify-center cursor-grab" style={{ height: `calc(env(safe-area-inset-top) + ${BAR_H}px)` }}>
+              <span className="mb-[14px] h-1 w-10 rounded-full bg-white/40" aria-hidden />
+              <button type="button" onClick={close} style={{ opacity: settled ? 1 : 0, transition: 'opacity .2s' }} className="absolute right-2 bottom-1 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
+            </div>
             <div className="relative w-full aspect-video bg-black shrink-0">
               {play ? (
                 <iframe
@@ -233,19 +239,12 @@ export function AiCardExpandHost() {
                   allowFullScreen
                 />
               ) : null}
-              {/* 영상 맨 위 손잡이 띠: 여기를 잡고 내리면 닫기 (영상 화면을 누르는 건 그대로 유튜브로 — 자막·조작 막대 등) */}
-              {play && settled && (
-                <div data-video-drag className="absolute inset-x-0 top-0 h-11 z-[5] flex justify-center pt-1.5 cursor-grab" aria-hidden>
-                  <span className="h-1 w-10 rounded-full bg-white/60 shadow-[0_1px_4px_rgba(0,0,0,0.5)]" />
-                </div>
-              )}
               {play ? null : (
                 <button type="button" onClick={() => setPlay({ t: 0 })} className="absolute inset-0 w-full h-full cursor-pointer" aria-label="여기서 재생">
                   <img src={t.thumb || `https://img.youtube.com/vi/${t.id}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />
                   <AnimatePresence>{settled && <motion.span initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 flex items-center justify-center bg-black/10"><GlassPlayButton size="md" /></motion.span>}</AnimatePresence>
                 </button>
               )}
-              <button type="button" onClick={close} style={{ opacity: settled ? 1 : 0, transition: 'opacity .2s' }} className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/65 hover:bg-black text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
             </div>
 
             <div className="relative flex-1 min-h-0">

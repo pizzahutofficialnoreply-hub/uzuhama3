@@ -9,9 +9,9 @@ import { parseTimeTo24, cn } from '../../utils';
  * 분석 › 비교: 기간 두 개를 골라 같은 그래프에 색을 달리해 겹쳐 보고,
  * 표·카테고리는 기간별로 나란히, 위에는 쉽게 읽히는 비교 문장
  */
-type Range = { start: string; end: string };
-const COLOR_A = '#f59e0b'; // 기간 1 (주황)
-const COLOR_B = '#6366f1'; // 기간 2 (남색)
+export type Range = { start: string; end: string };
+export const COLOR_A = '#f59e0b'; // 기간 1 (주황)
+export const COLOR_B = '#6366f1'; // 기간 2 (남색)
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 // 방송일 기준 시작 시각 (새벽 0~5시는 전날 방송의 늦은 시각으로 봄)
 const BUCKETS = [12, 14, 16, 18, 20, 22, 24, 26, 28];
@@ -119,10 +119,11 @@ function compareLines(A: Stats, B: Stats, la: string, lb: string): string[] {
 }
 
 const today = () => format(new Date(), 'yyyy-MM-dd');
-function presets(firstDate: string) {
+export function presets(firstDate: string) {
   const t = new Date();
   const y = t.getFullYear();
   const list: { key: string; label: string; r: Range }[] = [
+    { key: 'ty', label: '올해', r: { start: `${y}-01-01`, end: today() } },
     { key: '30', label: '최근 30일', r: { start: format(subDays(t, 30), 'yyyy-MM-dd'), end: today() } },
     { key: '90', label: '최근 90일', r: { start: format(subDays(t, 90), 'yyyy-MM-dd'), end: today() } },
     { key: 'p90', label: '그 전 90일', r: { start: format(subDays(t, 180), 'yyyy-MM-dd'), end: format(subDays(t, 91), 'yyyy-MM-dd') } },
@@ -168,14 +169,15 @@ function RangePicker({ label, color, value, onChange, firstDate }: { label: stri
 const card = 'rounded-[24px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 sm:p-6';
 const tip = { contentStyle: { borderRadius: 12, border: 'none', boxShadow: '0 6px 20px rgba(0,0,0,.15)', fontSize: 12 } };
 
-export function CompareStats({ logs, firstDate }: { logs: BroadcastLog[]; firstDate: string }) {
-  const t = new Date();
-  const [a, setA] = useState<Range>({ start: format(subDays(t, 180), 'yyyy-MM-dd'), end: format(subDays(t, 91), 'yyyy-MM-dd') });
-  const [b, setB] = useState<Range>({ start: format(subDays(t, 90), 'yyyy-MM-dd'), end: today() });
+export type ComparePart = 'summary' | 'charts' | 'category';
+/** 상세 분석 위에 덧씌우는 비교 (기간 1 = 위에서 조회한 기간, 기간 2 = + 로 더한 기간) */
+export function CompareSection({ logs, a, b, parts }: { logs: BroadcastLog[]; a: Range; b: Range; parts: ComparePart[] }) {
+  const has = (x: ComparePart) => parts.includes(x);
   const A = useMemo(() => statsOf(logs, a), [logs, a]);
   const B = useMemo(() => statsOf(logs, b), [logs, b]);
-  const la = `기간 1(${shortRange(a)})`, lb = `기간 2(${shortRange(b)})`;
-  const lines = useMemo(() => compareLines(A, B, la, lb), [A, B, la, lb]);
+  const la = `지금 기간(${shortRange(a)})`, lb = `비교 기간(${shortRange(b)})`;
+  // 문장은 앞선 기간 → 나중 기간 순서로 ('~에는 …, ~로 올수록 …')
+  const lines = useMemo(() => (a.start <= b.start ? compareLines(A, B, la, lb) : compareLines(B, A, lb, la)), [A, B, la, lb, a.start, b.start]);
   const dayData = DAYS.map((d, i) => ({ name: d, A: Math.round(A.dayPct[i] * 10) / 10, B: Math.round(B.dayPct[i] * 10) / 10 }));
   const hourData = BUCKETS.map((h, i) => ({ name: bucketLabel(h), A: Math.round(A.hourPct[i] * 10) / 10, B: Math.round(B.hourPct[i] * 10) / 10 }));
   const rows: [string, string, string][] = [
@@ -189,28 +191,23 @@ export function CompareStats({ logs, firstDate }: { logs: BroadcastLog[]; firstD
 
   return (
     <div className="space-y-5 min-w-0" data-testid="stats-compare">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
-        <RangePicker label="기간 1" color={COLOR_A} value={a} onChange={setA} firstDate={firstDate} />
-        <RangePicker label="기간 2" color={COLOR_B} value={b} onChange={setB} firstDate={firstDate} />
-      </div>
-
       {/* 비교 한눈에 */}
-      <div className={cn(card, 'bg-gradient-to-br from-indigo-50/60 to-amber-50/40 dark:from-indigo-950/20 dark:to-amber-950/10')}>
+      {has('summary') && <div className={cn(card, 'bg-gradient-to-br from-indigo-50/60 to-amber-50/40 dark:from-indigo-950/20 dark:to-amber-950/10')}>
         <h3 className="flex items-center gap-1.5 text-[15px] font-black text-zinc-900 dark:text-white"><Sparkles className="w-4 h-4 text-indigo-500" /> 이렇게 달라졌어요</h3>
         <ul className="mt-3 space-y-2">
           {lines.map((s, i) => <li key={i} className="text-sm text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep flex gap-2"><span className="mt-2 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />{s}</li>)}
         </ul>
-      </div>
+      </div>}
 
       {/* 표: 나란히 */}
-      <div className={card}>
+      {has('summary') && <div className={card}>
         <h3 className="text-[15px] font-black text-zinc-900 dark:text-white">숫자로 보기</h3>
         <table className="mt-3 w-full text-sm">
           <thead>
             <tr className="text-xs text-zinc-500">
               <th className="text-left font-semibold py-2">항목</th>
-              <th className="text-right font-bold py-2" style={{ color: COLOR_A }}>기간 1</th>
-              <th className="text-right font-bold py-2" style={{ color: COLOR_B }}>기간 2</th>
+              <th className="text-right font-bold py-2" style={{ color: COLOR_A }}>지금 기간</th>
+              <th className="text-right font-bold py-2" style={{ color: COLOR_B }}>비교 기간</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -219,10 +216,10 @@ export function CompareStats({ logs, firstDate }: { logs: BroadcastLog[]; firstD
             ))}
           </tbody>
         </table>
-      </div>
+      </div>}
 
       {/* 그래프: 겹쳐서 (기간 길이가 달라도 비교되게 % 로) */}
-      <div className={card}>
+      {has('charts') && <div className={card}>
         <h3 className="text-[15px] font-black text-zinc-900 dark:text-white">요일별 방송 비중</h3>
         <p className="text-xs text-zinc-500 mt-0.5">각 기간 방송 중 그 요일 비율 (%)</p>
         <div className="h-56 mt-3 -ml-3">
@@ -231,18 +228,18 @@ export function CompareStats({ logs, firstDate }: { logs: BroadcastLog[]; firstD
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128,128,128,.18)" />
               <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={12} />
               <YAxis tickLine={false} axisLine={false} fontSize={11} width={34} unit="%" />
-              <Tooltip {...tip} formatter={(v: any, n: any) => [`${v}%`, n === 'A' ? '기간 1' : '기간 2']} />
-              <Legend formatter={(v) => (v === 'A' ? '기간 1' : '기간 2')} wrapperStyle={{ fontSize: 12 }} />
+              <Tooltip {...tip} formatter={(v: any, n: any) => [`${v}%`, n === 'A' ? '지금 기간' : '비교 기간']} />
+              <Legend formatter={(v) => (v === 'A' ? '지금 기간' : '비교 기간')} wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="A" fill={COLOR_A} radius={[5, 5, 0, 0]} />
               <Bar dataKey="B" fill={COLOR_B} radius={[5, 5, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </div>}
 
-      <div className={card}>
+      {has('charts') && <div className={card}>
         <h3 className="text-[15px] font-black text-zinc-900 dark:text-white">시작 시간대</h3>
-        <p className="text-xs text-zinc-500 mt-0.5">시작 시각이 있는 방송 중 그 시간대 비율 (%) · 기간 1 {A.timed}개 · 기간 2 {B.timed}개</p>
+        <p className="text-xs text-zinc-500 mt-0.5">시작 시각이 있는 방송 중 그 시간대 비율 (%) · 지금 {A.timed}개 · 비교 {B.timed}개</p>
         {A.timed + B.timed === 0 ? <p className="mt-4 text-sm text-zinc-400">두 기간 모두 시작 시각 기록이 없어요.</p> : (
         <div className="h-56 mt-3 -ml-3">
           <ResponsiveContainer width="100%" height="100%">
@@ -250,19 +247,19 @@ export function CompareStats({ logs, firstDate }: { logs: BroadcastLog[]; firstD
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(128,128,128,.18)" />
               <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={10} interval={0} angle={-30} textAnchor="end" height={44} />
               <YAxis tickLine={false} axisLine={false} fontSize={11} width={34} unit="%" />
-              <Tooltip {...tip} formatter={(v: any, n: any) => [`${v}%`, n === 'A' ? '기간 1' : '기간 2']} />
-              <Legend formatter={(v) => (v === 'A' ? '기간 1' : '기간 2')} wrapperStyle={{ fontSize: 12 }} />
+              <Tooltip {...tip} formatter={(v: any, n: any) => [`${v}%`, n === 'A' ? '지금 기간' : '비교 기간']} />
+              <Legend formatter={(v) => (v === 'A' ? '지금 기간' : '비교 기간')} wrapperStyle={{ fontSize: 12 }} />
               <Line type="monotone" dataKey="A" stroke={COLOR_A} strokeWidth={2.5} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="B" stroke={COLOR_B} strokeWidth={2.5} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
         )}
-      </div>
+      </div>}
 
       {/* 카테고리: 기간별로 따로 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
-        {([['기간 1', A, COLOR_A, a], ['기간 2', B, COLOR_B, b]] as const).map(([name, S, color, r]) => (
+      {has('category') && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
+        {([['지금 기간', A, COLOR_A, a], ['비교 기간', B, COLOR_B, b]] as const).map(([name, S, color, r]) => (
           <div key={name} className={card}>
             <h3 className="text-[15px] font-black flex items-center gap-1.5" style={{ color }}><span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} /> {name} 장르 · 게임</h3>
             <p className="text-xs text-zinc-500 mt-0.5 tabular-nums">{r.start} ~ {r.end}</p>
@@ -283,7 +280,7 @@ export function CompareStats({ logs, firstDate }: { logs: BroadcastLog[]; firstD
             )}
           </div>
         ))}
-      </div>
+      </div>}
     </div>
   );
 }
