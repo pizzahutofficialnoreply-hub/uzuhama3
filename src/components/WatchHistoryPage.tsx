@@ -1,3 +1,7 @@
+import { toast } from '../utils/ui';
+import { SwipeRow } from './common/SwipeRow';
+import { requestSave } from '../utils/myPlaylists';
+import { Bookmark } from 'lucide-react';
 import { makeMatcher } from '../utils/textMatch';
 import { usePrefs } from '../utils/userPrefs';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -137,7 +141,11 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
               {g.rows.map((e) => {
                 const p = progressOf(e);
                 return (
-                  <li key={e.id} className="flex items-start gap-3 px-4 py-2">
+                  <li key={e.id}>
+                   <SwipeRow radius={16} label="시청 기록"
+                    left={[{ key: 'save', label: '저장', icon: <Bookmark />, tone: 'bg-purple-600 text-white', onRun: () => requestSave({ id: e.id, kind: e.kind, title: e.title }) }]}
+                    right={[{ key: 'del', label: '기록 삭제', icon: <Trash2 />, tone: 'bg-red-500 text-white', onRun: () => { removeWatch(e.id); toast('시청 기록에서 지웠어요'); } }]}>
+                  <div className="flex items-start gap-3 px-4 py-2 bg-white dark:bg-zinc-950">
                     <button type="button" onClick={() => open(e)} className="flex flex-1 min-w-0 items-start gap-3 text-left cursor-pointer">
                       <div className="relative w-[44%] max-w-[220px] aspect-video rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 shrink-0">
                         <img src={thumb(e.id)} alt="" loading="lazy" className="w-full h-full object-cover" />
@@ -150,6 +158,8 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
                       </div>
                     </button>
                     <div className="-mr-2 pt-0.5">{menu(e)}</div>
+                  </div>
+                   </SwipeRow>
                   </li>
                 );
               })}

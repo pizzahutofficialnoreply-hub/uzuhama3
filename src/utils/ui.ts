@@ -55,3 +55,13 @@ export function fieldError(target: string | HTMLElement | null | undefined, msg:
   el.addEventListener('input', clear, { once: true });
   el.addEventListener('change', clear, { once: true });
 }
+
+/** 여러 개 중 고르기 (밑에서 올라오는 창) → 고른 value, 취소면 null
+ *  await chooseSheet({ title: '이 영상', options: [{ value: 'hide', label: '이 영상 가리기', desc: '…' }, …] }) */
+export const CHOOSE_EVENT = 'uzuhama-choose';
+export type ChooseOption = { value: string; label: string; desc?: string; icon?: 'hide' | 'flag' | 'trash' | 'share' | 'save'; danger?: boolean };
+export function chooseSheet(o: { title?: string; message?: string; options: ChooseOption[] }): Promise<string | null> {
+  return new Promise((resolve) => {
+    window.dispatchEvent(new CustomEvent(CHOOSE_EVENT, { detail: { ...o, resolve } }));
+  });
+}

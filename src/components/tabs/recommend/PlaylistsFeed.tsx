@@ -1,3 +1,4 @@
+import { openAiCard } from '../../common/AiCardExpand';
 import { CardSkeleton } from '../../common/Skeleton';
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -49,11 +50,11 @@ export function useLogIndex(logs: any) {
   }, [logs]);
 }
 
-function PlaylistCard({ playlist, onOpen, shareText }: { playlist: Playlist; onOpen: () => void; shareText: () => string }) {
+function PlaylistCard({ playlist, onOpen, onExpand, shareText }: { playlist: Playlist; onOpen: () => void; onExpand?: (el: Element | null) => void; shareText: () => string }) {
   const count = playlist.items.length;
   return (
-    <div className="group relative isolate flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
-      <button type="button" onClick={onOpen} className="group/thumb relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800 cursor-pointer" title="재생목록 열기">
+    <div data-ai-card={playlist.id} className="group relative isolate flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
+      <button type="button" onClick={(e) => (onExpand ? onExpand((e.currentTarget as HTMLElement).closest('[data-ai-card]')) : onOpen())} className="group/thumb relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800 cursor-pointer" title="재생목록 열기">
         <img src={playlist.thumbnail} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
         <span className="absolute inset-0 bg-black/10 flex items-center justify-center">
           <GlassPlayButton />
@@ -93,7 +94,8 @@ function PlaylistCard({ playlist, onOpen, shareText }: { playlist: Playlist; onO
 }
 
 /** 유튜브 앱의 재생목록 화면 (저장·공유 버튼 제외) */
-function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, logIndex, logs, onClose, onNavigateToCalendar }: {
+function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, logIndex, logs, onClose, onNavigateToCalendar, listOnly = false }: {
+  listOnly?: boolean;
   playlist: Playlist;
   channelTitle: string;
   channelThumbnail: string;
@@ -128,6 +130,7 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
       countLabel={`${total}개 영상`}
       viewStyle={viewStyle}
       onViewStyleChange={setViewStyle}
+      listOnly={listOnly}
     >
           {viewStyle === 'list' ? (
             <div className="flex flex-col gap-1.5">
@@ -178,7 +181,7 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
 
           <Pagination currentPage={page} totalPages={totalPages} onChange={setPage} className="flex justify-center items-center gap-1 sm:gap-2 mt-5" />
           {/* 아래쪽 접기 (몰아보기 펼치기와 같은 모양) */}
-          <div className="mt-4 -mx-1.5 sm:-mx-3 -mb-3 px-4 sm:px-6 py-3.5 bg-zinc-50/50 dark:bg-black border-t border-zinc-200/60 dark:border-zinc-800 flex justify-center">
+          {!listOnly && <div className="mt-4 -mx-1.5 sm:-mx-3 -mb-3 px-4 sm:px-6 py-3.5 bg-zinc-50/50 dark:bg-black border-t border-zinc-200/60 dark:border-zinc-800 flex justify-center">
             <button
               type="button"
               onClick={onClose}
@@ -187,7 +190,7 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
               <X className="w-4 h-4" />
               <span>재생목록 접기</span>
             </button>
-          </div>
+          </div>}
     </CollectionPanel>
   );
 }
@@ -196,6 +199,7 @@ export function PlaylistsFeed({ searchTerm, logs, onNavigateToCalendar }: { sear
   const { data, loading, error } = usePlaylists();
   const logIndex = useLogIndex(logs);
   const [openId, setOpenId] = useState<string | null>(null);
+  const labCard = usePrefs().labAiCard;
   const [page, setPage] = useState(1);
   const playlists = data?.playlists || [];
 
@@ -273,7 +277,17 @@ export function PlaylistsFeed({ searchTerm, logs, onNavigateToCalendar }: { sear
                     exit={{ opacity: 0, scale: 0.97 }}
                     transition={IOS_SPRING}
                   >
-                    <PlaylistCard playlist={p} onOpen={() => setOpenId(p.id)} shareText={() => formatPlaylistShareText(p, (id) => logIndex.get(id)?.log, logs)} />
+                    <PlaylistCard playlist={p} onOpen={() => setOpenId(p.id)}
+                      onExpand={labCard ? (el) => openAiCard(p.id, p.title, el, `재생목록 · 동영상 ${p.items.length}개`, {
+                        noSummary: true,
+                        thumb: p.thumbnail,
+                        embed: `https://www.youtube.com/embed/videoseries?list=${p.id}&autoplay=1&rel=0`,
+                        extra: (close) => (
+                          <PlaylistDetail playlist={p} channelTitle={data?.channelTitle || '우주하마'} channelThumbnail={data?.channelThumbnail || ''} matchedIds={matched} logIndex={logIndex} logs={logs} listOnly
+                            onClose={close} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} />
+                        ),
+                      }) : undefined}
+                      shareText={() => formatPlaylistShareText(p, (id) => logIndex.get(id)?.log, logs)} />
                     {matched && matched.size > 0 && (
                       <p className="mt-1.5 px-2 text-xs text-purple-600 dark:text-purple-400 font-semibold">검색어와 맞는 영상 {matched.size}개</p>
                     )}

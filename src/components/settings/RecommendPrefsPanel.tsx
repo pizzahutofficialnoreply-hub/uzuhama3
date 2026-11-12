@@ -1,3 +1,4 @@
+import { HiddenVideosRow } from './HiddenVideosRow';
 import React, { useState } from 'react';
 import { History, PauseCircle, RotateCcw } from 'lucide-react';
 import { cn } from '../../utils';
@@ -45,6 +46,7 @@ export function RecommendPrefsPanel() {
       </div>
 
       <div className="mt-2 divide-y divide-zinc-200/70 dark:divide-zinc-800">
+        <HiddenVideosRow />
         <div className={row}>
           <div className="flex items-start gap-2.5 min-w-0">
             <PauseCircle className="w-4 h-4 mt-0.5 text-zinc-500 shrink-0" />

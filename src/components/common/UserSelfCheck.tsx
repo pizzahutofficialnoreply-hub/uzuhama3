@@ -1,6 +1,8 @@
+import { SwipeRow } from './SwipeRow';
+import { toast } from '../../utils/ui';
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronDown, Cloud, History, Loader2, Play, RotateCcw, Smartphone, Square, XCircle } from 'lucide-react';
-import { discardInterrupted, selfTestHistory, selfTestProgress, startSelfTestBg, stopSelfTest, useSelfTestBg, type HistoryEntry } from '../../selftest/bgRun';
+import { AlertTriangle, CheckCircle2, ChevronDown, Cloud, History, Loader2, Play, RotateCcw, Smartphone, Square, Trash2, XCircle } from 'lucide-react';
+import { removeSelfTestHistory, discardInterrupted, selfTestHistory, selfTestProgress, startSelfTestBg, stopSelfTest, useSelfTestBg, type HistoryEntry } from '../../selftest/bgRun';
 import { resultText } from '../../selftest/format';
 
 /** 의견 보내기 › 앱 점검 (일반 사용자): 화면 뒤에서 돌고, 창을 닫아도 계속 (헤더 아래 선으로 진행률) */
@@ -74,6 +76,7 @@ export function UserSelfCheck({ onResult, onAttach }: { onResult: (text: string)
 
 /** 지난 점검 기록 (최근 10번) */
 function SelfCheckHistory() {
+  const [, bump] = useState(0);
   const list = selfTestHistory();
   const [open, setOpen] = useState<string | null>(null);
   if (!list.length) return null;
@@ -87,7 +90,9 @@ function SelfCheckHistory() {
           const fail = e.results.filter((r) => !r.ok).length;
           const warn = e.results.filter((r) => r.ok && r.warn).length;
           return (
-            <li key={e.id} className="py-2">
+            <li key={e.id}>
+             <SwipeRow radius={14} label="점검 기록" right={[{ key: 'del', label: '삭제', icon: <Trash2 />, tone: 'bg-red-500 text-white', onRun: () => { removeSelfTestHistory(e.id); bump((n) => n + 1); toast('점검 기록을 지웠어요'); } }]}>
+             <div className="py-2 bg-white dark:bg-zinc-900">
               <button type="button" onClick={() => setOpen(open === e.id ? null : e.id)} className="w-full flex items-center gap-2 text-left text-xs cursor-pointer" aria-expanded={open === e.id}>
                 {fail ? <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" /> : warn ? <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
                 <span className="font-semibold text-zinc-800 dark:text-zinc-200 tabular-nums">{when(e.startedAt)}</span>
@@ -101,6 +106,8 @@ function SelfCheckHistory() {
                   ))}
                 </ul>
               )}
+             </div>
+             </SwipeRow>
             </li>
           );
         })}

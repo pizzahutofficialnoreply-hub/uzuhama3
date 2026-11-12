@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown, EyeOff, Eye, Sparkles, X } from 'lucide-react';
 import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { useBackToClose } from '../../hooks/useBackToClose';
-import { SummaryBody, loadDetail, goSearch, openAiSummary } from './AiSummaryHost';
+import { SummaryBody, CompilationSummary, loadDetail, goSearch, openAiSummary } from './AiSummaryHost';
 import { GlassPlayButton } from './MediaIcons';
 import { Skeleton } from './Skeleton';
 
@@ -15,12 +15,23 @@ import { Skeleton } from './Skeleton';
  */
 export const AI_CARD_EVENT = 'uzuhama-ai-card';
 type Rect = { top: number; left: number; width: number; height: number };
-type Target = { id: string; title: string; sub?: string; from: Rect };
+export type CardOpts = {
+  /** 몰아보기: 요약이 있을 때만 요약 칸, 없으면 바로 아래 목록 */
+  compilation?: boolean;
+  /** 요약 칸 없이 (재생목록) */
+  noSummary?: boolean;
+  /** 요약 아래에 붙는 내용 (들어 있는 방송·재생목록 영상) */
+  extra?: (close: () => void) => ReactNode;
+  /** 맨 위 플레이어 주소 (재생목록 등) */
+  embed?: string;
+  thumb?: string;
+};
+type Target = { id: string; title: string; sub?: string; from: Rect } & CardOpts;
 
-export function openAiCard(id: string, title: string, el: Element | null, sub?: string) {
+export function openAiCard(id: string, title: string, el: Element | null, sub?: string, opts: CardOpts = {}) {
   const r = el?.getBoundingClientRect();
   const from = r ? { top: r.top, left: r.left, width: r.width, height: r.height } : { top: window.innerHeight / 2 - 100, left: 16, width: window.innerWidth - 32, height: 200 };
-  window.dispatchEvent(new CustomEvent(AI_CARD_EVENT, { detail: { id, title, sub, from } satisfies Target }));
+  window.dispatchEvent(new CustomEvent(AI_CARD_EVENT, { detail: { id, title, sub, from, ...opts } satisfies Target }));
 }
 
 const SPOIL_KEY = 'uzuhama_ai_card_spoil';
@@ -40,7 +51,7 @@ export function AiCardExpandHost() {
   const [data, setData] = useState<any>(null);
   const [open, setOpen] = useState(true);
   const [spoil, setSpoil] = useState(() => { try { return localStorage.getItem(SPOIL_KEY) !== '0'; } catch { return true; } });
-  const [play, setPlay] = useState<{ t: number } | null>(null);
+  const [play, setPlay] = useState<{ t: number; id?: string } | null>(null);
   const frame = useRef<HTMLIFrameElement | null>(null);
   const back = useRef<Rect | null>(null);
 
@@ -52,7 +63,7 @@ export function AiCardExpandHost() {
     return () => { window.removeEventListener(AI_CARD_EVENT, on); window.removeEventListener('resize', rs); };
   }, []);
   useEffect(() => {
-    if (!t) return;
+    if (!t || t.noSummary) return;
     let alive = true;
     loadDetail(t.id).then((j) => { if (alive) setData(j); }).catch(() => { if (alive) setData({ found: false }); });
     return () => { alive = false; };
@@ -75,8 +86,9 @@ export function AiCardExpandHost() {
     return () => window.removeEventListener('keydown', k);
   });
 
-  const seek = (s: number) => {
+  const seek = (s: number, vid?: string) => {
     const w = frame.current?.contentWindow;
+    if (vid && vid !== (play?.id || t?.id)) { setPlay({ t: s, id: vid }); return; }
     if (play && w) {
       w.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [s, true] }), '*');
       w.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
@@ -84,6 +96,9 @@ export function AiCardExpandHost() {
   };
   const toggleSpoil = () => setSpoil((v) => { try { localStorage.setItem(SPOIL_KEY, v ? '0' : '1'); } catch { /* */ } return !v; });
   const ready = data?.found && !data.pending && !data.compilation;
+  const compHas = Boolean(data?.compilation && ((data.sources || []).length || data.overview?.opening || data.overview?.theme));
+  // 몰아보기는 요약이 있을 때만, 재생목록은 없음
+  const showSummary = t && !t.noSummary && (!t.compilation || !data || compHas);
   const target = closing ? back.current || t?.from : to;
 
   return createPortal(
@@ -92,7 +107,7 @@ export function AiCardExpandHost() {
         <motion.div key="ai-card" className="fixed inset-0 z-[320]" initial={{ opacity: 1 }} exit={{ opacity: 0 }}>
           <motion.div className="absolute inset-0 bg-black/55 backdrop-blur-[3px]" initial={{ opacity: 0 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: 0.25 }} onClick={close} />
           <motion.div
-            role="dialog" aria-modal="true" aria-label={`${t.title} · AI 요약과 함께 보기`} data-testid="ai-card"
+            role="dialog" aria-modal="true" aria-label={`${t.title} · 펼쳐 보기`} data-testid="ai-card"
             initial={{ ...t.from, borderRadius: 24 }}
             animate={{ ...target!, borderRadius: closing ? 24 : 28 }}
             transition={spring}
@@ -104,7 +119,7 @@ export function AiCardExpandHost() {
               {play ? (
                 <iframe
                   ref={(el) => { frame.current = el; trackYoutubeFrame(el); }}
-                  src={embedSrc(t.id, play.t ? { start: Math.floor(play.t) } : {})}
+                  src={t.embed && !play.id ? t.embed : embedSrc(play.id || t.id, play.t ? { start: Math.floor(play.t) } : {})}
                   title={t.title}
                   className="absolute inset-0 w-full h-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -112,7 +127,7 @@ export function AiCardExpandHost() {
                 />
               ) : (
                 <button type="button" onClick={() => setPlay({ t: 0 })} className="absolute inset-0 w-full h-full cursor-pointer" aria-label="여기서 재생">
-                  <img src={`https://img.youtube.com/vi/${t.id}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />
+                  <img src={t.thumb || `https://img.youtube.com/vi/${t.id}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />
                   <span className="absolute inset-0 flex items-center justify-center bg-black/10"><GlassPlayButton size="md" /></span>
                 </button>
               )}
@@ -124,7 +139,7 @@ export function AiCardExpandHost() {
                 <h2 className="text-[16px] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
                 {t.sub && <p className="mt-1 text-[12px] text-zinc-500 tabular-nums">{t.sub}</p>}
 
-                <div className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
+                {showSummary && <div className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
                   <div className="flex items-center gap-2 px-4 py-3">
                     <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex-1 min-w-0 flex items-center gap-1.5 text-left cursor-pointer">
                       <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
@@ -147,6 +162,8 @@ export function AiCardExpandHost() {
                             </div>
                           ) : ready ? (
                             <SummaryBody d={data} spoil={spoil} onSeek={(s) => seek(s)} onSearch={(q) => { close(); goSearch(q); }} />
+                          ) : compHas ? (
+                            <CompilationSummary data={data} spoil={spoil} onSeek={(s, id) => seek(s, id)} onSearch={(q) => { close(); goSearch(q); }} />
                           ) : (
                             <div className="text-[13px] text-zinc-600 dark:text-zinc-300 break-keep">
                               요약을 불러오지 못했어요.{' '}
@@ -158,7 +175,8 @@ export function AiCardExpandHost() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
+                </div>}
+                {t.extra && <div className="mt-4 -mx-3">{t.extra(close)}</div>}
               </div>
             </motion.div>
           </motion.div>

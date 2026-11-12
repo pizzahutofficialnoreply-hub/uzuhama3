@@ -1,3 +1,5 @@
+import { hideVideo } from '../../utils/hiddenVideos';
+import { EyeOff } from 'lucide-react';
 import { usePrefs } from '../../utils/userPrefs';
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -135,6 +137,10 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
                   <Link2 className="w-4 h-4 text-zinc-500" />
                   사이트 링크 복사
                 </button>
+                {/^[\w-]{11}$/.test(id) && <button type="button" role="menuitem" className={cn(item, 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); hideVideo({ id, kind, title }); }}>
+                  <EyeOff className="w-4 h-4 text-zinc-500" />
+                  이 영상 가리기
+                </button>}
                 {!noReport && <button type="button" role="menuitem" className={cn(item, 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); requestReport({ id, kind, title, search }); }}>
                   <Flag className="w-4 h-4 text-zinc-500" />
                   {search.query ? '이 결과 신고' : '신고'}

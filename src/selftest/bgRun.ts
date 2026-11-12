@@ -66,6 +66,7 @@ export function useSelfTestBg() {
 export const selfTestProgress = (s: BgState) => (s.done ? 1 : s.running || s.interrupted ? Math.min(0.97, s.results.length / Math.max(1, s.estimate)) : 0);
 
 export function selfTestHistory(): HistoryEntry[] { return read<HistoryEntry[]>(HIST_KEY, []); }
+export const removeSelfTestHistory = (id: string) => write(HIST_KEY, selfTestHistory().filter((x) => x.id !== id));
 const pushHistory = (e: HistoryEntry) => write(HIST_KEY, [e, ...selfTestHistory().filter((x) => x.id !== e.id)].slice(0, 10));
 
 /** resume: 멈춘 점검의 남은 단계만 */

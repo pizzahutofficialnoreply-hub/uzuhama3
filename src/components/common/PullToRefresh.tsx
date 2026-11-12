@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowDown } from 'lucide-react';
 import { toast } from '../../utils/ui';
 
 /**
@@ -87,18 +86,21 @@ export default function PullToRefresh({ onRefresh, force = false }: { onRefresh:
 
   if (pull <= 0 && !busy) return null;
   const ready = pull >= TRIGGER;
+  const prog = Math.min(1, pull / TRIGGER);
+  const C = 2 * Math.PI * 9;
   return (
     <div className="fixed inset-x-0 top-0 z-[650] flex justify-center pointer-events-none" style={{ paddingTop: 'env(safe-area-inset-top)' }} role="status" aria-live="polite" aria-label={busy ? '새로 받는 중' : ready ? '놓으면 새로고침' : '당겨서 새로고침'}>
       <motion.div
-        animate={{ y: Math.min(pull, MAX) - 8, opacity: Math.min(1, pull / 40) }}
+        animate={{ y: Math.min(pull, MAX) - 8, opacity: Math.min(1, pull / 30), scale: busy ? 1 : 0.7 + 0.3 * prog }}
         transition={busy ? { type: 'spring', stiffness: 400, damping: 30 } : { duration: 0 }}
-        className="mt-1 w-10 h-10 rounded-full bg-white dark:bg-zinc-800 shadow-lg border border-zinc-200 dark:border-zinc-700 flex items-center justify-center"
+        className="mt-1 w-11 h-11 rounded-full bg-white dark:bg-zinc-800 shadow-[0_6px_20px_rgba(0,0,0,0.18),0_1px_3px_rgba(0,0,0,0.12)] dark:shadow-[0_6px_20px_rgba(0,0,0,0.6)] flex items-center justify-center"
       >
-        {busy ? (
-          <span className="w-5 h-5 rounded-full border-2 border-purple-200 border-t-purple-600 animate-spin" />
-        ) : (
-          <motion.span animate={{ rotate: ready ? 180 : 0 }} className="text-purple-600"><ArrowDown className="w-5 h-5" /></motion.span>
-        )}
+        {/* 당기는 만큼 원이 그려지고, 놓으면 원이 돌며 받는 중 */}
+        <svg viewBox="0 0 24 24" className={busy ? 'w-6 h-6 animate-spin' : 'w-6 h-6'} style={busy ? undefined : { transform: `rotate(${pull * 3.2 - 90}deg)` }} aria-hidden>
+          <circle cx="12" cy="12" r="9" fill="none" strokeWidth="2.6" className="stroke-purple-100 dark:stroke-purple-950" />
+          <circle cx="12" cy="12" r="9" fill="none" strokeWidth="2.6" strokeLinecap="round" className="stroke-purple-600 dark:stroke-purple-400"
+            strokeDasharray={C} strokeDashoffset={busy ? C * 0.72 : C * (1 - prog * 0.85)} style={{ transition: busy ? 'stroke-dashoffset .3s' : undefined }} />
+        </svg>
       </motion.div>
     </div>
   );

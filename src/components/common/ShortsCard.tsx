@@ -1,3 +1,4 @@
+import { useHidden } from '../../utils/hiddenVideos';
 import { useIsHeld } from '../../utils/held';
 import HeldCover from './HeldCover';
 import React, { useState } from 'react';
@@ -42,6 +43,8 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
   const [playing, setPlaying] = useState(false);
   const label = cleanShortsTitle(title) || '유튜브 쇼츠';
   const held = useIsHeld(ytId);
+  const hid = useHidden(ytId);
+  if (hid.state === 'hidden') return <div data-gone aria-hidden />;
 
   return (
     <div ref={trackRef} className={cn('flex flex-col min-w-0', held && 'video-held', className)}>

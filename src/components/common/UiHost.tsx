@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { TOAST_EVENT } from './ItemMenu';
-import { CONFIRM_EVENT, type ConfirmOpts } from '../../utils/ui';
+import { CONFIRM_EVENT, CHOOSE_EVENT, type ConfirmOpts, type ChooseOption } from '../../utils/ui';
+import { EyeOff, Flag, Trash2, Share, Bookmark } from 'lucide-react';
 import { cn } from '../../utils';
 
 /**
@@ -41,6 +42,21 @@ export function UiHost() {
     window.addEventListener(CONFIRM_EVENT, on);
     return () => window.removeEventListener(CONFIRM_EVENT, on);
   }, []);
+
+  const [choose, setChoose] = useState<{ title?: string; message?: string; options: ChooseOption[]; resolve: (v: string | null) => void } | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => setChoose((e as CustomEvent).detail);
+    window.addEventListener(CHOOSE_EVENT, on);
+    return () => window.removeEventListener(CHOOSE_EVENT, on);
+  }, []);
+  const pick = (v: string | null) => { choose?.resolve(v); setChoose(null); };
+  useEffect(() => {
+    if (!choose) return;
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') pick(null); };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }, [choose]); // eslint-disable-line react-hooks/exhaustive-deps
+  const OptIcon = { hide: EyeOff, flag: Flag, trash: Trash2, share: Share, save: Bookmark };
 
   const answer = (v: boolean) => { confirm?.resolve(v); setConfirm(null); };
   useEffect(() => {
@@ -99,6 +115,38 @@ export function UiHost() {
                 <button type="button" onClick={() => answer(false)} className="py-3 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-sm font-bold text-zinc-700 dark:text-zinc-200 cursor-pointer">{confirm.cancelText || '취소'}</button>
                 <button ref={okRef} type="button" onClick={() => answer(true)} className={cn('py-3 rounded-2xl text-sm font-bold text-white cursor-pointer', confirm.danger ? 'bg-red-500' : 'bg-purple-600')}>{confirm.confirmText || '확인'}</button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {choose && (
+          <div className="fixed inset-0 z-[610] flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label={choose.title || '고르기'}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/45" onClick={() => pick(null)} />
+            <motion.div
+              initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+              className="sheet-fill relative w-full sm:max-w-sm bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] p-4 pb-[calc(16px+env(safe-area-inset-bottom))] sm:pb-4 shadow-2xl"
+            >
+              <div className="sm:hidden mx-auto mb-3 h-1.5 w-10 rounded-full bg-zinc-300 dark:bg-zinc-700" aria-hidden="true" />
+              {choose.title && <p className="px-1 text-[15px] font-bold text-zinc-900 dark:text-white line-clamp-2 break-keep">{choose.title}</p>}
+              {choose.message && <p className="px-1 mt-0.5 text-xs text-zinc-500 break-keep">{choose.message}</p>}
+              <div className="mt-3 space-y-1.5">
+                {choose.options.map((o) => {
+                  const I = o.icon ? OptIcon[o.icon] : null;
+                  return (
+                    <button key={o.value} type="button" onClick={() => pick(o.value)} className={cn('w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-left cursor-pointer bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-800/70 dark:hover:bg-zinc-800', o.danger && 'text-red-600')}>
+                      {I && <span className={cn('w-9 h-9 rounded-full flex items-center justify-center shrink-0', o.danger ? 'bg-red-100 dark:bg-red-950/50' : 'bg-white dark:bg-zinc-900')}><I className="w-4 h-4" /></span>}
+                      <span className="min-w-0">
+                        <span className="block text-sm font-bold">{o.label}</span>
+                        {o.desc && <span className="block text-[11.5px] text-zinc-500 break-keep">{o.desc}</span>}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button type="button" onClick={() => pick(null)} className="mt-2 w-full py-3 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-sm font-bold text-zinc-700 dark:text-zinc-200 cursor-pointer">취소</button>
             </motion.div>
           </div>
         )}

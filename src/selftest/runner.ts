@@ -78,6 +78,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
       // 앱의 확인 시트(지우기·보내기 등)도 '아니요'로 바로 닫음 → 점검이 실제로 지우거나 보내지 않게
       try {
         w.addEventListener('uzuhama-confirm', (e: any) => { note(`확인창 ${String(e?.detail?.title || e?.detail?.message || '').slice(0, 40)}`); try { e.detail?.resolve?.(false); } catch { /* */ } e.stopImmediatePropagation(); }, true);
+    w.addEventListener('uzuhama-choose', (e: any) => { note('고르기 창 (취소로 닫음)'); try { e.detail?.resolve?.(null); } catch {} e.stopImmediatePropagation(); }, true);
       } catch { /* */ }
       try { (w as any).alert = (m?: any) => { note(`알림창 ${String(m || '').slice(0, 40)}`); }; } catch { /* */ }
       try { (w as any).prompt = () => { note('입력창'); return null; }; } catch { /* */ }
@@ -378,7 +379,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
      * 누르면 나오는 메뉴·창 안의 항목까지 한 번 더 눌러 봄. 지우기·보내기·구독 같은 되돌릴 수 없는 건 안 누름.
      * 바깥 링크는 누르지 않고 주소가 제대로인지만 봄. 새 창·공유·복사·다운로드는 실제로 안 하고 불렸는지만 셈 */
     // 이 기기 안에서만 바뀌는 것(검색 기록 지우기·보기 방식 등)은 점검 뒤 되돌리니 누름. 서버·바깥으로 나가거나 되돌릴 수 없는 것만 안 누름
-    const SKIP = /로그아웃|연결 끊기|(?<!내)보내기|제출|신고하기|구독하기|알림 (켜|끄)|알림 받기|허용|설치하기|앱 설치|홈 화면에 추가|기기 연결 만들기|QR·연결 코드|먼저 봐 달라|의견 남기기|패치 등록|많이 보고 싶어요|투표|점검 시작|다시 점검/;
+    const SKIP = /로그아웃|연결 끊기|(?<!내)보내기|제출|신고하기|구독하기|알림 (켜|끄)|알림 받기|허용|설치하기|앱 설치|홈 화면에 추가|기기 연결 만들기|QR·연결 코드|먼저 봐 달라|의견 남기기|패치 등록|많이 보고 싶어요|투표|점검 시작|다시 점검|가리기|되돌리기|다시 보이기|보이기/;
     const CTRL = 'button, a[href], [role="button"], [role="tab"], [role="menuitem"], [role="switch"], [role="option"], input[type="checkbox"], input[type="radio"], summary';
     const labelOf = (el: HTMLElement) => (el.getAttribute('aria-label') || el.getAttribute('title') || el.innerText || (el as HTMLInputElement).value || '').replace(/\s+/g, ' ').trim().slice(0, 40);
     const keyOf = (el: HTMLElement) => `${el.tagName}|${el.getAttribute('role') || ''}|${labelOf(el).replace(/[\d,.:%]+/g, '#')}`;

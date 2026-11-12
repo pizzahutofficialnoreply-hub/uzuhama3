@@ -1,3 +1,4 @@
+import { VideoSwipe } from '../common/VideoSwipe';
 import { useAiDone } from '../common/AiSummaryHost';
 import { openAiCard } from '../common/AiCardExpand';
 import { useIsHeld } from '../../utils/held';
@@ -277,11 +278,13 @@ export const VideoCard = ({
     ? (video.createdAt ? video.createdAt.substring(0, 10) : (mostRecentDate || video.parentLog?.date))
     : (video.parentLog?.date || mostRecentDate);
 
+  const swipeId = extractYoutubeId(video?.videoUrl || '') || video?.id || '';
   return (
+    <VideoSwipe id={isExpanded ? undefined : swipeId} kind={video.isLive ? 'live' : 'video'} title={video.videoTitle || ''} shareText={() => formatRecommendShareText(video, allLogs)} onEngage={() => noteInterest(interestItem, 'engage')} className="h-full">
     <div 
       ref={trackRef}
       data-video-card
-      data-ai-card={aiDone ? video.id : undefined}
+      data-ai-card={lab.labAiCard && video.isCompilation ? swipeId : aiDone ? video.id : undefined}
       className={cn(
         "group relative isolate flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all",
         held && "video-held",
@@ -325,7 +328,16 @@ export const VideoCard = ({
               e.preventDefault();
               e.stopPropagation();
               noteInterest(interestItem, 'play');
-              if (aiDone) { openAiCard(video.id, video.videoTitle || '', thumbRef.current?.closest('[data-video-card]') || thumbRef.current, displayDate ? `${displayDate} 방송` : undefined); return; }
+              const cardEl = thumbRef.current?.closest('[data-video-card]') || thumbRef.current;
+              // 몰아보기: 요약이 있으면 요약과, 없어도 카드가 펼쳐지며 아래에 들어 있는 방송 목록
+              if (lab.labAiCard && video.isCompilation) {
+                openAiCard(swipeId, video.videoTitle || '', cardEl, `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임`, {
+                  compilation: true,
+                  extra: (close) => <CompilationDetail video={video} allLogs={allLogs} onClose={close} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} listOnly />,
+                });
+                return;
+              }
+              if (aiDone) { openAiCard(video.id, video.videoTitle || '', cardEl, displayDate ? `${displayDate} 방송` : undefined); return; }
               setIsPlayingInline(true);
             }}
             className="group/thumb block w-full h-full relative text-left cursor-pointer border-0 p-0 m-0 bg-transparent"
@@ -571,6 +583,7 @@ export const VideoCard = ({
         </div>
       </div>
     </div>
+    </VideoSwipe>
   );
 };
 
@@ -1544,7 +1557,7 @@ export function RecommendTab({
     const t = e.touches[0];
     const target = e.target as HTMLElement;
     const blocked = window.innerWidth >= 640 || e.touches.length > 1 ||
-      Boolean(target.closest('.overflow-x-auto, .no-scrollbar, input, textarea, select, iframe, .recharts-wrapper, [data-no-swipe], [role="dialog"]'));
+      Boolean(target.closest('.overflow-x-auto, .no-scrollbar, input, textarea, select, iframe, .recharts-wrapper, [data-no-swipe], [data-swipe-row], [role="dialog"]'));
     swipeRef.current = t ? { x: t.clientX, y: t.clientY, t: Date.now(), ok: !blocked } : null;
   };
   const onSwipeEnd = (e: React.TouchEvent) => {
@@ -2586,7 +2599,7 @@ export function RecommendTab({
               const isExpanded = Boolean(selectedBroadcastModalVideo && (selectedBroadcastModalVideo.id === video.id || (selectedBroadcastModalVideo.videoUrl && selectedBroadcastModalVideo.videoUrl === video.videoUrl)));
               const toggle = () => setSelectedBroadcastModalVideo(isExpanded ? null : video);
               return (
-                <div key={`${video.id}-${idx}`} className={cn(isExpanded && "my-2 mx-2 sm:mx-0")}>
+                <div key={`${video.id}-${idx}`} data-swipe-cell className={cn(isExpanded && "my-2 mx-2 sm:mx-0")}>
                   {renderSearchDivider(video, idx, 'my-2 py-2 px-2 sm:px-0')}
                   <AnimatePresence mode="wait" initial={false}>
                     {isExpanded ? (
@@ -2657,7 +2670,7 @@ export function RecommendTab({
                 {renderSearchDivider(video, idx, 'col-span-full my-2 py-3')}
 
                 {/* 몰아보기·연동 생방: 누른 카드 자리에서 재생목록 화면처럼 펼쳐짐 (닫기 전까지 원래 카드는 숨김) */}
-                <div className={cn(isExpanded && "col-span-full")}>
+                <div data-swipe-cell className={cn(isExpanded && "col-span-full")}>
                   <AnimatePresence mode="wait" initial={false}>
                     {isExpanded ? (
                       <motion.div
