@@ -180,7 +180,7 @@ export default async function handler(req: any, res: any) {
         return res.status(200).json(await ai.aiVerify(db, q));
       }
       if (aiMode === 'video') {
-        res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
+        res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
         return res.status(200).json(await ai.aiVideoDetail(db, String(req.query?.id || '')));
       }
       if (aiMode === 'prioritize') {
@@ -198,18 +198,18 @@ export default async function handler(req: any, res: any) {
       if (aiMode === 'ids') {
         // AI가 보기 시작한 영상 목록 (⋮ 메뉴에 'AI 영상 요약'을 보여 줄지)
         // 문서 전체를 읽으면 영상 수만큼 읽기가 들어서, 목록을 문서 하나에 모아 두고 1시간에 한 번만 새로 만듦
+        // 분석이 바뀔 때마다 그 영상만 이 문서에 반영됨 → 전체 다시 만들기는 문서가 없거나 형식이 바뀌었거나 7일에 한 번만
         const cRef = db.collection('youtube_cache').doc('ai_ids');
         const c = (await cRef.get()).data();
         let ids: string[] = Array.isArray(c?.ids) ? c.ids : [];
-        let done: string[] | null = Array.isArray(c?.done) ? c.done : null;
-        if (!c || !done || Date.now() - Date.parse(c.at || '0') > 3600000) {
-          const snap = await db.collection('ai_video').select('status').get();
-          ids = snap.docs.filter((d: any) => d.data().status !== 'skip').map((d: any) => d.id);
-          // 요약까지 다 끝난 영상 (실험실 '카드 펼쳐 요약과 함께 보기')
-          done = snap.docs.filter((d: any) => d.data().status === 'done').map((d: any) => d.id);
-          await cRef.set({ ids, done, at: new Date().toISOString() });
+        let done: string[] = Array.isArray(c?.done) ? c.done : [];
+        if (!c || c.v !== ai.AI_IDX_VER || Date.now() - Date.parse(c.at || '0') > 7 * 86400000) {
+          const snap = await db.collection('ai_video').select('status', 'pv', 'sv', 'storyTries', 'tries', 'error').get();
+          const ix = ai.buildAiIndex(snap.docs.map((d: any) => ({ id: d.id, data: d.data() })));
+          await cRef.set(ix);
+          ids = ix.ids; done = ix.done;
         }
-        res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
+        res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=7200');
         return res.status(200).json({ ids, done });
       }
       if (aiMode === 'check') {
@@ -281,13 +281,25 @@ export default async function handler(req: any, res: any) {
       const [chunks, gamesSnap] = await Promise.all([readChunks(db, meta), gamesRef.get()]);
       const entries: Record<string, Entry> = {};
       chunks.forEach((c) => Object.assign(entries, c));
-      res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=3600');
+      // 색인 전체는 문서 여러 개라 CDN 에 30분 보관 (방문자마다 DB 를 읽지 않게)
+      res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=21600');
       return res.status(200).json({ entries, games: gamesSnap.data()?.items || {}, count: Object.keys(entries).length });
     }
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+    // 썸네일 분석(비전)은 서버 정기 실행(worker)만: 아직 안 본 것 50개씩
+    const serverEnrich = req.query?.enrich === '1';
+    if (req.method !== 'POST' && !serverEnrich) return res.status(405).json({ error: 'Method not allowed' });
 
     let body: any = req.body;
     if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
+    if (serverEnrich) {
+      const meta0 = (await metaRef.get()).data() || {};
+      if (meta0.coolUntil && meta0.coolUntil > Date.now()) return res.status(200).json({ skipped: '쉬는 중' });
+      const ch = await readChunks(db, meta0);
+      const pend: string[] = [];
+      ch.forEach((c) => Object.entries(c).forEach(([id, e]: [string, any]) => { if (!e?.x && (e?.p || e?.m === undefined)) pend.push(id); }));
+      if (!pend.length) return res.status(200).json({ skipped: '다 봤어요' });
+      body = { ids: pend.slice(0, 50), games: [] };
+    }
     const requested = [...new Set((Array.isArray(body?.ids) ? body.ids : []).map((s: any) => String(s || '').trim()).filter((s: string) => ID_RE.test(s)))].slice(0, 300) as string[];
     const reqGames = [...new Set((Array.isArray(body?.games) ? body.games : []).map((s: any) => String(s || '').trim()).filter((s: string) => s.length >= 1 && s.length <= 80))].slice(0, 400) as string[];
 

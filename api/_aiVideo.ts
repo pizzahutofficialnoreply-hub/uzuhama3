@@ -326,6 +326,42 @@ async function analyzeGame(db: any, name: string, ko: string, link = '') {
 /** 스토리 정리 버전: 바뀌면 이미 본 영상도 (영상은 다시 안 보고) 정리만 다시 */
 const SV = 2; // 2: 노가리·오팬무
 
+/* ── 분석 목록 색인 (youtube_cache/ai_ids 문서 하나) ──
+ * ids: 분석을 시작한 영상, done: 요약까지 끝난 영상, fin: 더 볼 게 없는 영상
+ * 매번 ai_video 문서를 수십~수천 개 읽어 '다음 볼 영상'을 찾던 것 → 이 문서 하나로 거르고 남은 것만 읽음 */
+export const AI_IDX_VER = 2;
+export function aiFinished(d: any): boolean {
+  if (!d) return false;
+  const busySkip = d.status === 'skip' && /high demand|UNAVAILABLE/i.test(d.error || '');
+  const redo = d.pv !== PV && d.status !== 'skip';
+  const restory = !redo && d.status === 'done' && d.sv !== SV && Number(d.storyTries || 0) < 3;
+  if (busySkip || redo || restory) return false;
+  return d.status === 'done' || d.status === 'skip' || (d.status === 'error' && Number(d.tries || 0) >= 3);
+}
+export function buildAiIndex(docs: { id: string; data: any }[]) {
+  return {
+    ids: docs.filter((x) => x.data?.status !== 'skip').map((x) => x.id),
+    done: docs.filter((x) => x.data?.status === 'done').map((x) => x.id),
+    fin: docs.filter((x) => aiFinished(x.data)).map((x) => x.id),
+    v: AI_IDX_VER,
+    at: new Date().toISOString(),
+  };
+}
+/** 영상 하나가 바뀌었을 때 색인만 고침 (문서 1개 읽기) */
+async function indexAiDoc(db: any, id: string) {
+  try {
+    const { FieldValue } = await import('firebase-admin/firestore');
+    const d = (await db.collection('ai_video').doc(id).get()).data();
+    const op = (on: boolean) => (on ? FieldValue.arrayUnion(id) : FieldValue.arrayRemove(id));
+    await db.collection('youtube_cache').doc('ai_ids').set({
+      ids: op(Boolean(d) && d.status !== 'skip'),
+      done: op(d?.status === 'done'),
+      fin: op(aiFinished(d)),
+    }, { merge: true });
+  } catch { /* 다음 전체 정리 때 맞춰짐 */ }
+}
+let pickedId = '';
+
 async function buildStory(title: string, cur: any, games: any[]) {
   const parts = (cur?.parts || []).map((p: any) => `[${fmt(p.from)}~${fmt(p.to)}] ${p.summary}`).join('\n').slice(0, 14000);
   const scenes = (cur?.scenes || []).filter((x: Scene) => !x.u).map((x: Scene) => `${fmt(x.t)} ${x.d}${x.q ? ` "${x.q}"` : ''}`).join('\n').slice(0, 16000);
@@ -390,6 +426,14 @@ async function compOverview(item: QItem, desc: string) {
 }
 
 export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Promise<any> {
+  pickedId = '';
+  const r = await runAiVideoStepInner(db, opts);
+  const id = pickedId || r?.id;
+  if (id) await indexAiDoc(db, id);
+  return r;
+}
+
+async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promise<any> {
   if (!aiKey()) return { skipped: 'GEMINI_API_KEY 없음' };
   if (!ytKey()) return { skipped: 'YOUTUBE_API_KEY 없음' };
   const stRef = db.collection('youtube_cache').doc('ai_state');
@@ -432,8 +476,17 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
         if (d && d.pv === PV && d.status !== 'done' && d.status !== 'skip' && !(d.status === 'error' && (d.tries || 0) >= 3)) { item = q; cur = d; }
       }
     }
-    for (let i = 0; i < queue.length && !item; i += 30) {
-      const part = queue.slice(i, i + 30).filter((q) => q.live !== 'live' && q.live !== 'upcoming' && (!opts.kind || q.kind === opts.kind));
+    // 다 끝난 영상은 색인으로 미리 걸러서 안 읽음
+    let finSet = new Set<string>();
+    if (!item) {
+      try {
+        const ix = (await db.collection('youtube_cache').doc('ai_ids').get()).data();
+        if (ix?.v === AI_IDX_VER && Array.isArray(ix.fin)) finSet = new Set(ix.fin);
+      } catch { /* 색인 없으면 예전처럼 */ }
+    }
+    const todo = finSet.size ? queue.filter((q) => !finSet.has(q.id)) : queue;
+    for (let i = 0; i < todo.length && !item; i += 30) {
+      const part = todo.slice(i, i + 30).filter((q) => q.live !== 'live' && q.live !== 'upcoming' && (!opts.kind || q.kind === opts.kind));
       if (!part.length) continue;
       const snaps = await db.getAll(...part.map((q) => col.doc(q.id)));
       for (let j = 0; j < part.length; j++) {
@@ -446,6 +499,7 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
       }
     }
     if (!item) { await release({ lastError: '', idle: true }); return { done: true, message: '모든 영상을 분석했어요' }; }
+    pickedId = item.id;
 
     const ref = col.doc(item.id);
     // 몰아보기: 장면 하나하나는 원본 방송 분석을 모아서 보여 주므로, 여기서는 가볍게 한 번만
@@ -715,29 +769,49 @@ export async function aiVideoDetail(db: any, id: string) {
 const ytIdOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
 
 /** 몰아보기 영상 → 들어 있는 방송들의 원본 영상(다시보기·편집본) 분석 모음 */
-async function compilationSources(db: any, id: string) {
-  let dates: string[] = [];
-  let title = '';
-  let games: string[] = [];
+/** 몰아보기 → 들어 있는 방송·원본 영상 목록을 문서 하나에 모아 둠 (볼 때마다 기록 전체를 읽지 않게, 12시간마다 새로) */
+async function compIndex(db: any): Promise<Record<string, { title: string; dates: string[]; games: string[]; ids: string[] }>> {
+  const ref = db.collection('youtube_cache').doc('comp_index');
   try {
-    const comps = await db.collection('compilations').get();
-    const c = comps.docs.map((x: any) => x.data()).find((x: any) => ytIdOf(x.url) === id);
-    if (c) { title = c.title || ''; dates = (c.broadcasts || []).map((b: any) => b.date).filter(Boolean); games = (c.broadcasts || []).flatMap((b: any) => b.games || []); }
-  } catch { /* */ }
+    const c = (await ref.get()).data();
+    if (c?.map && Date.now() - Date.parse(c.at || '0') < 12 * 3600000) return c.map;
+  } catch { /* 새로 */ }
+  const map: Record<string, { title: string; dates: string[]; games: string[]; ids: string[] }> = {};
+  let comps: any[] = [];
+  try { comps = (await db.collection('compilations').get()).docs.map((x: any) => x.data()); } catch { /* */ }
   const logs = (await db.collection('logs').get()).docs.map((x: any) => x.data());
-  if (!dates.length) {
-    for (const l of logs) for (const e of l.edited || []) {
-      if ((e?.isCompilation || e?.compilationId) && ytIdOf(e.url) === id) { title = e.title || title; dates = e.allBroadcastDates?.length ? e.allBroadcastDates : [l.date]; }
-    }
-  }
-  if (!dates.length) return null;
-  const ids: string[] = [];
-  logs.filter((l: any) => dates.includes(l.date)).sort((a: any, b: any) => a.date.localeCompare(b.date)).forEach((l: any) => {
-    [...(l.edited || []).filter((e: any) => !(e?.isCompilation || e?.compilationId)), ...(l.vods || [])].forEach((v: any) => {
-      const vid = ytIdOf(typeof v === 'string' ? v : v?.url);
-      if (vid && vid !== id && !ids.includes(vid)) ids.push(vid);
-    });
+  comps.forEach((c: any) => {
+    const cid = ytIdOf(c.url);
+    if (cid) map[cid] = { title: c.title || '', dates: (c.broadcasts || []).map((b: any) => b.date).filter(Boolean), games: (c.broadcasts || []).flatMap((b: any) => b.games || []).map((g: any) => (typeof g === 'string' ? g : g?.name)).filter(Boolean), ids: [] };
   });
+  for (const l of logs) for (const e of l.edited || []) {
+    if (!(e?.isCompilation || e?.compilationId)) continue;
+    const cid = ytIdOf(e.url);
+    if (!cid) continue;
+    if (!map[cid]) map[cid] = { title: e.title || '', dates: [], games: [], ids: [] };
+    if (!map[cid].dates.length) map[cid].dates = e.allBroadcastDates?.length ? e.allBroadcastDates : [l.date];
+    if (!map[cid].title) map[cid].title = e.title || '';
+  }
+  Object.entries(map).forEach(([cid, m]) => {
+    const ids: string[] = [];
+    logs.filter((l: any) => m.dates.includes(l.date)).sort((a: any, b: any) => a.date.localeCompare(b.date)).forEach((l: any) => {
+      [...(l.edited || []).filter((e: any) => !(e?.isCompilation || e?.compilationId)), ...(l.vods || [])].forEach((v: any) => {
+        const vid = ytIdOf(typeof v === 'string' ? v : v?.url);
+        if (vid && vid !== cid && !ids.includes(vid)) ids.push(vid);
+      });
+    });
+    m.ids = ids.slice(0, 30);
+  });
+  try { await ref.set({ map, at: new Date().toISOString() }); } catch { /* 너무 크면 다음에 */ }
+  return map;
+}
+
+/** 몰아보기 영상 → 들어 있는 방송들의 원본 영상(다시보기·편집본) 분석 모음 */
+async function compilationSources(db: any, id: string) {
+  const m = (await compIndex(db))[id];
+  if (!m || !m.dates.length) return null;
+  const { title, dates, games } = m;
+  const ids = m.ids;
   const snaps = ids.length ? await db.getAll(...ids.slice(0, 30).map((x) => db.collection('ai_video').doc(x))) : [];
   const sources = snaps.map((sn: any, i: number) => ({ sn, id: ids[i] })).filter(({ sn }: any) => sn.exists && sn.data().status === 'done').map(({ sn, id: vid }: any) => {
     const v = sn.data();

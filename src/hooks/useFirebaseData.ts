@@ -195,7 +195,8 @@ export function useFirebaseData() {
 
   const lastFetchTimeRef = useRef<number>(0);
   const MONTH_DOCS_KEY = 'logs_by_month_v1';
-  const FULL_RESYNC_MS = 24 * 3600 * 1000;
+  // 전체 다시 받기는 7일에 한 번 (그 사이엔 바뀐 달만)
+  const FULL_RESYNC_MS = 7 * 24 * 3600 * 1000;
   const COMPILATIONS_CACHE_KEY = 'uzuhama_fs_compilations_v1';
 
   // 핵심 일지 데이터 호출 함수: 과거 아카이브(JSON) + Firestore 최신 데이터(logs, logs_by_month, compilations) 통합 병합
@@ -252,15 +253,20 @@ export function useFirebaseData() {
         const compSources: { docId: string; comp: any }[] = [];
         try {
           let cachedComps: { docId: string; comp: any }[] | null = null;
-          if (!doFull && !monthChanged) {
-            try { cachedComps = JSON.parse(localStorage.getItem(COMPILATIONS_CACHE_KEY) || 'null'); } catch {}
+          // 몰아보기 원본: 기록이 바뀌어도 매번 다시 읽지 않고 하루에 한 번 (몰아보기 날짜는 위 월 문서에도 반영됨)
+          if (!doFull) {
+            try {
+              const c = JSON.parse(localStorage.getItem(COMPILATIONS_CACHE_KEY) || 'null');
+              const at = Number(localStorage.getItem(COMPILATIONS_CACHE_KEY + '_at') || 0);
+              if (Array.isArray(c) && (Date.now() - at < 24 * 3600 * 1000 || (!monthChanged && at))) cachedComps = c;
+            } catch {}
           }
           if (Array.isArray(cachedComps)) {
             compSources.push(...cachedComps);
           } else {
             const compSnaps = await getDocs(collection(db, 'compilations'));
             compSnaps.forEach((d) => compSources.push({ docId: d.id, comp: d.data() }));
-            try { localStorage.setItem(COMPILATIONS_CACHE_KEY, JSON.stringify(compSources)); } catch {}
+            try { localStorage.setItem(COMPILATIONS_CACHE_KEY, JSON.stringify(compSources)); localStorage.setItem(COMPILATIONS_CACHE_KEY + '_at', String(Date.now())); } catch {}
           }
         } catch (permErr: any) {
           console.debug('compilations 직접 조회 불가:', permErr?.message);
@@ -496,15 +502,24 @@ export function useFirebaseData() {
         let valTime = undefined;
         let valGuides = undefined;
         let valVideoStats = undefined;
+        // 설정 문서 다섯 개: 기기에 저장해 두고 12시간에 한 번만 새로 읽음 (system 은 실시간 구독으로 따로 최신화)
+        const CFG_KEY = 'uzuhama_cfg_docs_v1';
+        let cfgCache: any = null;
+        try { cfgCache = JSON.parse(localStorage.getItem(CFG_KEY) || 'null'); } catch {}
         try {
-          const [sysSnap, statsSnap, timeSnap, guidesSnap, videoStatsSnap] = await Promise.all([
-            getDoc(sysRef), getDoc(statsRef), getDoc(timeRef), getDoc(guidesRef), getDoc(videoStatsRef)
-          ]);
-          valSys = sysSnap.data();
-          valStats = statsSnap.data();
-          valTime = timeSnap.data();
-          valGuides = guidesSnap.data();
-          valVideoStats = videoStatsSnap.data();
+          if (cfgCache && Date.now() - Number(cfgCache.at || 0) < 12 * 3600 * 1000) {
+            ({ sys: valSys, stats: valStats, time: valTime, guides: valGuides, video: valVideoStats } = cfgCache);
+          } else {
+            const [sysSnap, statsSnap, timeSnap, guidesSnap, videoStatsSnap] = await Promise.all([
+              getDoc(sysRef), getDoc(statsRef), getDoc(timeRef), getDoc(guidesRef), getDoc(videoStatsRef)
+            ]);
+            valSys = sysSnap.data();
+            valStats = statsSnap.data();
+            valTime = timeSnap.data();
+            valGuides = guidesSnap.data();
+            valVideoStats = videoStatsSnap.data();
+            try { localStorage.setItem(CFG_KEY, JSON.stringify({ at: Date.now(), sys: valSys, stats: valStats, time: valTime, guides: valGuides, video: valVideoStats })); } catch {}
+          }
         } catch (e: any) {
           console.warn('Failed to fetch config from Firebase, using defaults. Error:', e.message);
         }

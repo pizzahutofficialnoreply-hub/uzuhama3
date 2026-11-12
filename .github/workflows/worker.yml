@@ -41,6 +41,10 @@ jobs:
               out=$(curl -sS --max-time 295 "https://uzuhama.vercel.app/api/videos/search-index?ai=run&src=worker" | head -c 300 || true)
               echo "$(date -u +%H:%M) $out"
             fi
+            # 검색 색인 썸네일 분석: 30분에 한 번 (예전엔 방문자 기기마다 몇 초 간격으로 불러 DB 읽기가 많았음)
+            if [ $((n % 15)) -eq 7 ]; then
+              curl -sS --max-time 120 "https://uzuhama.vercel.app/api/videos/search-index?enrich=1" -o /dev/null || true
+            fi
             n=$((n+1))
             sleep 120
           done

@@ -56,18 +56,23 @@ function load() {
 let enriching = false;
 let rounds = 0;
 const wait = (sec: number) => new Promise((r) => setTimeout(r, sec * 1000));
+/**
+ * 사이트에 있는데 색인에 아직 없는 영상·게임만 서버에 넘겨 만들게 함
+ *  - 썸네일 분석(비전)은 서버가 정해진 시간에 혼자 함 (방문자마다 몇 초 간격으로 계속 부르면 DB 읽기가 크게 늘어서)
+ *  - 기기마다 6시간에 한 번만, 진행이 없으면 바로 그만
+ */
+const ENRICH_KEY = 'uzuhama_search_enrich_at';
 async function enrich(ids: string[], games: string[]) {
   if (enriching) return;
+  try { if (Date.now() - Number(localStorage.getItem(ENRICH_KEY) || 0) < TTL) return; } catch { /* */ }
   enriching = true;
   try {
-    let busy = 0;
-    while (rounds < 120) {
+    while (rounds < 6) {
       const newIds = ids.filter((id) => ID_RE.test(id) && !data.entries[id]).slice(0, 150);
-      const pendingIds = ids.filter((id) => needsVision(data.entries[id])).slice(0, 50);
       const newGames = games.filter((g) => !(g in data.games)).slice(0, 200);
-      if (!newIds.length && !pendingIds.length && !newGames.length) {
+      if (!newIds.length && !newGames.length) {
         if (!complete) { complete = true; persist(); }
-        return;
+        break;
       }
       rounds += 1;
       let json: any;
@@ -75,35 +80,25 @@ async function enrich(ids: string[], games: string[]) {
         const r = await fetch(`${API_BASE}/api/videos/search-index`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids: [...newIds, ...pendingIds], games: newGames }),
+          body: JSON.stringify({ ids: newIds, games: newGames }),
         });
         json = await r.json();
       } catch {
-        return;
+        break;
       }
       const added = json?.added && typeof json.added === 'object' ? json.added : {};
       const addedGames = json?.games && typeof json.games === 'object' ? json.games : {};
-      if (Object.keys(added).length || Object.keys(addedGames).length) {
+      const progressed = Object.keys(added).length + Object.keys(addedGames).length;
+      if (progressed) {
         data = { entries: { ...data.entries, ...added }, games: { ...data.games, ...addedGames } };
         persist();
         emit();
       }
-      if (json?.error) return;
-      if (json?.busy) {
-        // 다른 기기가 처리 중
-        if (++busy > 6) return;
-        await wait(Math.max(30, Number(json.retryAfter) || 30));
-        continue;
-      }
-      busy = 0;
-      // 새 영상 태그는 다 받았고 썸네일·게임은 한도 때문에 쉬는 중이면 길게 쉬지 않고 그만 (다음 방문 때 이어서)
-      if (json?.resting) {
-        if (!newIds.length || Number(json.retryAfter) > 120) return;
-        await wait(Math.max(5, Number(json.retryAfter) || 65));
-        continue;
-      }
+      // 다른 기기가 처리 중·쉬는 중·오류·진행 없음 → 이번엔 그만 (다음에 이어서)
+      if (json?.error || json?.busy || json?.resting || !progressed) break;
       await wait(5);
     }
+    try { localStorage.setItem(ENRICH_KEY, String(Date.now())); } catch { /* */ }
   } finally {
     enriching = false;
   }

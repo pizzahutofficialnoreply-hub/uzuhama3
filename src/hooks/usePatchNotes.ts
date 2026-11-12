@@ -86,7 +86,8 @@ export function usePatchNotes() {
         if (isMounted) setLoading(false);
       }
     };
-    pollTimer = window.setInterval(fetchNotes, 3 * 60 * 1000);
+    // 켜 둔 동안 30분마다만 (예전 3분 → 방문자 수만큼 서버·DB 읽기가 늘었음)
+    pollTimer = window.setInterval(() => { if (document.visibilityState === 'visible') fetchNotes(); }, 30 * 60 * 1000);
     unsubscribe = () => { if (pollTimer) window.clearInterval(pollTimer); };
 
     fetchNotes();

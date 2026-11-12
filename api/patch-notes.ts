@@ -451,9 +451,11 @@ export default async function handler(req: any, res: any) {
       .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.version || '').localeCompare(a.version || '', undefined, { numeric: true }));
 
     // 새 패치노트 → 자동 공지 (실패해도 목록은 그대로)
-    try { await maybeAnnounce(db, merged); } catch (e) { console.warn('[patch-notes] announce failed:', e); }
+    // (공지 확인은 정기 실행이 ?announce=1 로 부를 때만 — 방문자 요청마다 설정 문서를 읽지 않게)
+    if (req.query?.announce) { try { await maybeAnnounce(db, merged); } catch (e) { console.warn('[patch-notes] announce failed:', e); } }
 
-    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+    // 방문자마다 패치노트 문서 전체를 읽지 않게 CDN 에 30분 보관
+    res.setHeader('Cache-Control', req.query?.announce ? 'no-store' : 'public, s-maxage=1800, stale-while-revalidate=86400');
     return res.status(200).json({
       notes: merged,
       counts: { firestore: fsNotes.length, notion: notion.notes.length },

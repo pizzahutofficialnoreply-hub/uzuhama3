@@ -204,18 +204,25 @@ export default async function handler(req: any, res: any) {
         ? new Date(Date.parse(`${dateStr}T00:00:00Z`) - 86400000).toISOString().slice(0, 10)
         : dateStr;
 
-      // 확률 엔진에 필요한 최근 약 13개월치만 읽음
-      const startMonth = new Date(now.getTime() - 400 * 86400000).toISOString().slice(0, 7);
-      const { FieldPath } = await import('firebase-admin/firestore');
-      const monthSnaps = await db.collection('logs_by_month').where(FieldPath.documentId(), '>=', startMonth).get();
-      const logs: any[] = [];
-      monthSnaps.forEach((d: any) => {
-        const items = d.data()?.items;
-        if (items && typeof items === 'object') Object.values(items).forEach((l: any) => l?.date && logs.push(l));
-      });
-      const system = (await db.collection('config').doc('system').get()).data() || {};
-      const prob = computeBroadcastProbability(logs, now, { system: system as any });
-      result.prob = { day: prob.dayProb, final: prob.finalProb, peak: prob.time.peakMinute, state: prob.pattern.state };
+      // 확률 엔진에 필요한 최근 약 13개월치 (문서 10여 개) — 30분에 한 번만 새로 계산하고 그 사이엔 저장해 둔 값
+      let prob: any;
+      const pc = state.probCache;
+      if (pc && pc.date === bToday && now.getTime() - Number(pc.at || 0) < 30 * 60000) {
+        prob = { dayProb: pc.dayProb, finalProb: pc.finalProb, time: { peakMinute: pc.peak, peakIsToday: pc.peakIsToday }, pattern: { state: pc.state } };
+      } else {
+        const startMonth = new Date(now.getTime() - 400 * 86400000).toISOString().slice(0, 7);
+        const { FieldPath } = await import('firebase-admin/firestore');
+        const monthSnaps = await db.collection('logs_by_month').where(FieldPath.documentId(), '>=', startMonth).get();
+        const logs: any[] = [];
+        monthSnaps.forEach((d: any) => {
+          const items = d.data()?.items;
+          if (items && typeof items === 'object') Object.values(items).forEach((l: any) => l?.date && logs.push(l));
+        });
+        const system = (await db.collection('config').doc('system').get()).data() || {};
+        prob = computeBroadcastProbability(logs, now, { system: system as any });
+        await stateRef.set({ probCache: { at: now.getTime(), date: bToday, dayProb: prob.dayProb, finalProb: prob.finalProb, peak: prob.time.peakMinute ?? null, peakIsToday: Boolean(prob.time.peakIsToday), state: prob.pattern.state } }, { merge: true });
+      }
+      result.prob = { day: prob.dayProb, final: prob.finalProb, peak: prob.time.peakMinute, state: prob.pattern.state, cached: Boolean(pc && prob.dayProb === pc.dayProb && pc.at !== now.getTime()) };
 
       const peak = prob.time.peakMinute;
       if (

@@ -94,7 +94,7 @@ export default async function handler(req: any, res: any) {
     const ref = db.collection('status_messages').doc('current');
     const current = (await ref.get()).data() || null;
     const send = (data: any, extra: Record<string, any> = {}) => {
-      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      res.setHeader('Cache-Control', data?.key === key && data?.sets ? 'public, s-maxage=1800, stale-while-revalidate=3600' : 'public, s-maxage=60');
       return res.status(200).json({ key: data?.key || null, sets: data?.sets || null, generatedAt: data?.generatedAt || null, model: data?.model || null, ...extra });
     };
     if (current?.key === key && current?.sets) return send(current);
