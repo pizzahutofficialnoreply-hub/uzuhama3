@@ -281,9 +281,11 @@ export const VideoCard = ({
 
   const swipeId = extractYoutubeId(video?.videoUrl || '') || video?.id || '';
   // 몰아보기: 썸네일이나 '자세히 보기'를 누르면 카드가 펼쳐짐 (요약이 있으면 요약과, 없어도 아래에 들어 있는 방송)
-  const compExpand = Boolean(lab.labAiCard && video?.isCompilation);
-  const expandCompilation = () => openAiCard(swipeId, video.videoTitle || '', trackRef.current || thumbRef.current, `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임`, {
-    compilation: true,
+  // 여러 생방송이 연결된 영상도 같은 방식 (요약은 끝난 영상만)
+  const compExpand = Boolean(lab.labAiCard && isMultiBroadcastOrCompilation);
+  const expandCompilation = () => openAiCard(swipeId, video.videoTitle || '', trackRef.current || thumbRef.current, video.isCompilation ? `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임` : `영상 연동 · 생방송 ${broadcastDates.length}개`, {
+    compilation: Boolean(video.isCompilation),
+    noSummary: !video.isCompilation && !aiDone,
     extra: (close) => <CompilationDetail video={video} allLogs={allLogs} onClose={close} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} listOnly />,
   });
   return (
@@ -291,7 +293,7 @@ export const VideoCard = ({
     <div 
       ref={trackRef}
       data-video-card
-      data-ai-card={lab.labAiCard && video.isCompilation ? swipeId : aiDone ? video.id : undefined}
+      data-ai-card={compExpand ? swipeId : aiDone ? video.id : undefined}
       className={cn(
         "group relative isolate flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all",
         held && "video-held",

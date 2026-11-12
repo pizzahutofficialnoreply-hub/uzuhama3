@@ -635,3 +635,13 @@ html.overlay-open { overscroll-behavior: none; }
 @keyframes ui-toast-in { from { opacity: 0; transform: translate3d(0,22px,0) scale(.97); } to { opacity: 1; transform: none; } }
 @keyframes ui-toast-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translate3d(0,12px,0) scale(.98); } }
 @media (prefers-reduced-motion: reduce) { .ui-toast, .ui-toast-out { animation-duration: .01s; } }
+
+/* 펼친 카드: 영상 아래 이음새 (영상 끝부분 반사광 + 지나가는 내용 흐림, 아래로 갈수록 투명) */
+.ai-card-seam {
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+  background: linear-gradient(to bottom, rgba(0,0,0,.3), rgba(0,0,0,0));
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 35%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 35%, transparent 100%);
+}
+.ai-card-seam-glow { transform: scaleY(-1) scale(1.15); filter: blur(22px) saturate(1.4); opacity: .55; }

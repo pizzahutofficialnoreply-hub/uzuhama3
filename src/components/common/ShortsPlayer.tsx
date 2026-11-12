@@ -6,6 +6,8 @@ import { CompilationDetail } from '../tabs/recommend/CompilationDetail';
 import { extractYoutubeId } from '../../utils/urlUtils';
 import { cleanShortsTitle } from '../../utils/videoSearch';
 import { PlaySquare, YoutubeLogo } from './MediaIcons';
+import { openAiCard } from './AiCardExpand';
+import { usePrefs } from '../../utils/userPrefs';
 
 /**
  * 유튜브 앱처럼 전체 화면으로 보는 쇼츠
@@ -35,6 +37,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: S
   // 다음 쇼츠로 넘어가는 동안은 플레이어를 숨기고 썸네일을 보여 줌 (이전 영상이 잠깐 보이지 않게)
   const [switching, setSwitching] = useState(true);
   const pausedRef = useRef(false);
+  const labCard = usePrefs().labAiCard;
   pausedRef.current = paused;
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -241,11 +244,13 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: S
             onClick={(e) => { if (e.detail > 0 && !('ontouchstart' in window)) togglePlay(); }}
           />
 
+          {/* 멈췄을 때: 유튜브 재생 버튼 모양 */}
           {paused && ready && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="w-16 h-16 rounded-full bg-black/45 backdrop-blur-md flex items-center justify-center">
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 ml-1" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5L8 5.5z" /></svg>
-              </span>
+              <svg viewBox="0 0 68 48" className="w-[68px] h-12 drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]" aria-hidden="true">
+                <path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55C3.97 2.33 2.27 4.81 1.48 7.74.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="#ff0000" />
+                <path d="M45 24 27 14v20" fill="#fff" />
+              </svg>
             </div>
           )}
 
@@ -280,8 +285,19 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: S
                 유튜브에서 보기
               </a>
               {!!cur.compilation?.length && (
-                <button type="button" onClick={() => setSheetOpen(true)} className="h-9 px-3 rounded-full bg-purple-600/90 backdrop-blur-md flex items-center gap-1 text-xs font-bold cursor-pointer">
-                  <Layers className="w-4 h-4" /> 몰아보기 펼치기 · {cur.compilation.length}
+                <button type="button" onClick={() => {
+                  // 다른 곳의 '자세히 보기'와 같이 전체 화면으로 펼침 (실험실 끄면 아래에서 올라오는 목록)
+                  if (labCard && cur.compilationVideo) {
+                    command('pauseVideo'); setPaused(true);
+                    const v = cur.compilationVideo;
+                    const vid = idOf(index);
+                    openAiCard(vid, v.videoTitle || cur.title || '몰아보기', stageRef.current, `몰아보기 · ${cur.compilation?.length || 0}개 방송`, {
+                      compilation: true,
+                      extra: (closeCard) => <CompilationDetail video={v} allLogs={allLogs} onClose={closeCard} listOnly />,
+                    });
+                  } else setSheetOpen(true);
+                }} className="h-9 px-3 rounded-full bg-purple-600/90 backdrop-blur-md flex items-center gap-1 text-xs font-bold cursor-pointer">
+                  <Layers className="w-4 h-4" /> 자세히 보기 · {cur.compilation.length}
                 </button>
               )}
             </div>

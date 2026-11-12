@@ -219,8 +219,13 @@ export function AiCardExpandHost() {
               <button type="button" onClick={close} style={{ opacity: settled ? 1 : 0, transition: 'opacity .2s' }} className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/65 hover:bg-black text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
             </div>
 
-            <motion.div ref={scrollEl} className="flex-1 min-h-0 overflow-y-auto overscroll-contain" initial={{ opacity: 0.35 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: closing ? 0.14 : 0.24 }}>
-              <div className="px-5 pt-4 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
+            <div className="relative flex-1 min-h-0">
+            {/* 영상과 아래 내용 사이: 영상 아랫부분이 비치는 빛 + 밑으로 지나가는 내용은 흐리게 (한 덩어리로 이어 보이게) */}
+            <div className="ai-card-seam pointer-events-none absolute inset-x-0 top-0 z-10 h-14 overflow-hidden" aria-hidden>
+              <img src={t.thumb || `https://img.youtube.com/vi/${t.id}/mqdefault.jpg`} alt="" className="ai-card-seam-glow absolute inset-0 w-full h-full object-cover object-bottom" />
+            </div>
+            <motion.div ref={scrollEl} className="absolute inset-0 overflow-y-auto overscroll-contain" initial={{ opacity: 0.35 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: closing ? 0.14 : 0.24 }}>
+              <div className="px-5 pt-9 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
                 <h2 className="text-[16px] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
                 {t.sub && <p className="mt-1 text-[12px] text-zinc-500 tabular-nums">{t.sub}</p>}
 
@@ -264,6 +269,7 @@ export function AiCardExpandHost() {
                 {t.extra && <div className="mt-4 -mx-3">{t.extra(close)}</div>}
               </div>
             </motion.div>
+            </div>
            </motion.div>
           </motion.div>
         </motion.div>
