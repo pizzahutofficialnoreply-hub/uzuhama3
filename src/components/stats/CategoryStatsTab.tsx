@@ -139,7 +139,7 @@ export function CategoryStatsTab({
 
     if (selectedCategory === catName) {
       // 이미 선택된 카테고리를 다시 클릭하면 추천 영상 탭으로 즉시 이동하여 해당 카테고리 영상 목록 확인
-      onNavigateToRecommend?.(catName);
+      onNavigateToRecommend?.(undefined, catName);
     } else {
       setSelectedCategory(catName);
     }
@@ -373,7 +373,7 @@ export function CategoryStatsTab({
         <div 
           onClick={() => {
             if (topCategory && onNavigateToRecommend) {
-              onNavigateToRecommend(topCategory.name, undefined);
+              onNavigateToRecommend(undefined, topCategory.name);
             }
           }}
           className={cn(
@@ -657,7 +657,7 @@ export function CategoryStatsTab({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => onNavigateToRecommend?.(selectedCategory)}
+                onClick={() => onNavigateToRecommend?.(undefined, selectedCategory)}
                 className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg text-xs transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <span>추천 영상 보기</span>
@@ -858,11 +858,12 @@ export function CategoryStatsTab({
                               data-testid="cat-game"
                               data-count={g.count}
                               onClick={() => {
-                                if (g.count > 1 && onNavigateToRecommend) onNavigateToRecommend(undefined, g.name);
+                                // 게임 이름은 몇 번 했든 검색 탭에서 그 게임 영상으로
+                                if (onNavigateToRecommend) onNavigateToRecommend(undefined, g.name);
                                 else if (g.latestDate && onNavigateToCalendar) onNavigateToCalendar(g.latestDate);
                               }}
                               className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700 truncate max-w-[140px] sm:max-w-[180px] transition-colors cursor-pointer group/btn"
-                              title={g.count > 1 ? `${g.name} (${g.count}회) - 누르면 이 게임 영상 전체를 검색` : g.latestDate ? `${g.name} - 누르면 ${g.latestDate} 방송 기록 달력으로` : g.name}
+                              title={`${g.name} (${g.count}회) - 누르면 검색 탭에서 이 게임 영상 보기`}
                             >
                               <span className="truncate">{g.name}</span>
                               <span className="text-[9px] sm:text-[10px] font-bold text-zinc-900 dark:text-white">

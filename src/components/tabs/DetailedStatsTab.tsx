@@ -59,6 +59,7 @@ import { Download, FileText, AlertCircle, X, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BroadcastHeatmap } from '../stats/BroadcastHeatmap';
 import { CategoryStatsTab } from '../stats/CategoryStatsTab';
+import { CompareStats } from '../stats/CompareStats';
 import { SmartTrendLabel } from '../stats/SmartTrendLabel';
 import { StatInsightSummary } from '../stats/StatInsightSummary';
 import { WidgetShareButton } from '../common/WidgetShareButton';
@@ -113,6 +114,9 @@ export function DetailedStatsTab({
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [activeSubTab, setActiveSubTab] = useState<'trend' | 'day' | 'category'>('trend');
+  // 비교: 기간 두 개를 겹쳐 보기 (위 조회 기간과 따로)
+  const [compare, setCompare] = useState(false);
+  const selectSub = (t: 'trend' | 'day' | 'category') => { setCompare(false); setActiveSubTab(t); };
   const [downloadConfirm, setDownloadConfirm] = useState<'csv' | 'pdf' | null>(null);
   useBodyScrollLock(Boolean(downloadConfirm));
   useEffect(() => {
@@ -255,6 +259,7 @@ export function DetailedStatsTab({
     }
   };
 
+  const allLogsList = useMemo(() => Object.values(data.logs || {}) as BroadcastLog[], [data.logs]);
   const logsArray = useMemo(() => {
     return Object.values(data.logs).filter(log => log.date >= startDate && log.date <= endDate);
   }, [data.logs, startDate, endDate]);
@@ -948,20 +953,20 @@ export function DetailedStatsTab({
           {isLegacyRange ? (
             <>
               <button
-                onClick={() => setActiveSubTab('trend')} data-testid="stats-tab-trend"
+                onClick={() => selectSub('trend')} data-testid="stats-tab-trend"
                 className={cn(
                   "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-                  activeSubTab !== 'category' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+                  !compare && activeSubTab !== 'category' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
                 )}
               >
                 방송 추이 및 요일별 분석
               </button>
               {showLegacyCategory && (
                 <button
-                  onClick={() => setActiveSubTab('category')} data-testid="stats-tab-category"
+                  onClick={() => selectSub('category')} data-testid="stats-tab-category"
                   className={cn(
                     "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-                    activeSubTab === 'category' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+                    !compare && activeSubTab === 'category' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
                   )}
                 >
                   카테고리 분석
@@ -971,34 +976,45 @@ export function DetailedStatsTab({
           ) : (
             <>
               <button
-                onClick={() => setActiveSubTab('trend')} data-testid="stats-tab-trend"
+                onClick={() => selectSub('trend')} data-testid="stats-tab-trend"
                 className={cn(
                   "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-                  activeSubTab === 'trend' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+                  !compare && activeSubTab === 'trend' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
                 )}
               >
                 방송 추이
               </button>
               <button
-                onClick={() => setActiveSubTab('day')} data-testid="stats-tab-day"
+                onClick={() => selectSub('day')} data-testid="stats-tab-day"
                 className={cn(
                   "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-                  activeSubTab === 'day' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+                  !compare && activeSubTab === 'day' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
                 )}
               >
                 요일별 분석
               </button>
               <button
-                onClick={() => setActiveSubTab('category')} data-testid="stats-tab-category"
+                onClick={() => selectSub('category')} data-testid="stats-tab-category"
                 className={cn(
                   "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-                  activeSubTab === 'category' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+                  !compare && activeSubTab === 'category' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
                 )}
               >
                 카테고리 분석
               </button>
             </>
           )}
+
+          <button
+            type="button"
+            onClick={() => setCompare(true)} data-testid="stats-tab-compare"
+            className={cn(
+              "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
+              compare ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+            )}
+          >
+            비교
+          </button>
 
           {isLegacyRange && (
             <div className="flex items-center gap-1.5 ml-1 sm:ml-2 shrink-0">
@@ -1042,7 +1058,8 @@ export function DetailedStatsTab({
         </div>
       </div>
 
-      <div className="space-y-6 bg-transparent">
+      {compare && <CompareStats logs={allLogsList} firstDate={firstDateStr} />}
+      <div className={cn("space-y-6 bg-transparent", compare && "hidden")}>
         {/* ~2025 데이터일 때: 방송 추이와 요일별 분석을 합치고 히트맵은 숨김 */}
         {isLegacyRange ? (
           <>

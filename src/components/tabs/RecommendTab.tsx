@@ -421,15 +421,9 @@ export const VideoCard = ({
                   e.stopPropagation();
                   const d = mostRecentDate || displayDate;
                   if (!d) return;
-                  // 생방송 다시보기 카드가 아니면: 기록 탭으로 갈지, 검색 탭 라이브에서 그 날 생방을 볼지 고름
-                  if (!onShowLiveOn || video.isLive) { onNavigateToCalendar?.(d); return; }
-                  void chooseSheet({
-                    title: `${d} 생방송`,
-                    options: [
-                      { value: 'live', label: '라이브 탭에서 이 생방 보기', desc: '검색 탭 안에서 그 날 생방송 다시보기를 바로 보여 줘요.' },
-                      { value: 'cal', label: '기록 탭에서 이 날 보기', desc: '방송 기록 표와 달력에서 그 날을 열어요.' },
-                    ],
-                  }).then((v) => { if (v === 'live') onShowLiveOn(d); else if (v === 'cal') onNavigateToCalendar?.(d); });
+                  // 검색 탭 안에서: 라이브 탭으로 넘어가 그 날 생방송을 보여 줌 (생방송 카드 자신이면 기록 탭으로)
+                  if (onShowLiveOn && !video.isLive) onShowLiveOn(d);
+                  else onNavigateToCalendar?.(d);
                 }}
                 className={cn("bg-black/80 hover:bg-black/95 text-white font-normal rounded backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-colors shadow-sm select-none whitespace-nowrap", isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-2 py-1")}
                 title="눌러서 이 날 생방송 보기"

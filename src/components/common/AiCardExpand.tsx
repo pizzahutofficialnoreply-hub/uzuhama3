@@ -165,7 +165,7 @@ export function AiCardExpandHost() {
     const d = drag.current;
     drag.current = null;
     // 영상 위를 톡 누르면 재생/멈춤
-    if (d?.video && !d.moved && !d.on) { e?.preventDefault?.(); togglePlayback(); return; }
+    if (d?.video && !d.moved && !d.on) return;
     if (!d?.on) return;
     if (dragY.get() > DRAG_CLOSE) close();
     else animate(dragY, 0, { type: 'spring', stiffness: 500, damping: 40 });
@@ -233,9 +233,11 @@ export function AiCardExpandHost() {
                   allowFullScreen
                 />
               ) : null}
-              {/* 영상 위 투명 막: 끌어 내리면 닫기, 톡 누르면 재생/멈춤 (아래 조작 막대 자리는 비워 둠) */}
+              {/* 영상 맨 위 손잡이 띠: 여기를 잡고 내리면 닫기 (영상 화면을 누르는 건 그대로 유튜브로 — 자막·조작 막대 등) */}
               {play && settled && (
-                <div data-video-drag className="absolute inset-x-0 top-0 bottom-12 z-[5] cursor-pointer" onClick={(e) => { if (e.detail > 0 && !('ontouchstart' in window)) togglePlayback(); }} aria-hidden />
+                <div data-video-drag className="absolute inset-x-0 top-0 h-11 z-[5] flex justify-center pt-1.5 cursor-grab" aria-hidden>
+                  <span className="h-1 w-10 rounded-full bg-white/60 shadow-[0_1px_4px_rgba(0,0,0,0.5)]" />
+                </div>
               )}
               {play ? null : (
                 <button type="button" onClick={() => setPlay({ t: 0 })} className="absolute inset-0 w-full h-full cursor-pointer" aria-label="여기서 재생">

@@ -1,3 +1,4 @@
+import { confirmSheet } from '../utils/ui';
 import { FlaskConical, Stethoscope } from 'lucide-react';
 import { makeMatcher } from '../utils/textMatch';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
@@ -183,8 +184,15 @@ export function SettingsView({
   };
 
   // 강력한 캐시 삭제 핸들러 (LocalStorage, SessionStorage, Cache Storage, Service Worker 완전 초기화)
-  const handleClearCacheClick = () => {
-    setShowClearConfirm(true);
+  // 확인은 아래에서 올라오는 시트로
+  const handleClearCacheClick = async () => {
+    const ok = await confirmSheet({
+      title: '캐시와 임시 데이터를 지울까요?',
+      message: '이 기기에 저장된 캐시(서비스 워커·PWA 캐시 포함)를 정리하고 최신 상태로 새로고침해요. 화면 테마 설정은 그대로 두고, 방송 기록·공지는 서버에서 새로 받아요.',
+      confirmText: '캐시 삭제',
+      danger: true,
+    });
+    if (ok) void executeClearCache();
   };
 
   const executeClearCache = async () => {
@@ -1299,75 +1307,6 @@ export function SettingsView({
           </div>
         );
       })()}
-
-      {/* 캐시 삭제 확인 모달 (공지사항 형태의 구조로 디자인 일관성 통일) */}
-      <AnimatePresence>
-        {showClearConfirm && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 12 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              style={{ WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)' }}
-              className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] p-5 sm:p-7 max-w-lg w-full shadow-2xl relative flex flex-col overflow-hidden"
-            >
-              {/* 우측 상단 닫기 버튼 */}
-              <button
-                type="button"
-                onClick={() => setShowClearConfirm(false)}
-                className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors z-10 cursor-pointer"
-                title="닫기"
-                aria-label="닫기"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              
-              {/* 모달 헤더 & 본문 */}
-              <div className="flex-1 min-h-0 relative flex flex-col pt-1">
-                <div className="flex items-center gap-3 mb-3 pr-8">
-                  <div className="w-10 h-10 rounded-2xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
-                    <Trash2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white break-keep">
-                      캐시 및 임시 데이터 삭제
-                    </h2>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">완전 초기화 후 새로고침</p>
-                  </div>
-                </div>
-
-                <div className="text-zinc-600 dark:text-zinc-300 leading-relaxed text-sm whitespace-pre-wrap py-2 select-text">
-                  브라우저에 저장된 캐시 데이터(Cache Storage, Session Storage, 서비스 워커 및 PWA 캐시)를 완전히 정리하고 최신 상태로 새로고침해요.
-                  {'\n\n'}
-                  ※ 기존에 설정하신 다크/라이트 화면 테마는 보존되며, 방송 통계 및 공지 데이터가 최신 서버 상태로 새로 동기화돼요. 계속 진행할까요?
-                </div>
-              </div>
-
-              {/* 하단 구분선 및 액션 버튼 */}
-              <div className="mt-5 pt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-end gap-2.5 shrink-0">
-                <button
-                  type="button"
-                  disabled={isClearing}
-                  onClick={() => setShowClearConfirm(false)}
-                  className="px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  disabled={isClearing}
-                  onClick={executeClearCache}
-                  className="px-5 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-red-600 hover:bg-red-700 text-white transition-all active:scale-95 flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>{isClearing ? '삭제 및 초기화 중...' : '캐시 삭제'}</span>
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* 관리자 검증 모달 */}
       {showAdminVerifyModal && (
