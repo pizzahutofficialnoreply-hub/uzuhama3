@@ -56,9 +56,11 @@ function PlaylistCard({ playlist, onOpen, onExpand, shareText }: { playlist: Pla
     <div data-ai-card={playlist.id} className="group relative isolate flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
       <button type="button" onClick={(e) => (onExpand ? onExpand((e.currentTarget as HTMLElement).closest('[data-ai-card]')) : onOpen())} className="group/thumb relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800 cursor-pointer" title="재생목록 열기">
         <img src={playlist.thumbnail} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-        <span className="absolute inset-0 bg-black/10 flex items-center justify-center">
-          <GlassPlayButton />
-        </span>
+        {!onExpand && (
+          <span className="absolute inset-0 bg-black/10 flex items-center justify-center">
+            <GlassPlayButton />
+          </span>
+        )}
         <span className="absolute bottom-2 left-2 text-xs px-2.5 py-1 font-semibold rounded-lg backdrop-blur-md flex items-center gap-1.5 shadow-md bg-purple-900/90 text-purple-100 border border-purple-400/50">
           <ListVideo className="w-3.5 h-3.5 text-purple-300" />
           재생목록 ({count}개 영상)
@@ -66,7 +68,7 @@ function PlaylistCard({ playlist, onOpen, onExpand, shareText }: { playlist: Pla
       </button>
       <div className="p-4 flex-1 flex flex-col">
         <div className="flex items-start justify-between gap-2">
-          <button type="button" onClick={onOpen} className="flex-1 text-left font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors text-sm sm:text-base cursor-pointer">
+          <button type="button" onClick={(e) => (onExpand ? onExpand((e.currentTarget as HTMLElement).closest('[data-ai-card]')) : onOpen())} className="flex-1 text-left font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors text-sm sm:text-base cursor-pointer">
             {playlist.title}
           </button>
           <ShareButton className="-mr-1 -mt-0.5" title={`${playlist.title} 재생목록`} getText={shareText} />
@@ -75,12 +77,12 @@ function PlaylistCard({ playlist, onOpen, onExpand, shareText }: { playlist: Pla
         <div className="mt-auto pt-3">
           <button
             type="button"
-            onClick={onOpen}
+            onClick={(e) => (onExpand ? onExpand((e.currentTarget as HTMLElement).closest('[data-ai-card]')) : onOpen())}
             className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs hover:scale-[1.01] bg-purple-50 hover:bg-purple-100/90 dark:bg-purple-950/70 dark:hover:bg-purple-900/70 text-purple-700 dark:text-purple-300 border border-purple-200/90 dark:border-purple-800/90"
           >
             <span className="flex items-center gap-2">
               <ListVideo className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
-              <span className="font-bold text-purple-900 dark:text-purple-200">재생목록 영상 펼치기</span>
+              <span className="font-bold text-purple-900 dark:text-purple-200">{onExpand ? '자세히 보기' : '재생목록 영상 펼치기'}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-200/90 dark:bg-purple-900/90 text-purple-800 dark:text-purple-200">{count}개 영상</span>

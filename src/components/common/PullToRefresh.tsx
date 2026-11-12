@@ -37,7 +37,7 @@ export default function PullToRefresh({ onRefresh, force = false }: { onRefresh:
     if (!force && !isStandalone()) return;
     const start = (e: TouchEvent) => {
       if (busyRef.current || e.touches.length !== 1) return;
-      if (window.scrollY > 0 || document.body.style.position === 'fixed' || scrolledParent(e.target)) { st.current = null; return; }
+      if (window.scrollY > 0 || document.documentElement.classList.contains('overlay-open') || scrolledParent(e.target)) { st.current = null; return; }
       st.current = { y: e.touches[0].clientY, x: e.touches[0].clientX, on: false };
     };
     const move = (e: TouchEvent) => {

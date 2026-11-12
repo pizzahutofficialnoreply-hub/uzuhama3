@@ -1,7 +1,7 @@
 /**
  * 팝업·밑에서 올라오는 창이 떠 있는 동안 뒷화면이 스크롤되지 않게 (모든 화면 공통)
  * - 화면에 [role="dialog"] 또는 [aria-modal="true"] 가 보이면 잠금, 다 사라지면 원래 위치로
- * - iOS 사파리는 body overflow:hidden 만으로는 뒤가 같이 움직여서 body 를 그 자리에 고정(position: fixed)
+ * - html 스크롤을 막고, 창 바깥을 끄는 손가락 움직임은 막음 (body 를 고정하면 위 헤더가 잘려서 안 씀)
  * - 창 안쪽(목록 등)은 그대로 스크롤됨
  */
 let locked = false;
@@ -25,23 +25,56 @@ function anyOverlay(): boolean {
   return false;
 }
 
+/** 창 안에서 실제로 스크롤되는 곳이면 그대로 두고, 아니면 뒤 화면이 끌려가지 않게 막음 */
+function scrollableInside(t: EventTarget | null, dy: number): boolean {
+  let n = t as HTMLElement | null;
+  while (n && n !== document.body && n !== document.documentElement) {
+    const cs = getComputedStyle(n);
+    if ((cs.overflowY === 'auto' || cs.overflowY === 'scroll') && n.scrollHeight > n.clientHeight + 1) {
+      // 맨 위에서 더 내리거나 맨 아래에서 더 올리면 뒤 화면이 끌려가므로 막음
+      if (dy > 0 && n.scrollTop <= 0) return false;
+      if (dy < 0 && n.scrollTop + n.clientHeight >= n.scrollHeight - 1) return false;
+      return true;
+    }
+    if (n.matches('input, textarea, [data-swipe-row], [data-allow-touch]')) return true;
+    n = n.parentElement;
+  }
+  return false;
+}
+let ty = 0;
+const onStart = (e: TouchEvent) => { ty = e.touches[0]?.clientY ?? 0; };
+const onMove = (e: TouchEvent) => {
+  if (!locked || e.touches.length !== 1) return;
+  const dy = (e.touches[0]?.clientY ?? 0) - ty;
+  if (!scrollableInside(e.target, dy) && e.cancelable) e.preventDefault();
+};
+
 function lock() {
   if (locked) return;
   locked = true;
-  const b = document.body;
+  const h = document.documentElement;
   savedY = window.scrollY;
-  // overflow 는 건드리지 않음 (창마다 쓰는 다른 잠금(lockBodyScroll)과 겹쳐서, 되돌릴 때 'hidden' 이 남아 스크롤이 안 되던 문제)
-  saved = { position: b.style.position, top: b.style.top, left: b.style.left, right: b.style.right, width: b.style.width };
-  Object.assign(b.style, { position: 'fixed', top: `-${savedY}px`, left: '0', right: '0', width: '100%' });
-  document.documentElement.classList.add('overlay-open');
+  // body 를 position:fixed 로 고정하면 위쪽 고정 헤더(sticky)가 화면 밖으로 밀려 잘려 보여서,
+  // 스크롤 위치는 그대로 두고 html 스크롤만 막음 + 뒤 화면을 끄는 손가락 움직임만 막음
+  saved = { overflow: h.style.overflow, overscrollBehavior: (h.style as any).overscrollBehavior };
+  h.style.overflow = 'hidden';
+  (h.style as any).overscrollBehavior = 'none';
+  h.classList.add('overlay-open');
+  document.addEventListener('touchstart', onStart, { passive: true });
+  document.addEventListener('touchmove', onMove, { passive: false });
 }
 
 function unlock() {
   if (!locked) return;
   locked = false;
-  Object.assign(document.body.style, saved);
-  document.documentElement.classList.remove('overlay-open');
-  window.scrollTo(0, savedY);
+  const h = document.documentElement;
+  h.style.overflow = saved.overflow || '';
+  (h.style as any).overscrollBehavior = (saved as any).overscrollBehavior || '';
+  h.classList.remove('overlay-open');
+  document.removeEventListener('touchstart', onStart);
+  document.removeEventListener('touchmove', onMove);
+  // 혹시 브라우저가 위치를 옮겼으면 되돌림
+  if (Math.abs(window.scrollY - savedY) > 2) window.scrollTo(0, savedY);
 }
 
 let raf = 0;
@@ -61,4 +94,4 @@ export function startOverlayScrollLock() {
 }
 
 /** 지금 잠겨 있으면 원래 스크롤 위치 (잠긴 동안 window.scrollY 는 0) */
-export const overlayScrollY = () => (locked ? savedY : window.scrollY);
+export const overlayScrollY = () => window.scrollY;

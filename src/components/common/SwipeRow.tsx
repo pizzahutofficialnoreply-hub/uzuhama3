@@ -59,6 +59,11 @@ export function SwipeRow({ left = [], right = [], radius = 24, disabled = false,
   const st = useRef<{ x0: number; y0: number; base: number; dir: 0 | 1 | 2; moved: boolean } | null>(null);
   const openAt = useRef(0);
   const armedRef = useRef<0 | -1 | 1>(0);
+  const armedChanged = useRef(false);
+  const armedAt = useRef(0);
+  const prevArmed = useRef<0 | -1 | 1>(0);
+  if (prevArmed.current !== armed) { prevArmed.current = armed; armedAt.current = performance.now(); }
+  armedChanged.current = performance.now() - armedAt.current < 280;
 
   useMotionValueEvent(x, 'change', (v) => setDx(v));
 
@@ -155,6 +160,7 @@ export function SwipeRow({ left = [], right = [], radius = 24, disabled = false,
     const fullKey = sideDir === -1 ? acts[acts.length - 1]?.key : acts[0]?.key;
     const total = acts.length * BTN_W + (acts.length + 1) * GAP;
     const scale = Math.min(1, shown / total); // 0~1
+    const growW = Math.max(BTN_W, shown - 2 * GAP - (acts.length - 1) * (BTN_W * 0.6 + GAP));
     return (
       <div
         className={cn('absolute inset-y-0 flex items-center', sideDir === -1 ? 'right-0 justify-end' : 'left-0 justify-start')}
@@ -166,22 +172,28 @@ export function SwipeRow({ left = [], right = [], radius = 24, disabled = false,
           const grow = isArmed && isFull;
           const fade = isArmed && !isFull;
           return (
-            <motion.button
+            <button
               key={a.key}
               type="button"
               data-swipe-btn
               tabIndex={openAt.current === 0 ? -1 : 0}
               onClick={(e) => { e.stopPropagation(); settle(0); a.onRun(); }}
-              layout
-              transition={{ type: 'spring', stiffness: 520, damping: 40 }}
-              animate={{ opacity: fade ? 0.25 : Math.min(1, scale * 1.4), scale: fade ? 0.6 : 0.7 + 0.3 * scale }}
-              className={cn('shrink-0 flex flex-col items-center justify-center gap-1 overflow-hidden font-bold text-[11.5px] shadow-sm cursor-pointer', a.tone, grow && 'flex-1')}
-              style={{ height: btnH, width: grow ? undefined : fade ? BTN_W * 0.6 : BTN_W, borderRadius: radius }}
+              className={cn('shrink-0 flex flex-col items-center justify-center gap-1 overflow-hidden font-bold text-[11.5px] shadow-sm cursor-pointer', a.tone)}
+              style={{
+                height: btnH,
+                width: grow ? growW : fade ? BTN_W * 0.6 : BTN_W,
+                borderRadius: radius,
+                opacity: fade ? 0.25 : Math.min(1, scale * 1.4),
+                transform: `scale(${fade ? 0.6 : 0.7 + 0.3 * scale})`,
+                // 끝까지 밀었을 때 넓어지고 줄어드는 것만 부드럽게 (손가락 따라가는 건 바로)
+                transition: armedChanged.current ? 'width .24s cubic-bezier(.2,.8,.2,1), opacity .2s, transform .24s cubic-bezier(.2,.8,.2,1)' : 'none',
+                willChange: 'width, transform, opacity',
+              }}
               aria-label={a.label}
             >
               <span className="[&>svg]:w-5 [&>svg]:h-5">{a.icon}</span>
               <span className="whitespace-nowrap">{a.label}</span>
-            </motion.button>
+            </button>
           );
         })}
       </div>

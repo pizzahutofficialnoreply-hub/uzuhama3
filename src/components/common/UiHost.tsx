@@ -78,13 +78,13 @@ export function UiHost() {
               <motion.button
                 key={t.id}
                 type="button"
-                layout
-                initial={{ y: 16, opacity: 0, scale: 0.96 }}
-                animate={{ y: 0, opacity: 1, scale: 1 }}
-                exit={{ y: 8, opacity: 0, scale: 0.96 }}
-                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                // 끊김 없게: 위치 다시 계산(layout)·뒤 흐림 없이 transform·opacity 만
+                initial={{ y: 24, opacity: 0, scale: 0.97 }}
+                animate={{ y: 0, opacity: 1, scale: 1, transition: { duration: 0.34, ease: [0.22, 1, 0.36, 1] } }}
+                exit={{ y: 10, opacity: 0, scale: 0.98, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } }}
+                style={{ willChange: 'transform, opacity' }}
                 onClick={() => setToasts((list) => list.filter((x) => x.id !== t.id))}
-                className="pointer-events-auto max-w-[min(92vw,480px)] flex items-start gap-2.5 pl-3.5 pr-4 py-2.5 rounded-2xl bg-zinc-900/95 dark:bg-zinc-800/95 text-white text-sm shadow-xl backdrop-blur text-left cursor-pointer"
+                className="pointer-events-auto max-w-[min(92vw,480px)] flex items-start gap-2.5 pl-3.5 pr-4 py-2.5 rounded-2xl bg-zinc-900 dark:bg-zinc-800 text-white text-sm shadow-[0_8px_24px_rgba(0,0,0,0.22)] text-left cursor-pointer"
               >
                 <I className={cn('w-4 h-4 mt-0.5 shrink-0', t.kind === 'error' ? 'text-red-400' : t.kind === 'success' ? 'text-emerald-400' : 'text-purple-300')} />
                 <span className="font-semibold whitespace-pre-line break-keep leading-snug">{t.text}</span>

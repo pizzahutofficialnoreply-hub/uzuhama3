@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react';
 import { VideoSwipe } from '../common/VideoSwipe';
 import { useAiDone } from '../common/AiSummaryHost';
 import { openAiCard } from '../common/AiCardExpand';
@@ -279,6 +280,12 @@ export const VideoCard = ({
     : (video.parentLog?.date || mostRecentDate);
 
   const swipeId = extractYoutubeId(video?.videoUrl || '') || video?.id || '';
+  // 몰아보기: 썸네일이나 '자세히 보기'를 누르면 카드가 펼쳐짐 (요약이 있으면 요약과, 없어도 아래에 들어 있는 방송)
+  const compExpand = Boolean(lab.labAiCard && video?.isCompilation);
+  const expandCompilation = () => openAiCard(swipeId, video.videoTitle || '', trackRef.current || thumbRef.current, `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임`, {
+    compilation: true,
+    extra: (close) => <CompilationDetail video={video} allLogs={allLogs} onClose={close} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} listOnly />,
+  });
   return (
     <VideoSwipe id={isExpanded ? undefined : swipeId} kind={video.isLive ? 'live' : 'video'} title={video.videoTitle || ''} shareText={() => formatRecommendShareText(video, allLogs)} onEngage={() => noteInterest(interestItem, 'engage')} className="h-full">
     <div 
@@ -329,14 +336,7 @@ export const VideoCard = ({
               e.stopPropagation();
               noteInterest(interestItem, 'play');
               const cardEl = thumbRef.current?.closest('[data-video-card]') || thumbRef.current;
-              // 몰아보기: 요약이 있으면 요약과, 없어도 카드가 펼쳐지며 아래에 들어 있는 방송 목록
-              if (lab.labAiCard && video.isCompilation) {
-                openAiCard(swipeId, video.videoTitle || '', cardEl, `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임`, {
-                  compilation: true,
-                  extra: (close) => <CompilationDetail video={video} allLogs={allLogs} onClose={close} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} listOnly />,
-                });
-                return;
-              }
+              if (compExpand) { expandCompilation(); return; }
               if (aiDone) { openAiCard(video.id, video.videoTitle || '', cardEl, displayDate ? `${displayDate} 방송` : undefined); return; }
               setIsPlayingInline(true);
             }}
@@ -348,9 +348,12 @@ export const VideoCard = ({
               alt={video.videoTitle} 
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
             />
-            <div className="absolute inset-0 bg-black/10 group-hover/thumb:bg-black/0 transition-colors flex items-center justify-center">
-              <GlassPlayButton size={isCompact ? 'sm' : 'md'} />
-            </div>
+            {/* 카드가 펼쳐지는 영상은 재생 버튼을 펼친 뒤에 보여 줌 */}
+            {!(compExpand || aiDone) && (
+              <div className="absolute inset-0 bg-black/10 group-hover/thumb:bg-black/0 transition-colors flex items-center justify-center">
+                <GlassPlayButton size={isCompact ? 'sm' : 'md'} />
+              </div>
+            )}
             {aiDone && !held && (
               <span className="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-[10.5px] font-bold pointer-events-none">
                 <Sparkles className="w-3 h-3 text-purple-300" /> AI 요약
@@ -377,6 +380,7 @@ export const VideoCard = ({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (compExpand) { noteInterest(interestItem, 'engage'); expandCompilation(); return; }
                 onOpenBroadcastModal?.(video);
               }}
               className={cn(
@@ -473,7 +477,7 @@ export const VideoCard = ({
                   <PlaySquare className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
                 )}
                 <span className={cn("font-hanna font-pro", video.isCompilation ? "font-bold text-purple-900 dark:text-purple-200" : "")}>
-                  {isExpanded
+                  {compExpand ? '자세히 보기' : isExpanded
                     ? (video.isCompilation ? '몰아보기 연동 생방 접기' : '연동 생방 접기')
                     : (video.isCompilation ? '몰아보기 연동 생방 펼치기' : '연동 생방 펼치기')
                   }
@@ -488,7 +492,9 @@ export const VideoCard = ({
                 )}>
                   {video.isCompilation ? `${video.games?.length || broadcastDates.length}개 게임` : `${broadcastDates.length}개 생방`}
                 </span>
-                {isExpanded ? (
+                {compExpand ? (
+                  <ChevronRight className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                ) : isExpanded ? (
                   <ChevronUp className="w-3.5 h-3.5 opacity-70 shrink-0" />
                 ) : (
                   <ChevronDown className="w-3.5 h-3.5 opacity-70 shrink-0" />

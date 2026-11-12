@@ -26,23 +26,50 @@ export type CardOpts = {
   embed?: string;
   thumb?: string;
 };
-type Target = { id: string; title: string; sub?: string; from: Rect } & CardOpts;
+type Target = { id: string; title: string; sub?: string; from: Rect; src?: HTMLElement | null } & CardOpts;
 
 export function openAiCard(id: string, title: string, el: Element | null, sub?: string, opts: CardOpts = {}) {
   const r = el?.getBoundingClientRect();
   const from = r ? { top: r.top, left: r.left, width: r.width, height: r.height } : { top: window.innerHeight / 2 - 100, left: 16, width: window.innerWidth - 32, height: 200 };
-  window.dispatchEvent(new CustomEvent(AI_CARD_EVENT, { detail: { id, title, sub, from, ...opts } satisfies Target }));
+  window.dispatchEvent(new CustomEvent(AI_CARD_EVENT, { detail: { id, title, sub, from, src: el as HTMLElement | null, ...opts } satisfies Target }));
 }
 
 const SPOIL_KEY = 'uzuhama_ai_card_spoil';
-const spring = { type: 'spring', stiffness: 360, damping: 36, mass: 0.9 } as const;
+// 튀지 않게 (넘침 거의 없음)
+// 시간 고정 곡선: 끝에서 질질 끌지 않고 딱 멈춤 (스프링은 끝이 길어 닫힌 뒤 잠깐 멈춰 보였음)
+const OPEN_T = { duration: 0.44, ease: [0.2, 0.9, 0.1, 1] } as const;
+const CLOSE_T = { duration: 0.34, ease: [0.4, 0, 0.2, 1] } as const;
+
+/** 상태 표시줄·홈 표시줄 높이 (아이폰 노치 등) */
+function safeInsets(): { top: number; bottom: number } {
+  try {
+    const d = document.createElement('div');
+    d.style.cssText = 'position:fixed;left:0;top:0;width:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);visibility:hidden;pointer-events:none';
+    document.body.appendChild(d);
+    const cs = getComputedStyle(d);
+    const r = { top: parseFloat(cs.paddingTop) || 0, bottom: parseFloat(cs.paddingBottom) || 0 };
+    d.remove();
+    return r;
+  } catch { return { top: 0, bottom: 0 }; }
+}
 
 function finalRect(): Rect {
   const vw = window.innerWidth, vh = window.innerHeight;
-  const width = Math.min(560, vw - 16);
-  const top = vw < 640 ? 10 : 24;
-  return { top, left: (vw - width) / 2, width, height: vh - top - (vw < 640 ? 10 : 24) };
+  const mobile = vw < 640;
+  const width = Math.min(560, vw - (mobile ? 16 : 48));
+  const sa = safeInsets();
+  const top = sa.top + (mobile ? 8 : 24);
+  const bottom = sa.bottom + (mobile ? 8 : 24);
+  return { top, left: (vw - width) / 2, width, height: vh - top - bottom };
 }
+
+/** 카드 자리(from)를 펼친 카드(to) 기준의 변환으로: 폭을 맞춰 같은 비율로 줄이고 아래는 잘라서 원래 카드 모양 */
+function fromTransform(f: Rect, to: Rect, radius = 24) {
+  const s = Math.max(0.05, f.width / to.width);
+  const visibleH = Math.min(to.height, f.height / s);
+  return { x: f.left - to.left, y: f.top - to.top, scale: s, clipPath: `inset(0px 0px ${Math.max(0, to.height - visibleH)}px 0px round ${radius / s}px)` };
+}
+const OPEN_SHAPE = { x: 0, y: 0, scale: 1, clipPath: 'inset(0px 0px 0px 0px round 28px)' };
 
 export function AiCardExpandHost() {
   const [t, setT] = useState<Target | null>(null);
@@ -52,11 +79,17 @@ export function AiCardExpandHost() {
   const [open, setOpen] = useState(true);
   const [spoil, setSpoil] = useState(() => { try { return localStorage.getItem(SPOIL_KEY) !== '0'; } catch { return true; } });
   const [play, setPlay] = useState<{ t: number; id?: string } | null>(null);
+  /** 다 펼쳐진 뒤에 재생 버튼 */
+  const [settled, setSettled] = useState(false);
   const frame = useRef<HTMLIFrameElement | null>(null);
   const back = useRef<Rect | null>(null);
 
   useEffect(() => {
-    const on = (e: any) => { setTo(finalRect()); setT(e.detail); setClosing(false); setData(null); setOpen(true); setPlay(null); back.current = null; };
+    const on = (e: any) => {
+      setTo(finalRect()); setT(e.detail); setClosing(false); setData(null); setOpen(true); setPlay(null); setSettled(false); back.current = null;
+      // 원래 카드는 들려 올라간 것처럼 자리만 남김
+      try { if (e.detail?.src) e.detail.src.style.visibility = 'hidden'; } catch { /* */ }
+    };
     window.addEventListener(AI_CARD_EVENT, on);
     const rs = () => setTo(finalRect());
     window.addEventListener('resize', rs);
@@ -72,10 +105,11 @@ export function AiCardExpandHost() {
   const close = () => {
     if (!t || closing) return;
     // 원래 카드가 아직 화면에 있으면 그 자리로 돌아감
-    const el = document.querySelector(`[data-ai-card="${t.id}"]`);
+    const el = (t.src && t.src.isConnected ? t.src : document.querySelector(`[data-ai-card="${t.id}"]`)) as HTMLElement | null;
     const r = el?.getBoundingClientRect();
     back.current = r && r.bottom > 0 && r.top < window.innerHeight ? { top: r.top, left: r.left, width: r.width, height: r.height } : { ...t.from, top: window.innerHeight + 40 };
     setPlay(null);
+    setSettled(false);
     setClosing(true);
   };
   useBackToClose(Boolean(t) && !closing, close);
@@ -99,20 +133,26 @@ export function AiCardExpandHost() {
   const compHas = Boolean(data?.compilation && ((data.sources || []).length || data.overview?.opening || data.overview?.theme));
   // 몰아보기는 요약이 있을 때만, 재생목록은 없음
   const showSummary = t && !t.noSummary && (!t.compilation || !data || compHas);
-  const target = closing ? back.current || t?.from : to;
+  const finish = () => {
+    if (closing) {
+      try { if (t?.src) t.src.style.visibility = ''; } catch { /* */ }
+      setT(null); setClosing(false);
+    } else setSettled(true);
+  };
 
   return createPortal(
     <AnimatePresence>
       {t && (
-        <motion.div key="ai-card" className="fixed inset-0 z-[320]" initial={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <motion.div className="absolute inset-0 bg-black/55 backdrop-blur-[3px]" initial={{ opacity: 0 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: 0.25 }} onClick={close} />
+        <motion.div key="ai-card" className="fixed inset-0 z-[320]" initial={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0 } }}>
+          <motion.div className="absolute inset-0 bg-black/55" initial={{ opacity: 0 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: 0.25 }} onClick={close} />
           <motion.div
             role="dialog" aria-modal="true" aria-label={`${t.title} · 펼쳐 보기`} data-testid="ai-card"
-            initial={{ ...t.from, borderRadius: 24 }}
-            animate={{ ...target!, borderRadius: closing ? 24 : 28 }}
-            transition={spring}
-            onAnimationComplete={() => { if (closing) { setT(null); setClosing(false); } }}
-            className="fixed overflow-hidden bg-white dark:bg-zinc-900 shadow-2xl flex flex-col border border-zinc-200 dark:border-zinc-800"
+            initial={fromTransform(t.from, to)}
+            animate={closing ? fromTransform(back.current || t.from, to) : OPEN_SHAPE}
+            transition={closing ? CLOSE_T : OPEN_T}
+            onAnimationComplete={finish}
+            style={{ top: to.top, left: to.left, width: to.width, height: to.height, transformOrigin: '0 0', willChange: 'transform, clip-path' }}
+            className="fixed overflow-hidden bg-white dark:bg-zinc-900 flex flex-col"
           >
             {/* 맨 위: 바로 재생 */}
             <div className="relative w-full aspect-video bg-black shrink-0">
@@ -128,13 +168,13 @@ export function AiCardExpandHost() {
               ) : (
                 <button type="button" onClick={() => setPlay({ t: 0 })} className="absolute inset-0 w-full h-full cursor-pointer" aria-label="여기서 재생">
                   <img src={t.thumb || `https://img.youtube.com/vi/${t.id}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/10"><GlassPlayButton size="md" /></span>
+                  <AnimatePresence>{settled && <motion.span initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute inset-0 flex items-center justify-center bg-black/10"><GlassPlayButton size="md" /></motion.span>}</AnimatePresence>
                 </button>
               )}
-              <button type="button" onClick={close} className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/65 hover:bg-black text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
+              <button type="button" onClick={close} style={{ opacity: settled ? 1 : 0, transition: 'opacity .2s' }} className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/65 hover:bg-black text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
             </div>
 
-            <motion.div className="flex-1 min-h-0 overflow-y-auto overscroll-contain" initial={{ opacity: 0, y: 8 }} animate={{ opacity: closing ? 0 : 1, y: closing ? 8 : 0 }} transition={{ delay: closing ? 0 : 0.12, duration: 0.22 }}>
+            <motion.div className="flex-1 min-h-0 overflow-y-auto overscroll-contain" initial={{ opacity: 0.35 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: closing ? 0.14 : 0.24 }}>
               <div className="px-5 pt-4 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
                 <h2 className="text-[16px] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
                 {t.sub && <p className="mt-1 text-[12px] text-zinc-500 tabular-nums">{t.sub}</p>}

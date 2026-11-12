@@ -72,8 +72,8 @@ export function VideoSwipe({ id, kind = 'video', title, shareText, radius = 24, 
       data-swipe-cell={cell ? '' : undefined}
       className={cn('relative', className)}
       initial={false}
-      animate={leaving ? { opacity: 0, height: 0, filter: 'blur(8px)', scale: 0.96 } : { opacity: 1, height: 'auto', filter: 'blur(0px)', scale: 1 }}
-      transition={{ duration: leaving ? 0.6 : 0.25, ease: [0.4, 0, 0.2, 1] }}
+      animate={leaving ? { opacity: 0, height: 0, scale: 0.94 } : { opacity: 1, height: 'auto', scale: 1 }}
+      transition={leaving ? { opacity: { duration: 0.25 }, scale: { duration: 0.3 }, height: { duration: 0.42, delay: 0.18, ease: [0.4, 0, 0.2, 1] } } : { duration: 0.25 }}
       style={{ overflow: leaving ? 'hidden' : undefined }}
     >
       <SwipeRow left={leftActs} right={right} radius={radius} disabled={pending || leaving} label="영상" className="h-full">
