@@ -1,3 +1,4 @@
+import { noteReads } from '../../../utils/readStats';
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, doc, getDoc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
@@ -316,8 +317,8 @@ const REASON_LABEL: Record<string, string> = {
 function ReportedIssues({ onFind }: { onFind: (videoId: string, kind?: string) => void }) {
   const [items, setItems] = useState<any[] | null>(null);
   const load = () => getDocs(query(collection(db, 'feedbacks'), where('route', 'in', ['link', 'game']), limit(150)))
-    .then((s) => setItems(s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((x: any) => !x.resolved)
-      .sort((a: any, b: any) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))))
+    .then((s) => (noteReads('feedbacks(관리자 연동 탭)', Math.max(1, s.size)), setItems(s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((x: any) => !x.resolved)
+      .sort((a: any, b: any) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)))))
     .catch(() => setItems([]));
   useEffect(() => { load(); }, []);
   if (!items?.length) return null;

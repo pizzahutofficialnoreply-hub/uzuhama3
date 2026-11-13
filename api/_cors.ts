@@ -1,3 +1,4 @@
+import { setReadRoute } from './_readStats.js';
 export const ALLOWED_ORIGINS = new Set([
   'https://uzuhama.web.app',
   'https://uzuhama-beta.web.app',
@@ -15,6 +16,7 @@ export function isAllowedOrigin(origin: string | undefined): boolean {
 }
 
 export function setCorsHeaders(req: any, res: any): boolean {
+  setReadRoute(req);
   const origin = req?.headers?.origin;
   const method = req?.method;
   const url = req?.url;

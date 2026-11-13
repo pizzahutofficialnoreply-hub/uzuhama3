@@ -1,3 +1,4 @@
+import { noteReads } from '../utils/readStats';
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -30,6 +31,7 @@ const listeners = new Set<(t: SearchTuning) => void>();
 export function loadSearchTuning(force = false) {
   if (!force && (loading || Date.now() - at < 6 * 3600000)) return loading || Promise.resolve();
   loading = getDoc(doc(db, 'config', 'searchTuning')).then((snap) => {
+    noteReads('config/searchTuning', 1);
     const d = snap.exists() ? (snap.data() as any) : {};
     cache = { ...EMPTY_TUNING, ...d };
     at = Date.now();

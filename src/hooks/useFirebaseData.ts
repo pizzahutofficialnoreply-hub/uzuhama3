@@ -1,3 +1,4 @@
+import { noteReads } from '../utils/readStats';
 import { setHeldVideos } from '../utils/held';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
@@ -230,6 +231,7 @@ export function useFirebaseData() {
         const snaps = doFull || !syncAt
           ? await getDocs(collection(db, 'logs_by_month'))
           : await getDocs(query(collection(db, 'logs_by_month'), where('updatedAt', '>', syncAt)));
+        noteReads(doFull || !syncAt ? 'logs_by_month(전체)' : 'logs_by_month(바뀐 달)', Math.max(1, snaps.size));
         monthChanged = snaps.size > 0;
         snaps.forEach((d) => {
           const v: any = d.data();
@@ -265,6 +267,7 @@ export function useFirebaseData() {
             compSources.push(...cachedComps);
           } else {
             const compSnaps = await getDocs(collection(db, 'compilations'));
+            noteReads('compilations', Math.max(1, compSnaps.size));
             compSnaps.forEach((d) => compSources.push({ docId: d.id, comp: d.data() }));
             try { localStorage.setItem(COMPILATIONS_CACHE_KEY, JSON.stringify(compSources)); localStorage.setItem(COMPILATIONS_CACHE_KEY + '_at', String(Date.now())); } catch {}
           }
@@ -383,6 +386,7 @@ export function useFirebaseData() {
     unsubscribeSystem = onSnapshot(
       sysRef, 
       (snap) => {
+        if (!snap.metadata.fromCache) noteReads('config/system(실시간)', 1);
         if (snap.exists()) {
           setSystemConfig(snap.data() as SystemConfig);
           setHeldVideos((snap.data() as any)?.heldVideos);
@@ -408,6 +412,7 @@ export function useFirebaseData() {
     const unsubscribeLive = onSnapshot(
       doc(db, 'live_status', 'c6e1c8cf1b128bd321cc2684c92b5a00'),
       async (snap) => {
+        if (!snap.metadata.fromCache) noteReads('live_status(실시간)', 1);
         if (!snap.exists()) return;
         const statusData = snap.data();
         const currentStatus = statusData?.status; // e.g. "OPEN" or "CLOSE"
@@ -513,6 +518,7 @@ export function useFirebaseData() {
             const [sysSnap, statsSnap, timeSnap, guidesSnap, videoStatsSnap] = await Promise.all([
               getDoc(sysRef), getDoc(statsRef), getDoc(timeRef), getDoc(guidesRef), getDoc(videoStatsRef)
             ]);
+            noteReads('config(설정 5개)', 5);
             valSys = sysSnap.data();
             valStats = statsSnap.data();
             valTime = timeSnap.data();

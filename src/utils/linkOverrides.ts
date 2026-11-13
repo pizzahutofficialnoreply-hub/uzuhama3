@@ -1,3 +1,4 @@
+import { noteReads } from './readStats';
 import { useEffect, useState } from 'react';
 import { doc, getDoc, setDoc, deleteField } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -27,6 +28,7 @@ function ensure() {
   loaded = true;
   getDoc(doc(db, 'config', 'linkOverrides'))
     .then((snap) => {
+      noteReads('config/linkOverrides', 1);
       const d = (snap.exists() ? snap.data() : {}) as Partial<LinkOverrides>;
       emit({ shorts: d.shorts || {}, ignored: d.ignored || {} });
     })

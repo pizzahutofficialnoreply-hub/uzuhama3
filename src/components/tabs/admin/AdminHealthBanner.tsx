@@ -1,3 +1,4 @@
+import { noteReads } from '../../../utils/readStats';
 import React, { useEffect, useState } from 'react';
 import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
 import { AlertTriangle } from 'lucide-react';
@@ -19,6 +20,7 @@ export function AdminHealthBanner({ onGo }: { onGo: (mode: string) => void }) {
       } catch { /* 무시 */ }
       try {
         const errs = await getDocs(query(collection(db, 'feedbacks'), where('type', '==', 'client_error'), limit(200)));
+        noteReads('feedbacks(관리자 상태 띠)', Math.max(1, errs.size) + 2);
         const n = errs.docs.filter((d) => Date.now() - (d.data().createdAt?.toMillis?.() || 0) < 86400000).length;
         if (n) out.push({ text: `최근 하루 사이트 오류 ${n}건`, go: 'system' });
       } catch { /* 무시 */ }
@@ -28,6 +30,7 @@ export function AdminHealthBanner({ onGo }: { onGo: (mode: string) => void }) {
       } catch { /* 무시 */ }
       try {
         const rep = await getDocs(query(collection(db, 'feedbacks'), where('route', 'in', ['link', 'game']), limit(100)));
+        noteReads('feedbacks(관리자 상태 띠)', Math.max(1, rep.size));
         const n = rep.docs.filter((d) => !d.data().resolved).length;
         if (n) out.push({ text: `고쳐 달라는 제보 ${n}건`, go: 'link' });
       } catch { /* 무시 */ }

@@ -1,3 +1,4 @@
+import { noteReads } from '../../../utils/readStats';
 import HoldButton from './HoldButton';
 import { useState, useEffect } from 'react';
 import { 
@@ -86,6 +87,7 @@ export function AdminSuggestionsTab({
     // 최근 200개만 (예전엔 화면 오류·검색 만족도까지 전부 실시간으로 받아서, 탭이 다시 연결될 때마다 수천 번씩 읽혔음)
     const qFeed = query(collection(db, 'feedbacks'), orderBy('createdAt', 'desc'), limit(200));
     const unFeed = onSnapshot(qFeed, (snapshot) => {
+      if (!snapshot.metadata.fromCache) noteReads('feedbacks(관리자 제보함 실시간)', Math.max(1, snapshot.docChanges().length));
       const items: FeedbackItem[] = [];
       // ⋮ › 신고 · 검색 결과 추가도 여기 (검색 만족도 👍👎 와 화면 오류는 자동화 탭에서)
       snapshot.forEach(docSnap => { const d = docSnap.data(); if (d.type !== 'search_rating' && d.type !== 'client_error') items.push({ id: docSnap.id, ...d } as FeedbackItem); });

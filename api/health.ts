@@ -329,6 +329,22 @@ export default async function handler(req: any, res: any) {
   if (img) return imageHandler(img, req, res);
   const st = String(req.query?.selftest || '');
   if (st) return cloudSelftest(st, req, res);
+  // DB 읽기 출처: 기기가 보낸 숫자 더하기 (POST) / 관리자 화면에서 보기 (GET)
+  if (req.query?.readstat) {
+    const { db, hasAdminCredentials, verifyAdmin } = await import('./_firebase.js');
+    if (!hasAdminCredentials) return res.status(500).json({ error: 'no admin credentials' });
+    if (req.method === 'POST') {
+      let body: any = req.body;
+      if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
+      try { const { addClientReads } = await import('./_readStats.js'); await addClientReads(db, body?.c || {}); } catch { /* */ }
+      return res.status(204).end();
+    }
+    try { if (!(await verifyAdmin(req))) return res.status(403).json({ error: '관리자만' }); } catch { return res.status(403).json({ error: '관리자만' }); }
+    const day = (d: number) => new Date(Date.now() + 9 * 3600000 - d * 86400000).toISOString().slice(0, 10);
+    const snaps = await db.getAll(db.collection('admin_data').doc(`reads_${day(0)}`), db.collection('admin_data').doc(`reads_${day(1)}`));
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ days: snaps.map((x: any, i: number) => ({ day: day(i), ...(x.data() || {}) })) });
+  }
   const weekly = String(req.query?.weekly || '');
   if (!weekly) {
     return res.status(200).json({ status: 'ok', serverTime: new Date().toISOString(), message: 'Vercel Serverless Function 연결 정상' });

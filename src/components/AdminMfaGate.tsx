@@ -32,6 +32,9 @@ export async function adminMfaValid(): Promise<number> {
 export const ADMIN_MFA_LOCK_EVENT = 'uzuhama_admin_mfa_lock';
 export const adminLogoutAll = () => call('mfaLogoutAll');
 
+/** 서버가 DB 한도에 걸렸을 때 알아보기 쉽게 */
+const friendlyErr = (e: any) => { const m = String(e?.message || e); return /RESOURCE_EXHAUSTED|Quota exceeded|quota/i.test(m) ? '오늘 DB 무료 사용량을 다 써서 지금은 코드를 확인할 수 없어요. 한국 시간 오후 5시쯤 다시 풀려요.' : m; };
+
 export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode; onCancel: () => void }) {
   const [phase, setPhase] = useState<'checking' | 'setup' | 'verify' | 'codes' | 'ok'>('checking');
   const [qr, setQr] = useState('');
@@ -45,7 +48,7 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
   const [expiresAt, setExpiresAt] = useState(0);
   const [now, setNow] = useState(Date.now());
   const startWindow = useCallback(async () => {
-    try { const r = await call('mfaChallenge'); setExpiresAt(Number(r.expiresAt) || Date.now() + 180000); } catch (e: any) { setErr(String(e?.message || e)); }
+    try { const r = await call('mfaChallenge'); setExpiresAt(Number(r.expiresAt) || Date.now() + 180000); } catch (e: any) { setErr(friendlyErr(e)); }
   }, []);
   const lastActive = useRef(Date.now());
 
@@ -62,7 +65,7 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
         setExpiresAt(Date.now() + 10 * 60 * 1000);
         setPhase('setup');
       }
-    } catch (e: any) { setErr(String(e?.message || e)); setPhase('verify'); }
+    } catch (e: any) { setErr(friendlyErr(e)); setPhase('verify'); }
   }, [startWindow]);
   useEffect(() => { check(); }, [check]);
   // 남은 입력 시간
@@ -103,7 +106,7 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
         setPhase('ok');
       }
       setCode('');
-    } catch (e: any) { setErr(String(e?.message || e)); }
+    } catch (e: any) { setErr(friendlyErr(e)); }
     finally { setBusy(false); }
   };
 

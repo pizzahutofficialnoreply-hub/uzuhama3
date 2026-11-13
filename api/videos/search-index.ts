@@ -242,12 +242,9 @@ export default async function handler(req: any, res: any) {
           if (cu > 0 && cu < SHORT_COOL) await new Promise((r) => setTimeout(r, Math.min(cu + 2000, 240000)));
         }
         const out: any = await ai.runAiVideoLoop(db, chain > 0 ? 100000 : 150000, { kind });
-        if (!out.more) {
-          // 잠깐 붐빔(짧게 쉼)이면 계속 이어 감 — 기다리는 건 다음 실행이 함
-          const last = out.steps?.[out.steps.length - 1] || {};
-          const cu = Number(((await stRef.get()).data() || {}).coolUntil || 0) - Date.now();
-          if ((last.cool || last.busy || (last.skipped && /쉼|쉬는/.test(String(last.skipped)))) && cu > 0 && cu < SHORT_COOL) out.more = true;
-        }
+        // (예전엔 쉬는 중에도 계속 이어 달려서, 정기 실행 4분마다 + 이어 달리기가 겹쳐 DB 를 계속 읽었음 → 쉬는 중이면 다음 정기 실행에 맡김)
+        const lastStep = out.steps?.[out.steps.length - 1] || {};
+        if (lastStep.cool || lastStep.busy || (lastStep.skipped && /쉼|쉬는|분석 중/.test(String(lastStep.skipped)))) out.more = false;
         // 백그라운드로 계속: 시간이 다 돼도 할 게 남았으면 스스로 다음 실행을 부름 (한 줄에 최대 80번, 한도·다른 실행 중이면 멈춤)
         if (out.more && chain < 80) {
           const host = String(req.headers?.host || 'uzuhama.vercel.app');

@@ -1,3 +1,4 @@
+import { noteReads } from '../../../utils/readStats';
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { History, Loader2, RotateCcw } from 'lucide-react';
@@ -27,7 +28,7 @@ export function AdminAuditTab({ onAddLog, onUpdateLog, onDeleteLog, onUpdateSyst
   const [busy, setBusy] = useState('');
   const [q, setQ] = useState('');
   const load = () => getDocs(query(collection(db, 'admin_audit'), orderBy('at', 'desc'), limit(200)))
-    .then((s) => setItems(s.docs.map((d) => ({ id: d.id, ...d.data() }))))
+    .then((s) => { noteReads('admin_audit(관리자)', Math.max(1, s.size)); setItems(s.docs.map((d) => ({ id: d.id, ...d.data() }))); })
     .catch(() => setItems([]));
   useEffect(() => { load(); }, []);
   const shown = useMemo(() => (items || []).filter((x) => !q.trim() || `${x.date || ''} ${x.logId || ''} ${LABEL[x.action] || ''}`.includes(q.trim())), [items, q]);

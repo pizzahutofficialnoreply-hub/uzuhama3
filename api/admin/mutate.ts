@@ -312,7 +312,7 @@ export default async function handler(req: any, res: any) {
       message: error?.message || error
     });
     return res.status(error?.status || 500).json({
-      error: error?.status ? error.message : `저장 중 서버 오류: ${String(error?.message || error).slice(0, 120)}`,
+      error: error?.status ? error.message : /RESOURCE_EXHAUSTED|Quota exceeded/i.test(String(error?.message || error)) ? '오늘 DB 무료 사용량(하루 5만 번 읽기)을 다 써서 지금은 저장할 수 없어요. 한국 시간 오후 5시쯤 다시 풀려요.' : `저장 중 서버 오류: ${String(error?.message || error).slice(0, 120)}`,
       ...(error?.code === 'mfa_required' ? { code: 'mfa_required' } : {}),
     });
   }

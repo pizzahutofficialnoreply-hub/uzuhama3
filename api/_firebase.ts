@@ -2,6 +2,7 @@ import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
+import { installReadStats } from './_readStats.js';
 
 let app: App;
 let serviceAccount: any = null;
@@ -56,6 +57,8 @@ export const hasAdminCredentials = Boolean(
 
 export { app as adminApp };
 export const db = getFirestore(app);
+// DB 읽기 출처 세기 (관리자 › 시스템에서 봄)
+installReadStats(db);
 export const messaging = getMessaging(app);
 export const auth = getAuth(app);
 

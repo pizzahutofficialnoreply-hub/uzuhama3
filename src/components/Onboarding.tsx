@@ -1,3 +1,4 @@
+import { noteReads } from '../utils/readStats';
 import React, { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_PRIVACY, DEFAULT_TERMS } from '../content/legal';
 import { serviceGuideFrom } from '../content/serviceGuide';
@@ -147,6 +148,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
     let cancelled = false;
     getDoc(doc(db, 'config', 'onboarding'))
       .then((snap) => {
+        noteReads('config/onboarding', 1);
         const d = snap.exists() ? (snap.data() as OnboardingConfig) : null;
         if (!cancelled) setConfig(withSetup(d?.steps?.length ? d : DEFAULT_ONBOARDING));
       })

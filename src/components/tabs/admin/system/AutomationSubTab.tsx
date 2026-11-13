@@ -1,3 +1,4 @@
+import { ReadStatsCard } from './ReadStatsCard';
 import { DataCheckCard } from './DataCheckCard';
 import React, { useCallback, useEffect, useState } from 'react';
 import { WeeklyReportCard } from './WeeklyReportCard';
@@ -94,6 +95,7 @@ export function AutomationSubTab() {
       <div className="flex justify-end">
         <button type="button" onClick={load} className={`${btn} bg-zinc-100 dark:bg-zinc-800`}><RefreshCw className="w-3.5 h-3.5" /> 새로 보기</button>
       </div>
+      <ReadStatsCard />
       <AdminSecurityCard />
       <SelfTestCard />
       <WeeklyReportCard />
