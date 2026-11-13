@@ -171,13 +171,20 @@ export function ShortsFeed({ logs, searchTerm, plan, chosung = true, exclude, se
       const eid = extractYoutubeId(e?.url || '');
       if (eid && !logByEdited.has(eid)) logByEdited.set(eid, log);
     }));
+    // 생방송 다시보기 영상 ID → 그 방송 기록 (관리자가 쇼츠를 생방송 영상에 바로 연동한 경우)
+    const logByLive = new Map<string, any>();
+    list.forEach((log: any) => (Array.isArray(log?.vods) ? log.vods : []).forEach((v: any) => {
+      const vid = extractYoutubeId((typeof v === 'string' ? v : v?.url) || '');
+      if (vid && !logByLive.has(vid)) logByLive.set(vid, log);
+    }));
+    const logOfRel = (rel?: string) => (rel ? logByEdited.get(rel) || logByLive.get(rel) || null : null);
     // 3) 유튜브 채널의 쇼츠 전체 (기록에 없는 것도 포함, 업로드일은 유튜브 값)
     channelShorts.forEach((c) => {
       const hit = byId.get(c.videoId);
       if (hit) { hit.publishedAt = c.publishedAt; if (!hit.title) hit.title = c.title; return; }
-      // 기록에 없는 쇼츠: 쇼츠 아래 연결된 일반 영상이 방송 기록의 편집본이면 그 생방송과 자동으로 연결
+      // 기록에 없는 쇼츠: 쇼츠 아래 연결된(또는 연동 탭에서 지정한) 영상이 방송 기록의 편집본·생방송이면 그 방송과 연결
       const rel = relatedMap[c.videoId];
-      const relLog = rel ? logByEdited.get(rel) : null;
+      const relLog = logOfRel(rel);
       byId.set(c.videoId, {
         id: c.videoId, url: `https://www.youtube.com/shorts/${c.videoId}`, title: c.title, publishedAt: c.publishedAt,
         date: relLog?.date || '',
@@ -185,15 +192,25 @@ export function ShortsFeed({ logs, searchTerm, plan, chosung = true, exclude, se
         genres: relLog && genresOfLog ? genresOfLog(relLog) : [],
         gameNames: relLog ? gameNamesOfLog(relLog) : [],
         ...(relLog ? linksOf(relLog) : {}),
-        ...(rel ? { editUrl: `https://www.youtube.com/watch?v=${rel}` } : {}),
+        // 연결된 영상이 생방송 다시보기 자체면 편집본이 아니라 생방송으로
+        ...(rel && !logByLive.has(rel) ? { editUrl: `https://www.youtube.com/watch?v=${rel}` } : {}),
+        ...(rel && logByLive.has(rel) ? { liveUrl: `https://www.youtube.com/watch?v=${rel}` } : {}),
         autoLinked: Boolean(rel),
       });
     });
-    // 기록에 있는 쇼츠도 편집본이 비어 있으면 연결된 영상으로 채움
+    // 기록에 있는 쇼츠도 비어 있는 편집본·생방송·날짜를 연결된 영상으로 채움
     byId.forEach((e) => {
-      if (e.editUrl || e.isCompilation) return;
+      if (e.isCompilation) return;
       const rel = relatedMap[e.id];
-      if (rel) e.editUrl = `https://www.youtube.com/watch?v=${rel}`;
+      if (!rel) return;
+      const relLog = logOfRel(rel);
+      if (logByLive.has(rel)) { if (!e.liveUrl) e.liveUrl = `https://www.youtube.com/watch?v=${rel}`; }
+      else if (!e.editUrl) e.editUrl = `https://www.youtube.com/watch?v=${rel}`;
+      if (relLog) {
+        const l = linksOf(relLog);
+        if (!e.liveUrl && l.liveUrl) e.liveUrl = l.liveUrl;
+        if (!e.date) { e.date = relLog.date || ''; e.category = e.category || relLog.category || ''; if (!e.gameNames?.length) e.gameNames = gameNamesOfLog(relLog); }
+      }
     });
     // 본영상 제목 (쇼츠를 본영상 제목으로도 찾을 수 있게): 방송 기록의 편집본 → 채널 영상 목록
     const titleOf = new Map<string, string>();

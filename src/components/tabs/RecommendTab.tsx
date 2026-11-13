@@ -1287,10 +1287,20 @@ export function RecommendTab({
     const videoTitleOf = new Map<string, string>();
     const videoById = new Map<string, any>();
     allVideos.forEach((v: any) => { const id = extractYoutubeId(v.videoUrl) || v.id; if (id && v.videoTitle) videoTitleOf.set(id, v.videoTitle); if (id) videoById.set(id, v); });
+    // 연결된 영상(자동 또는 연동 탭에서 지정)이 어느 방송의 편집본·생방송인지 → 그 방송의 생방송 링크도 붙임
+    const logByVid = new Map<string, { log: any; live: boolean }>();
+    (logs as any[]).forEach((log) => {
+      (Array.isArray(log?.vods) ? log.vods : []).forEach((v: any) => { const vid = extractYoutubeId((typeof v === 'string' ? v : v?.url) || ''); if (vid && !logByVid.has(vid)) logByVid.set(vid, { log, live: true }); });
+      (Array.isArray(log?.edited) ? log.edited : []).forEach((e: any) => { if (e?.isCompilation || e?.compilationId) return; const vid = extractYoutubeId(e?.url || ''); if (vid && !logByVid.has(vid)) logByVid.set(vid, { log, live: false }); });
+    });
     byId.forEach((s, id) => {
       const rel = shortsRelatedMap[id];
       if (rel) {
-        if (!s.editUrl) s.editUrl = `https://www.youtube.com/watch?v=${rel}`;
+        const hit = logByVid.get(rel);
+        if (hit?.live) { if (!s.liveUrl) s.liveUrl = `https://www.youtube.com/watch?v=${rel}`; }
+        else if (!s.editUrl) s.editUrl = `https://www.youtube.com/watch?v=${rel}`;
+        if (hit && !s.liveUrl) s.liveUrl = (Array.isArray(hit.log?.vods) ? hit.log.vods : []).find((v: any) => v?.url)?.url;
+        if (hit && (!s.caption || s.caption.endsWith('업로드')) && hit.log?.date) s.caption = `${hit.log.date} 방송`;
         s.relatedTitle = videoTitleOf.get(rel);
       }
       // 맞춤 추천용: 기록에 없는 쇼츠는 연결된 본영상의 게임·장르로
