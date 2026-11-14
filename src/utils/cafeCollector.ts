@@ -26,17 +26,19 @@ export function cafeCollector() {
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   // 카페 주소 → { club(숫자 또는 카페 주소 이름), aid }
-  const parseCafe = (u: string): { club: string; aid: string } | null => {
+  const parseCafe = (u: string): { club: string; aid: string; art?: string } | null => {
     try {
       const x = new URL(u, location.href);
       if (!/(^|\.)cafe\.naver\.com$/.test(x.hostname)) return null;
       const aidQ = x.searchParams.get('articleid') || x.searchParams.get('articleId');
       const clubQ = x.searchParams.get('clubid') || x.searchParams.get('clubId');
+      // 공유 링크(naver.me)에 붙는 읽기 표 (이게 있으면 그 글은 공유 링크로 읽을 수 있음)
+      const art = x.searchParams.get('art') || undefined;
       const m1 = x.pathname.match(/\/cafes\/(\d+)\/articles\/(\d+)/);
-      if (m1) return { club: m1[1], aid: m1[2] };
+      if (m1) return { club: m1[1], aid: m1[2], art };
       const m2 = x.pathname.match(/^\/(?:ca-fe\/)?([A-Za-z][\w-]*)\/(\d+)\/?$/);
-      if (m2) return { club: m2[1], aid: m2[2] };
-      if (aidQ) return { club: clubQ || '', aid: aidQ };
+      if (m2) return { club: m2[1], aid: m2[2], art };
+      if (aidQ) return { club: clubQ || '', aid: aidQ, art };
     } catch { /* */ }
     return null;
   };
@@ -44,7 +46,7 @@ export function cafeCollector() {
   const here = (() => {
     const p = parseCafe(location.href);
     const fr = document.querySelector('iframe#cafe_main') as HTMLIFrameElement | null;
-    let inner: { club: string; aid: string } | null = null;
+    let inner: { club: string; aid: string; art?: string } | null = null;
     try { if (fr?.contentWindow) inner = parseCafe(fr.contentWindow.location.href); } catch { /* */ }
     if (!inner && fr?.src) inner = parseCafe(fr.src);
     return inner || p;
@@ -53,7 +55,7 @@ export function cafeCollector() {
   const clubName = (location.pathname.match(/^\/([A-Za-z][\w-]*)/) || [])[1] || 'uzuhama';
 
   // 글 하나 읽기 (네이버 카페가 쓰는 글 API, 이 브라우저 로그인으로)
-  async function readArticle(club: string, aid: string): Promise<{ title: string; html: string } | null> {
+  async function readArticle(club: string, aid: string, art?: string): Promise<{ title: string; html: string } | null> {
     const ids = [...new Set([club, clubId].filter(Boolean))];
     const tries: string[] = [];
     ids.forEach((c) => {
@@ -61,7 +63,8 @@ export function cafeCollector() {
       ['v3', 'v2.1', 'v2'].forEach((v) => tries.push(`https://apis.naver.com/cafe-web/cafe-articleapi/${v}/cafes/${c}/articles/${aid}?useCafeId=${useId}&requestFrom=A`));
     });
     if (!ids.some((c) => !/^\d+$/.test(c))) ['v3', 'v2.1'].forEach((v) => tries.push(`https://apis.naver.com/cafe-web/cafe-articleapi/${v}/cafes/${clubName}/articles/${aid}?useCafeId=false&requestFrom=A`));
-    for (const u of tries) {
+    for (const u0 of tries) {
+      const u = art ? `${u0}&art=${encodeURIComponent(art)}` : u0;
       try {
         const r = await fetch(u, { credentials: 'include' });
         if (!r.ok) continue;
@@ -115,14 +118,14 @@ export function cafeCollector() {
     const out: string[] = [];
     let ok = 0;
     let fail = 0;
-    const queue: { club: string; aid: string; depth: number }[] = [{ ...here, depth: 0 }];
+    const queue: { club: string; aid: string; art?: string; depth: number }[] = [{ ...here, depth: 0 }];
     while (queue.length && !stop) {
       if (seen.size >= MAX) { log(`${MAX}개까지만 읽었어요`); break; }
       const cur = queue.shift()!;
       if (seen.has(cur.aid)) continue;
       seen.add(cur.aid);
       st(`읽는 중… ${ok + fail + 1}번째 글 (남은 글 ${queue.length}개)`);
-      const a = await readArticle(cur.club, cur.aid);
+      const a = await readArticle(cur.club, cur.aid, cur.art);
       if (!a) { fail++; log(`✗ 글 ${cur.aid} 못 읽음`); continue; }
       ok++;
       const { text, links } = toText(a.html);
