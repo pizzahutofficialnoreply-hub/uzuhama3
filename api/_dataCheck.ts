@@ -7,23 +7,10 @@
  * 참고: 치지직은 다시보기를 남기지 않아(목록 0개) 비교할 수 없고, 옛 트위치 기록은 공식 API로 볼 수 없음
  */
 import { aiGen, aiParseJson, ytApi, ytApiKey, AI_TEXT_MODELS } from './_aiVideo.js';
-import { normalizeHistorical, overlayMonthDocs } from '../src/utils/archiveOverlay.js';
+import { loadSiteLogs as loadSiteLogsShared } from './_siteLogs.js';
 
-/**
- * 사이트가 보여 주는 것과 같은 방송 기록: 과거 아카이브 JSON + logs_by_month 수정분
- * (logs 컬렉션은 일부만 있어서 쓰지 않음)
- */
-async function loadSiteLogs(db: any): Promise<{ logs: any[]; historical: Record<string, any> }> {
-  let historical: Record<string, any> = {};
-  try {
-    const r = await fetch('https://uzuhama.vercel.app/data/historical_logs.json', { signal: AbortSignal.timeout(15000) });
-    if (r.ok) historical = normalizeHistorical(await r.json());
-  } catch { /* */ }
-  const monthDocs: any[] = [];
-  (await db.collection('logs_by_month').get()).forEach((d: any) => monthDocs.push(d.data()));
-  const map = overlayMonthDocs(historical, monthDocs);
-  return { logs: Object.values(map).filter((l: any) => l?.date), historical };
-}
+// 검증·고치기는 항상 새로 읽음 (logs 컬렉션은 일부만 있어서 쓰지 않음)
+const loadSiteLogs = (db: any) => loadSiteLogsShared(db, { maxAgeMs: 0 });
 
 /** 방송 기록 고치기: 사이트가 읽는 logs_by_month 에 (아카이브 기록이면 바뀐 필드만 _patch 로) */
 async function patchSiteLog(db: any, log: any, fields: Record<string, any>, historical: Record<string, any>) {

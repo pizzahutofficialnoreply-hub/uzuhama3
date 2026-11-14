@@ -18,13 +18,14 @@ export async function checkDeadVideos(db: any, opts: { force?: boolean } = {}) {
 
   // 기록 속 유튜브 링크 모으기
   const where = new Map<string, { date: string; slot: string; title: string; logId: string }>();
-  const snap = await db.collection('logs').get();
-  snap.docs.forEach((d: any) => {
-    const l = d.data() || {};
+  // 사이트가 보여 주는 기록 (logs 컬렉션 전체를 읽으면 기록 수만큼 읽기가 들어서)
+  const { loadSiteLogs } = await import('./_siteLogs.js');
+  const { logs } = await loadSiteLogs(db);
+  logs.forEach((l: any) => {
     (['edited', 'shorts', 'vods'] as const).forEach((slot) => (Array.isArray(l[slot]) ? l[slot] : []).forEach((it: any) => {
       const url = typeof it === 'string' ? it : it?.url || '';
       const id = ID_RE.exec(url)?.[1];
-      if (id && !where.has(id)) where.set(id, { date: l.date || '', slot, title: (typeof it === 'string' ? '' : it?.title) || '', logId: d.id });
+      if (id && !where.has(id)) where.set(id, { date: l.date || '', slot, title: (typeof it === 'string' ? '' : it?.title) || '', logId: l.id });
     }));
   });
   const ids = [...where.keys()];

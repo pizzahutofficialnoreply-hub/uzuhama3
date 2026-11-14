@@ -31,11 +31,13 @@ describe('사라진 영상 찾기', () => {
   it('유튜브가 안 돌려준 영상은 삭제됨, private 은 비공개', async () => {
     vi.stubEnv('YOUTUBE_API_KEY', 'k');
     const store: Record<string, any> = {};
-    const logs = [{ id: 'l1', data: () => ({ date: '2025-01-01', edited: [{ url: 'https://youtu.be/AAAAAAAAAAA', title: '살아 있음' }, { url: 'https://youtu.be/BBBBBBBBBBB', title: '지워짐' }], vods: ['https://www.youtube.com/watch?v=CCCCCCCCCCC'] }) }];
-    const db = { collection: (c: string) => (c === 'logs'
-      ? { get: async () => ({ docs: logs }) }
+    // 사이트 기록 = 과거 아카이브 + logs_by_month (logs 컬렉션 전체는 안 읽음)
+    const month = { month: '2025-01', updatedAt: 'x', items: { l1: { id: 'l1', date: '2025-01-01', edited: [{ url: 'https://youtu.be/AAAAAAAAAAA', title: '살아 있음' }, { url: 'https://youtu.be/BBBBBBBBBBB', title: '지워짐' }], vods: ['https://www.youtube.com/watch?v=CCCCCCCCCCC'] } } };
+    const db = { collection: (c: string) => (c === 'logs_by_month'
+      ? { get: async () => ({ forEach: (f: any) => [{ data: () => month }].forEach(f) }) }
+      : c === 'logs' ? { get: async () => { throw new Error('logs 전체를 읽으면 안 됨'); } }
       : { doc: (d: string) => ({ get: async () => ({ data: () => store[`${c}/${d}`] }), set: async (v: any, o?: any) => { store[`${c}/${d}`] = o?.merge ? { ...(store[`${c}/${d}`] || {}), ...v } : v; } }) }) };
-    vi.stubGlobal('fetch', async () => ({ ok: true, json: async () => ({ items: [{ id: 'AAAAAAAAAAA', status: { privacyStatus: 'public' } }, { id: 'CCCCCCCCCCC', status: { privacyStatus: 'private' } }] }) }));
+    vi.stubGlobal('fetch', async (u: string) => (String(u).includes('historical_logs') ? { ok: false } : { ok: true, json: async () => ({ items: [{ id: 'AAAAAAAAAAA', status: { privacyStatus: 'public' } }, { id: 'CCCCCCCCCCC', status: { privacyStatus: 'private' } }] }) }));
     const r: any = await checkDeadVideos(db, { force: true });
     expect(r).toEqual({ total: 3, dead: 2 });
     expect(store['config/deadVideos'].items.BBBBBBBBBBB.reason).toBe('삭제됨');

@@ -16,6 +16,8 @@ let installed = false;
 
 const safe = (s: string) => String(s || 'other').replace(/[^\w가-힣=-]/g, '_').slice(0, 60) || 'other';
 const kstDay = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+// 한국 시간 몇 시 (시간대별로 어디서 읽었는지: 어느 시간에 갑자기 늘었는지 찾기)
+const kstHour = () => `h${new Date(Date.now() + 9 * 3600000).toISOString().slice(11, 13)}`;
 
 /** 지금 처리 중인 요청 (setCorsHeaders 에서 부름) */
 export function setReadRoute(req: any) {
@@ -41,18 +43,25 @@ async function flush() {
   pending = {};
   if (!dbRef || !Object.keys(data).length) return;
   const s: Record<string, Record<string, any>> = {};
-  Object.entries(data).forEach(([r, cols]) => { s[r] = {}; Object.entries(cols).forEach(([c, n]) => { s[r][c] = FieldValue.increment(n); }); });
+  const hr: Record<string, any> = {};
+  Object.entries(data).forEach(([r, cols]) => {
+    s[r] = {};
+    let sum = 0;
+    Object.entries(cols).forEach(([c, n]) => { s[r][c] = FieldValue.increment(n); sum += n; });
+    hr[r] = FieldValue.increment(sum);
+  });
   try {
-    await (orig.docSet as any).call(dbRef.collection('admin_data').doc(`reads_${kstDay()}`), { s, at: new Date().toISOString() }, { merge: true });
+    await (orig.docSet as any).call(dbRef.collection('admin_data').doc(`reads_${kstDay()}`), { s, h: { [kstHour()]: hr }, at: new Date().toISOString() }, { merge: true });
   } catch { /* 한도 초과 등: 버림 */ }
 }
 
 /** 기기에서 보낸 숫자 더하기 */
 export async function addClientReads(db: Firestore, c: Record<string, number>) {
   const out: Record<string, any> = {};
-  Object.entries(c || {}).slice(0, 40).forEach(([k, n]) => { const v = Math.min(5000, Math.max(0, Math.round(Number(n) || 0))); if (v) out[safe(k)] = FieldValue.increment(v); });
+  let sum = 0;
+  Object.entries(c || {}).slice(0, 40).forEach(([k, n]) => { const v = Math.min(5000, Math.max(0, Math.round(Number(n) || 0))); if (v) { out[safe(k)] = FieldValue.increment(v); sum += v; } });
   if (!Object.keys(out).length) return;
-  await db.collection('admin_data').doc(`reads_${kstDay()}`).set({ c: out, sessions: FieldValue.increment(1) }, { merge: true });
+  await db.collection('admin_data').doc(`reads_${kstDay()}`).set({ c: out, ch: { [kstHour()]: FieldValue.increment(sum) }, sessions: FieldValue.increment(1) }, { merge: true });
 }
 
 const topCol = (path: string) => String(path || '').split('/')[0] || 'other';

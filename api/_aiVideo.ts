@@ -772,14 +772,27 @@ const ytIdOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/
 /** 몰아보기 → 들어 있는 방송·원본 영상 목록을 문서 하나에 모아 둠 (볼 때마다 기록 전체를 읽지 않게, 12시간마다 새로) */
 async function compIndex(db: any): Promise<Record<string, { title: string; dates: string[]; games: string[]; ids: string[] }>> {
   const ref = db.collection('youtube_cache').doc('comp_index');
+  let old: any = null;
   try {
-    const c = (await ref.get()).data();
-    if (c?.map && Date.now() - Date.parse(c.at || '0') < 12 * 3600000) return c.map;
+    old = (await ref.get()).data();
+    if (old?.map && Date.now() - Date.parse(old.at || '0') < 12 * 3600000) return old.map;
   } catch { /* 새로 */ }
+  // 오래됐으면 한 요청만 새로 만들고 나머지는 지난 것을 그대로 (동시에 여러 명이 열어도 한 번만 읽게)
+  if (old?.map) {
+    const mine = await db.runTransaction(async (tx: any) => {
+      const cur = (await tx.get(ref)).data() || {};
+      if (cur.lockUntil && cur.lockUntil > Date.now()) return false;
+      tx.set(ref, { lockUntil: Date.now() + 120000 }, { merge: true });
+      return true;
+    }).catch(() => false);
+    if (!mine) return old.map;
+  }
   const map: Record<string, { title: string; dates: string[]; games: string[]; ids: string[] }> = {};
   let comps: any[] = [];
   try { comps = (await db.collection('compilations').get()).docs.map((x: any) => x.data()); } catch { /* */ }
-  const logs = (await db.collection('logs').get()).docs.map((x: any) => x.data());
+  // 사이트가 보여 주는 기록 (logs 컬렉션 전체 대신: 읽기가 기록 수 → 달 수)
+  const { loadSiteLogs } = await import('./_siteLogs.js');
+  const logs = (await loadSiteLogs(db)).logs;
   comps.forEach((c: any) => {
     const cid = ytIdOf(c.url);
     if (cid) map[cid] = { title: c.title || '', dates: (c.broadcasts || []).map((b: any) => b.date).filter(Boolean), games: (c.broadcasts || []).flatMap((b: any) => b.games || []).map((g: any) => (typeof g === 'string' ? g : g?.name)).filter(Boolean), ids: [] };
@@ -802,7 +815,7 @@ async function compIndex(db: any): Promise<Record<string, { title: string; dates
     });
     m.ids = ids.slice(0, 30);
   });
-  try { await ref.set({ map, at: new Date().toISOString() }); } catch { /* 너무 크면 다음에 */ }
+  try { await ref.set({ map, at: new Date().toISOString(), lockUntil: 0 }); } catch { /* 너무 크면 다음에 */ }
   return map;
 }
 
