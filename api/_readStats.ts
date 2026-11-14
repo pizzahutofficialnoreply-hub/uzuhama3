@@ -5,7 +5,7 @@
  * - 방문자 기기 쪽 숫자는 /api/health?readstat=1 로 들어와 같은 문서의 c 에 더해짐
  * - 쓰기만 하고 읽지 않음 (이 기록 자체는 읽기를 늘리지 않음)
  */
-import { DocumentReference, Query, Transaction, Firestore, AggregateQuery, FieldValue } from 'firebase-admin/firestore';
+import { DocumentReference, Query, Transaction, Firestore, FieldValue } from 'firebase-admin/firestore';
 import { waitUntil } from '@vercel/functions';
 
 let route = 'other';
@@ -51,7 +51,7 @@ async function flush() {
     hr[r] = FieldValue.increment(sum);
   });
   try {
-    await (orig.docSet as any).call(dbRef.collection('admin_data').doc(`reads_${kstDay()}`), { s, h: { [kstHour()]: hr }, at: new Date().toISOString() }, { merge: true });
+    await (orig.docSet || (DocumentReference as any).prototype.set).call(dbRef.collection('admin_data').doc(`reads_${kstDay()}`), { s, h: { [kstHour()]: hr }, at: new Date().toISOString() }, { merge: true });
   } catch { /* 한도 초과 등: 버림 */ }
 }
 
@@ -71,37 +71,49 @@ export function installReadStats(db: Firestore) {
   dbRef = db;
   if (installed) return;
   installed = true;
-  orig.docGet = DocumentReference.prototype.get;
-  orig.docSet = DocumentReference.prototype.set;
-  orig.queryGet = Query.prototype.get;
-  orig.getAll = Firestore.prototype.getAll;
-  orig.txGet = Transaction.prototype.get;
-  orig.aggGet = AggregateQuery.prototype.get;
+  // 세기는 덤: 어떤 이유로든 실패하면 그냥 안 세고 넘어감 (DB 연결·로그인은 절대 막지 않음)
+  try { patch(db); } catch (e) { console.warn('[readStats] 설치 건너뜀', e); }
+}
 
-  DocumentReference.prototype.get = async function (this: any, ...a: any[]) {
+function patch(db: Firestore) {
+  const DocProto: any = (DocumentReference as any)?.prototype;
+  const QueryProto: any = (Query as any)?.prototype;
+  const FsProto: any = (Firestore as any)?.prototype;
+  const TxProto: any = (Transaction as any)?.prototype;
+  // AggregateQuery 는 패키지에서 내보내지 않음 → 실제 count() 객체에서 꺼냄
+  let AggProto: any = null;
+  try { AggProto = Object.getPrototypeOf((db.collection('admin_data') as any).count()); } catch { /* */ }
+  if (DocProto?.get) orig.docGet = DocProto.get;
+  if (DocProto?.set) orig.docSet = DocProto.set;
+  if (QueryProto?.get) orig.queryGet = QueryProto.get;
+  if (FsProto?.getAll) orig.getAll = FsProto.getAll;
+  if (TxProto?.get) orig.txGet = TxProto.get;
+  if (AggProto?.get) orig.aggGet = AggProto.get;
+
+  if (orig.docGet) DocProto.get = async function (this: any, ...a: any[]) {
     const r = await orig.docGet.apply(this, a);
     add(topCol(this.path), 1);
     return r;
-  } as any;
-  Query.prototype.get = async function (this: any, ...a: any[]) {
+  };
+  if (orig.queryGet) QueryProto.get = async function (this: any, ...a: any[]) {
     const r = await orig.queryGet.apply(this, a);
     add(topCol(this._queryOptions?.collectionId || this.id), Math.max(1, r?.size || 0));
     return r;
-  } as any;
-  Firestore.prototype.getAll = async function (this: any, ...a: any[]) {
+  };
+  if (orig.getAll) FsProto.getAll = async function (this: any, ...a: any[]) {
     const r = await orig.getAll.apply(this, a);
     (r || []).forEach((s: any) => add(topCol(s?.ref?.path), 1));
     return r;
-  } as any;
-  Transaction.prototype.get = async function (this: any, ref: any, ...a: any[]) {
+  };
+  if (orig.txGet) TxProto.get = async function (this: any, ref: any, ...a: any[]) {
     const r = await orig.txGet.call(this, ref, ...a);
     if (r && typeof r.size === 'number') add(topCol(ref?._queryOptions?.collectionId || ref?.id), Math.max(1, r.size));
     else add(topCol(ref?.path), 1);
     return r;
-  } as any;
-  AggregateQuery.prototype.get = async function (this: any, ...a: any[]) {
+  };
+  if (orig.aggGet) AggProto.get = async function (this: any, ...a: any[]) {
     const r = await orig.aggGet.apply(this, a);
     add(`${topCol(this._query?._queryOptions?.collectionId)}(count)`, 1);
     return r;
-  } as any;
+  };
 }
