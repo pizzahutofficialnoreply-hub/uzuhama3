@@ -75,6 +75,24 @@ export default async function handler(req: any, res: any) {
           return res.status(200).json({ success: true, ...out });
         } catch (e: any) { return res.status(e?.status || 500).json({ error: String(e?.message || e) }); }
       }
+      // ── DB 전체 백업·복원 ──
+      case 'backupList': {
+        const b = await import('../_backup.js');
+        return res.status(200).json({ success: true, format: b.BACKUP_FORMAT, version: b.BACKUP_VERSION, collections: await b.listBackupCollections(db) });
+      }
+      case 'backupExport': {
+        const b = await import('../_backup.js');
+        const col = String(payload.col || '');
+        if (!/^[\w-]{1,100}$/.test(col)) return res.status(400).json({ error: '컬렉션 이름이 이상해요' });
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json({ success: true, ...(await b.exportPage(db, col, payload.after ? String(payload.after) : null, Number(payload.limit) || 300)) });
+      }
+      case 'backupImport': {
+        const b = await import('../_backup.js');
+        const r = await b.importDocs(db, String(payload.col || ''), Array.isArray(payload.docs) ? payload.docs : []);
+        if (payload.first) { await b.noteImport(db, { file: String(payload.file || '').slice(0, 120), exportedAt: String(payload.exportedAt || '').slice(0, 40), by: adminUser?.email ? 'admin' : '' }); await audit({ action: 'backupImport', target: String(payload.file || '').slice(0, 80) }); }
+        return res.status(200).json({ success: true, ...r });
+      }
       case 'tuneSearch': {
         // 관리자 '지금 조정': 오늘 이미 했어도 다시
         const { tuneSearch } = await import('../_searchTune.js');
