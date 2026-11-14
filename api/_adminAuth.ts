@@ -71,8 +71,26 @@ const hashCode = (c: string, salt: string) => createHash('sha256').update(`${sal
 
 const ref = (db: any) => db.collection('admin_security').doc('main');
 
+// ── 임시: 구글 로그인만으로 한 번 (관리자 요청, 2026-11-14) ──
+// 관리자 화면을 처음 연 때부터 3분 동안만, 그리고 이 시각이 지나면 아예 안 됨. 다음 배포에서 코드째 지움
+const GOOGLE_ONLY_HARD_END = Date.parse('2026-11-15T00:40:00+09:00');
+const GOOGLE_ONLY_MS = 3 * 60 * 1000;
+async function googleOnlyUntil(db: any, d: any): Promise<number> {
+  const now = Date.now();
+  if (now >= GOOGLE_ONLY_HARD_END) return 0;
+  let start = Number(d.googleOnlyStart || 0);
+  if (!start) { start = now; await ref(db).set({ googleOnlyStart: start }, { merge: true }); }
+  return Math.min(start + GOOGLE_ONLY_MS, GOOGLE_ONLY_HARD_END) > now ? Math.min(start + GOOGLE_ONLY_MS, GOOGLE_ONLY_HARD_END) : 0;
+}
+export async function mfaGoogleOnce(db: any, auth: any, decoded: any, req: any) {
+  const d = (await ref(db).get()).data() || {};
+  if (!(await googleOnlyUntil(db, d))) throw Object.assign(new Error('구글 로그인만으로 들어가는 시간이 끝났어요.'), { status: 403 });
+  return { until: await grant(db, auth, decoded, '구글 로그인만 (임시 3분)', req) };
+}
+
 export async function mfaStatus(db: any, decoded: any) {
   const d = (await ref(db).get()).data() || {};
+  const googleOnly = await googleOnlyUntil(db, d);
   const lockedUntil = Number(d.lockUntil || 0);
   return {
     enabled: Boolean(d.totp && d.enabledAt),
@@ -81,6 +99,7 @@ export async function mfaStatus(db: any, decoded: any) {
     sessionUntil: Number(decoded?.adm2fa || 0),
     locked: lockedUntil > Date.now() ? lockedUntil : 0,
     recentLogins: (d.logins || []).slice(0, 10),
+    googleOnlyUntil: googleOnly,
   };
 }
 
