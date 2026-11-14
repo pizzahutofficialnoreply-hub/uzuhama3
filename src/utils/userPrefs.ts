@@ -31,6 +31,8 @@ export interface UserPrefs {
   labAiSummary: boolean;
   /** 실험실: 요약이 끝난 영상 카드 썸네일을 누르면 카드가 펼쳐지며 요약과 함께 보기 */
   labAiCard: boolean;
+  /** 실험실: 과거 영상 생방 연동 — 팬카페 정리 글에서 가져온 2020년 전 링크(비교적 부정확)도 보여 주기 */
+  labCafeOld: boolean;
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -50,6 +52,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   searchAI: true,
   labAiSummary: true,
   labAiCard: true,
+  labCafeOld: false,
 };
 
 export const PAGE_SIZE_OPTIONS = [8, 12, 20, 30];

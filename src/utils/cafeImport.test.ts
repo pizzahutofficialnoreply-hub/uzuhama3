@@ -121,3 +121,19 @@ https://www.youtube.com/embed/AhvVmfSljq0?feature=oembed
     expect(r.days.some((d) => d.date >= '2026')).toBe(false);
   });
 });
+
+import { hideOldCafe } from './cafeFilter';
+describe('실험실 과거 영상 생방 연동', () => {
+  it('2020년 전 cafe 표시만 숨기고, multi 로 바꾼 원래 영상은 되돌려 보여 줌', () => {
+    const data = { logs: {
+      a: { id: 'a', date: '2019-03-01', vods: [{ url: 'u1' }, { url: 'u2', cafe: 1 }], edited: [{ url: 'v1', multiId: 'm', allBroadcastDates: ['x'], cafe: 'multi' }], shorts: [] },
+      b: { id: 'b', date: '2019-03-02', cafe: 1, vods: [{ url: 'u3', cafe: 1 }], edited: [], shorts: [] },
+      c: { id: 'c', date: '2021-01-01', vods: [{ url: 'u4', cafe: 1 }], edited: [], shorts: [] },
+    } };
+    const r: any = hideOldCafe(data);
+    expect(r.logs.a.vods).toEqual([{ url: 'u1' }]);
+    expect(r.logs.a.edited).toEqual([{ url: 'v1' }]);
+    expect(r.logs.b).toBeUndefined();
+    expect(r.logs.c.vods).toHaveLength(1);
+  });
+});

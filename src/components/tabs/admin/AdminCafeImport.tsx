@@ -6,6 +6,7 @@ import { cn } from '../../../utils';
 import { blocksToPlanInput, isEmptyLog, parseCafeBlocks, parseCafePost, planCafeImport, youtubeIdOf, type CafeDay, type CafeLink, type CafeMulti, type CafePlan, type CafeUnsure } from '../../../utils/cafeImport';
 import { db } from '../../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import { AdminCafeUndo } from './AdminCafeUndo';
 import { useChannelVideos } from '../../../hooks/useChannelVideos';
 import { confirmSheet } from '../../../utils/ui';
 
@@ -72,7 +73,8 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
     setPicked(new Set(actionable.map((p) => p.key)));
   }
 
-  const toItem = (l: CafeLink, fallback: string): LinkItem => ({ title: l.title || fallback, url: l.url, ...(source.trim() ? { source: source.trim() } : {}) } as any);
+  // cafe: 1 = 카페 정리에서 가져옴 (설정 › 실험실 '과거 영상 생방 연동'으로 2020년 전 것을 끄고 켬)
+  const toItem = (l: CafeLink, fallback: string): LinkItem => ({ title: l.title || fallback, url: l.url, cafe: 1, ...(source.trim() ? { source: source.trim() } : {}) } as any);
 
   const apply = async () => {
     const todo = plans.filter((p) => picked.has(p.key));
@@ -115,6 +117,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
             vods: p.lives.map((l) => toItem(l, '생방송')),
             edited: p.videos.map((l) => toItem(l, '편집본')),
             shorts: p.shorts.map((l) => toItem(l, '쇼츠')),
+            cafe: 1,
             ...(source.trim() ? { source: source.trim() } : {}),
           };
           await onAddLog(nl);
@@ -149,7 +152,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
           seenLog.add(h.log.id);
           const cur: any = work[h.log.id] || h.log;
           const prev: any = (cur.edited || []).find((e: any) => youtubeIdOf(e?.url || '') === m.video.id && !e.isCompilation);
-          const link: any = { ...(prev || {}), title: prev?.title || title, url: prev?.url || url, multiId: compId, allBroadcastDates: dates, games: prev?.games || [], createdAt: prev?.createdAt || createdAt };
+          const link: any = { ...(prev || {}), title: prev?.title || title, url: prev?.url || url, multiId: compId, allBroadcastDates: dates, games: prev?.games || [], createdAt: prev?.createdAt || createdAt, cafe: prev && !prev.cafe ? 'multi' : 1 };
           const rest = (cur.edited || []).filter((e: any) => youtubeIdOf(e?.url || '') !== m.video.id && e.multiId !== compId);
           await save({ ...cur, edited: [link, ...rest] });
         }
@@ -276,6 +279,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
           )}
         </div>
       )}
+      <AdminCafeUndo data={data} onAddLog={onAddLog} onUpdateLog={onUpdateLog} onDeleteLog={onDeleteLog} />
     </div>
   );
 }

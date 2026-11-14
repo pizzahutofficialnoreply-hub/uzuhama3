@@ -68,6 +68,8 @@ const PatchNotesPage = lazy(() => import('./components/PatchNotesPage').then((m)
 const PolicyPage = lazy(() => import('./components/PolicyPage').then((m) => ({ default: m.PolicyPage })));
 const LicensePage = lazy(() => import('./components/LicensePage').then((m) => ({ default: m.LicensePage })));
 import { useAuth } from './hooks/useAuth';
+import { hideOldCafe } from './utils/cafeFilter';
+import { usePrefs } from './utils/userPrefs';
 import { RELOAD_LINK, reloadToNewVersion, useNewBuildAvailable } from './utils/appVersion';
 import { MaintenancePager } from './components/MaintenancePager';
 import { SELFTEST_FLAG } from './selftest/flag';
@@ -89,7 +91,10 @@ function SlugRoute() {
 
 function MainApp() {
   const navigate = useNavigate();
-  const { data, loading, loadingProgress, loadingStatusText, isFirstRun, fetchLogsByDateRange, fetchLatestLogs, rateVideo } = useFirebaseData();
+  const { data: rawData, loading, loadingProgress, loadingStatusText, isFirstRun, fetchLogsByDateRange, fetchLatestLogs, rateVideo } = useFirebaseData();
+  // 실험실 '과거 영상 생방 연동'이 꺼져 있으면 2020년 전 카페 정리 링크는 숨김 (관리자 화면은 따로라 영향 없음)
+  const labCafeOld = usePrefs().labCafeOld;
+  const data = useMemo(() => (rawData && !labCafeOld ? hideOldCafe(rawData) : rawData), [rawData, labCafeOld]);
   const { isInstallable, promptInstall } = useInstallPrompt();
   const { user, loginWithGoogle, logout } = useAuth();
   const logsList = useMemo(() => Object.values(data?.logs || {}), [data?.logs]);
