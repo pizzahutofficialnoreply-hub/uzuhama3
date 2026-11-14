@@ -45,7 +45,6 @@ export default async function handler(req: any, res: any) {
         catch (e: any) { await logA({ action: 'mfa_fail', reason: String(e?.message || e).slice(0, 80) }); throw e; }
       }
       if (action === 'mfaLogoutAll') { await m.mfaLogoutAll(db, adminAuth, u); await logA({ action: 'mfa_logout_all' }); return res.status(200).json({ success: true, summary: '모든 기기에서 관리자 로그아웃했어요' }); }
-      if (action === 'mfaGoogleOnce') { const r = await m.mfaGoogleOnce(db, adminAuth, u, req); await logA({ action: 'mfa_login', how: 'google_only_temp' }); return res.status(200).json({ success: true, ...r }); }
       if (action === 'mfaChallenge') return res.status(200).json({ success: true, ...(await m.mfaChallenge(db)) });
       if (action === 'mfaNewRecovery') { const r = await m.mfaNewRecovery(db, u); await logA({ action: 'mfa_new_recovery' }); return res.status(200).json({ success: true, ...r }); }
       if (action === 'mfaReset') { await m.mfaReset(db, adminAuth, u); await logA({ action: 'mfa_reset' }); return res.status(200).json({ success: true }); }

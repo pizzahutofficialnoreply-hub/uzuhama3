@@ -41,7 +41,8 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
   const { plans, skipped, already } = useMemo(() => planCafeImport(days || [], Object.values(data.logs || {}) as BroadcastLog[], titleOf, dateOf), [days, data.logs, titleOf, dateOf]);
 
   const analyze = () => {
-    const parsed = parseCafePost(text);
+    // 2026년 이후는 사이트가 자동으로 기록해서 카페 글에서는 빼고 가져옴
+    const parsed = parseCafePost(text).filter((d) => d.date < '2026-01-01');
     setDays(parsed);
     setMessage(parsed.length ? '' : '날짜(예: [생방날짜: 2017. 3. 31])와 유튜브 링크를 찾지 못했어요.');
     setPicked(new Set());

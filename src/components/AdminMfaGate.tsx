@@ -47,8 +47,6 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
   const [useRecovery, setUseRecovery] = useState(false);
   const [expiresAt, setExpiresAt] = useState(0);
   const [now, setNow] = useState(Date.now());
-  // 임시: 구글 로그인만으로 들어가기 (서버가 정한 3분 동안만)
-  const [googleOnly, setGoogleOnly] = useState(0);
   const startWindow = useCallback(async () => {
     try { const r = await call('mfaChallenge'); setExpiresAt(Number(r.expiresAt) || Date.now() + 180000); } catch (e: any) { setErr(friendlyErr(e)); }
   }, []);
@@ -59,7 +57,6 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
     if (await adminMfaValid()) { setPhase('ok'); return; }
     try {
       const st = await call('mfaStatus');
-      setGoogleOnly(Number(st.googleOnlyUntil || 0));
       if (st.enabled) { await startWindow(); setPhase('verify'); }
       else {
         const s = await call('mfaBeginSetup');
@@ -169,16 +166,6 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
           <button type="button" disabled={busy || expired || (!useRecovery && code.length !== 6)} onClick={submit} className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
             {busy && <Loader2 className="w-4 h-4 animate-spin" />} 확인
           </button>
-          {phase === 'verify' && googleOnly > now && (
-            <button type="button" disabled={busy} onClick={async () => {
-              setBusy(true); setErr('');
-              try { await call('mfaGoogleOnce'); await auth.currentUser?.getIdToken(true); lastActive.current = Date.now(); setGoogleOnly(0); setPhase('ok'); }
-              catch (e: any) { setErr(friendlyErr(e)); setGoogleOnly(0); }
-              finally { setBusy(false); }
-            }} className="w-full py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold cursor-pointer disabled:opacity-50">
-              구글 로그인으로 바로 들어가기 (임시 · {Math.floor(Math.max(0, googleOnly - now) / 60000)}:{String(Math.floor(Math.max(0, googleOnly - now) / 1000) % 60).padStart(2, '0')} 남음)
-            </button>
-          )}
           {phase === 'verify' && (
             <button type="button" onClick={() => { setUseRecovery(!useRecovery); setCode(''); setErr(''); }} className="text-[11px] text-zinc-500 underline cursor-pointer">
               {useRecovery ? '6자리 코드로 하기' : '휴대폰이 없어요 (복구 코드)'}
