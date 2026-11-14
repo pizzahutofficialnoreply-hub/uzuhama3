@@ -23,10 +23,13 @@ const MIN_SEG_SEC = 3 * 60;
 const DAILY_SEC = Number(process.env.AI_VIDEO_DAILY_SEC || 7 * 3600);
 const DAILY_CALLS = Number(process.env.AI_VIDEO_DAILY_CALLS || 180);
 const QUEUE_TTL = 12 * 3600 * 1000;
-// 최신 Flash 가 붐비거나 무료 한도가 차면 최신 Flash-Lite 로 이어서 (분석이 멈추지 않게)
-// 영상 분석은 정확도 우선: 가벼운 Lite 모델로는 하지 않음 (붐비거나 한도면 기다렸다가 이어서)
 // 무료 한도는 모델마다 따로라서, 하나가 하루 한도에 걸리면 다음 모델로 (좋은 것부터 → 가벼운 것)
-const MODELS = [...new Set([process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'].filter(Boolean))] as string[];
+const FLASH = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash'];
+const LITE = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'];
+// 무료로 버티기 (기본): 무료 한도가 Flash 는 하루 20번, Flash-Lite 는 하루 500번이라 Lite 부터 (Flash 는 Lite 를 다 쓴 뒤에)
+// 결제해서 한도가 넉넉하면 Vercel 환경 변수 AI_VIDEO_PREFER=flash → 정확한 Flash 부터
+const PREFER_FLASH = String(process.env.AI_VIDEO_PREFER || '').toLowerCase() === 'flash';
+const MODELS = [...new Set([process.env.GEMINI_VIDEO_MODEL, ...(PREFER_FLASH ? [...FLASH, ...LITE] : [...LITE, ...FLASH])].filter(Boolean))] as string[];
 /** 분석 방식 버전: 바뀌면 예전 방식(가벼운 모델·낮은 화질)으로 본 영상을 다시 봄 */
 const PV = 4; // 4: 생방송 노가리·오팬무 // 3: 한 말·함께한 사람도 기록
 const TEXT_MODELS = [...new Set([process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest'].filter(Boolean))] as string[];
@@ -205,7 +208,8 @@ const retryMs = (msg: string) => {
 };
 function coolModel(model: string, msg: string) {
   if (isRate(msg)) {
-    const daily = /PerDay|per day|daily/i.test(msg);
+    // 하루 한도: 메시지에 PerDay 가 있거나, 다시 하라는 시간이 30분보다 길면
+    const daily = /PerDay|per day|daily|RPD/i.test(msg) || retryMs(msg) > 30 * 60000;
     modelCool[model] = daily ? nextQuotaReset() : Date.now() + Math.max(60000, retryMs(msg) || 10 * 60000);
     modelWhy[model] = daily ? 'day' : 'minute';
   } else if (isBusy(msg)) {

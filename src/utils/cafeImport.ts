@@ -161,7 +161,7 @@ const isComp = (e: any) => Boolean(e?.isCompilation || e?.compilationId);
  * 3) 둘 다 사이트에 없으면 → 글의 날짜 기록에 (그날 기록이 없으면 새 기록)
  * - 영상과 생방이 각각 '생방이 있는' 서로 다른 기록에 있으면 건드리지 않고 알려 줌
  */
-export function planCafeImport(days: CafeDay[], logs: any[], titleOf: Map<string, string> = new Map()): { plans: CafePlan[]; skipped: string[]; already: number } {
+export function planCafeImport(days: CafeDay[], logs: any[], titleOf: Map<string, string> = new Map(), dateOf: Map<string, string> = new Map()): { plans: CafePlan[]; skipped: string[]; already: number } {
   const editedAt = new Map<string, any>();
   const liveAt = new Map<string, any>();
   const linkAt = new Map<string, any>();
@@ -183,8 +183,11 @@ export function planCafeImport(days: CafeDay[], logs: any[], titleOf: Map<string
   let alreadyCount = 0;
   const titleFor = (video: CafeLink, inLog?: any) => (inLog?.edited || []).find((e: any) => idOfItem(e) === video.id)?.title || titleOf.get(video.id) || video.title || '';
 
+  const logOn = (date: string) => logs.find((l) => l.date === date && !l.isAbsence) || null;
+  /** 생방 날짜는 유튜브(API)가 더 정확: 카페 글 날짜와 다르면 유튜브 날짜로 */
+  const liveDate = (lives: CafeLink[], cafeDate: string) => lives.map((lv) => dateOf.get(lv.id)).find(Boolean) || cafeDate;
   days.forEach((day) => {
-    const dateLog = logs.find((l) => l.date === day.date && !l.isAbsence) || null;
+    const dateLog = logOn(day.date);
     day.pairs.forEach(({ video, lives }) => {
       const vLog = editedAt.get(video.id) || null;
       const liveLogs = lives.map((lv) => liveAt.get(lv.id)).filter(Boolean);
@@ -220,13 +223,16 @@ export function planCafeImport(days: CafeDay[], logs: any[], titleOf: Map<string
         });
         return;
       }
-      // 3) 둘 다 없음: 글의 날짜 기록으로
+      // 3) 둘 다 없음: 생방 날짜(유튜브 기준, 없으면 글의 날짜) 기록으로
       if (linkAt.get(video.id)) { alreadyCount++; return; }
-      const p = planFor(dateLog, day.date);
+      const d3 = liveDate(lives, day.date);
+      const dLog = d3 === day.date ? dateLog : logOn(d3);
+      const p = planFor(dLog, d3);
+      if (d3 !== day.date) p.notes.push(`카페 글 날짜는 ${day.date}, 유튜브 생방 날짜는 ${d3} → 유튜브 날짜로`);
       if (!has(p.videos, video.id)) p.videos.push({ ...video, title: titleFor(video) });
       lives.forEach((lv) => {
         const lat = linkAt.get(lv.id);
-        if (lat && (!dateLog || lat.id !== dateLog.id)) { skippedList.push(`생방 ${lv.id}: 이미 ${lat.date} 기록에 있어요`); return; }
+        if (lat && (!dLog || lat.id !== dLog.id)) { skippedList.push(`생방 ${lv.id}: 이미 ${lat.date} 기록에 있어요`); return; }
         if (lat) { alreadyCount++; return; }
         if (!has(p.lives, lv.id)) p.lives.push(lv);
       });
@@ -235,8 +241,10 @@ export function planCafeImport(days: CafeDay[], logs: any[], titleOf: Map<string
     const paired = new Set(day.pairs.flatMap((p) => p.lives.map((l) => l.id)));
     day.lives.filter((l) => !paired.has(l.id)).forEach((live) => {
       const lat = linkAt.get(live.id);
-      if (lat) { if (dateLog && lat.id === dateLog.id) alreadyCount++; else alreadyCount++; return; }
-      const p = planFor(dateLog, day.date);
+      if (lat) { alreadyCount++; return; }
+      const d4 = dateOf.get(live.id) || day.date;
+      const p = planFor(d4 === day.date ? dateLog : logOn(d4), d4);
+      if (d4 !== day.date) p.notes.push(`카페 글 날짜는 ${day.date}, 유튜브 생방 날짜는 ${d4} → 유튜브 날짜로`);
       if (!has(p.lives, live.id)) p.lives.push(live);
     });
     day.shorts.forEach((sh) => {

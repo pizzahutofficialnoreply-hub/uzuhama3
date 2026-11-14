@@ -58,3 +58,14 @@ describe('생방 기록 기준으로 모음', () => {
     expect(plans[0].moves.map((m) => [m.from.id, m.video.id])).toEqual([['cafe_20171019_x', 'F4aNNqUT784']]);
   });
 });
+
+describe('생방 날짜는 유튜브 기준', () => {
+  it('카페 글 날짜와 유튜브 생방 날짜가 다르면 유튜브 날짜 기록으로, 알림 남김', () => {
+    const logs = [{ id: 'd', date: '2017-03-30', edited: [], vods: [] }];
+    const days = parseCafePost(`[생방날짜: 2017. 3. 31]\n생방링크\n: https://youtu.be/LLLLLLLLLLL\n영상링크\n: https://youtu.be/VVVVVVVVVVV\n[영상 제목]`);
+    const { plans } = planCafeImport(days, logs, new Map(), new Map([['LLLLLLLLLLL', '2017-03-30']]));
+    expect(plans).toHaveLength(1);
+    expect(plans[0].key).toBe('d');
+    expect(plans[0].notes.join()).toContain('유튜브 생방 날짜는 2017-03-30');
+  });
+});

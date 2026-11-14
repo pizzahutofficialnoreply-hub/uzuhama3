@@ -323,6 +323,23 @@ export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
 
+  // naver.me 짧은 주소 → 원래 주소 (카페 글 모으기 북마클릿이 카페 화면에서 부름 · DB 안 읽음 · 주소만 풀어 줌)
+  if (req.query?.unshort) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    const u = String(req.query.unshort);
+    if (!/^https:\/\/naver\.me\/[\w-]{4,20}$/.test(u)) return res.status(400).json({ error: 'naver.me 주소만 돼요' });
+    try {
+      let cur = u;
+      for (let i = 0; i < 4 && /naver\.me\//.test(cur); i++) {
+        const r = await fetch(cur, { redirect: 'manual', signal: AbortSignal.timeout(6000) });
+        const loc = r.headers.get('location');
+        if (!loc) break;
+        cur = new URL(loc, cur).toString();
+      }
+      res.setHeader('Cache-Control', 'public, s-maxage=86400');
+      return res.status(200).json({ url: cur });
+    } catch (e: any) { return res.status(502).json({ error: String(e?.message || e) }); }
+  }
   // 공개 설정 (Vercel 환경 변수에서, DB 안 읽음): 유튜브 재생목록 저장용 구글 OAuth 클라이언트 ID 등
   if (req.query?.pubcfg) {
     res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400');

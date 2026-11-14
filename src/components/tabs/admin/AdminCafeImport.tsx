@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { cafeCollectorBookmarklet } from '../../../utils/cafeCollector';
 import { CheckSquare, ClipboardPaste, Loader2, Square, Wand2 } from 'lucide-react';
 import type { AppData, BroadcastLog, LinkItem } from '../../../types';
 import { cn } from '../../../utils';
@@ -29,13 +30,15 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
   const [message, setMessage] = useState('');
   const channelVideos = useChannelVideos();
   const titleOf = useMemo(() => new Map(channelVideos.map((v) => [v.videoId, v.title] as const)), [channelVideos]);
+  // 유튜브가 알려 준 날짜 (한국 시간): 생방 날짜는 카페 글보다 이게 정확
+  const dateOf = useMemo(() => new Map(channelVideos.filter((v) => v.publishedAt).map((v) => [v.videoId, new Date(Date.parse(v.publishedAt) + 9 * 3600000).toISOString().slice(0, 10)] as const)), [channelVideos]);
 
   /**
    * 영상 링크 기준으로 맞춤:
    * 1) 사이트에 이미 있는 영상이면 → 그 영상이 들어 있는 방송 기록에, 없는 생방 링크만 추가
    * 2) 사이트에 없는 영상이면 → 글의 날짜 기록에 영상·생방 추가 (그날 기록이 없으면 새 기록)
    */
-  const { plans, skipped, already } = useMemo(() => planCafeImport(days || [], Object.values(data.logs || {}) as BroadcastLog[], titleOf), [days, data.logs, titleOf]);
+  const { plans, skipped, already } = useMemo(() => planCafeImport(days || [], Object.values(data.logs || {}) as BroadcastLog[], titleOf, dateOf), [days, data.logs, titleOf, dateOf]);
 
   const analyze = () => {
     const parsed = parseCafePost(text);
@@ -114,6 +117,8 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
         영상은 <b>생방이 들어 있는 방송 기록</b>에 같이 넣어요. 예전에 생방 없이 따로 만들어진 기록의 영상은 생방 기록으로 옮기고, 빈 기록은 지워요. 확인하고 고른 것만 반영돼요. 정리해 준 팬의 글 링크를 출처로 남겨 두면 좋아요.
       </div>
 
+      <CafeCollectorHelp />
+
       <div className="space-y-3">
         <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="출처 (선택): 카페 글 링크나 정리해 준 분 닉네임"
           className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-purple-500" />
@@ -189,5 +194,30 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
         </div>
       )}
     </div>
+  );
+}
+
+/** 카페 정리 글 한 번에 모으기 (북마클릿) 안내 */
+function CafeCollectorHelp() {
+  const ref = useRef<HTMLAnchorElement>(null);
+  const [copied, setCopied] = useState(false);
+  const code = useMemo(() => cafeCollectorBookmarklet(), []);
+  // React 는 javascript: 주소를 막아서 직접 넣음
+  useEffect(() => { ref.current?.setAttribute('href', code); }, [code]);
+  return (
+    <details className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 text-xs sm:text-sm" data-testid="cafe-collector">
+      <summary className="font-bold cursor-pointer text-zinc-900 dark:text-white">카페 정리 글 한 번에 모으기 (PC · 북마크 버튼)</summary>
+      <ol className="mt-3 space-y-1.5 list-decimal pl-5 text-zinc-600 dark:text-zinc-300 leading-relaxed break-keep">
+        <li>아래 보라색 버튼을 브라우저 <b>북마크바로 끌어다 놓으세요</b>. (끌기가 안 되면 '코드 복사' → 북마크 추가 → 주소 칸에 붙여 넣기)</li>
+        <li>네이버에 로그인한 상태로 카페의 <b>전체 목차 글</b>(예: cafe.naver.com/uzuhama/88678)을 열고 그 북마크를 누르세요.</li>
+        <li>목차 글 → 연·월별 정리 글 → 그 안의 글까지 차례로 읽어요. 다 되면 카페 화면 오른쪽 위 창에서 <b>전부 복사</b>.</li>
+        <li>여기 아래 칸에 붙여 넣고 <b>분석하기</b>. 생방 날짜는 유튜브 날짜를 기준으로 맞추고, 카페 글 날짜와 다르면 따로 알려 줘요.</li>
+      </ol>
+      <p className="mt-2 text-[11px] text-zinc-500 break-keep">로그인한 그 브라우저가 직접 읽어서 아이디·비밀번호는 어디에도 저장되지 않아요. 글 사이마다 잠깐씩 쉬면서 읽어요(한 번에 최대 400개).</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <a ref={ref} onClick={(e) => e.preventDefault()} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 text-white text-xs font-bold cursor-grab" title="북마크바로 끌어다 놓으세요">우주하마 카페 모으기</a>
+        <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(code); setCopied(true); } catch { /* */ } }} className="px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer">{copied ? '복사했어요 ✓' : '코드 복사'}</button>
+      </div>
+    </details>
   );
 }
