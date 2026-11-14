@@ -323,6 +323,11 @@ export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
 
+  // 공개 설정 (Vercel 환경 변수에서, DB 안 읽음): 유튜브 재생목록 저장용 구글 OAuth 클라이언트 ID 등
+  if (req.query?.pubcfg) {
+    res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400');
+    return res.status(200).json({ youtubeOAuthClientId: String(process.env.YOUTUBE_OAUTH_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID || '').trim() });
+  }
   const sync = String(req.query?.sync || '');
   if (sync) return syncHandler(sync, req, res);
   const img = String(req.query?.img || '');

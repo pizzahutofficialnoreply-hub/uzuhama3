@@ -263,8 +263,13 @@ function MainApp() {
     }
   });
 
-  // 내 유튜브 재생목록 저장: 관리자가 넣은 구글 클라이언트 ID
-  useEffect(() => { setYoutubeClientId(data?.system?.youtubeOAuthClientId); }, [data?.system?.youtubeOAuthClientId]);
+  // 내 유튜브 재생목록 저장: 구글 클라이언트 ID (Vercel 환경 변수 YOUTUBE_OAUTH_CLIENT_ID 우선, 없으면 관리자가 넣은 값)
+  const [envYtClientId, setEnvYtClientId] = useState('');
+  useEffect(() => {
+    const base = (import.meta.env.VITE_VERCEL_API_URL || (window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')).replace(/\/+$/, '');
+    fetch(`${base}/api/health?pubcfg=1`).then((r) => (r.ok ? r.json() : null)).then((j) => setEnvYtClientId(String(j?.youtubeOAuthClientId || ''))).catch(() => { /* */ });
+  }, []);
+  useEffect(() => { setYoutubeClientId(envYtClientId || data?.system?.youtubeOAuthClientId); }, [envYtClientId, data?.system?.youtubeOAuthClientId]);
   const isAutoNavigatedRef = useRef<boolean>(false);
   const autoNavSourceTabRef = useRef<Tab | null>(null);
 

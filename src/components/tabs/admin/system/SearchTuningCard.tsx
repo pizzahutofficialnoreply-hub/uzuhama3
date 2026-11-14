@@ -157,6 +157,7 @@ export function SearchTuningCard() {
 
       <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-1.5">
         <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">유튜브 재생목록 저장 (OAuth 클라이언트 ID)</p>
+        <p className="text-[11px] text-purple-600 dark:text-purple-300">Vercel 환경 변수 <code>YOUTUBE_OAUTH_CLIENT_ID</code> 에 넣어 두면 그 값이 먼저 쓰여요 (여기는 비워 둬도 돼요).</p>
         <p className="text-[11px] text-zinc-500 leading-relaxed">넣어 두면 저장 창에 '내 유튜브 재생목록에 바로 저장'이 생겨요. 구글 클라우드 콘솔 › API 및 서비스 › 사용자 인증 정보 › OAuth 클라이언트 ID(웹 애플리케이션)에서 만들고, 승인된 자바스크립트 원본에 사이트 주소를 넣으세요. 비워 두면 지금처럼 유튜브로 열어 줘요.</p>
         <div className="flex gap-1.5">
           <input value={clientId} onChange={(e) => setClientId(e.target.value.trim())} placeholder="xxxxxxxx.apps.googleusercontent.com" className="flex-1 min-w-0 px-3 py-2 text-xs rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 font-mono" />
