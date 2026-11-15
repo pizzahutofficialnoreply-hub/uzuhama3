@@ -7,6 +7,7 @@ import { blocksToPlanInput, isEmptyLog, parseCafeBlocks, parseCafePost, planCafe
 import { db } from '../../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { AdminCafeUndo } from './AdminCafeUndo';
+import { AdminCafeFix } from './AdminCafeFix';
 import { useChannelVideos } from '../../../hooks/useChannelVideos';
 import { confirmSheet } from '../../../utils/ui';
 
@@ -506,6 +507,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
           )}
         </div>
       )}
+      <AdminCafeFix data={data} onUpdateLog={onUpdateLog} />
       <AdminCafeUndo data={data} onAddLog={onAddLog} onUpdateLog={onUpdateLog} onDeleteLog={onDeleteLog} cafeIds={cafeIds} />
     </div>
   );
