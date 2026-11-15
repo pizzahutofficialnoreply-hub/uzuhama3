@@ -304,10 +304,15 @@ export function parseHeaderDates(raw: string): { year: number | null; dates: str
       }
     };
     // '3. (4, 5)' · '10. (7/11)' → 그 달의 여러 날
-    take(/(\d{1,2})\s*[.월]\s*\(([\d,\s/]+)\)/g, (m) => m[2].split(/[,/]/).map((d) => iso(y, Number(m[1]), Number(d))));
+    // '3. (4, 5)' · '11. (22, 뒷부분 …)' → 그 달의 여러 날 (괄호 안의 숫자만)
+    take(/(\d{1,2})\s*[.월]\s*\(([^)]*)\)/g, (m) => (m[2].match(/\d{1,2}/g) || []).map((d) => iso(y, Number(m[1]), Number(d))));
     // '(6/ 6, 7, 9)' → 6월 6·7·9일
     take(/\((\d{1,2})\s*\/\s*([\d,\s]+)\)/g, (m) => m[2].split(',').map((d) => iso(y, Number(m[1]), Number(d))));
+    // '3. 25~26' → 25·26일
+    take(/(\d{1,2})\s*[.월]\s*(\d{1,2})\s*[~\-]\s*(\d{1,2})(?!\d)/g, (m) => { const out2: string[] = []; for (let d = Number(m[2]); d <= Number(m[3]) && d - Number(m[2]) < 7; d++) out2.push(iso(y, Number(m[1]), d)); return out2; });
     take(/(\d{1,2})\s*[.월]\s*(\d{1,2})(?!\d)/g, (m) => [iso(y, Number(m[1]), Number(m[2]))]);
+    // '(12. 28), (11, 27)' 처럼 점 대신 쉼표로 쓴 괄호 날짜
+    take(/\((\d{1,2})\s*,\s*(\d{1,2})\)/g, (m) => [iso(y, Number(m[1]), Number(m[2]))]);
     // '2021. 3 7' (점 하나 빠짐)
     take(/^\s*(\d{1,2})\s+(\d{1,2})\s*$/g, (m) => [iso(y, Number(m[1]), Number(m[2]))]);
     found.sort((p1, p2) => p1.at - p2.at).forEach((f) => out.push(f.v));
@@ -340,7 +345,8 @@ export function parseCafeBlocks(text: string): CafeBlock[] {
     const line = raw.replace(ZW, ' ').trim();
     if (!line) return;
     if (line.startsWith('=====')) { close(); post = line.replace(/^=+\s*/, '').trim(); return; }
-    const h = line.match(/^\[\s*생방\s*날짜\s*[:：]\s*([^\]]*)\]/);
+    // 닫는 ']' 를 빼먹은 머리말도 ('[생방날짜: 2018.')
+    const h = line.match(/^\[\s*생방\s*날짜\s*[:：]?\s*([^\]]*)\]?/);
     if (h) {
       close();
       const p = parseHeaderDates(h[1]);

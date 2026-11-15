@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cafeCollectorBookmarklet } from '../../../utils/cafeCollector';
-import { CheckSquare, ClipboardPaste, Loader2, Square, Wand2 } from 'lucide-react';
+import { CheckSquare, ClipboardPaste, Loader2, ShieldCheck, Square, Wand2 } from 'lucide-react';
 import type { AppData, BroadcastLog, LinkItem } from '../../../types';
 import { cn } from '../../../utils';
-import { blocksToPlanInput, isEmptyLog, parseCafeBlocks, parseCafePost, planCafeImport, youtubeIdOf, type CafeDay, type CafeLink, type CafeMulti, type CafePlan, type CafeUnsure } from '../../../utils/cafeImport';
+import { blocksToPlanInput, isEmptyLog, parseCafeBlocks, parseCafePost, planCafeImport, youtubeIdOf, type CafeBlock, type CafeDay, type CafeLink, type CafePlan, type CafeUnsure } from '../../../utils/cafeImport';
 import { db } from '../../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { AdminCafeUndo } from './AdminCafeUndo';
@@ -33,32 +33,94 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
   const [message, setMessage] = useState('');
   const channelVideos = useChannelVideos();
   const titleOf = useMemo(() => new Map(channelVideos.map((v) => [v.videoId, v.title] as const)), [channelVideos]);
-  // 유튜브가 알려 준 날짜 (한국 시간): 생방 날짜는 카페 글보다 이게 정확
-  const dateOf = useMemo(() => new Map(channelVideos.filter((v) => v.publishedAt).map((v) => [v.videoId, new Date(Date.parse(v.publishedAt) + 9 * 3600000).toISOString().slice(0, 10)] as const)), [channelVideos]);
+  // 유튜브가 알려 준 실제 생방 시작 날짜 (한국 시간) — '유튜브로 날짜 확인'을 누르면 채움. 카페 글 날짜보다 우선
+  const [apiLive, setApiLive] = useState<Map<string, string>>(new Map());
+  // 영상 올린 날 (날짜 모르는 것 고를 때 참고)
+  const [apiPub, setApiPub] = useState<Map<string, string>>(new Map());
+  const [verify, setVerify] = useState<{ done: number; total: number } | null>(null);
+  const [verifyNote, setVerifyNote] = useState('');
+  const [blocks, setBlocks] = useState<CafeBlock[] | null>(null);
+  // 날짜 모르는 것: 직접 날짜를 골라 넣기
+  const [unsurePick, setUnsurePick] = useState<Record<string, { on: boolean; date: string }>>({});
+
+  // 붙여 넣은 글에 나오는 유튜브 영상 id 전부 (가져온 것 관리에서 이 링크만 되돌리려고)
+  const cafeIds = useMemo(() => new Set([...text.matchAll(/(?:youtu\.be\/|[?&]v=|\/live\/|\/shorts\/|\/embed\/)([\w-]{11})/g)].map((m) => m[1])), [text]);
+  const blockRes = useMemo(() => (blocks ? blocksToPlanInput(blocks, apiLive) : null), [blocks, apiLive]);
+  const multis = blockRes?.multis || [];
+  const unsure: (CafeUnsure & { key: string })[] = useMemo(() => (blockRes?.unsure || []).map((u, i) => ({ ...u, key: `u:${u.video?.id || u.lives[0]?.id || u.shorts[0]?.id || i}` })), [blockRes]);
+  const unsureSuggest = (u: CafeUnsure) => u.lives.map((l) => apiLive.get(l.id)).find(Boolean) || (u.video ? apiPub.get(u.video.id) : '') || '';
+  // 날짜를 골라 체크한 '날짜 모름' 것들을 날짜별 묶음에 더함
+  const allDays: CafeDay[] | null = useMemo(() => {
+    if (!blocks) return days;
+    const out = new Map<string, CafeDay>((blockRes?.days || []).map((d) => [d.date, { ...d, lives: [...d.lives], videos: [...d.videos], shorts: [...d.shorts], pairs: [...d.pairs] }]));
+    unsure.forEach((u) => {
+      const pk = unsurePick[u.key];
+      if (!pk?.on || !/^\d{4}-\d\d-\d\d$/.test(pk.date)) return;
+      const d = out.get(pk.date) || { date: pk.date, lives: [], videos: [], shorts: [], pairs: [] };
+      if (u.video) { d.pairs.push({ video: u.video, lives: u.lives }); d.videos.push(u.video); }
+      u.lives.forEach((l) => d.lives.push(l));
+      u.shorts.forEach((x) => d.shorts.push(x));
+      out.set(pk.date, d);
+    });
+    return [...out.values()].sort((a, b) => a.date.localeCompare(b.date));
+  }, [blocks, blockRes, days, unsure, unsurePick]);
 
   /**
    * 영상 링크 기준으로 맞춤:
    * 1) 사이트에 이미 있는 영상이면 → 그 영상이 들어 있는 방송 기록에, 없는 생방 링크만 추가
    * 2) 사이트에 없는 영상이면 → 글의 날짜 기록에 영상·생방 추가 (그날 기록이 없으면 새 기록)
    */
-  const { plans, skipped, already } = useMemo(() => planCafeImport(days || [], Object.values(data.logs || {}) as BroadcastLog[], titleOf, dateOf), [days, data.logs, titleOf, dateOf]);
+  const { plans, skipped, already } = useMemo(() => planCafeImport(allDays || [], Object.values(data.logs || {}) as BroadcastLog[], titleOf, apiLive), [allDays, data.logs, titleOf, apiLive]);
 
-  // 붙여 넣은 글에 나오는 유튜브 영상 id 전부 (가져온 것 관리에서 이 링크만 되돌리려고)
-  const cafeIds = useMemo(() => new Set([...text.matchAll(/(?:youtu\.be\/|[?&]v=|\/live\/|\/shorts\/|\/embed\/)([\w-]{11})/g)].map((m) => m[1])), [text]);
-  const [multis, setMultis] = useState<CafeMulti[]>([]);
-  const [unsure, setUnsure] = useState<CafeUnsure[]>([]);
   const analyze = () => {
     // 2026년 이후는 사이트가 자동으로 기록해서 카페 글에서는 빼고 가져옴
     // '[생방날짜: …]' 묶음 글(카페 모으기로 가져온 월별·웃음참기 정리)은 묶음 단위로 읽음
     if (/\[\s*생방\s*날짜/.test(text)) {
-      const r = blocksToPlanInput(parseCafeBlocks(text), dateOf);
-      setDays(r.days); setMultis(r.multis); setUnsure(r.unsure);
+      const b = parseCafeBlocks(text);
+      const r = blocksToPlanInput(b, apiLive);
+      setBlocks(b); setDays(r.days);
       setMessage(r.days.length || r.multis.length ? '' : '[생방날짜: …] 묶음에서 유튜브 링크를 찾지 못했어요.');
     } else {
       const parsed = parseCafePost(text).filter((d) => d.date < '2026-01-01');
-      setDays(parsed); setMultis([]); setUnsure([]);
+      setBlocks(null); setDays(parsed);
       setMessage(parsed.length ? '' : '날짜(예: [생방날짜: 2017. 3. 31])와 유튜브 링크를 찾지 못했어요.');
     }
+    setUnsurePick({});
+    setPicked(new Set());
+  };
+
+  /** 유튜브 API 로 생방 실제 시작 날짜 확인 (영상 50개씩 · 한 번 확인한 건 사이트에 저장돼서 다음엔 빨라요) */
+  const verifyWithApi = async () => {
+    if (!blocks) return;
+    const ids = new Set<string>();
+    blocks.forEach((b) => { b.lives.forEach((l) => ids.add(l.id)); b.videos.forEach((v) => ids.add(v.id)); });
+    const list = [...ids];
+    const base = (import.meta.env.VITE_VERCEL_API_URL || (window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')).replace(/\/+$/, '');
+    const live = new Map(apiLive); const pub = new Map(apiPub);
+    const kst = (iso: string) => new Date(Date.parse(iso) + 9 * 3600000).toISOString().slice(0, 10);
+    let err = '';
+    setVerify({ done: 0, total: list.length }); setVerifyNote('');
+    for (let i = 0; i < list.length; i += 50) {
+      try {
+        const r = await fetch(`${base}/api/videos/meta?live=1&ids=${list.slice(i, i + 50).join(',')}`);
+        const j = await r.json();
+        Object.entries(j.videos || {}).forEach(([id, v]: any) => {
+          if (v?.liveAt) live.set(id, kst(v.liveAt));
+          if (v?.publishedAt) pub.set(id, kst(v.publishedAt));
+        });
+        if (j.error) err = j.error;
+      } catch (e: any) { err = String(e?.message || e); }
+      setVerify({ done: Math.min(list.length, i + 50), total: list.length });
+    }
+    // 카페 날짜와 다른 생방 수
+    let diff = 0; let liveN = 0;
+    blocks.forEach((b) => b.lives.forEach((l, i) => {
+      const a = live.get(l.id); if (!a) return; liveN++;
+      const cafe = l.date || (b.headerDates.length === b.lives.length ? b.headerDates[i] : b.headerDates.length === 1 ? b.headerDates[0] : '');
+      if (cafe && cafe !== a) diff++;
+    }));
+    setApiLive(live); setApiPub(pub); setVerify(null);
+    setVerifyNote(`유튜브로 확인한 생방 ${liveN}개 · 카페 글 날짜와 다른 생방 ${diff}개 → 유튜브 날짜로 맞췄어요.${err ? ` (일부 못 확인: ${err})` : ''}`);
     setPicked(new Set());
   };
   // 여러 날 생방 영상(웃음참기처럼): 이미 그렇게 연결돼 있으면 빼고
@@ -69,9 +131,35 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
       return linked.length < m.lives.length;
     }).map((m) => ({ ...m, key: `multi:${m.video.id}` }));
   }, [multis, data.logs]);
-  // 분석이 끝나면 모두 선택해 둠
-  const actionable = [...plans, ...multiPlans];
-  if (days && picked.size === 0 && actionable.length && !busy && !message.startsWith('반영')) {
+
+  /** 이미 카페에서 넣은 영상·쇼츠 중 지금 분석과 날짜가 다른 것 (예전 분석 실수·유튜브 날짜 확인 결과) → 맞는 날로 옮기기 */
+  const fixes = useMemo(() => {
+    if (!blockRes) return [] as { key: string; kind: 'edited' | 'shorts'; id: string; title: string; from: any; to: string | null; why: string }[];
+    const want = new Map<string, Set<string>>();
+    const add = (id: string, d: string) => (want.get(id) || want.set(id, new Set()).get(id)!).add(d);
+    blockRes.days.forEach((d) => { d.pairs.forEach((p) => add(p.video.id, d.date)); d.shorts.forEach((x) => add(x.id, d.date)); });
+    blockRes.multis.forEach((m) => m.lives.forEach((l) => add(m.video.id, l.date)));
+    const unsureIds = new Set(blockRes.unsure.flatMap((u) => [u.video?.id, ...u.shorts.map((x) => x.id)]).filter(Boolean) as string[]);
+    const out: any[] = [];
+    (Object.values(data.logs || {}) as any[]).forEach((l) => (['edited', 'shorts'] as const).forEach((k) => (l[k] || []).forEach((x: any) => {
+      if (!x || x.cafe !== 1 || x.multiId) return;
+      const id = youtubeIdOf(x.url || ''); if (!id) return;
+      const w = want.get(id);
+      if (w && !w.has(l.date) && w.size === 1) out.push({ key: `fix:${l.id}:${id}`, kind: k, id, title: x.title || id, from: l, to: [...w][0], why: '날짜가 달라요' });
+      else if (!w && unsureIds.has(id)) out.push({ key: `fix:${l.id}:${id}`, kind: k, id, title: x.title || id, from: l, to: null, why: '카페 글에 날짜가 없는데 들어가 있어요' });
+    })));
+    return out.sort((a, b) => String(a.from.date).localeCompare(String(b.from.date)));
+  }, [blockRes, data.logs]);
+
+  // 날짜를 골라 넣은 '날짜 모름' 것이 들어간 날은 바로 선택
+  useEffect(() => {
+    const ds = new Set(Object.values(unsurePick).filter((x) => x.on && x.date).map((x) => x.date));
+    if (!ds.size) return;
+    setPicked((prev) => { const n = new Set(prev); plans.forEach((p) => { if (ds.has(p.date)) n.add(p.key); }); return n.size === prev.size ? prev : n; });
+  }, [unsurePick, plans]);
+  // 분석이 끝나면 모두 선택해 둠 (날짜 없는데 들어간 것 빼기는 기본으로 안 고름)
+  const actionable = [...plans, ...multiPlans, ...fixes.filter((f) => f.to)];
+  if (allDays && picked.size === 0 && actionable.length && !busy && !message.startsWith('반영')) {
     setPicked(new Set(actionable.map((p) => p.key)));
   }
 
@@ -81,9 +169,11 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
   const apply = async () => {
     const todo = plans.filter((p) => picked.has(p.key));
     const todoMulti = multiPlans.filter((m) => picked.has(m.key));
-    if (!todo.length && !todoMulti.length) return;
-    if (!await confirmSheet(`${todo.length}일치 기록에 반영할까요?\n(새 기록 ${todo.filter((p) => p.status === 'new-log').length}개 포함${todoMulti.length ? `, 여러 생방 영상 ${todoMulti.length}개 연결` : ''})`)) return;
-    setBusy({ done: 0, total: todo.length + todoMulti.length });
+    const todoFix = fixes.filter((f) => picked.has(f.key));
+    const total = todo.length + todoMulti.length + todoFix.length;
+    if (!total) return;
+    if (!await confirmSheet(`${todo.length}일치 기록에 반영할까요?\n(새 기록 ${todo.filter((p) => p.status === 'new-log').length}개 포함${todoFix.length ? `, 자리 고치기 ${todoFix.length}개` : ''}${todoMulti.length ? `, 여러 생방 영상 ${todoMulti.length}개 연결` : ''})\n끝날 때까지 이 화면을 닫지 마세요.`)) return;
+    setBusy({ done: 0, total });
     let ok = 0;
     const fails: string[] = [];
     // 반영하는 동안 바뀐 기록을 따라가며 씀 (같은 기록을 두 번 고쳐도 앞의 것이 지워지지 않게)
@@ -127,7 +217,30 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
         }
         ok++;
       } catch (e: any) { console.error('cafe import', p.date, e); fails.push(`${p.date}: ${String(e?.message || e).slice(0, 80)}`); }
-      setBusy({ done: ok, total: todo.length + todoMulti.length });
+      setBusy({ done: ok, total });
+    }
+    // 날짜가 다르게 들어가 있던 카페 영상·쇼츠 → 맞는 날로 옮기기 (to 가 없으면 빼기만)
+    for (const f of todoFix) {
+      try {
+        if (!onUpdateLog) throw new Error('기록 수정 기능을 못 찾았어요');
+        const src: any = work[f.from.id];
+        if (!src) throw new Error('원래 기록을 못 찾았어요');
+        const item = (src[f.kind] || []).find((x: any) => youtubeIdOf(x?.url || '') === f.id);
+        const nextSrc = { ...src, [f.kind]: (src[f.kind] || []).filter((x: any) => youtubeIdOf(x?.url || '') !== f.id) };
+        if (isEmptyLog(nextSrc) && src.cafe && onDeleteLog) { await onDeleteLog(src.id); delete work[src.id]; } else await save(nextSrc);
+        if (f.to && item) {
+          const all = Object.values(work) as any[];
+          const target: any = all.find((l) => l.date === f.to && !l.isAbsence && (l.vods || []).length) || all.find((l) => l.date === f.to && !l.isAbsence);
+          if (target) {
+            if (!(target[f.kind] || []).some((x: any) => youtubeIdOf(x?.url || '') === f.id)) await save({ ...target, [f.kind]: [...(target[f.kind] || []), item] });
+          } else {
+            const nl: any = { id: `cafe_${f.to.replace(/-/g, '')}_${Math.random().toString(36).slice(2, 7)}`, date: f.to, time: '', game: '', games: [], category: '', durationHours: 0, vods: [], edited: [], shorts: [], [f.kind]: [item], cafe: 1 };
+            await onAddLog(nl); work[nl.id] = nl;
+          }
+        }
+        ok++;
+      } catch (e: any) { fails.push(`「${f.title}」 옮기기: ${String(e?.message || e).slice(0, 80)}`); }
+      setBusy({ done: ok, total });
     }
     // 여러 날 생방 영상: 몰아보기 › 웃음참기 등록과 같은 모양 (compilations 의 kind 'multi' + 각 생방 기록에 multiId 영상)
     for (const m of todoMulti) {
@@ -160,10 +273,10 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
         }
         ok++;
       } catch (e: any) { console.error('cafe multi', m.video.id, e); fails.push(`「${m.video.title || m.video.id}」: ${String(e?.message || e).slice(0, 80)}`); }
-      setBusy({ done: ok, total: todo.length + todoMulti.length });
+      setBusy({ done: ok, total });
     }
     setBusy(null);
-    setMessage(`반영했어요: ${ok}/${todo.length + todoMulti.length}개.${fails.length ? ` 실패 ${fails.length}개 — ${fails.slice(0, 3).join(' / ')}` : ' 아래 목록은 반영된 상태로 다시 계산돼요.'}`);
+    setMessage(`반영했어요: ${ok}/${total}개.${fails.length ? ` 실패 ${fails.length}개 — ${fails.slice(0, 3).join(' / ')}` : ' 아래 목록은 반영된 상태로 다시 계산돼요.'}`);
     setPicked(new Set());
   };
 
@@ -196,11 +309,11 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
         {message && <p className="text-xs font-bold text-purple-700 dark:text-purple-300">{message}</p>}
       </div>
 
-      {days && (
+      {allDays && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             {plans.some((p) => p.moves.length) && <span className="px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300 font-bold">옮길 영상 {plans.reduce((a, p) => a + p.moves.length, 0)}</span>}
-          <span className="font-bold">글에서 {days.length}일 · 영상 {days.reduce((a, d) => a + d.pairs.length, 0) + multis.length}개 · 생방 {days.reduce((a, d) => a + d.lives.length, 0)}개 찾음</span>
+          <span className="font-bold">글에서 {allDays.length}일 · 영상 {allDays.reduce((a, d) => a + d.pairs.length, 0) + multis.length}개 · 생방 {allDays.reduce((a, d) => a + d.lives.length, 0)}개 찾음</span>
             <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 font-bold">넣을 생방 링크 {liveCount}</span>
             {count('new-log') > 0 && <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 font-bold">새 기록 {count('new-log')}</span>}
             <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-500 dark:bg-zinc-800 font-bold">이미 있음 {already}</span>
@@ -211,7 +324,34 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
             )}
           </div>
 
-          {plans.length === 0 ? (multiPlans.length ? null :
+          {blocks && (
+            <div className="rounded-2xl border border-sky-200 dark:border-sky-900/60 bg-sky-50/50 dark:bg-sky-950/20 p-3 text-xs space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" disabled={!!verify || !!busy} onClick={() => void verifyWithApi()} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-600 text-white font-bold cursor-pointer disabled:opacity-50">
+                  {verify ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />} 유튜브로 생방 날짜 확인
+                </button>
+                {verify && <span className="tabular-nums">{verify.done}/{verify.total}개 확인 중…</span>}
+              </div>
+              <p className="text-sky-800 dark:text-sky-200 break-keep">{verifyNote || '생방 링크마다 유튜브에 남은 실제 시작 시각을 확인해서, 카페 글 날짜와 다르면 유튜브 날짜로 맞춰요. 반영하기 전에 한 번 눌러 주세요.'}</p>
+            </div>
+          )}
+
+          {fixes.length > 0 && (
+            <div className="rounded-2xl border border-orange-200 dark:border-orange-900/60 divide-y divide-zinc-100 dark:divide-zinc-800 overflow-hidden">
+              <p className="p-3 text-xs font-bold text-orange-700 dark:text-orange-300 bg-orange-50/60 dark:bg-orange-950/30 break-keep">이미 넣은 것 중 자리가 다른 것 {fixes.length}개 — 맞는 날로 옮겨요 (날짜가 없는 건 고르면 빼기만 해요)</p>
+              {fixes.map((f) => (
+                <div key={f.key} className="p-3 text-xs flex items-center gap-2">
+                  <button type="button" onClick={() => toggle(f.key)} className="cursor-pointer shrink-0" aria-label={`${f.title} 선택`}>
+                    {picked.has(f.key) ? <CheckSquare className="w-4 h-4 text-purple-600" /> : <Square className="w-4 h-4 text-zinc-400" />}
+                  </button>
+                  <span className="truncate flex-1">{f.kind === 'shorts' ? '쇼츠' : '영상'} {f.title}</span>
+                  <span className="shrink-0 tabular-nums text-zinc-500">{f.from.date} → {f.to ? <b className="text-orange-600">{f.to}</b> : <b className="text-red-600">빼기</b>}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {plans.length === 0 ? (multiPlans.length || fixes.length ? null :
             <p className="text-xs text-zinc-500 py-4 text-center">{skipped.length ? `넣을 게 없어요. 건너뛴 링크 ${skipped.length}개는 아래에서 이유를 볼 수 있어요.` : '넣을 게 없어요. 글의 영상·생방이 이미 같은 기록에 함께 들어 있어요.'}</p>
           ) : (
             <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800 overflow-hidden">
@@ -259,11 +399,26 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
           )}
 
           {unsure.length > 0 && (
-            <details className="text-xs text-zinc-500">
-              <summary className="cursor-pointer font-bold">날짜를 몰라서 넣지 않은 것 {unsure.length}개 (직접 확인)</summary>
-              <ul className="mt-1.5 ml-4 list-disc space-y-0.5">{unsure.map((u, i) => (
-                <li key={i} className="break-all">{u.why} · [생방날짜: {u.header}] · {u.video ? <a href={u.video.url} target="_blank" rel="noreferrer" className="underline">{u.video.title || u.video.id}</a> : u.lives.map((l) => l.id).concat(u.shorts.map((x) => x.id)).join(', ')} <span className="text-zinc-400">({u.post})</span></li>
-              ))}</ul>
+            <details className="rounded-2xl border border-zinc-200 dark:border-zinc-800 p-3 text-xs">
+              <summary className="cursor-pointer font-bold">날짜를 몰라서 넣지 않은 것 {unsure.length}개 — 날짜를 골라 넣을 수 있어요</summary>
+              <p className="mt-2 text-zinc-500 break-keep">체크하고 날짜를 고르면 그날 기록에 넣어요. 날짜 칸에 미리 들어간 값은 유튜브의 생방 시작일(없으면 영상 올린 날)이에요.</p>
+              {Object.entries(unsure.reduce((g: Record<string, typeof unsure>, u) => { const k = u.why.replace(/\s*\(.*$/, ''); (g[k] ||= []).push(u); return g; }, {})).map(([why, list]) => (
+                <div key={why} className="mt-3">
+                  <p className="font-bold text-zinc-600 dark:text-zinc-300">{why} · {list.length}개</p>
+                  <ul className="mt-1 space-y-1">{list.map((u) => {
+                    const pk = unsurePick[u.key] || { on: false, date: unsureSuggest(u) };
+                    return (
+                      <li key={u.key} className="flex items-center gap-2">
+                        <button type="button" onClick={() => setUnsurePick((m) => ({ ...m, [u.key]: { ...pk, on: !pk.on, date: pk.date || unsureSuggest(u) } }))} className="cursor-pointer shrink-0" aria-label="고르기">
+                          {pk.on ? <CheckSquare className="w-4 h-4 text-purple-600" /> : <Square className="w-4 h-4 text-zinc-400" />}
+                        </button>
+                        <span className="truncate flex-1">{u.video ? <a href={u.video.url} target="_blank" rel="noreferrer" className="underline">{u.video.title || u.video.id}</a> : [...u.lives, ...u.shorts].map((x) => x.id).join(', ')} <span className="text-zinc-400">[{u.header || '날짜 없음'}]</span></span>
+                        <input type="date" value={pk.date} onChange={(e) => setUnsurePick((m) => ({ ...m, [u.key]: { on: true, date: e.target.value } }))} className="shrink-0 px-1.5 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" />
+                      </li>
+                    );
+                  })}</ul>
+                </div>
+              ))}
             </details>
           )}
 

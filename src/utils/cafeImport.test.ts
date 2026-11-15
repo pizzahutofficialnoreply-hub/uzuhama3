@@ -137,3 +137,16 @@ describe('실험실 과거 영상 생방 연동', () => {
     expect(r.logs.c.vods).toHaveLength(1);
   });
 });
+
+describe('머리말 날짜 더 많은 모양', () => {
+  it('3. 25~26 · (12. 28), (11, 27) · 11. (22, 뒷부분 …)', () => {
+    expect(parseHeaderDates('2021. 3. 25~26').dates).toEqual(['2021-03-25', '2021-03-26']);
+    expect(parseHeaderDates('2018. (12. 28), (11, 27)').dates).toEqual(['2018-12-28', '2018-11-27']);
+    expect(parseHeaderDates('2019. 11. (22, 뒷부분 내용 생방 없는 것으로 추정)').dates).toEqual(['2019-11-22']);
+  });
+  it("닫는 ']' 가 빠진 머리말도 새 묶음으로 (앞 날짜에 붙지 않음)", () => {
+    const r = blocksToPlanInput(parseCafeBlocks(`[생방날짜: 2018. 12. 7]\n생방링크\n: https://youtu.be/AAAAAAAAAAA\n영상링크\n: https://youtu.be/BBBBBBBBBBB\n[생방날짜: 2018.\n생방링크\n:\n영상링크\n: https://youtu.be/CCCCCCCCCCC\n[제목`));
+    expect(r.days.find((d) => d.date === '2018-12-07')!.videos.map((v) => v.id)).toEqual(['BBBBBBBBBBB']);
+    expect(r.unsure.map((u) => u.video?.id)).toEqual(['CCCCCCCCCCC']);
+  });
+});
