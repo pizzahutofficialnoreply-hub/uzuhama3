@@ -57,7 +57,8 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog, cafeId
     setBusy('load'); setMsg('');
     try {
       const a = new Date(`${from}:00+09:00`).toISOString();
-      const b = new Date(`${to}:00+09:00`).toISOString();
+      // 끝 시각이 지나 있으면(화면을 오래 열어 둔 경우) 지금까지로
+      const b = new Date(Math.max(Date.parse(`${to}:00+09:00`) || 0, Date.now() + 60000)).toISOString();
       const snap = await getDocs(query(collection(db, 'admin_audit'), where('at', '>=', a), where('at', '<=', b), orderBy('at')));
       const entries = snap.docs.map((d) => d.data() as any).filter((x) => ['addLog', 'updateLog', 'deleteLog'].includes(x.action) && x.logId);
       // 이력이 언제 얼마나 쌓였는지 (가져오기를 한 때가 맞는지 보려고)
@@ -179,7 +180,8 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog, cafeId
     setBusy('server'); setMsg('');
     try {
       const a = new Date(`${from}:00+09:00`).toISOString();
-      const b = new Date(`${to}:00+09:00`).toISOString();
+      // 끝 시각이 지나 있으면(화면을 오래 열어 둔 경우) 지금까지로
+      const b = new Date(Math.max(Date.parse(`${to}:00+09:00`) || 0, Date.now() + 60000)).toISOString();
       const d = await mutate('restoreBefore', { from: a, to: b, dryRun: true });
       setBusy('');
       if (!d.logs) { setMsg('그 시간 뒤로 바뀐 기록이 없어요.'); return; }
