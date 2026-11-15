@@ -514,9 +514,9 @@ export function CurrentProbability({
           if (activeIllness && patternMessage.includes(activeIllness)) {
             const parts = patternMessage.split(activeIllness);
             return (
-              <p className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep">
-                <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-purple-400/80 shrink-0" />
-                <span>{parts[0]}
+              <p className="max-w-[19rem] mx-auto text-[13px] font-medium text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep [text-wrap:balance]">
+                <span aria-hidden className="inline-block w-1.5 h-1.5 rounded-full bg-purple-400/80 align-middle mr-1.5 -mt-0.5" />
+                {parts[0]}
                 <button
                   type="button"
                   onClick={() => setShowIllnessModal(true)}
@@ -525,22 +525,22 @@ export function CurrentProbability({
                 >
                   {activeIllness}
                 </button>
-                {parts.slice(1).join(activeIllness)}</span>
+                {parts.slice(1).join(activeIllness)}
               </p>
             );
           }
 
           return (
-            <p className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep">
-              <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-purple-400/80 shrink-0" />
-              <span>{patternMessage}</span>
+            <p className="max-w-[19rem] mx-auto text-[13px] font-medium text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep [text-wrap:balance]">
+              <span aria-hidden className="inline-block w-1.5 h-1.5 rounded-full bg-purple-400/80 align-middle mr-1.5 -mt-0.5" />
+              {patternMessage}
             </p>
           );
         })()}
 
         <div
           className={cn(
-            "px-5 py-2 mt-2 rounded-2xl border flex items-center justify-center gap-2 font-bold text-sm sm:text-base font-hanna font-pro text-center max-w-full break-keep",
+            "px-5 py-2 mt-2 rounded-2xl border flex items-center justify-center gap-2 font-bold text-sm sm:text-base font-hanna font-pro text-center max-w-[22rem] break-keep",
             getStatusColor(probabilityLevel),
           )}
         >
@@ -565,7 +565,7 @@ export function CurrentProbability({
             const Icon = icons[timeSlotSeed % icons.length];
             return <Icon className={cn("w-5 h-5 shrink-0", group === "high" && "animate-pulse")} />;
           })()}
-          <span className="font-hanna font-pro font-bold tracking-tight">{messageContent}</span>
+          <span className="font-hanna font-pro font-bold tracking-tight [text-wrap:balance]">{messageContent}</span>
         </div>
 
         {recentInfo && (
