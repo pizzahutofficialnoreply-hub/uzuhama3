@@ -63,6 +63,8 @@ export default async function handler(req: any, res: any) {
 
   // live=1: 생방송이었다면 실제로 켠 시각(liveAt)도 (카페 가져오기에서 생방 날짜 확인용)
   const wantLive = !!req.query?.live;
+  // desc=1: 영상 설명 앞부분도 (설명에 적힌 생방 날짜로 교차 확인)
+  const wantDesc = !!req.query?.desc;
   try {
     const { db } = await import('../_firebase.js');
     const result: Record<string, { durationSec: number | null; publishedAt: string | null; liveAt?: string | null; title?: string } | null> = {};
@@ -73,8 +75,8 @@ export default async function handler(req: any, res: any) {
     const missing: string[] = [];
     snaps.forEach((snap: any, i: number) => {
       const d = snap.exists ? snap.data() : null;
-      if (d && typeof d.durationSec === 'number' && typeof d.publishedAt === 'string' && (!wantLive || ('liveAt' in d && 'title' in d))) {
-        result[ids[i]] = { durationSec: d.durationSec, publishedAt: d.publishedAt, ...('liveAt' in d ? { liveAt: d.liveAt ?? null } : {}), ...('title' in d ? { title: d.title } : {}) };
+      if (d && typeof d.durationSec === 'number' && typeof d.publishedAt === 'string' && (!wantLive || ('liveAt' in d && 'title' in d)) && (!wantDesc || 'desc' in d)) {
+        result[ids[i]] = { durationSec: d.durationSec, publishedAt: d.publishedAt, ...('liveAt' in d ? { liveAt: d.liveAt ?? null } : {}), ...('title' in d ? { title: d.title } : {}), ...(wantDesc && 'desc' in d ? { desc: d.desc } : {}) } as any;
       } else if (d && d.notFound) result[ids[i]] = null; // 한 번 조회한 영상은 다시 부르지 않음
       else missing.push(ids[i]);
     });
@@ -101,7 +103,7 @@ export default async function handler(req: any, res: any) {
       if (!r.ok) {
         return res.status(200).json({ videos: result, error: json?.error?.message || `YouTube API HTTP ${r.status}` });
       }
-      const found = new Map<string, { durationSec: number | null; publishedAt: string | null; liveAt: string | null; title: string }>();
+      const found = new Map<string, { durationSec: number | null; publishedAt: string | null; liveAt: string | null; title: string; desc: string }>();
       (json?.items || []).forEach((it: any) => {
         if (!it?.id) return;
         found.set(it.id, {
@@ -109,16 +111,17 @@ export default async function handler(req: any, res: any) {
           publishedAt: typeof it?.snippet?.publishedAt === 'string' ? it.snippet.publishedAt : null,
           liveAt: it?.liveStreamingDetails?.actualStartTime || it?.liveStreamingDetails?.scheduledStartTime || null,
           title: String(it?.snippet?.title || ''),
+          desc: String(it?.snippet?.description || '').slice(0, 1500),
         });
       });
       const batch = db.batch();
       const now = new Date().toISOString();
       missing.forEach((id) => {
         const meta = found.get(id);
-        result[id] = meta ?? null;
+        result[id] = meta ? (wantDesc ? meta : (({ desc, ...rest }) => rest)(meta)) : null;
         batch.set(
           db.collection('video_meta').doc(id),
-          meta ? { durationSec: meta.durationSec ?? 0, publishedAt: meta.publishedAt || '', liveAt: meta.liveAt, title: meta.title, fetchedAt: now } : { notFound: true, fetchedAt: now }
+          meta ? { durationSec: meta.durationSec ?? 0, publishedAt: meta.publishedAt || '', liveAt: meta.liveAt, title: meta.title, desc: meta.desc, fetchedAt: now } : { notFound: true, fetchedAt: now }
         );
       });
       await batch.commit();
