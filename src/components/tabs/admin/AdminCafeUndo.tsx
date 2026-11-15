@@ -35,12 +35,13 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog }: {
   onUpdateLog?: (log: BroadcastLog) => Promise<void>;
   onDeleteLog?: (id: string) => Promise<void>;
 }) {
-  const [from, setFrom] = useState('2026-11-14T23:00');
+  const [from, setFrom] = useState('2026-11-01T00:00');
   const [to, setTo] = useState(toLocalInput(new Date(Date.now() + 5 * 60000)));
   const [changes, setChanges] = useState<Change[] | null>(null);
   const [comps, setComps] = useState<string[]>([]);
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState('');
+  const [span, setSpan] = useState<{ n: number; first: string; last: string; byDay: [string, number][] } | null>(null);
 
   const load = async () => {
     setBusy('load'); setMsg('');
@@ -49,6 +50,11 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog }: {
       const b = new Date(`${to}:00+09:00`).toISOString();
       const snap = await getDocs(query(collection(db, 'admin_audit'), where('at', '>=', a), where('at', '<=', b), orderBy('at')));
       const entries = snap.docs.map((d) => d.data() as any).filter((x) => ['addLog', 'updateLog', 'deleteLog'].includes(x.action) && x.logId);
+      // 이력이 언제 얼마나 쌓였는지 (가져오기를 한 때가 맞는지 보려고)
+      const kst = (iso: string) => new Date(Date.parse(iso) + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
+      const byDay = new Map<string, number>();
+      entries.forEach((x) => { const k = kst(x.at).slice(0, 13) + '시'; byDay.set(k, (byDay.get(k) || 0) + 1); });
+      setSpan(entries.length ? { n: entries.length, first: kst(entries[0].at), last: kst(entries[entries.length - 1].at), byDay: [...byDay.entries()] } : { n: 0, first: '', last: '', byDay: [] });
       let archive: Record<string, any> = {};
       try { const r = await fetch('/data/historical_logs.json'); if (r.ok) archive = normalizeHistorical(await r.json()); } catch { /* */ }
       const first = new Map<string, any>();
@@ -153,6 +159,12 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog }: {
         <input type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} className="px-2 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" />
         <button type="button" disabled={!!busy} onClick={() => void load()} className={`${btn} bg-zinc-100 dark:bg-zinc-800`}>{busy === 'load' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null} 바뀐 것 불러오기</button>
       </div>
+      {span && (
+        <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 p-2.5 text-zinc-600 dark:text-zinc-300">
+          <p>이 시간의 수정 이력 <b>{span.n}건</b>{span.n ? ` · 처음 ${span.first} · 마지막 ${span.last}` : ''}</p>
+          {span.byDay.length > 0 && <p className="mt-1 tabular-nums break-keep">{span.byDay.map(([k, n]) => `${k.slice(5)} ${n}건`).join(' · ')}</p>}
+        </div>
+      )}
       {changes && (
         <>
           <p className="font-bold">기록 {changes.length}개 · 새로 들어간 링크 {total}개 · 새로 만든 기록 {changes.filter((c) => c.kind === 'added-log').length}개 · 지운 기록 {changes.filter((c) => c.kind === 'deleted-log').length}개 · 여러 생방 연결 {comps.length}개</p>
