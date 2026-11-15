@@ -350,7 +350,7 @@ export function parseCafeBlocks(text: string): CafeBlock[] {
       // 2024.07~ '(❗2024.11.26❗) 영상 생방링크 [제목]' 글: 글 하나가 묶음 하나 (영상 링크 → 생방 링크 순서, 날짜는 유튜브 생방 시작일로)
       if (/(영상|쇼츠|숏츠)\s*생방\s*링크/.test(post)) {
         const td = post.match(/(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})/);
-        cur = { post, headerRaw: td ? `글 날짜 ${td[1]}.${td[2]}.${td[3]}` : '', headerDates: [], lives: [], videos: [], shorts: [], its: /쇼츠|숏츠/.test(post) ? 'shorts' : 'video' } as CafeBlock;
+        cur = { post, headerRaw: td ? `글 날짜 ${td[1]}.${td[2]}.${td[3]}` : '', headerDates: [], lives: [], videos: [], shorts: [], its: /(쇼츠|숏츠)\s*생방\s*링크/.test(post) ? 'shorts' : 'video' } as CafeBlock;
         itsTitle = (post.match(/\[([^\]]+)\]\s*$/) || [])[1] || '';
         year = td ? Number(td[1]) : null;
       }
