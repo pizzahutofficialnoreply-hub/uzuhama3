@@ -55,7 +55,7 @@ export function cafeCollector() {
   const clubName = (location.pathname.match(/^\/([A-Za-z][\w-]*)/) || [])[1] || 'uzuhama';
 
   // 글 하나 읽기 (네이버 카페가 쓰는 글 API, 이 브라우저 로그인으로)
-  async function readArticle(club: string, aid: string, art?: string): Promise<{ title: string; html: string; writer: string } | null> {
+  async function readArticle(club: string, aid: string, art?: string): Promise<{ title: string; html: string; writer: string; at: string } | null> {
     const ids = [...new Set([club, clubId].filter(Boolean))];
     const tries: string[] = [];
     ids.forEach((c) => {
@@ -75,7 +75,9 @@ export function cafeCollector() {
         const cid = String(j?.result?.cafe?.id || a?.cafeId || '');
         if (cid && !clubId) clubId = cid;
         const w = a?.writer || j?.result?.article?.writer || {};
-        return { title: String(a?.subject || ''), html, writer: String(w.nick || w.nickname || w.memberNickname || a?.writerNickname || '') };
+        const wt = Number(a?.writeDate || a?.writeDateTimestamp || 0);
+        const at = wt ? new Date(wt + 9 * 3600000).toISOString().slice(0, 16).replace('T', ' ') : '';
+        return { title: String(a?.subject || ''), html, writer: String(w.nick || w.nickname || w.memberNickname || a?.writerNickname || ''), at };
       } catch { /* 다음 */ }
     }
     return null;
@@ -97,6 +99,8 @@ export function cafeCollector() {
       const m = raw.match(/https?:\\?\/\\?\/[^"'\s]+/);
       if (m) { const u = m[0].replace(/\\\//g, '/'); links.push(u); if (!(el.textContent || '').includes(u)) el.append(' ' + u + ' '); }
     });
+    // 사진: 설명(alt)이 있으면 글자로 (게임 이름이 사진에만 있는 글)
+    doc.querySelectorAll('img[alt]').forEach((im) => { const t = (im.getAttribute('alt') || '').trim(); if (t && t.length < 80) im.replaceWith(`\n(사진: ${t})\n`); });
     doc.querySelectorAll('br').forEach((b) => b.replaceWith('\n'));
     doc.querySelectorAll('p,div,li,h1,h2,h3,h4,tr,blockquote').forEach((el) => el.append('\n'));
     const text = (doc.body.textContent || '').replace(/ /g, ' ').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -199,7 +203,7 @@ export function cafeCollector() {
         if (byWriter && a.writer && !a.writer.includes(who)) { log(`· 건너뜀 (${a.writer}) ${a.title || r.title}`); continue; }
         ok++;
         log(`✓ ${a.title || r.title}`);
-        acc[r.aid] = `===== ${a.title || r.title}\n${toText(a.html).text}`;
+        acc[r.aid] = `===== ${a.title || r.title}${a.at || a.writer ? ` ⟪${[a.at, a.writer].filter(Boolean).join(' · ')}⟫` : ''}\n${toText(a.html).text}`;
         saveAcc(acc);
         await sleep(350);
       }

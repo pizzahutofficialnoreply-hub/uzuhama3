@@ -264,6 +264,7 @@ export default async function handler(req: any, res: any) {
           return res.status(200).json({ success: true, summary: '다음 분석 때 영상 목록을 새로 받아요 (방송 기록의 생방송 다시보기 포함)' });
         }
         const ai = await import('../_aiVideo.js');
+        if (op === 'gameCheck') return res.status(200).json({ success: true, ...(await ai.gameCheckBatch(db, Number(payload?.from || 0))) });
         if (op === 'run') {
           // 분석은 최대 몇 분 걸려서 바로 돌아오고, 이 함수가 뒤에서 이어서 (최대 300초)
           await stRef.set({ coolUntil: 0 }, { merge: true });

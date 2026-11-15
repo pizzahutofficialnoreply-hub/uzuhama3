@@ -185,6 +185,21 @@ function AiVideoPanel() {
     catch (e: any) { setMsg('오류: ' + (e?.message || e)); }
     finally { setBusy(''); }
   };
+  // 이미 분석한 생방송도 게임 점검 (기록의 게임 ↔ AI가 본 게임, 게임 링크) — AI는 안 부름
+  const gameCheckAll = async () => {
+    setBusy('gameCheck'); setMsg('');
+    try {
+      let from = 0;
+      for (let i = 0; i < 400; i++) {
+        const r = await mutate('aiVideo', { op: 'gameCheck', from });
+        setMsg(`게임 점검 중 ${Math.min(r.next || 0, r.total || 0)}/${r.total || 0}`);
+        if (r.done) break;
+        from = r.next;
+      }
+      setMsg('게임 점검을 마쳤어요'); await load();
+    } catch (e: any) { setMsg('오류: ' + (e?.message || e)); }
+    finally { setBusy(''); }
+  };
   const btn = 'px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60';
   const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
   const usedMin = st?.day === today ? Math.round((st?.usedSec || 0) / 60) : 0;
@@ -216,6 +231,21 @@ function AiVideoPanel() {
             <ul className="space-y-0.5 text-amber-700 dark:text-amber-300">
               {st.linkBad.map((x: any) => <li key={`${x.a}|${x.b}`} className="break-keep">· 「{x.ta}」 ↔ 「{x.tb}」 {x.reason ? `— ${x.reason}` : ''}</li>)}
             </ul>
+          )}
+          <button type="button" disabled={!!busy} onClick={() => void gameCheckAll()} className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer disabled:opacity-50">{busy === 'gameCheck' ? '게임 점검 중…' : '분석 끝난 생방송 게임 점검'}</button>
+          {(st.gameBad || []).length > 0 && (
+            <div className="space-y-0.5">
+              <p>게임 점검: 기록에 적힌 게임과 AI가 본 게임이 다르거나 게임 링크가 다른 게임인 방송 {st.gameBad.length}개</p>
+              <ul className="space-y-0.5 text-amber-700 dark:text-amber-300">
+                {st.gameBad.map((g: any) => (
+                  <li key={`${g.logId}`} className="break-keep">· {g.date} 「{g.title}」
+                    {g.notSeen?.length ? ` · 영상에 안 보임: ${g.notSeen.join(', ')}` : ''}
+                    {g.notListed?.length ? ` · 기록에 없음: ${g.notListed.join(', ')}` : ''}
+                    {g.badLinks?.length ? ` · 링크가 다른 게임: ${g.badLinks.map((b: any) => `${b.game}→${b.steam}`).join(', ')}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           {st.lastRunAt && <p>마지막 실행 {new Date(st.lastRunAt).toLocaleString('ko-KR')} · 마지막 모델 {st.model || '-'}</p>}
           <ul className="space-y-0.5">

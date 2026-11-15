@@ -645,10 +645,63 @@ const aiBrief = (d: any) => {
   const games = (d?.games || []).map((g: any) => g?.ko || g?.name).filter(Boolean).join(', ');
   return `제목: ${d?.title || ''}\n게임: ${games || '-'}\n요약: ${d?.summary || ''}\n${parts}`.slice(0, 9000);
 };
+
+const gameKey = (s: string) => normWord(String(s || '').replace(/\(.*?\)|\[.*?\]/g, ' ')).replace(/\s+/g, '');
+const sameGame = (a: string, b: string) => { const x = gameKey(a); const y = gameKey(b); return !!x && !!y && (x === y || (x.length >= 4 && y.includes(x)) || (y.length >= 4 && x.includes(y))); };
+async function steamName(db: any, appId: string): Promise<string> {
+  const ref = db.collection('youtube_cache').doc('steam_names');
+  const cache = (await ref.get()).data() || {};
+  if (typeof cache[appId] === 'string') return cache[appId];
+  let name = '';
+  try { const r = await fetch(`https://store.steampowered.com/api/appdetails?appids=${appId}&l=english&filters=basic`, { signal: AbortSignal.timeout(8000) }); const j: any = await r.json(); name = String(j?.[appId]?.data?.name || ''); } catch { /* */ }
+  await ref.set({ [appId]: name }, { merge: true });
+  return name;
+}
+async function checkGames(db: any, id: string, me: any, mine: any[]) {
+  if (!mine.length) return;
+  const ai = (me?.games || []).flatMap((g: any) => [g?.name, g?.ko, ...(g?.aliases || [])]).filter(Boolean) as string[];
+  const out: any[] = [];
+  for (const l of mine) {
+    const listed = (l.games || []).filter((g: any) => g?.name);
+    const notSeen = ai.length ? listed.filter((g: any) => !ai.some((a) => sameGame(a, g.name))).map((g: any) => g.name) : [];
+    const notListed = (me?.games || []).filter((g: any) => g?.name && !listed.some((x: any) => sameGame(x.name, g.name) || sameGame(x.name, g.ko || ''))).map((g: any) => g.ko || g.name);
+    const badLinks: any[] = [];
+    for (const g of listed.slice(0, 8)) {
+      const app = String(g.link || '').match(/store\.steampowered\.com\/app\/(\d+)/)?.[1];
+      if (!app) continue;
+      const sn = await steamName(db, app);
+      if (sn && !sameGame(sn, g.name)) badLinks.push({ game: g.name, link: g.link, steam: sn });
+    }
+    if (notSeen.length || notListed.length || badLinks.length) out.push({ logId: l.id, date: l.date, notSeen, notListed, badLinks });
+  }
+  const { FieldValue } = await import('firebase-admin/firestore');
+  await db.collection('ai_video').doc(id).set({ gameCheck: { at: new Date().toISOString(), out } }, { merge: true });
+  await db.collection('youtube_cache').doc('link_check').set({ gameBad: out.length ? FieldValue.arrayUnion(id) : FieldValue.arrayRemove(id) }, { merge: true });
+}
+/** 이미 분석이 끝난 생방송도 게임 점검 (AI 호출 없음, 한 번에 25개씩) */
+export async function gameCheckBatch(db: any, from = 0) {
+  const ix = (await db.collection('youtube_cache').doc('ai_ids').get()).data() || {};
+  const ids: string[] = ix.done || [];
+  const part = ids.slice(from, from + 25);
+  if (!part.length) return { done: true, total: ids.length, next: from };
+  const { loadSiteLogs } = await import('./_siteLogs.js');
+  const logs = (await loadSiteLogs(db)).logs as any[];
+  const snaps = await db.getAll(...part.map((i) => db.collection('ai_video').doc(i)));
+  let checked = 0;
+  for (let i = 0; i < part.length; i++) {
+    const d = snaps[i].exists ? snaps[i].data() : null;
+    const mine = logs.filter((l) => (l.vods || []).some((v: any) => ytIdOf(v?.url) === part[i]));
+    if (!d || !mine.length) continue;
+    await checkGames(db, part[i], d, mine); checked++;
+  }
+  return { done: from + 25 >= ids.length, total: ids.length, next: from + 25, checked };
+}
 async function checkLinks(db: any, id: string, me: any) {
   const { loadSiteLogs } = await import('./_siteLogs.js');
   const logs = (await loadSiteLogs(db)).logs as any[];
   const has = (l: any, k: string) => (l?.[k] || []).some((x: any) => ytIdOf(x?.url) === id);
+  // 게임 점검: 이 생방송 기록에 적힌 게임 ↔ AI가 본 게임, 그리고 게임 링크(스팀)가 그 게임이 맞는지
+  try { await checkGames(db, id, me, logs.filter((l) => has(l, 'vods'))); } catch (e: any) { if (isRate(String(e?.message || e))) throw e; }
   const pairs: { other: string; rel: string }[] = [];
   for (const l of logs) {
     if (has(l, 'edited')) (l.vods || []).forEach((v: any) => { const o = ytIdOf(v?.url); if (o) pairs.push({ other: o, rel: '영상→생방송' }); });
@@ -711,7 +764,14 @@ export async function aiVideoStatus(db: any) {
     const by = new Map(docs.map((d: any) => [d.id, d.exists ? d.data() : null]));
     linkBad = pairs.map(([a, b]: string[]) => { const da: any = by.get(a); const r = (da?.linkCheck?.results || []).find((x: any) => x.other === b); return { a, b, ta: da?.title || a, tb: (by.get(b) as any)?.title || b, reason: r?.reason || '' }; });
   } catch { /* */ }
-  return { ...st, linkBad, linkChecked, lockUntil: undefined, total: (q?.items || []).filter((x: QItem) => !x.comp).length || q?.count || 0, channelCount: q?.channelCount || 0, fetchedAt: q?.fetchedAt, kinds, done, partial, dailySec: DAILY_SEC, models: MODELS };
+  let gameBad: any[] = [];
+  try {
+    const lc = (await db.collection('youtube_cache').doc('link_check').get()).data();
+    const ids = (lc?.gameBad || []).slice(-30) as string[];
+    const docs = ids.length ? await db.getAll(...ids.map((i) => db.collection('ai_video').doc(i))) : [];
+    gameBad = docs.flatMap((d: any) => { const x = d.exists ? d.data() : null; return (x?.gameCheck?.out || []).map((o: any) => ({ ...o, title: x?.title || d.id })); });
+  } catch { /* */ }
+  return { ...st, linkBad, linkChecked, gameBad, lockUntil: undefined, total: (q?.items || []).filter((x: QItem) => !x.comp).length || q?.count || 0, channelCount: q?.channelCount || 0, fetchedAt: q?.fetchedAt, kinds, done, partial, dailySec: DAILY_SEC, models: MODELS };
 }
 
 /** '애매'한 장면 (확실하지 않다고 표시했거나 말투가 추측) */
