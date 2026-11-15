@@ -43,6 +43,8 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
    */
   const { plans, skipped, already } = useMemo(() => planCafeImport(days || [], Object.values(data.logs || {}) as BroadcastLog[], titleOf, dateOf), [days, data.logs, titleOf, dateOf]);
 
+  // 붙여 넣은 글에 나오는 유튜브 영상 id 전부 (가져온 것 관리에서 이 링크만 되돌리려고)
+  const cafeIds = useMemo(() => new Set([...text.matchAll(/(?:youtu\.be\/|[?&]v=|\/live\/|\/shorts\/|\/embed\/)([\w-]{11})/g)].map((m) => m[1])), [text]);
   const [multis, setMultis] = useState<CafeMulti[]>([]);
   const [unsure, setUnsure] = useState<CafeUnsure[]>([]);
   const analyze = () => {
@@ -279,7 +281,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
           )}
         </div>
       )}
-      <AdminCafeUndo data={data} onAddLog={onAddLog} onUpdateLog={onUpdateLog} onDeleteLog={onDeleteLog} />
+      <AdminCafeUndo data={data} onAddLog={onAddLog} onUpdateLog={onUpdateLog} onDeleteLog={onDeleteLog} cafeIds={cafeIds} />
     </div>
   );
 }

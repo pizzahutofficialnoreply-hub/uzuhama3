@@ -27,10 +27,18 @@ type Change = {
   current: any | null;
   added: number;
   removed: number;
+  /** 되돌릴 것: 리스트별 새로 들어간 링크 id / 빠진 원래 항목 / 여러 생방 연결로 바뀐 원래 영상 */
+  addedIds: Record<string, string[]>;
+  removedItems: Record<string, any[]>;
+  converted: any[];
+  /** 새 기록인데 카페 링크 말고 다른 것도 있으면 지우지 않고 카페 링크만 뺌 */
+  mixed: boolean;
 };
 
-export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog }: {
+export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog, cafeIds }: {
   data: AppData;
+  /** 위 칸에 붙여 넣은 카페 글의 유튜브 영상 id 들: 있으면 이 링크만 대상 (다른 수정은 그대로) */
+  cafeIds?: Set<string>;
   onAddLog: (log: BroadcastLog) => Promise<void>;
   onUpdateLog?: (log: BroadcastLog) => Promise<void>;
   onDeleteLog?: (id: string) => Promise<void>;
@@ -41,6 +49,7 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog }: {
   const [comps, setComps] = useState<string[]>([]);
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState('');
+  const [onlyCafe, setOnlyCafe] = useState(true);
   const [span, setSpan] = useState<{ n: number; first: string; last: string; byDay: [string, number][] } | null>(null);
 
   const load = async () => {
@@ -61,6 +70,8 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog }: {
       const last = new Map<string, any>();
       entries.forEach((x) => { if (!first.has(x.logId)) first.set(x.logId, x); last.set(x.logId, x); });
       const out: Change[] = [];
+      const useCafe = onlyCafe && !!cafeIds?.size;
+      const isCafe = (x: any) => !useCafe || cafeIds!.has(keyOf(x)) || !!x?.cafe;
       first.forEach((f, logId) => {
         const cur: any = (data.logs as any)[logId] || null;
         const lastAct = last.get(logId)?.action;
@@ -69,17 +80,24 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog }: {
         const base = f.action === 'addLog' && !f.before ? null : { ...(arch || {}), ...(f.before || {}) };
         if (!base && !cur) return; // 넣었다가 이미 지움
         const kind: Change['kind'] = !base ? 'added-log' : !cur && lastAct === 'deleteLog' ? 'deleted-log' : 'updated';
+        const addedIds: Record<string, string[]> = {};
+        const removedItems: Record<string, any[]> = {};
         let added = 0; let removed = 0;
         LISTS.forEach((k) => {
           const bIds = new Set((base?.[k] || []).map(keyOf));
           const cIds = new Set((cur?.[k] || []).map(keyOf));
-          cIds.forEach((id) => { if (!bIds.has(id)) added++; });
-          bIds.forEach((id) => { if (!cIds.has(id)) removed++; });
+          addedIds[k] = (cur?.[k] || []).filter((x: any) => !bIds.has(keyOf(x)) && isCafe(x)).map(keyOf);
+          removedItems[k] = (base?.[k] || []).filter((x: any) => !cIds.has(keyOf(x)) && isCafe(x));
+          added += addedIds[k].length; removed += removedItems[k].length;
         });
-        // 일반 영상이 '여러 생방 연결'로 바뀐 것도 바뀐 것
-        (cur?.edited || []).forEach((e: any) => { if (e?.multiId && (base?.edited || []).some((x: any) => keyOf(x) === keyOf(e) && !x?.multiId)) added++; });
-        if (kind === 'updated' && !added && !removed) return;
-        out.push({ logId, date: cur?.date || base?.date || f.date || '', kind, before: base, current: cur, added, removed });
+        // 일반 영상이 '여러 생방 연결'로 바뀐 것
+        const converted = (base?.edited || []).filter((x: any) => !x?.multiId && isCafe(x) && (cur?.edited || []).some((e: any) => e?.multiId && keyOf(e) === keyOf(x)));
+        added += converted.length;
+        const allItems = LISTS.flatMap((k) => cur?.[k] || []);
+        const mixed = kind === 'added-log' && allItems.some((x: any) => !isCafe(x));
+        if (kind === 'deleted-log' && !LISTS.some((k) => (base?.[k] || []).some(isCafe))) return;
+        if (kind !== 'deleted-log' && !added && !removed) return;
+        out.push({ logId, date: cur?.date || base?.date || f.date || '', kind, before: base, current: cur, added, removed, addedIds, removedItems, converted, mixed });
       });
       out.sort((x, y) => x.date.localeCompare(y.date));
       setChanges(out);
@@ -103,18 +121,17 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog }: {
       const next: any = { ...c.current };
       let touched = false;
       LISTS.forEach((k) => {
-        const bIds = new Set((c.before?.[k] || []).map(keyOf));
+        const addSet = new Set(c.addedIds[k] || []);
         next[k] = (c.current[k] || []).map((x: any) => {
           if (typeof x !== 'object' || !x) return x;
-          const wasPlain = k === 'edited' && x.multiId && (c.before?.edited || []).some((y: any) => keyOf(y) === keyOf(x) && !y?.multiId);
-          const isNew = !bIds.has(keyOf(x));
-          const tag = isNew ? 1 : wasPlain ? 'multi' : null;
+          const wasPlain = k === 'edited' && x.multiId && c.converted.some((y: any) => keyOf(y) === keyOf(x));
+          const tag = addSet.has(keyOf(x)) ? 1 : wasPlain ? 'multi' : null;
           if (!tag || x.cafe === tag) return x;
           touched = true;
           return { ...x, cafe: tag };
         });
       });
-      if (c.kind === 'added-log' && !next.cafe) { next.cafe = 1; touched = true; }
+      if (c.kind === 'added-log' && !c.mixed && !next.cafe) { next.cafe = 1; touched = true; }
       if (touched) { await onUpdateLog(next); n++; setMsg(`표시 다는 중… ${n}개 기록`); }
     }
     setMsg(`표시를 달았어요 (기록 ${n}개). 설정 › 실험실 '과거 영상 생방 연동'을 끄면 2020년 전 것이 안 보여요.`);
@@ -125,17 +142,25 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog }: {
     if (!changes) return;
     const nAdd = changes.filter((c) => c.kind === 'added-log').length;
     const nDel = changes.filter((c) => c.kind === 'deleted-log').length;
-    if (!await confirmSheet({ title: '카페 가져오기를 전부 되돌릴까요?', message: `기록 ${changes.length}개를 ${from.replace('T', ' ')} 전 모습으로 돌려요. 새로 만든 기록 ${nAdd}개는 지우고, 지웠던 기록 ${nDel}개는 되살리고, 여러 생방 연결 ${comps.length}개도 지워요. 다시보기·편집본·쇼츠만 되돌리고 게임·시간 같은 다른 칸은 그대로예요.`, confirmText: '전부 되돌리기', danger: true })) return;
+    if (!await confirmSheet({ title: '카페 가져오기를 전부 되돌릴까요?', message: `기록 ${changes.length}개에서 ${onlyCafe && cafeIds?.size ? '카페 글에 있던 링크만 ' : ''}${from.replace('T', ' ')} 전 모습으로 돌려요. 새로 만든 기록 ${nAdd}개는 지우고, 지웠던 기록 ${nDel}개는 되살리고, 여러 생방 연결 ${comps.length}개도 지워요. 다시보기·편집본·쇼츠만 되돌리고 게임·시간 같은 다른 칸은 그대로예요.`, confirmText: '전부 되돌리기', danger: true })) return;
     setBusy('undo');
     let n = 0;
     const fails: string[] = [];
     for (const c of changes) {
       try {
-        if (c.kind === 'added-log') { if (onDeleteLog) await onDeleteLog(c.logId); }
+        if (c.kind === 'added-log' && !c.mixed) { if (onDeleteLog) await onDeleteLog(c.logId); }
         else if (c.kind === 'deleted-log') { await onAddLog(c.before); }
         else if (onUpdateLog && c.current) {
+          // 카페로 들어간 링크만 빼고, 카페 때문에 빠졌던 원래 링크는 되돌려 넣음 (다른 수정은 그대로)
           const next: any = { ...c.current };
-          LISTS.forEach((k) => { next[k] = c.before?.[k] || []; });
+          LISTS.forEach((k) => {
+            const addSet = new Set(c.addedIds[k] || []);
+            let list = (c.current[k] || []).filter((x: any) => !addSet.has(keyOf(x)));
+            if (k === 'edited' && c.converted.length) list = list.map((x: any) => c.converted.find((y: any) => keyOf(y) === keyOf(x)) || x);
+            const have = new Set(list.map(keyOf));
+            list = [...list, ...(c.removedItems[k] || []).filter((x: any) => !have.has(keyOf(x)))];
+            next[k] = list;
+          });
           await onUpdateLog(next);
         }
         n++;
@@ -159,6 +184,10 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog }: {
         <input type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} className="px-2 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" />
         <button type="button" disabled={!!busy} onClick={() => void load()} className={`${btn} bg-zinc-100 dark:bg-zinc-800`}>{busy === 'load' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null} 바뀐 것 불러오기</button>
       </div>
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={onlyCafe} onChange={(e) => { setOnlyCafe(e.target.checked); setChanges(null); }} />
+        <span className="break-keep">카페 글에 있는 링크만 (위 칸에 붙여 넣은 글 기준{cafeIds?.size ? ` · 영상 ${cafeIds.size.toLocaleString()}개` : ' · 지금은 비어 있어서 모든 수정이 대상'})</span>
+      </label>
       {span && (
         <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 p-2.5 text-zinc-600 dark:text-zinc-300">
           <p>이 시간의 수정 이력 <b>{span.n}건</b>{span.n ? ` · 처음 ${span.first} · 마지막 ${span.last}` : ''}</p>
