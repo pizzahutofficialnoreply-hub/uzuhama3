@@ -1,0 +1,13 @@
+name: game-check (임시 · 게임 링크 점검)
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node .github/workflows/_gamecheck.mjs
+      - name: 로그로 내보내기
+        run: echo "DUMPSTART"; gzip -9c gamecheck.json | base64 -w0; echo; echo "DUMPEND"
