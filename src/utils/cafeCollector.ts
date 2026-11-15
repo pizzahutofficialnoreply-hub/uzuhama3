@@ -176,7 +176,10 @@ export function cafeCollector() {
     });
   }
   async function listMode() {
-    const who = (window.prompt('작성자 이름으로 거를까요? (비우면 모든 글)', '이츠하마타임') || '').trim();
+    const pick = (window.prompt('무엇을 모을까요? 번호를 적어 주세요\n1: 생방쏭 글만 (방송 알림·다시보기 링크)\n2: 이츠하마타임 글만 (영상·쇼츠 생방링크)\n3: 이 화면의 글 전부\n(다른 이름을 적으면 그 작성자 글만)', '1') || '').trim();
+    if (!pick) return;
+    const who = pick === '2' ? '이츠하마타임' : pick === '1' || pick === '3' ? '' : pick;
+    const needTitle = pick === '1' ? '생방쏭' : '';
     const auto = window.confirm('다음 페이지들도 자동으로 넘기며 모을까요? (취소: 이 화면만)');
     const acc = loadAcc();
     let ok = 0; let fail = 0; let skip = 0; let pageNo = 0;
@@ -189,17 +192,18 @@ export function cafeCollector() {
       // 지금 보고 있는 페이지 번호는 건너뜀
       pages.forEach((x) => { if (x.cur) { lastNum = Math.max(lastNum, x.n); seenPages.add(x.href); } });
       const uniq = rows.filter((r, i) => rows.findIndex((x) => x.aid === r.aid) === i);
-      let list = uniq.filter((r) => !who || r.row.includes(who));
+      let list = uniq.filter((r) => (!who || r.row.includes(who)) && (!needTitle || r.title.includes(needTitle) || r.row.includes(needTitle)));
       // 줄 글자에서 작성자를 못 찾으면: 글을 읽어서 작성자 이름으로 거름
       const byWriter = !!who && !list.length && uniq.length > 0;
       if (byWriter) list = uniq;
-      log(`— ${pageNo}번째 화면: 글 링크 ${uniq.length}개${who ? (byWriter ? ` (작성자는 글을 열어 확인)` : ` · '${who}' ${list.length}개`) : ''}`);
+      log(`— ${pageNo}번째 화면: 글 링크 ${uniq.length}개${who ? (byWriter ? ` (작성자는 글을 열어 확인)` : ` · '${who}' ${list.length}개`) : needTitle ? ` · '${needTitle}' ${list.length}개` : ''}`);
       for (const r of list) {
         if (stop) break;
         if (acc[r.aid]) { skip++; continue; }
         st(`${pageNo}번째 화면 읽는 중… 새로 읽음 ${ok}개 · 지금까지 모은 글 ${Object.keys(acc).length}개`);
         const a = await readArticle(r.club, r.aid, r.art);
         if (!a) { fail++; log(`✗ ${r.title}`); continue; }
+        if (needTitle && a.title && !a.title.includes(needTitle)) { log(`· 건너뜀 ${a.title}`); continue; }
         if (byWriter && a.writer && !a.writer.includes(who)) { log(`· 건너뜀 (${a.writer}) ${a.title || r.title}`); continue; }
         ok++;
         log(`✓ ${a.title || r.title}`);

@@ -340,6 +340,18 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ url: cur });
     } catch (e: any) { return res.status(502).json({ error: String(e?.message || e) }); }
   }
+  // 스팀에서 게임 이름으로 찾기 (생방쏭 가져오기: 게임 링크 채우기) — DB 안 읽음
+  if (req.query?.steam) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    const term = String(req.query.steam).slice(0, 120);
+    try {
+      const r = await fetch(`https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(term)}&l=english&cc=KR`, { signal: AbortSignal.timeout(7000) });
+      const j: any = await r.json();
+      const items = (j?.items || []).slice(0, 5).map((x: any) => ({ id: x.id, name: x.name, link: `https://store.steampowered.com/app/${x.id}/` }));
+      res.setHeader('Cache-Control', 'public, s-maxage=604800');
+      return res.status(200).json({ items });
+    } catch (e: any) { return res.status(502).json({ error: String(e?.message || e) }); }
+  }
   // 공개 설정 (Vercel 환경 변수에서, DB 안 읽음): 유튜브 재생목록 저장용 구글 OAuth 클라이언트 ID 등
   if (req.query?.pubcfg) {
     res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400');
