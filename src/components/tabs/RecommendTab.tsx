@@ -2793,7 +2793,8 @@ export function RecommendTab({
       </div>
 
       <footer className="border-t border-zinc-200 dark:border-zinc-800 py-6 mt-8 text-center text-zinc-500 dark:text-zinc-500 text-sm">
-        <p className="mt-1 text-xs">※ 최신순 영상의 정렬 기준은 방송일(생방일)이에요.</p>
+        <p className="mt-1 text-xs">※ 최신순 영상의 정렬 기준은 방송일(생방일)이에요. 생방이 확인되지 않은 영상은 유튜브에 올린 날 기준이에요.</p>
+        <p className="mt-1 text-xs break-keep px-4">연결된 생방송이나 생방일이 실제와 다를 수 있어요. 틀린 곳을 보시면 영상 카드의 ⋮ › 신고로 정보 수정을 요청해 주세요.</p>
       </footer>
     </div>
     </SearchContext.Provider>
