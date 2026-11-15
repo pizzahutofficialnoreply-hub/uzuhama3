@@ -53,5 +53,12 @@ export function parseSongPosts(text: string): SongPost[] {
     seen.add(key);
     out.push({ date, games: songGames(title), title, postedAt: posted[0] ? `${posted[0]}-${posted[1]}-${posted[2]}${posted[3] ? ` ${posted[3]}` : ''}` : '' });
   }
-  return out.sort((a, b) => a.date.localeCompare(b.date));
+  // 같은 방송에 글이 여러 개면 하나로 (게임은 합침)
+  const byDate = new Map<string, SongPost>();
+  for (const p of out) {
+    const e = byDate.get(p.date);
+    if (!e) byDate.set(p.date, { ...p, games: [...p.games] });
+    else p.games.forEach((g) => { if (!e.games.some((x) => sameGame(x, g))) e.games.push(g); });
+  }
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }

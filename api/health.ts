@@ -340,6 +340,18 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ url: cur });
     } catch (e: any) { return res.status(502).json({ error: String(e?.message || e) }); }
   }
+  // AI가 영상에서 본 게임 (생방쏭 가져오기: 카페에 적힌 게임이 그 생방송에 나왔는지) — 영상 수만큼 읽기
+  if (req.query?.aigames) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    const ids = [...new Set(String(req.query.aigames).split(',').filter((x) => /^[\w-]{11}$/.test(x)))].slice(0, 50);
+    if (!ids.length) return res.status(400).json({ error: 'ids' });
+    const { db } = await import('./_firebase.js');
+    const snaps = await db.getAll(...ids.map((i) => db.collection('ai_video').doc(i)));
+    const games: Record<string, { status: string; names: string[] }> = {};
+    snaps.forEach((d: any, i: number) => { const x = d.exists ? d.data() : null; games[ids[i]] = { status: x?.status || 'none', names: (x?.games || []).flatMap((g: any) => [g?.name, g?.ko, ...(g?.aliases || [])]).filter(Boolean) }; });
+    res.setHeader('Cache-Control', 'public, s-maxage=3600');
+    return res.status(200).json({ games });
+  }
   // 스팀에서 게임 이름으로 찾기 (생방쏭 가져오기: 게임 링크 채우기) — DB 안 읽음
   if (req.query?.steam) {
     res.setHeader('Access-Control-Allow-Origin', '*');
