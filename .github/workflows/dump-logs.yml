@@ -10,5 +10,5 @@ jobs:
           const K="AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM";const B="https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents";
           const conv=(v)=>{if(!v)return null;if("stringValue"in v)return v.stringValue;if("integerValue"in v)return Number(v.integerValue);if("doubleValue"in v)return v.doubleValue;if("booleanValue"in v)return v.booleanValue;if("nullValue"in v)return null;if("arrayValue"in v)return (v.arrayValue.values||[]).map(conv);if("mapValue"in v){const o={};for(const[k,x]of Object.entries(v.mapValue.fields||{}))o[k]=conv(x);return o;}if("timestampValue"in v)return v.timestampValue;return null};
           (async()=>{const out={};for(const col of ["logs_by_month","compilations"]){let docs=[],tok="";do{const r=await fetch(`${B}/${col}?pageSize=50&key=${K}${tok?"&pageToken="+tok:""}`);const j=await r.json();if(j.error)throw new Error(JSON.stringify(j.error));docs.push(...(j.documents||[]));tok=j.nextPageToken||"";}while(tok);out[col]=docs.map(d=>({id:d.name.split("/").pop(),...conv({mapValue:{fields:d.fields}})}));console.log(col,docs.length);}require("fs").writeFileSync("dump.json",JSON.stringify(out));})().catch(e=>{console.error(e);process.exit(1)});'
-      - uses: actions/upload-artifact@v4
-        with: { name: dump, path: dump.json, retention-days: 1 }
+      - name: 로그로 내보내기
+        run: echo "DUMPSTART"; gzip -9c dump.json | base64 -w0; echo; echo "DUMPEND"
