@@ -5,6 +5,7 @@ import { youtubeIdOf } from '../../../utils/cafeImport';
 import { db } from '../../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { confirmSheet } from '../../../utils/ui';
+import { loadFreshLogs } from '../../../hooks/useFirebaseData';
 
 /**
  * 관리자 > 기록 추가 > 카페 기준으로 맞추기
@@ -58,11 +59,18 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
   if (!ops || !ops.length) return null;
 
   const apply = async () => {
-    const sel = todo.filter((r) => picked.has(r.key));
-    if (!sel.length || !onUpdateLog) return;
-    if (!await confirmSheet(`카페 기준으로 ${sel.length}개를 고칠까요?\n끝날 때까지 이 화면을 닫지 마세요.`)) return;
-    setBusy({ done: 0, total: sel.length });
-    const work: Record<string, any> = { ...logs };
+    const sel0 = todo.filter((r) => picked.has(r.key));
+    if (!sel0.length || !onUpdateLog) return;
+    if (!await confirmSheet(`카페 기준으로 ${sel0.length}개를 고칠까요?\n끝날 때까지 이 화면을 닫지 마세요.`)) return;
+    setBusy({ done: 0, total: sel0.length });
+    // 화면에 들고 있는 기록은 오래됐을 수 있어서(다른 기기·창에서 고친 것) 서버에서 그 달을 다시 읽어 그 위에 고침
+    const ids = new Set<string>();
+    sel0.forEach(({ o }) => { if (o.t === 'shorts') [...o.add, ...o.remove].forEach((x) => ids.add(x)); else if (o.t === 'multi') o.logs.forEach((x) => ids.add(x)); else ids.add(o.log); });
+    let work: Record<string, any>;
+    try {
+      work = await loadFreshLogs([...ids].map((id) => String(logs[id]?.date || '').slice(0, 7)));
+    } catch (e: any) { setBusy(null); setMsg(`최신 기록을 못 읽어서 멈췄어요: ${String(e?.message || e).slice(0, 80)}`); return; }
+    const sel = sel0.filter(({ o }) => !isDone(o, work));
     const cur = (id: string) => { const l = work[id]; if (!l) throw new Error(`기록을 못 찾았어요 (${id})`); return l; };
     const save = async (l: any) => { await onUpdateLog(l); work[l.id] = l; };
     const fails: string[] = [];
@@ -77,7 +85,7 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
           for (const id of o.add) {
             const l = cur(id);
             if ((l.shorts || []).some((x: any) => yid(x) === o.id)) continue;
-            const prev = Object.values(logs).flatMap((x: any) => x.shorts || []).find((x: any) => yid(x) === o.id);
+            const prev = Object.values(work).flatMap((x: any) => x.shorts || []).find((x: any) => yid(x) === o.id);
             await save({ ...l, shorts: [...(l.shorts || []), { ...(prev || {}), title: prev?.title || o.title, url: prev?.url || `https://youtu.be/${o.id}`, cafe: 1 }] });
           }
         } else if (o.t === 'removeEdited') {
@@ -105,7 +113,7 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
       setBusy({ done: ok + fails.length, total: sel.length });
     }
     setBusy(null);
-    setMsg(`${ok}개 고쳤어요${fails.length ? ` · 못 한 것 ${fails.length}개\n${fails.join('\n')}` : ''}`);
+    setMsg(`${ok}개 고쳤어요${sel0.length > sel.length ? ` (이미 돼 있던 ${sel0.length - sel.length}개는 건너뜀)` : ''}${fails.length ? ` · 못 한 것 ${fails.length}개\n${fails.join('\n')}` : ''}`);
   };
 
   return (

@@ -10,6 +10,7 @@ import { AdminCafeUndo } from './AdminCafeUndo';
 import { AdminCafeFix } from './AdminCafeFix';
 import { useChannelVideos } from '../../../hooks/useChannelVideos';
 import { confirmSheet } from '../../../utils/ui';
+import { loadFreshLogs } from '../../../hooks/useFirebaseData';
 
 /**
  * 관리자 > 기록 추가 > 카페 정리 글 가져오기
@@ -213,7 +214,11 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
     let ok = 0;
     const fails: string[] = [];
     // 반영하는 동안 바뀐 기록을 따라가며 씀 (같은 기록을 두 번 고쳐도 앞의 것이 지워지지 않게)
-    const work: Record<string, any> = { ...(data.logs as any) };
+    // 화면 기록이 오래됐을 수 있어서(다른 기기·창에서 고친 것) 서버에서 다시 읽은 최신 기록 위에 고침
+    let work: Record<string, any>;
+    try {
+      work = { ...(data.logs as any), ...(await loadFreshLogs(Object.values(data.logs).map((l: any) => String(l?.date || '').slice(0, 7)))) };
+    } catch (e: any) { setBusy(null); setMessage(`최신 기록을 못 읽어서 멈췄어요: ${String(e?.message || e).slice(0, 80)}`); return; }
     const save = async (l: any) => { await onUpdateLog!(l); work[l.id] = l; };
     for (const p of todo) {
       try {

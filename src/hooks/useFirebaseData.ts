@@ -158,6 +158,27 @@ const normalizeGameLinks = (log: any) =>
 
 
 
+/**
+ * 관리자 일괄 수정 전에: 서버에서 그 달 문서를 지금 바로 다시 읽어 최신 기록을 만듦
+ * (화면에 들고 있던 기록이 오래됐으면 — 다른 기기·창에서 고친 것, 오래 열어 둔 화면 — 그걸로 덮어써서
+ *  몰아보기·여러 날 생방 연결·쇼츠가 사라지는 일이 있어서. 달마다 읽기 1번)
+ */
+export async function loadFreshLogs(months: string[]): Promise<Record<string, BroadcastLog>> {
+  const historical = await loadHistoricalLogs();
+  if (!Object.keys(historical).length) throw new Error('과거 기록(JSON)을 못 불러왔어요');
+  const ms = [...new Set(months.filter((m) => /^\d{4}-\d\d$/.test(m)))];
+  const docs: any[] = [];
+  for (const m of ms) {
+    const snap = await getDoc(doc(db, 'logs_by_month', m));
+    if (snap.exists()) docs.push(snap.data());
+  }
+  noteReads('logs_by_month(관리자 새로 읽기)', Math.max(1, ms.length));
+  const merged = overlayMonthDocs(historical, docs) as Record<string, BroadcastLog>;
+  const out: Record<string, BroadcastLog> = {};
+  Object.entries(merged).forEach(([id, l]) => { if (l?.date && ms.includes(String(l.date).slice(0, 7))) out[id] = JSON.parse(JSON.stringify(l)); });
+  return out;
+}
+
 /** 관리자가 아카이브 기록을 저장할 때 JSON 원본과 다른 필드만 추린 수정분 생성 (원본이 없으면 null) */
 export async function buildArchivePatch(log: BroadcastLog): Promise<any | null> {
   const historical = await loadHistoricalLogs();
