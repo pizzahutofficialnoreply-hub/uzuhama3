@@ -19,6 +19,8 @@ type Op =
   | { t: 'multi'; id: string; title: string; logs: string[]; placeholderTitle: string; why: string };
 
 const yid = (x: any) => youtubeIdOf(typeof x === 'string' ? x : x?.url || '');
+// 몰아보기·여러 날 생방으로 연결된 칸은 직접 만든 것이라 '빼기'에서 건드리지 않음
+const isLinked = (x: any) => Boolean(x?.isCompilation || x?.compilationId || x?.multiId);
 const opKey = (o: Op, i: number) => `${o.t}:${i}`;
 const postTitle = (why: string) => (why.match(/\[(.+)\]/)?.[1] || why).slice(0, 40);
 
@@ -26,7 +28,7 @@ function isDone(o: Op, logs: Record<string, any>): boolean {
   const L = (id: string) => logs[id] || {};
   if (o.t === 'setVod') return (L(o.log).vods || []).some((v: any) => yid(v) === o.to) && !(L(o.log).vods || []).some((v: any) => yid(v) === o.from);
   if (o.t === 'shorts') return o.add.every((id) => (L(id).shorts || []).some((x: any) => yid(x) === o.id)) && o.remove.every((id) => !(L(id).shorts || []).some((x: any) => yid(x) === o.id));
-  if (o.t === 'removeEdited') return !(L(o.log).edited || []).some((x: any) => yid(x) === o.id);
+  if (o.t === 'removeEdited') return !(L(o.log).edited || []).some((x: any) => yid(x) === o.id && !isLinked(x));
   return o.logs.every((id) => (L(id).edited || []).some((e: any) => yid(e) === o.id && e.multiId));
 }
 
@@ -37,7 +39,7 @@ function describe(o: Op, logs: Record<string, any>): string {
     const parts = [o.remove.length ? `${o.remove.map(d).join(', ')}에서 빼고` : '', `${o.add.map(d).join(', ')}에 넣기`].filter(Boolean).join(' ');
     return `쇼츠 「${o.title.replace(/\s*#shorts/i, '')}」 ${parts}`;
   }
-  if (o.t === 'removeEdited') return `${d(o.log)} 기록에서 「${postTitle(o.why)}」 빼기 (카페에 적힌 생방에 없는 날)`;
+  if (o.t === 'removeEdited') return `${d(o.log)} 기록에 따로 한 번 더 들어간 「${postTitle(o.why)}」 빼기 (몰아보기 연결은 그대로)`;
   return `「${o.title}」 영상 넣고 생방 ${o.logs.map(d).join(', ')}에 '여러 날 생방'으로 연결`;
 }
 
@@ -79,7 +81,7 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
             await save({ ...l, shorts: [...(l.shorts || []), { ...(prev || {}), title: prev?.title || o.title, url: prev?.url || `https://youtu.be/${o.id}`, cafe: 1 }] });
           }
         } else if (o.t === 'removeEdited') {
-          const l = cur(o.log); await save({ ...l, edited: (l.edited || []).filter((x: any) => yid(x) !== o.id) });
+          const l = cur(o.log); await save({ ...l, edited: (l.edited || []).filter((x: any) => yid(x) !== o.id || isLinked(x)) });
         } else {
           const ls = o.logs.map(cur);
           const compId = `multi_${o.id}`;
