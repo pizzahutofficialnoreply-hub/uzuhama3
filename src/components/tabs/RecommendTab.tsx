@@ -280,7 +280,7 @@ export const VideoCard = ({
   }, []);
 
   const displayDate = video.isCompilation 
-    ? (video.createdAt ? video.createdAt.substring(0, 10) : (mostRecentDate || video.parentLog?.date))
+    ? (uploadDate || (video.createdAt ? video.createdAt.substring(0, 10) : (mostRecentDate || video.parentLog?.date)))
     : (video.parentLog?.date || mostRecentDate);
 
   const swipeId = extractYoutubeId(video?.videoUrl || '') || video?.id || '';
@@ -951,6 +951,7 @@ export function RecommendTab({
   const { data: playlistData } = usePlaylists();
   // 채널의 모든 영상 (기록에 연결 안 된 영상도 홈에 보이게)
   const channelVideos = useChannelVideos();
+  const pubOf = useMemo(() => new Map(channelVideos.filter((c) => c?.videoId && c.publishedAt).map((c) => [c.videoId, c.publishedAt as string] as const)), [channelVideos]);
   const playlistGameMap = useMemo(
     () => buildPlaylistGameMap(playlistData?.playlists, buildGameCatalog(data?.logs)),
     [playlistData, data?.logs]
@@ -1966,6 +1967,12 @@ export function RecommendTab({
     });
     
     const getVideoSortTime = (v: any): number => {
+      // 몰아보기·여러 날 생방 영상: 유튜브에 올린 날 기준 (등록한 날로 하면 새로 등록할 때마다 맨 위로 올라감)
+      if (v.isCompilation || v.multiId || (Array.isArray(v.allBroadcastDates) && v.allBroadcastDates.length > 1)) {
+        const pub = v.publishedAt || pubOf.get(extractYoutubeId(v.videoUrl) || v.id);
+        const t = pub ? Date.parse(pub) : NaN;
+        if (!isNaN(t)) return t;
+      }
       if (v.isCompilation) {
         if (v.createdAt) {
           const t = new Date(v.createdAt).getTime();
@@ -2079,7 +2086,7 @@ export function RecommendTab({
     }
 
     return scoredVids;
-  }, [allVideos, categoryIndex, categories, selectedCategories, literalTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos, planBundle, docOf, chos, useRelated, sOpts, intent, excludedIds, ytViews]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, categoryIndex, categories, selectedCategories, literalTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos, planBundle, docOf, chos, useRelated, sOpts, intent, excludedIds, ytViews, pubOf]); // Removed ratings and history to prevent jumping on watch
 
   // 보던 영상 (3~95% 본 영상, 최근 5개)
   const watchHistory = useWatchHistory();
