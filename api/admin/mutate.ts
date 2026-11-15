@@ -76,6 +76,73 @@ export default async function handler(req: any, res: any) {
         } catch (e: any) { return res.status(e?.status || 500).json({ error: String(e?.message || e) }); }
       }
       // ── DB 전체 백업·복원 ──
+      // 고른 시각 이후에 바뀐 방송 기록을 그 시각 전 모습으로 통째로 되돌림 (서버에서 한 번에 · 앱을 닫아도 됨)
+      // - 수정 이력(admin_audit)에서 그 뒤 처음 바뀐 기록마다 '바뀌기 전' 사본으로 되돌리고, 사본이 없으면(원래 아카이브 그대로였거나 새로 만든 기록) 덮어쓴 것을 지움
+      // - dryRun 이면 세기만
+      case 'restoreBefore': {
+        const from = String(payload.from || '');
+        if (!/^\d{4}-\d\d-\d\dT/.test(from)) return res.status(400).json({ error: 'from(ISO 시각)이 필요해요' });
+        const to = String(payload.to || new Date().toISOString());
+        const snap = await db.collection('admin_audit').where('at', '>=', from).where('at', '<=', to).orderBy('at').get();
+        const first = new Map<string, any>();
+        snap.docs.forEach((d: any) => { const x = d.data(); if (['addLog', 'updateLog', 'deleteLog'].includes(x.action) && x.logId && !first.has(x.logId)) first.set(x.logId, x); });
+        // 지금 그 기록이 들어 있는 달 (날짜가 바뀌었을 수도 있어서 지금 문서에서 찾음)
+        const nowDocs = first.size ? await db.getAll(...[...first.keys()].map((id) => db.collection('logs').doc(id))) : [];
+        const nowMonth = new Map<string, string>();
+        nowDocs.forEach((d: any) => { const v = d.exists ? d.data() : null; if (v?.date) nowMonth.set(d.id, String(v.date).slice(0, 7)); });
+        let archive: Record<string, any> = {};
+        try {
+          const { normalizeHistorical } = await import('../../src/utils/archiveOverlay.js');
+          const r = await fetch('https://uzuhama.vercel.app/data/historical_logs.json', { signal: AbortSignal.timeout(15000) });
+          if (r.ok) archive = normalizeHistorical(await r.json());
+        } catch { /* */ }
+        let restore = 0; let remove = 0;
+        const monthUpd = new Map<string, Record<string, any>>();
+        const put = (m: string, k: string, v: any) => { if (!m) return; const o = monthUpd.get(m) || {}; o[k] = v; monthUpd.set(m, o); };
+        const writes: { id: string; data: any | null }[] = [];
+        first.forEach((f, id) => {
+          const before = f.action === 'addLog' && !f.before ? null : (f.before || null);
+          const curM = nowMonth.get(id) || (f.date ? String(f.date).slice(0, 7) : '');
+          if (before) {
+            restore++;
+            writes.push({ id, data: before });
+            const bm = String(before.date || f.date || '').slice(0, 7);
+            if (curM && curM !== bm) put(curM, `items.${id}`, FieldValue.delete());
+            put(bm, `items.${id}`, before);
+          } else if (f.action === 'addLog') {
+            // 그 뒤에 새로 만든 기록 → 지움
+            remove++;
+            writes.push({ id, data: null });
+            put(curM, `items.${id}`, FieldValue.delete());
+          } else {
+            // 사본이 없음 = 아카이브 원본 그대로였음 → 덮어쓴 다시보기·편집본·쇼츠만 빼서 원본이 보이게 (다른 칸은 그대로)
+            remove++;
+            writes.push({ id, data: null });
+            const curDoc: any = nowDocs.find((d: any) => d.id === id);
+            const cur = curDoc?.exists ? curDoc.data() : null;
+            const arch = archive[id] || null;
+            ['vods', 'edited', 'shorts'].forEach((k) => put(curM, `items.${id}.${k}`, cur && !cur._patch && arch ? (arch[k] || []) : FieldValue.delete()));
+          }
+        });
+        let comps: string[] = [];
+        try { comps = (await db.collection('compilations').where('kind', '==', 'multi').get()).docs.filter((d: any) => String(d.data()?.createdAt || '') >= from).map((d: any) => d.id); } catch { /* */ }
+        const summary = { entries: snap.size, logs: first.size, restore, remove, months: monthUpd.size, compilations: comps.length };
+        if (payload.dryRun) return res.status(200).json({ success: true, dryRun: true, ...summary });
+        await audit({ action: 'restoreBefore', from, to, ...summary });
+        for (let i = 0; i < writes.length; i += 400) {
+          const b = db.batch();
+          writes.slice(i, i + 400).forEach((w) => { const r = db.collection('logs').doc(w.id); if (w.data) b.set(r, w.data); else b.delete(r); });
+          await b.commit();
+        }
+        const now = new Date().toISOString();
+        for (const [m, upd] of monthUpd) {
+          await db.collection('logs_by_month').doc(m).set({ month: m, updatedAt: now }, { merge: true });
+          await db.collection('logs_by_month').doc(m).update({ ...upd, updatedAt: now });
+        }
+        for (const c of comps) await db.collection('compilations').doc(c).delete().catch(() => {});
+        return res.status(200).json({ success: true, ...summary, summary: `기록 ${first.size}개를 되돌렸어요 (사본으로 ${restore}개 · 원래대로 ${remove}개)` });
+      }
+
       case 'backupList': {
         const b = await import('../_backup.js');
         return res.status(200).json({ success: true, format: b.BACKUP_FORMAT, version: b.BACKUP_VERSION, collections: await b.listBackupCollections(db) });

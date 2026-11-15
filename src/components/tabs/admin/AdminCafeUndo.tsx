@@ -6,6 +6,7 @@ import { db } from '../../../lib/firebase';
 import { normalizeHistorical } from '../../../utils/archiveOverlay';
 import { youtubeIdOf } from '../../../utils/cafeImport';
 import { confirmSheet } from '../../../utils/ui';
+import { mutate } from './system/SearchTuningCard';
 
 /**
  * 카페 가져오기로 넣은 것 관리 (관리자 › 등록 › 카페 정리 글 가져오기 아래)
@@ -43,7 +44,7 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog, cafeId
   onUpdateLog?: (log: BroadcastLog) => Promise<void>;
   onDeleteLog?: (id: string) => Promise<void>;
 }) {
-  const [from, setFrom] = useState('2026-11-01T00:00');
+  const [from, setFrom] = useState('2026-11-15T00:00');
   const [to, setTo] = useState(toLocalInput(new Date(Date.now() + 5 * 60000)));
   const [changes, setChanges] = useState<Change[] | null>(null);
   const [comps, setComps] = useState<string[]>([]);
@@ -173,6 +174,29 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog, cafeId
     setBusy('');
   };
 
+  /** 서버에서 한 번에: 고른 시각 이후에 바뀐 기록을 그 시각 전 모습으로 통째로 (앱을 닫아도 계속됨) */
+  const serverRestore = async () => {
+    setBusy('server'); setMsg('');
+    try {
+      const a = new Date(`${from}:00+09:00`).toISOString();
+      const b = new Date(`${to}:00+09:00`).toISOString();
+      const d = await mutate('restoreBefore', { from: a, to: b, dryRun: true });
+      setBusy('');
+      if (!d.logs) { setMsg('그 시간 뒤로 바뀐 기록이 없어요.'); return; }
+      if (!await confirmSheet({
+        title: `${from.replace('T', ' ')} 전으로 통째로 되돌릴까요?`,
+        message: `그 뒤로 바뀐 방송 기록 ${d.logs}개를 바뀌기 전 모습으로 되돌려요 (수정 이력 ${d.entries}건 기준). 저장해 둔 이전 모습으로 ${d.restore}개, 원래 기록(아카이브·처음 등록 정보)으로 ${d.remove}개${d.compilations ? `, 여러 생방 연결 ${d.compilations}개 지움` : ''}. 그 시각 전에 관리자가 고친 내용은 그대로 남아요. 서버에서 한 번에 해서 앱을 닫아도 돼요.`,
+        confirmText: '통째로 되돌리기', danger: true,
+      })) return;
+      setBusy('server');
+      setMsg('서버에서 되돌리는 중… (1분 안쪽)');
+      const r = await mutate('restoreBefore', { from: a, to: b });
+      setMsg(`${r.summary || '되돌렸어요'} · 새로고침하면 보여요.`);
+      setChanges(null); setSpan(null);
+    } catch (e: any) { setMsg(`못 했어요: ${e?.message || e}`); }
+    setBusy('');
+  };
+
   const btn = 'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50';
   return (
     <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-3 text-xs" data-testid="cafe-undo">
@@ -188,6 +212,9 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog, cafeId
         <input type="checkbox" checked={onlyCafe} onChange={(e) => { setOnlyCafe(e.target.checked); setChanges(null); }} />
         <span className="break-keep">카페 글에 있는 링크만 (위 칸에 붙여 넣은 글 기준{cafeIds?.size ? ` · 영상 ${cafeIds.size.toLocaleString()}개` : ' · 지금은 비어 있어서 모든 수정이 대상'})</span>
       </label>
+      <button type="button" disabled={!!busy} onClick={() => void serverRestore()} className={`${btn} bg-red-600 text-white w-full justify-center py-3`}>
+        {busy === 'server' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Undo2 className="w-3.5 h-3.5" />} 시작 시각 전으로 통째로 되돌리기 (서버에서 한 번에)
+      </button>
       {span && (
         <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 p-2.5 text-zinc-600 dark:text-zinc-300">
           <p>이 시간의 수정 이력 <b>{span.n}건</b>{span.n ? ` · 처음 ${span.first} · 마지막 ${span.last}` : ''}</p>
