@@ -22,6 +22,8 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
   const [busy, setBusy] = useState<{ done: number; total: number } | null>(null);
   const [msg, setMsg] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [report, setReport] = useState<Record<string, string[]>>({});
+  useEffect(() => { fetch('/data/cafe_report.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : {})).then((x) => setReport(x && typeof x === 'object' ? x : {})).catch(() => {}); }, []);
   useEffect(() => {
     fetch('/data/cafe_fix.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : [])).then(async (x) => {
       const list: Op[] = Array.isArray(x) ? x : [];
@@ -127,6 +129,19 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
         </div>
       )}
       {msg && <p className="px-3 pb-3 text-xs whitespace-pre-line text-zinc-600 dark:text-zinc-300">{msg}</p>}
+      {Object.keys(report).length > 0 && (
+        <details className="px-3 pb-3 text-xs">
+          <summary className="cursor-pointer font-bold text-amber-700 dark:text-amber-300 py-1">직접 확인할 것 {Object.values(report).reduce((a, v) => a + v.length, 0)}개 (자동으로 못 고친 것)</summary>
+          <div className="space-y-2 mt-1">
+            {Object.entries(report).map(([k, v]) => (
+              <div key={k}>
+                <p className="font-bold text-zinc-600 dark:text-zinc-300">{k} · {v.length}</p>
+                <ul className="text-zinc-500 break-keep">{v.slice(0, 60).map((x, i) => <li key={i}>· {x}</li>)}{v.length > 60 && <li>…외 {v.length - 60}개</li>}</ul>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
