@@ -3,7 +3,7 @@ import { CheckSquare, Loader2, Square, Wand2 } from 'lucide-react';
 import type { AppData, BroadcastLog } from '../../../types';
 import { youtubeIdOf } from '../../../utils/cafeImport';
 import { db } from '../../../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { confirmSheet } from '../../../utils/ui';
 import { loadFreshLogs } from '../../../hooks/useFirebaseData';
 
@@ -25,12 +25,13 @@ const isLinked = (x: any) => Boolean(x?.isCompilation || x?.compilationId || x?.
 const opKey = (o: Op, i: number) => `${o.t}:${i}`;
 const postTitle = (why: string) => (why.match(/\[(.+)\]/)?.[1] || why).slice(0, 40);
 
-function isDone(o: Op, logs: Record<string, any>): boolean {
+function isDone(o: Op, logs: Record<string, any>, comps?: Set<string>): boolean {
   const L = (id: string) => logs[id] || {};
   if (o.t === 'setVod') return (L(o.log).vods || []).some((v: any) => yid(v) === o.to) && !(L(o.log).vods || []).some((v: any) => yid(v) === o.from);
   if (o.t === 'shorts') return o.add.every((id) => (L(id).shorts || []).some((x: any) => yid(x) === o.id)) && o.remove.every((id) => !(L(id).shorts || []).some((x: any) => yid(x) === o.id));
   if (o.t === 'removeEdited') return !(L(o.log).edited || []).some((x: any) => yid(x) === o.id && !isLinked(x));
-  return o.logs.every((id) => (L(id).edited || []).some((e: any) => yid(e) === o.id && e.multiId));
+  // 여러 날 생방: 각 기록의 연결 + 몰아보기 문서(compilations)까지 있어야 끝 (빈 제목 칸이 남아 있어도 아직)
+  return (!comps || comps.has(`multi_${o.id}`)) && o.logs.every((id) => (L(id).edited || []).some((e: any) => yid(e) === o.id && e.multiId) && !(L(id).edited || []).some((e: any) => !e?.url && e?.title === o.placeholderTitle));
 }
 
 function describe(o: Op, logs: Record<string, any>): string {
@@ -46,14 +47,22 @@ function describe(o: Op, logs: Record<string, any>): string {
 
 export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog?: (log: BroadcastLog) => Promise<void> }) {
   const [ops, setOps] = useState<Op[] | null>(null);
+  const [comps, setComps] = useState<Set<string>>(new Set());
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<{ done: number; total: number } | null>(null);
   const [msg, setMsg] = useState('');
   useEffect(() => {
-    fetch('/data/cafe_fix.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : [])).then((x) => setOps(Array.isArray(x) ? x : [])).catch(() => setOps([]));
+    fetch('/data/cafe_fix.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : [])).then(async (x) => {
+      const list: Op[] = Array.isArray(x) ? x : [];
+      // 여러 날 생방 연결의 몰아보기 문서가 있는지 (연결만 있고 문서가 없으면 다시 만들어야 함)
+      const have = new Set<string>();
+      for (const o of list) if (o.t === 'multi') { try { if ((await getDoc(doc(db, 'compilations', `multi_${o.id}`))).exists()) have.add(`multi_${o.id}`); } catch { have.add(`multi_${o.id}`); } }
+      setComps(have);
+      setOps(list);
+    }).catch(() => setOps([]));
   }, []);
   const logs = data.logs as Record<string, any>;
-  const rows = useMemo(() => (ops || []).map((o, i) => ({ o, key: opKey(o, i), done: isDone(o, logs), text: describe(o, logs) })), [ops, logs]);
+  const rows = useMemo(() => (ops || []).map((o, i) => ({ o, key: opKey(o, i), done: isDone(o, logs, comps), text: describe(o, logs) })), [ops, logs, comps]);
   const todo = rows.filter((r) => !r.done);
   useEffect(() => { setPicked(new Set(todo.map((r) => r.key))); }, [ops]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!ops || !ops.length) return null;
@@ -70,7 +79,7 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
     try {
       work = await loadFreshLogs([...ids].map((id) => String(logs[id]?.date || '').slice(0, 7)));
     } catch (e: any) { setBusy(null); setMsg(`최신 기록을 못 읽어서 멈췄어요: ${String(e?.message || e).slice(0, 80)}`); return; }
-    const sel = sel0.filter(({ o }) => !isDone(o, work));
+    const sel = sel0.filter(({ o }) => !isDone(o, work, comps));
     const cur = (id: string) => { const l = work[id]; if (!l) throw new Error(`기록을 못 찾았어요 (${id})`); return l; };
     const save = async (l: any) => { await onUpdateLog(l); work[l.id] = l; };
     const fails: string[] = [];
@@ -100,12 +109,13 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
             id: compId, kind: 'multi', title: o.title, url, createdAt, gameSortOrder: 'custom', source: 'cafe',
             broadcasts: ls.map((l: any) => ({ logId: l.id, date: l.date, games: [] })),
           }, { merge: true });
+          setComps((p) => new Set([...p, compId]));
           for (const l0 of ls) {
             const l = cur(l0.id);
             // 제목만 있고 주소가 빈 칸(예: '공룡 이름 맞추기')이 있으면 그 칸을 채움
             const prev = (l.edited || []).find((e: any) => yid(e) === o.id && !e.isCompilation) || (l.edited || []).find((e: any) => !e?.url && e?.title === o.placeholderTitle);
             const link = { ...(prev || {}), title: prev?.title || o.title, url, multiId: compId, allBroadcastDates: dates, games: prev?.games || [], createdAt, cafe: 1 };
-            await save({ ...l, edited: [link, ...(l.edited || []).filter((e: any) => e !== prev && yid(e) !== o.id)] });
+            await save({ ...l, edited: [link, ...(l.edited || []).filter((e: any) => e !== prev && yid(e) !== o.id && !(!e?.url && e?.title === o.placeholderTitle))] });
           }
         }
         ok++;
