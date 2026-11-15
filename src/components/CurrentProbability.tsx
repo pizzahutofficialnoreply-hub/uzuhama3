@@ -514,8 +514,9 @@ export function CurrentProbability({
           if (activeIllness && patternMessage.includes(activeIllness)) {
             const parts = patternMessage.split(activeIllness);
             return (
-              <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1.5 rounded-lg border border-purple-100 dark:border-purple-800/30 mt-1 mb-2 text-center leading-relaxed">
-                {parts[0]}
+              <p className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep">
+                <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-purple-400/80 shrink-0" />
+                <span>{parts[0]}
                 <button
                   type="button"
                   onClick={() => setShowIllnessModal(true)}
@@ -524,14 +525,15 @@ export function CurrentProbability({
                 >
                   {activeIllness}
                 </button>
-                {parts.slice(1).join(activeIllness)}
+                {parts.slice(1).join(activeIllness)}</span>
               </p>
             );
           }
 
           return (
-            <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-3 py-1.5 rounded-lg border border-purple-100 dark:border-purple-800/30 mt-1 mb-2 text-center leading-relaxed">
-              {patternMessage}
+            <p className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep">
+              <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-purple-400/80 shrink-0" />
+              <span>{patternMessage}</span>
             </p>
           );
         })()}
