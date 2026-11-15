@@ -348,9 +348,9 @@ export function parseCafeBlocks(text: string): CafeBlock[] {
     if (line.startsWith('=====')) {
       close(); post = line.replace(/^=+\s*/, '').trim();
       // 2024.07~ '(❗2024.11.26❗) 영상 생방링크 [제목]' 글: 글 하나가 묶음 하나 (영상 링크 → 생방 링크 순서, 날짜는 유튜브 생방 시작일로)
-      if (/영상\s*생방\s*링크/.test(post)) {
+      if (/(영상|쇼츠|숏츠)\s*생방\s*링크/.test(post)) {
         const td = post.match(/(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})/);
-        cur = { post, headerRaw: td ? `영상 글 날짜 ${td[1]}.${td[2]}.${td[3]}` : '', headerDates: [], lives: [], videos: [], shorts: [], its: true } as CafeBlock;
+        cur = { post, headerRaw: td ? `글 날짜 ${td[1]}.${td[2]}.${td[3]}` : '', headerDates: [], lives: [], videos: [], shorts: [], its: /쇼츠|숏츠/.test(post) ? 'shorts' : 'video' } as CafeBlock;
         itsTitle = (post.match(/\[([^\]]+)\]\s*$/) || [])[1] || '';
         year = td ? Number(td[1]) : null;
       }
@@ -383,7 +383,8 @@ export function parseCafeBlocks(text: string): CafeBlock[] {
         seen.add(id);
         const its = (b as any).its;
         // 영상 생방링크 글: 따로 표시가 없으면 첫 링크가 영상, 그다음부터 생방
-        const k = /\/shorts\//.test(url) ? 'shorts' : section || (/\/live\//.test(url) ? 'live' : its && (b.videos.length || b.shorts.length) ? 'live' : 'video');
+        // 쇼츠 생방링크 글은 첫 링크가 쇼츠 (주소가 youtu.be 여도)
+        const k = /\/shorts\//.test(url) ? 'shorts' : section === 'live' || section === 'shorts' ? section : (/\/live\//.test(url) ? 'live' : its && (b.videos.length || b.shorts.length) ? 'live' : its === 'shorts' ? 'shorts' : section || 'video');
         const clean = `https://youtu.be/${id}`;
         if (k === 'live') { const l = { id, url: clean }; b.lives.push(l); last = l; lastKind = 'live'; }
         else if (k === 'shorts') { const l: CafeLink = { id, url: clean, ...((b as any).its && !b.shorts.length && !b.videos.length && itsTitle ? { title: itsTitle } : {}) }; b.shorts.push(l); last = l; lastKind = 'shorts'; }

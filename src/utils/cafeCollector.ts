@@ -55,7 +55,7 @@ export function cafeCollector() {
   const clubName = (location.pathname.match(/^\/([A-Za-z][\w-]*)/) || [])[1] || 'uzuhama';
 
   // 글 하나 읽기 (네이버 카페가 쓰는 글 API, 이 브라우저 로그인으로)
-  async function readArticle(club: string, aid: string, art?: string): Promise<{ title: string; html: string } | null> {
+  async function readArticle(club: string, aid: string, art?: string): Promise<{ title: string; html: string; writer: string } | null> {
     const ids = [...new Set([club, clubId].filter(Boolean))];
     const tries: string[] = [];
     ids.forEach((c) => {
@@ -74,7 +74,8 @@ export function cafeCollector() {
         if (!html) continue;
         const cid = String(j?.result?.cafe?.id || a?.cafeId || '');
         if (cid && !clubId) clubId = cid;
-        return { title: String(a?.subject || ''), html };
+        const w = a?.writer || j?.result?.article?.writer || {};
+        return { title: String(a?.subject || ''), html, writer: String(w.nick || w.nickname || w.memberNickname || a?.writerNickname || '') };
       } catch { /* 다음 */ }
     }
     return null;
@@ -139,9 +140,11 @@ export function cafeCollector() {
       if (/^(다음|다음 ?페이지|›|>)$/.test(t) && /page/i.test(href)) { pages.push({ n: 1e9, href, next: true }); return; }
       const p = parseCafe(href);
       if (!p || !t || t.length < 2 || /^\d+$/.test(t)) return;
-      let row: Element | null = a;
-      for (let i = 0; i < 6 && row && !/^(TR|LI)$/.test(row.tagName) && !(row as HTMLElement).className?.toString().match(/item|article|board|list/); i++) row = row.parentElement;
-      rows.push({ ...p, title: t, row: (row?.textContent || t).replace(/\s+/g, ' ').slice(0, 300) });
+      // 그 글이 있는 줄 전체 (표의 줄·목록 항목까지 올라감: 작성자 이름이 같은 줄에 있음)
+      let row: Element | null = a.parentElement;
+      for (let i = 0; i < 8 && row && !/^(TR|LI)$/.test(row.tagName) && row.getAttribute('role') !== 'row'; i++) row = row.parentElement;
+      const rowText = (row && (row.textContent || '').length < 600 ? row.textContent : a.parentElement?.parentElement?.textContent) || t;
+      rows.push({ ...p, title: t, row: rowText.replace(/\s+/g, ' ').slice(0, 300) });
     }));
     return { rows, pages };
   }
@@ -169,14 +172,19 @@ export function cafeCollector() {
     while (d && !stop) {
       pageNo++;
       const { rows, pages } = scan(d);
-      const list = rows.filter((r, i) => rows.findIndex((x) => x.aid === r.aid) === i).filter((r) => !who || r.row.includes(who));
-      log(`— ${pageNo}번째 화면: ${who ? `'${who}' ` : ''}글 ${list.length}개`);
+      const uniq = rows.filter((r, i) => rows.findIndex((x) => x.aid === r.aid) === i);
+      let list = uniq.filter((r) => !who || r.row.includes(who));
+      // 줄 글자에서 작성자를 못 찾으면: 글을 읽어서 작성자 이름으로 거름
+      const byWriter = !!who && !list.length && uniq.length > 0;
+      if (byWriter) list = uniq;
+      log(`— ${pageNo}번째 화면: 글 링크 ${uniq.length}개${who ? (byWriter ? ` (작성자는 글을 열어 확인)` : ` · '${who}' ${list.length}개`) : ''}`);
       for (const r of list) {
         if (stop) break;
         if (acc[r.aid]) { skip++; continue; }
         st(`${pageNo}번째 화면 읽는 중… 새로 읽음 ${ok}개 · 지금까지 모은 글 ${Object.keys(acc).length}개`);
         const a = await readArticle(r.club, r.aid, r.art);
         if (!a) { fail++; log(`✗ ${r.title}`); continue; }
+        if (byWriter && a.writer && !a.writer.includes(who)) { log(`· 건너뜀 (${a.writer}) ${a.title || r.title}`); continue; }
         ok++;
         log(`✓ ${a.title || r.title}`);
         acc[r.aid] = `===== ${a.title || r.title}\n${toText(a.html).text}`;
