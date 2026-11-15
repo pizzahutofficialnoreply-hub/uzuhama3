@@ -23,7 +23,7 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
   const [msg, setMsg] = useState('');
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [report, setReport] = useState<Record<string, string[]>>({});
-  useEffect(() => { fetch('/data/cafe_report.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : {})).then((x) => setReport(x && typeof x === 'object' ? x : {})).catch(() => {}); }, []);
+  useEffect(() => { fetch('/data/cafe_report.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : {})).then((x) => setReport(x && typeof x === 'object' ? (x as Record<string, string[]>) : {})).catch(() => {}); }, []);
   useEffect(() => {
     fetch('/data/cafe_fix.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : [])).then(async (x) => {
       const list: Op[] = Array.isArray(x) ? x : [];
