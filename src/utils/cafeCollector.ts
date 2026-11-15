@@ -131,7 +131,17 @@ export function cafeCollector() {
     const docs: Document[] = [d0];
     d0.querySelectorAll('iframe').forEach((f) => { try { if (f.contentDocument) docs.push(f.contentDocument); } catch { /* 다른 사이트 */ } });
     const rows: { club: string; aid: string; art?: string; title: string; row: string }[] = [];
-    const pages: { n: number; href: string; next: boolean }[] = [];
+    const pages: { n: number; href: string; next: boolean; el?: HTMLElement; cur?: boolean }[] = [];
+    // 새 카페: 페이지 번호가 주소 없는 버튼이라서, 페이지 묶음 안의 버튼도 찾음
+    docs.forEach((d) => d.querySelectorAll('button, a:not([href]), a[href^="javascript"], a[href="#"]').forEach((b) => {
+      let box: Element | null = b; let inPager = false;
+      for (let i = 0; i < 4 && box; i++, box = box.parentElement) if (/pag/i.test(String((box as HTMLElement).className || '')) || box.getAttribute('aria-label') === 'pagination') { inPager = true; break; }
+      if (!inPager) return;
+      const t = (b.textContent || b.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+      const key = `btn:${t}`;
+      if (/^\d{1,3}$/.test(t)) pages.push({ n: Number(t), href: key, next: false, el: b as HTMLElement, cur: b.getAttribute('aria-current') === 'page' || b.getAttribute('aria-selected') === 'true' || /(^|[\s_-])(on|active|selected|current)($|[\s_-])/i.test(String((b as HTMLElement).className || '')) });
+      else if (/다음|next|›|>/i.test(t) || /next/i.test(String((b as HTMLElement).className || ''))) pages.push({ n: 1e9, href: `btn:next:${Number(new Date())}`, next: true, el: b as HTMLElement });
+    }));
     docs.forEach((d) => d.querySelectorAll('a[href]').forEach((a) => {
       const href = (a as HTMLAnchorElement).href;
       const t = (a.textContent || '').replace(/\s+/g, ' ').trim();
@@ -172,6 +182,8 @@ export function cafeCollector() {
     while (d && !stop) {
       pageNo++;
       const { rows, pages } = scan(d);
+      // 지금 보고 있는 페이지 번호는 건너뜀
+      pages.forEach((x) => { if (x.cur) { lastNum = Math.max(lastNum, x.n); seenPages.add(x.href); } });
       const uniq = rows.filter((r, i) => rows.findIndex((x) => x.aid === r.aid) === i);
       let list = uniq.filter((r) => !who || r.row.includes(who));
       // 줄 글자에서 작성자를 못 찾으면: 글을 읽어서 작성자 이름으로 거름
@@ -199,6 +211,22 @@ export function cafeCollector() {
       if (!nxt.next) lastNum = nxt.n;
       seenPages.add(nxt.href);
       st(`${nxt.next ? '다음 묶음' : `${nxt.n}페이지`} 여는 중…`);
+      if (nxt.el) {
+        // 주소 없는 페이지 버튼: 화면에서 직접 눌러 넘기고, 목록이 바뀔 때까지 기다림
+        const before = uniq.map((r) => r.aid).join(',');
+        nxt.el.click();
+        let changed = false;
+        for (let i = 0; i < 20 && !changed; i++) {
+          await sleep(500);
+          const now = scan(document).rows.map((r) => r.aid);
+          changed = now.length > 0 && now.filter((x, j) => now.indexOf(x) === j).join(',') !== before;
+        }
+        await sleep(800);
+        d = changed ? document : null;
+        if (!changed) log('다음 페이지로 안 넘어가요 (직접 넘겨서 다시 눌러 주세요)');
+        if (changed && !nxt.next) seenPages.add(`btn:${nxt.n}`);
+        continue;
+      }
       d = await loadHidden(nxt.href);
       if (!d) log('다음 페이지를 열지 못했어요 (직접 넘겨서 다시 눌러 주세요)');
     }
