@@ -98,7 +98,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
     unsure.forEach((u) => { if (u.video) ids.add(u.video.id); });
     const list = [...ids];
     const base = (import.meta.env.VITE_VERCEL_API_URL || (window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')).replace(/\/+$/, '');
-    const live = new Map(apiLive); const pub = new Map(apiPub);
+    const live = new Map(apiLive); const pub = new Map(apiPub); const liveHour = new Map<string, number>();
     const kst = (iso: string) => new Date(Date.parse(iso) + 9 * 3600000).toISOString().slice(0, 10);
     let err = '';
     setVerify({ done: 0, total: list.length }); setVerifyNote('');
@@ -107,18 +107,20 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
         const r = await fetch(`${base}/api/videos/meta?live=1&ids=${list.slice(i, i + 50).join(',')}`);
         const j = await r.json();
         Object.entries(j.videos || {}).forEach(([id, v]: any) => {
-          if (v?.liveAt) live.set(id, kst(v.liveAt));
+          if (v?.liveAt) { live.set(id, kst(v.liveAt)); liveHour.set(id, new Date(Date.parse(v.liveAt) + 9 * 3600000).getUTCHours()); }
           if (v?.publishedAt) pub.set(id, kst(v.publishedAt));
         });
         if (j.error) err = j.error;
       } catch (e: any) { err = String(e?.message || e); }
       setVerify({ done: Math.min(list.length, i + 50), total: list.length });
     }
-    // 카페 날짜와 다른 생방 수
+    // 카페 날짜와 다른 생방 수 (새벽 0~6시에 켠 방송을 카페가 전날로 적은 건 같은 방송으로 봄)
     let diff = 0; let liveN = 0;
+    const prevDay = (d: string) => new Date(Date.parse(d) - 86400000).toISOString().slice(0, 10);
     blocks.forEach((b) => b.lives.forEach((l, i) => {
       const a = live.get(l.id); if (!a) return; liveN++;
       const cafe = l.date || (b.headerDates.length === b.lives.length ? b.headerDates[i] : b.headerDates.length === 1 ? b.headerDates[0] : '');
+      if (cafe && cafe !== a && (liveHour.get(l.id) ?? 12) < 6 && cafe === prevDay(a)) { live.set(l.id, cafe); return; }
       if (cafe && cafe !== a) diff++;
     }));
     setApiLive(live); setApiPub(pub); setVerify(null);
