@@ -69,6 +69,7 @@ const PolicyPage = lazy(() => import('./components/PolicyPage').then((m) => ({ d
 const LicensePage = lazy(() => import('./components/LicensePage').then((m) => ({ default: m.LicensePage })));
 import { useAuth } from './hooks/useAuth';
 import { hideOldCafe } from './utils/cafeFilter';
+import { mergeErrorStops } from './utils/streamErrors';
 import { usePrefs } from './utils/userPrefs';
 import { RELOAD_LINK, reloadToNewVersion, useNewBuildAvailable } from './utils/appVersion';
 import { MaintenancePager } from './components/MaintenancePager';
@@ -94,7 +95,8 @@ function MainApp() {
   const { data: rawData, loading, loadingProgress, loadingStatusText, isFirstRun, fetchLogsByDateRange, fetchLatestLogs, rateVideo } = useFirebaseData();
   // 실험실 '과거 영상 생방 연동'이 꺼져 있으면 2020년 전 카페 정리 링크는 숨김 (관리자 화면은 따로라 영향 없음)
   const labCafeOld = usePrefs().labCafeOld;
-  const data = useMemo(() => (rawData && !labCafeOld ? hideOldCafe(rawData) : rawData), [rawData, labCafeOld]);
+  // 방송 오류로 짧게 꺼졌다 다시 켠 방송은 하나로 합쳐 보여 줌
+  const data = useMemo(() => (rawData ? mergeErrorStops(!labCafeOld ? hideOldCafe(rawData) : rawData) : rawData), [rawData, labCafeOld]);
   const { isInstallable, promptInstall } = useInstallPrompt();
   const { user, loginWithGoogle, logout } = useAuth();
   const logsList = useMemo(() => Object.values(data?.logs || {}), [data?.logs]);

@@ -211,6 +211,12 @@ function AiVideoPanel() {
             영상 목록 {st.total ?? 0}개{st.kinds ? ` (영상 ${st.kinds.video || 0} · 생방송 ${st.kinds.live || 0} · 쇼츠 ${st.kinds.short || 0}${st.kinds.comp ? ` · 몰아보기 ${st.kinds.comp}개는 분석 안 함` : ''})` : ''}
             {st.channelCount ? ` · 유튜브 채널 표시 ${st.channelCount}개` : ''}{st.paused ? ' · 멈춤' : ''}
           </p>
+          <p>연동 점검: 분석 끝난 영상 {st.linkChecked || 0}개를 연결된 생방송·영상·쇼츠와 비교{(st.linkBad || []).length ? ` · 내용이 안 맞아 보이는 연결 ${st.linkBad.length}개` : ''}</p>
+          {(st.linkBad || []).length > 0 && (
+            <ul className="space-y-0.5 text-amber-700 dark:text-amber-300">
+              {st.linkBad.map((x: any) => <li key={`${x.a}|${x.b}`} className="break-keep">· 「{x.ta}」 ↔ 「{x.tb}」 {x.reason ? `— ${x.reason}` : ''}</li>)}
+            </ul>
+          )}
           {st.lastRunAt && <p>마지막 실행 {new Date(st.lastRunAt).toLocaleString('ko-KR')} · 마지막 모델 {st.model || '-'}</p>}
           <ul className="space-y-0.5">
             {(st.models || []).map((m: string) => {

@@ -621,6 +621,8 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
     const fin = { ...cur, games, summary, chapters: story?.chapters || [], gameStories: story?.gameStories || [], nogari: story?.nogari || '', opanmu: story?.opanmu || '' };
     await ref.set({ summary, chapters: fin.chapters, gameStories: fin.gameStories, nogari: fin.nogari, opanmu: fin.opanmu, sv: story ? SV : 0, storyTries: story ? 0 : Number(cur?.storyTries || 0) + 1, kw: buildKw(fin), status: 'done', doneAt: new Date().toISOString() }, { merge: true });
     if ((st.priority || []).includes(item.id)) await stRef.set({ priority: (st.priority || []).filter((x: string) => x !== item!.id) }, { merge: true });
+    // 연동 점검: 이 영상과 연결된 생방송·영상·쇼츠 중 AI 분석이 끝난 것과 내용이 맞는지 (글로만 비교, 한도에 걸리면 다음에)
+    try { await checkLinks(db, item.id, { ...fin, title: item.title }); } catch (e: any) { if (isRate(String(e?.message || e))) { /* 다음 분석 때 */ } }
     await release({ calls: calls + 1, doneCount: Number(st.doneCount || 0) + 1 });
     return { id: item.id, title: item.title, finished: true };
   } catch (e: any) {
@@ -628,6 +630,62 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
     await release({ lastError: msg });
     return { error: msg };
   }
+}
+
+
+/**
+ * 연동 점검 (AI 분석이 끝난 영상끼리 글로 비교)
+ * - 편집 영상 ↔ 연결된 생방송: 영상 내용이 그 생방송의 어느 부분인지
+ * - 쇼츠 ↔ 같은 기록의 영상·생방송: 쇼츠 장면이 어디서 나왔는지
+ * 결과는 ai_video/{id}.linkCheck, 안 맞아 보이는 것은 youtube_cache/link_check 목록에 (관리자가 확인)
+ */
+const aiBrief = (d: any) => {
+  const ch = (d?.chapters || []).map((c: any) => `[${fmt(Number(c.from) || 0)}~${fmt(Number(c.to) || 0)}] ${c.title}: ${c.summary}${c.game ? ` (${c.game})` : ''}`).join('\n');
+  const parts = ch || (d?.parts || []).map((p: any) => `[${fmt(Number(p.from) || 0)}~${fmt(Number(p.to) || 0)}] ${p.summary}`).join('\n');
+  const games = (d?.games || []).map((g: any) => g?.ko || g?.name).filter(Boolean).join(', ');
+  return `제목: ${d?.title || ''}\n게임: ${games || '-'}\n요약: ${d?.summary || ''}\n${parts}`.slice(0, 9000);
+};
+async function checkLinks(db: any, id: string, me: any) {
+  const { loadSiteLogs } = await import('./_siteLogs.js');
+  const logs = (await loadSiteLogs(db)).logs as any[];
+  const has = (l: any, k: string) => (l?.[k] || []).some((x: any) => ytIdOf(x?.url) === id);
+  const pairs: { other: string; rel: string }[] = [];
+  for (const l of logs) {
+    if (has(l, 'edited')) (l.vods || []).forEach((v: any) => { const o = ytIdOf(v?.url); if (o) pairs.push({ other: o, rel: '영상→생방송' }); });
+    if (has(l, 'vods')) (l.edited || []).forEach((v: any) => { if (v?.isCompilation || v?.compilationId) return; const o = ytIdOf(v?.url); if (o) pairs.push({ other: o, rel: '생방송→영상' }); });
+    if (has(l, 'shorts')) [...(l.edited || []), ...(l.vods || [])].forEach((v: any) => { if (v?.isCompilation || v?.compilationId) return; const o = ytIdOf(v?.url); if (o) pairs.push({ other: o, rel: '쇼츠→영상·생방송' }); });
+  }
+  const uniq = [...new Map(pairs.filter((p) => p.other !== id).map((p) => [p.other, p])).values()].slice(0, 6);
+  if (!uniq.length) return;
+  const snaps = await db.getAll(...uniq.map((p) => db.collection('ai_video').doc(p.other)));
+  const results: any[] = [];
+  const bad: string[] = [];
+  for (let i = 0; i < uniq.length; i++) {
+    const o = snaps[i].exists ? snaps[i].data() : null;
+    if (!o || o.status !== 'done') continue;
+    const [a, b] = uniq[i].rel === '생방송→영상' ? [o, me] : [me, o];
+    const prompt = `스트리머 우주하마 채널의 두 영상을 AI가 보고 정리한 기록이야. A가 B에서 나온 것(편집본·쇼츠가 그 생방송/영상의 일부)이 맞는지 판단해 줘.
+A (${uniq[i].rel.split('→')[0]}):
+${aiBrief(a)}
+
+B (${uniq[i].rel.split('→')[1]}):
+${aiBrief(b)}
+
+규칙: 게임·사건·대사가 겹치면 맞음. 같은 게임이어도 다른 날 플레이처럼 내용이 다르면 아님. 모르면 unsure.
+JSON 으로만: {"verdict":"match|mismatch|unsure","bFrom":B에서 A 내용이 나오는 시작 초(모르면 null),"bTo":끝 초(모르면 null),"reason":"한 줄"}`;
+    const { text } = await gen([{ text: prompt }], true, 30000, TEXT_MODELS);
+    const r = parseJson(text);
+    const verdict = ['match', 'mismatch', 'unsure'].includes(r?.verdict) ? r.verdict : 'unsure';
+    results.push({ other: uniq[i].other, rel: uniq[i].rel, verdict, from: Number.isFinite(r?.bFrom) ? r.bFrom : null, to: Number.isFinite(r?.bTo) ? r.bTo : null, reason: String(r?.reason || '').slice(0, 200) });
+    if (verdict === 'mismatch') bad.push(`${id}|${uniq[i].other}`);
+  }
+  if (!results.length) return;
+  const { FieldValue } = await import('firebase-admin/firestore');
+  await db.collection('ai_video').doc(id).set({ linkCheck: { at: new Date().toISOString(), results } }, { merge: true });
+  await db.collection('youtube_cache').doc('link_check').set({
+    bad: bad.length ? FieldValue.arrayUnion(...bad) : FieldValue.arrayUnion(),
+    checked: FieldValue.arrayUnion(id), updatedAt: new Date().toISOString(),
+  }, { merge: true });
 }
 
 /** 진행 상황 (관리자) */
@@ -642,7 +700,18 @@ export async function aiVideoStatus(db: any) {
   } catch { /* count 미지원 */ }
   const kinds: Record<string, number> = {};
   (q?.items || []).forEach((x: QItem) => { const k = x.comp ? 'comp' : x.kind || 'video'; kinds[k] = (kinds[k] || 0) + 1; });
-  return { ...st, lockUntil: undefined, total: (q?.items || []).filter((x: QItem) => !x.comp).length || q?.count || 0, channelCount: q?.channelCount || 0, fetchedAt: q?.fetchedAt, kinds, done, partial, dailySec: DAILY_SEC, models: MODELS };
+  let linkBad: { a: string; b: string; ta: string; tb: string; reason: string }[] = [];
+  let linkChecked = 0;
+  try {
+    const lc = (await db.collection('youtube_cache').doc('link_check').get()).data();
+    linkChecked = (lc?.checked || []).length;
+    const pairs = (lc?.bad || []).slice(-30).map((x: string) => x.split('|'));
+    const ids = [...new Set(pairs.flat())] as string[];
+    const docs = ids.length ? await db.getAll(...ids.map((i) => db.collection('ai_video').doc(i))) : [];
+    const by = new Map(docs.map((d: any) => [d.id, d.exists ? d.data() : null]));
+    linkBad = pairs.map(([a, b]: string[]) => { const da: any = by.get(a); const r = (da?.linkCheck?.results || []).find((x: any) => x.other === b); return { a, b, ta: da?.title || a, tb: (by.get(b) as any)?.title || b, reason: r?.reason || '' }; });
+  } catch { /* */ }
+  return { ...st, linkBad, linkChecked, lockUntil: undefined, total: (q?.items || []).filter((x: QItem) => !x.comp).length || q?.count || 0, channelCount: q?.channelCount || 0, fetchedAt: q?.fetchedAt, kinds, done, partial, dailySec: DAILY_SEC, models: MODELS };
 }
 
 /** '애매'한 장면 (확실하지 않다고 표시했거나 말투가 추측) */
