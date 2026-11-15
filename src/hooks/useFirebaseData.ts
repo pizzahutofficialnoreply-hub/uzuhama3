@@ -163,10 +163,12 @@ const normalizeGameLinks = (log: any) =>
  * (화면에 들고 있던 기록이 오래됐으면 — 다른 기기·창에서 고친 것, 오래 열어 둔 화면 — 그걸로 덮어써서
  *  몰아보기·여러 날 생방 연결·쇼츠가 사라지는 일이 있어서. 달마다 읽기 1번)
  */
-export async function loadFreshLogs(months: string[]): Promise<Record<string, BroadcastLog>> {
+export async function loadFreshLogs(months: string[], ids: string[] = []): Promise<Record<string, BroadcastLog>> {
   const historical = await loadHistoricalLogs();
   if (!Object.keys(historical).length) throw new Error('과거 기록(JSON)을 못 불러왔어요');
-  const ms = [...new Set(months.filter((m) => /^\d{4}-\d\d$/.test(m)))];
+  // 날짜를 옮긴 아카이브 기록은 원래 날짜의 달 문서에 저장돼 있어서 그 달도 읽음
+  const idSet = new Set(ids);
+  const ms = [...new Set([...months, ...ids.map((id) => String((historical as any)[id]?.date || '').slice(0, 7))].filter((m) => /^\d{4}-\d\d$/.test(m)))];
   const docs: any[] = [];
   for (const m of ms) {
     const snap = await getDoc(doc(db, 'logs_by_month', m));
@@ -175,7 +177,7 @@ export async function loadFreshLogs(months: string[]): Promise<Record<string, Br
   noteReads('logs_by_month(관리자 새로 읽기)', Math.max(1, ms.length));
   const merged = overlayMonthDocs(historical, docs) as Record<string, BroadcastLog>;
   const out: Record<string, BroadcastLog> = {};
-  Object.entries(merged).forEach(([id, l]) => { if (l?.date && ms.includes(String(l.date).slice(0, 7))) out[id] = JSON.parse(JSON.stringify(l)); });
+  Object.entries(merged).forEach(([id, l]) => { if (idSet.has(id) || (l?.date && ms.includes(String(l.date).slice(0, 7)))) out[id] = JSON.parse(JSON.stringify(l)); });
   return out;
 }
 
