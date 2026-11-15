@@ -93,7 +93,9 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
   const verifyWithApi = async () => {
     if (!blocks) return;
     const ids = new Set<string>();
-    blocks.forEach((b) => { b.lives.forEach((l) => ids.add(l.id)); b.videos.forEach((v) => ids.add(v.id)); });
+    // 생방 링크 + 날짜 모르는 영상만 (하루 새 조회 한도 3천 개 안쪽으로)
+    blocks.forEach((b) => b.lives.forEach((l) => ids.add(l.id)));
+    unsure.forEach((u) => { if (u.video) ids.add(u.video.id); });
     const list = [...ids];
     const base = (import.meta.env.VITE_VERCEL_API_URL || (window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')).replace(/\/+$/, '');
     const live = new Map(apiLive); const pub = new Map(apiPub);
