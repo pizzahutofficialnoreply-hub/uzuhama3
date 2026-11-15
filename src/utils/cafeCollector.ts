@@ -112,8 +112,64 @@ export function cafeCollector() {
     } catch { return u; }
   }
 
+  // ── 글 목록·검색 결과 화면에서 누르면: 이 화면에 보이는 글들을 읽어 이 브라우저에 쌓아 둠 (다음 페이지로 가서 또 누르면 이어서 쌓임)
+  const ACC = 'uzuCafeAcc';
+  const loadAcc = (): Record<string, string> => { try { return JSON.parse(localStorage.getItem(ACC) || '{}'); } catch { return {}; } };
+  const saveAcc = (o: Record<string, string>) => { try { localStorage.setItem(ACC, JSON.stringify(o)); } catch { /* 너무 큼 */ } };
+  function showCopy(all: string, extra = '') {
+    const o = $('uzu-out');
+    o.innerHTML = '<textarea id="uzu-ta" readonly style="width:100%;height:140px;margin-top:8px;background:#27272a;color:#fafafa;border:0;border-radius:10px;padding:8px;font:11px monospace"></textarea><button id="uzu-cp" style="margin-top:8px;margin-right:6px;background:#9333ea;color:#fff;border:0;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer">전부 복사</button>' + extra;
+    ($('uzu-ta') as HTMLTextAreaElement).value = all;
+    ($('uzu-cp') as HTMLButtonElement).onclick = async () => {
+      try { await navigator.clipboard.writeText(all); } catch { ($('uzu-ta') as HTMLTextAreaElement).select(); document.execCommand('copy'); }
+      ($('uzu-cp') as HTMLButtonElement).textContent = '복사했어요 ✓';
+    };
+  }
+  async function listMode() {
+    // 화면(과 카페 본문 프레임)에 보이는 글 링크 + 그 줄의 글자(작성자 이름 거르기용)
+    const docs: Document[] = [document];
+    document.querySelectorAll('iframe').forEach((f) => { try { if (f.contentDocument) docs.push(f.contentDocument); } catch { /* 다른 사이트 */ } });
+    const rows = new Map<string, { club: string; aid: string; art?: string; title: string; row: string }>();
+    docs.forEach((d) => d.querySelectorAll('a[href]').forEach((a) => {
+      const href = (a as HTMLAnchorElement).href;
+      const p = parseCafe(href);
+      if (!p || rows.has(p.aid)) return;
+      const t = (a.textContent || '').trim();
+      if (!t || t.length < 2 || /^\d+$/.test(t)) return;
+      let row: Element | null = a;
+      for (let i = 0; i < 6 && row && !/^(TR|LI)$/.test(row.tagName) && !(row as HTMLElement).className?.toString().match(/item|article|board|list/); i++) row = row.parentElement;
+      rows.set(p.aid, { ...p, title: t, row: (row?.textContent || t).replace(/\s+/g, ' ').slice(0, 300) });
+    }));
+    const who = (window.prompt('작성자 이름으로 거를까요? (비우면 모든 글)', '이츠하마타임') || '').trim();
+    const list = [...rows.values()].filter((r) => !who || r.row.includes(who));
+    const acc = loadAcc();
+    if (!list.length) {
+      st(`이 화면에서 ${who ? `'${who}' 글을` : '글을'} 못 찾았어요 · 지금까지 모은 글 ${Object.keys(acc).length}개`);
+      showCopy(Object.values(acc).join('\n\n'), '<button id="uzu-clr" style="margin-top:8px;background:#3f3f46;color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer">모은 것 비우기</button>');
+      ($('uzu-clr') as HTMLButtonElement).onclick = () => { saveAcc({}); st('비웠어요'); };
+      return;
+    }
+    let ok = 0; let fail = 0; let skip = 0;
+    for (const r of list) {
+      if (stop) break;
+      if (acc[r.aid]) { skip++; continue; }
+      st(`이 화면 글 읽는 중… ${ok + fail + skip + 1}/${list.length}`);
+      const a = await readArticle(r.club, r.aid, r.art);
+      if (!a) { fail++; log(`✗ ${r.title}`); continue; }
+      ok++;
+      log(`✓ ${a.title || r.title}`);
+      acc[r.aid] = `===== ${a.title || r.title}\n${toText(a.html).text}`;
+      saveAcc(acc);
+      await sleep(350);
+    }
+    const all = Object.values(acc).join('\n\n');
+    st(`이 화면 ${ok}개 읽음${skip ? ` · 이미 모은 ${skip}개` : ''}${fail ? ` · 못 읽음 ${fail}개` : ''} · 지금까지 모은 글 ${Object.keys(acc).length}개 (다음 페이지로 가서 또 누르면 이어서 쌓여요)`);
+    showCopy(all, '<button id="uzu-clr" style="margin-top:8px;background:#3f3f46;color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer">모은 것 비우기</button>');
+    ($('uzu-clr') as HTMLButtonElement).onclick = () => { saveAcc({}); st('비웠어요'); };
+  }
+
   (async () => {
-    if (!here) { st('카페 글을 연 화면에서 눌러 주세요 (글 주소를 못 찾았어요)'); return; }
+    if (!here) { await listMode(); return; }
     const seen = new Set<string>();
     const out: string[] = [];
     let ok = 0;

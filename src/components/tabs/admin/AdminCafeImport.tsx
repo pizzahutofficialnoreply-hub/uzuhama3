@@ -37,6 +37,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
   const [apiLive, setApiLive] = useState<Map<string, string>>(new Map());
   // 영상 올린 날 (날짜 모르는 것 고를 때 참고)
   const [apiPub, setApiPub] = useState<Map<string, string>>(new Map());
+  const [apiTitle, setApiTitle] = useState<Map<string, string>>(new Map());
   const [verify, setVerify] = useState<{ done: number; total: number } | null>(null);
   const [verifyNote, setVerifyNote] = useState('');
   const [blocks, setBlocks] = useState<CafeBlock[] | null>(null);
@@ -93,12 +94,11 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
   const verifyWithApi = async () => {
     if (!blocks) return;
     const ids = new Set<string>();
-    // 생방 링크 + 날짜 모르는 영상만 (하루 새 조회 한도 3천 개 안쪽으로)
-    blocks.forEach((b) => b.lives.forEach((l) => ids.add(l.id)));
-    unsure.forEach((u) => { if (u.video) ids.add(u.video.id); });
+    // 생방(시작 시각) + 영상·쇼츠(실제 제목: 카페에 적힌 제목과 맞는지)
+    blocks.forEach((b) => { b.lives.forEach((l) => ids.add(l.id)); b.videos.forEach((v) => ids.add(v.id)); b.shorts.forEach((v) => ids.add(v.id)); });
     const list = [...ids];
     const base = (import.meta.env.VITE_VERCEL_API_URL || (window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')).replace(/\/+$/, '');
-    const live = new Map(apiLive); const pub = new Map(apiPub); const liveHour = new Map<string, number>();
+    const live = new Map(apiLive); const pub = new Map(apiPub); const liveHour = new Map<string, number>(); const ttl = new Map(apiTitle);
     const kst = (iso: string) => new Date(Date.parse(iso) + 9 * 3600000).toISOString().slice(0, 10);
     let err = '';
     setVerify({ done: 0, total: list.length }); setVerifyNote('');
@@ -109,6 +109,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
         Object.entries(j.videos || {}).forEach(([id, v]: any) => {
           if (v?.liveAt) { live.set(id, kst(v.liveAt)); liveHour.set(id, new Date(Date.parse(v.liveAt) + 9 * 3600000).getUTCHours()); }
           if (v?.publishedAt) pub.set(id, kst(v.publishedAt));
+          if (v?.title) ttl.set(id, v.title);
         });
         if (j.error) err = j.error;
       } catch (e: any) { err = String(e?.message || e); }
@@ -123,10 +124,25 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
       if (cafe && cafe !== a && (liveHour.get(l.id) ?? 12) < 6 && cafe === prevDay(a)) { live.set(l.id, cafe); return; }
       if (cafe && cafe !== a) diff++;
     }));
-    setApiLive(live); setApiPub(pub); setVerify(null);
+    setApiLive(live); setApiPub(pub); setApiTitle(ttl); setVerify(null);
     setVerifyNote(`유튜브로 확인한 생방 ${liveN}개 · 카페 글 날짜와 다른 생방 ${diff}개 → 유튜브 날짜로 맞췄어요.${err ? ` (일부 못 확인: ${err})` : ''}`);
     setPicked(new Set());
   };
+  // 영상 제목: 카페에 적힌 것 → 없으면 유튜브 실제 제목 → 채널 목록
+  const titleFor = (l?: CafeLink) => (l ? l.title || apiTitle.get(l.id) || titleOf.get(l.id) || '' : '');
+  // 카페에 적힌 제목과 유튜브 실제 제목이 많이 다른 링크 (링크를 잘못 붙였을 수 있음)
+  const titleMismatch = useMemo(() => {
+    if (!blocks || !apiTitle.size) return [] as { id: string; cafe: string; yt: string; post: string }[];
+    const norm = (t: string) => t.toLowerCase().replace(/\|\s*우주하마.*$/, '').replace(/#\S+/g, '').replace(/[^0-9a-z가-힣]/g, '');
+    const grams = (t: string) => { const g = new Map<string, number>(); for (let i = 0; i < t.length - 1; i++) g.set(t.slice(i, i + 2), (g.get(t.slice(i, i + 2)) || 0) + 1); return g; };
+    const dice = (a: string, b: string) => { if (!a || !b) return 1; if (a.includes(b) || b.includes(a)) return 1; const A = grams(a); const B = grams(b); let hit = 0; A.forEach((n, k) => { hit += Math.min(n, B.get(k) || 0); }); return (2 * hit) / Math.max(1, a.length - 1 + b.length - 1); };
+    const seen = new Set<string>(); const out: { id: string; cafe: string; yt: string; post: string }[] = [];
+    blocks.forEach((b) => [...b.videos, ...b.shorts].forEach((v) => {
+      const yt = apiTitle.get(v.id); if (!yt || !v.title || seen.has(v.id)) return; seen.add(v.id);
+      if (dice(norm(v.title), norm(yt)) < 0.3) out.push({ id: v.id, cafe: v.title, yt, post: b.post });
+    }));
+    return out;
+  }, [blocks, apiTitle]);
   // 여러 날 생방 영상(웃음참기처럼): 이미 그렇게 연결돼 있으면 빼고
   const multiPlans = useMemo(() => {
     const logs = Object.values(data.logs || {}) as any[];
@@ -252,7 +268,10 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
         if (!onUpdateLog) throw new Error('기록 수정 기능을 못 찾았어요');
         const all = Object.values(work) as any[];
         const hits = m.lives
-          .map((lv) => ({ lv, log: all.find((l) => (l.vods || []).some((v: any) => youtubeIdOf(typeof v === 'string' ? v : v?.url || '') === lv.id)) }))
+          .map((lv) => ({ lv, log: lv.id
+            ? all.find((l) => (l.vods || []).some((v: any) => youtubeIdOf(typeof v === 'string' ? v : v?.url || '') === lv.id))
+            // 생방 링크 없이 날짜만: 그날 방송 기록 (생방이 있는 기록 먼저)
+            : all.find((l) => l.date === lv.date && !l.isAbsence && (l.vods || []).length) || all.find((l) => l.date === lv.date && !l.isAbsence) }))
           .filter((x) => x.log);
         if (hits.length < 2) throw new Error(`생방이 들어 있는 기록을 ${hits.length}개만 찾았어요 (그날 기록부터 반영해 주세요)`);
         const compId = `multi_${m.video.id}`;
@@ -340,6 +359,15 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
             </div>
           )}
 
+          {titleMismatch.length > 0 && (
+            <details className="rounded-2xl border border-rose-200 dark:border-rose-900/60 p-3 text-xs">
+              <summary className="cursor-pointer font-bold text-rose-700 dark:text-rose-300">카페 제목과 유튜브 제목이 많이 다른 링크 {titleMismatch.length}개 (링크를 잘못 붙였을 수 있어요)</summary>
+              <ul className="mt-2 space-y-1.5">{titleMismatch.map((t) => (
+                <li key={t.id} className="break-all"><a href={`https://youtu.be/${t.id}`} target="_blank" rel="noreferrer" className="underline text-zinc-500">{t.id}</a> · 카페 「{t.cafe}」 ↔ 유튜브 「{t.yt}」 <span className="text-zinc-400">({t.post})</span></li>
+              ))}</ul>
+            </details>
+          )}
+
           {fixes.length > 0 && (
             <div className="rounded-2xl border border-orange-200 dark:border-orange-900/60 divide-y divide-zinc-100 dark:divide-zinc-800 overflow-hidden">
               <p className="p-3 text-xs font-bold text-orange-700 dark:text-orange-300 bg-orange-50/60 dark:bg-orange-950/30 break-keep">이미 넣은 것 중 자리가 다른 것 {fixes.length}개 — 맞는 날로 옮겨요 (날짜가 없는 건 고르면 빼기만 해요)</p>
@@ -394,9 +422,9 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
                       {picked.has(m.key) ? <CheckSquare className="w-4 h-4 text-purple-600" /> : <Square className="w-4 h-4 text-zinc-400" />}
                     </button>
                     <b className="text-indigo-600">영상</b>
-                    <span className="truncate">{m.video.title || titleOf.get(m.video.id) || m.video.id}</span>
+                    <span className="truncate">{titleFor(m.video) || m.video.id}</span>
                   </div>
-                  <p className="mt-1 ml-6 text-zinc-500 tabular-nums">생방 {m.lives.length}개: {m.lives.map((l) => l.date).join(', ')}</p>
+                  <p className="mt-1 ml-6 text-zinc-500 tabular-nums">{m.byDate ? '날짜로 연결' : '생방'} {m.lives.length}개: {m.lives.map((l) => l.date).join(', ')}</p>
                 </div>
               ))}
             </div>
@@ -416,7 +444,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
                         <button type="button" onClick={() => setUnsurePick((m) => ({ ...m, [u.key]: { ...pk, on: !pk.on, date: pk.date || unsureSuggest(u) } }))} className="cursor-pointer shrink-0" aria-label="고르기">
                           {pk.on ? <CheckSquare className="w-4 h-4 text-purple-600" /> : <Square className="w-4 h-4 text-zinc-400" />}
                         </button>
-                        <span className="truncate flex-1">{u.video ? <a href={u.video.url} target="_blank" rel="noreferrer" className="underline">{u.video.title || u.video.id}</a> : [...u.lives, ...u.shorts].map((x) => x.id).join(', ')} <span className="text-zinc-400">[{u.header || '날짜 없음'}]</span></span>
+                        <span className="truncate flex-1">{u.video ? <a href={u.video.url} target="_blank" rel="noreferrer" className="underline">{titleFor(u.video) || u.video.id}</a> : [...u.lives, ...u.shorts].map((x) => x.id).join(', ')} <span className="text-zinc-400">[{u.header || '날짜 없음'}]</span></span>
                         <input type="date" value={pk.date} onChange={(e) => setUnsurePick((m) => ({ ...m, [u.key]: { on: true, date: e.target.value } }))} className="shrink-0 px-1.5 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" />
                       </li>
                     );
@@ -459,7 +487,8 @@ function CafeCollectorHelp() {
         <li>아래 보라색 버튼을 브라우저 <b>북마크바로 끌어다 놓으세요</b>. (끌기가 안 되면 '코드 복사' → 북마크 추가 → 주소 칸에 붙여 넣기)</li>
         <li>네이버에 로그인한 상태로 카페의 <b>전체 목차 글</b>(예: cafe.naver.com/uzuhama/88678)을 열고 그 북마크를 누르세요.</li>
         <li>목차 글 → 연·월별 정리 글 → 그 안의 글까지 차례로 읽어요. 다 되면 카페 화면 오른쪽 위 창에서 <b>전부 복사</b>.</li>
-        <li>여기 아래 칸에 붙여 넣고 <b>분석하기</b>. 생방 날짜는 유튜브 날짜를 기준으로 맞추고, 카페 글 날짜와 다르면 따로 알려 줘요.</li>
+        <li>여기 아래 칸에 붙여 넣고 <b>분석하기</b> → <b>유튜브로 생방 날짜 확인</b>.</li>
+        <li><b>글 목록·검색 결과 화면</b>에서 누르면: 작성자 이름(예: 이츠하마타임)으로 거른 그 화면의 글들을 읽어 이 브라우저에 쌓아 둬요. 다음 페이지로 가서 또 누르면 이어서 쌓이고, 언제든 '전부 복사'로 꺼낼 수 있어요.</li>
       </ol>
       <p className="mt-2 text-[11px] text-zinc-500 break-keep">로그인한 그 브라우저가 직접 읽어서 아이디·비밀번호는 어디에도 저장되지 않아요. 글 사이마다 잠깐씩 쉬면서 읽어요(한 번에 최대 400개).</p>
       <div className="mt-3 flex flex-wrap gap-2">

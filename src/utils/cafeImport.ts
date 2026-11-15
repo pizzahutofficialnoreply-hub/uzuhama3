@@ -276,7 +276,7 @@ export type CafeBlock = {
   shorts: CafeLink[];
 };
 /** 한 영상에 여러 날 생방 (웃음참기처럼): 각 생방은 그날 기록에, 영상은 '생방 여러 개'로 연결 */
-export type CafeMulti = { video: CafeLink; lives: { id: string; url: string; date: string }[]; post: string };
+export type CafeMulti = { video: CafeLink; lives: { id: string; url: string; date: string }[]; post: string; /** 생방 링크 없이 날짜로만 (그날 방송 기록에 연결) */ byDate?: boolean };
 /** 날짜를 알 수 없어서 자동으로 넣지 않는 것 (직접 확인) */
 export type CafeUnsure = { video?: CafeLink; lives: CafeLink[]; shorts: CafeLink[]; header: string; post: string; why: string };
 
@@ -391,9 +391,11 @@ export function parseCafeBlocks(text: string): CafeBlock[] {
       if (d) lv.date = d;
       return;
     }
-    // 영상·쇼츠 아래 '[제목]'
-    if ((lastKind === 'video' || lastKind === 'shorts') && last && !(last as CafeLink).title && /^\[.*\]$/.test(line)) {
-      (last as CafeLink).title = line.slice(1, -1).trim();
+    // 영상·쇼츠 아래 '[제목]' (괄호 없이 쓴 제목 줄도: 괄호 제목이 나오면 그걸로 바꿈)
+    if ((lastKind === 'video' || lastKind === 'shorts') && last) {
+      const lk = last as CafeLink & { plainTitle?: boolean };
+      if (/^\[.*\]?$/.test(line) && (!lk.title || lk.plainTitle)) { lk.title = line.replace(/^\[/, '').replace(/\]$/, '').trim(); lk.plainTitle = false; }
+      else if (!lk.title && !/^[(<:：]/.test(line) && line.length >= 2 && line.length <= 150 && !/대한민국 모임의 시작|cafe\.naver|^m\.cafe|^youtube\.com$|^www\./i.test(line)) { lk.title = line; lk.plainTitle = true; }
     }
   });
   close();
@@ -411,7 +413,7 @@ export function blocksToPlanInput(blocks: CafeBlock[], dateOfVideo: Map<string, 
   const day = (d: string) => { let x = days.get(d); if (!x) { x = { date: d, lives: [], videos: [], shorts: [], pairs: [] }; days.set(d, x); } return x; };
   const pushU = <T extends { id: string }>(list: T[], v: T) => { if (!list.some((x) => x.id === v.id)) list.push(v); };
   // 영상별로 모음 (여러 글에 같은 영상)
-  type V = { video: CafeLink; lives: Map<string, { id: string; url: string; date: string }>; shorts: CafeLink[]; post: string; header: string; headerOnly: string };
+  type V = { video: CafeLink; lives: Map<string, { id: string; url: string; date: string }>; shorts: CafeLink[]; post: string; header: string; headerOnly: string; hdates: Set<string> };
   const byVideo = new Map<string, V>();
   const loose: { lives: { id: string; url: string; date: string }[]; shorts: CafeLink[]; header: string; post: string; headerOnly: string }[] = [];
   const unsure: CafeUnsure[] = [];
@@ -425,7 +427,8 @@ export function blocksToPlanInput(blocks: CafeBlock[], dateOfVideo: Map<string, 
     const headerOnly = hd.length === 1 ? hd[0] : '';
     if (!b.videos.length) { loose.push({ lives, shorts: b.shorts, header: b.headerRaw, post: b.post, headerOnly }); return; }
     b.videos.forEach((v, vi) => {
-      const cur = byVideo.get(v.id) || { video: { ...v }, lives: new Map(), shorts: [], post: b.post, header: b.headerRaw, headerOnly };
+      const cur = byVideo.get(v.id) || { video: { ...v }, lives: new Map(), shorts: [], post: b.post, header: b.headerRaw, headerOnly, hdates: new Set<string>() };
+      if (!b.lives.length) hd.forEach((d) => cur.hdates.add(d));
       if (!cur.video.title && v.title) cur.video.title = v.title;
       lives.forEach((l) => { const old = cur.lives.get(l.id); if (!old || (!old.date && l.date)) cur.lives.set(l.id, l); });
       if (vi === 0) b.shorts.forEach((s) => pushU(cur.shorts, s));
@@ -449,8 +452,15 @@ export function blocksToPlanInput(blocks: CafeBlock[], dateOfVideo: Map<string, 
       if (unknownLives.length) unsure.push({ video: v.video, lives: unknownLives, shorts: [], header: v.header, post: v.post, why: '생방 날짜를 모름' });
       return;
     }
+    // 생방 링크는 없지만 머리말에 날짜가 여럿 (예: '2019. (5. 30), (6/ 6, 7, 9)'): 그날들 방송 기록에 '생방 여러 개'로 연결
+    if (!lives.length && v.hdates.size >= 2) {
+      const ds = [...v.hdates].filter((x) => x < before).sort();
+      if (ds.length >= 2) multis.push({ video: v.video, lives: ds.map((x) => ({ id: '', url: '', date: x })), post: v.post, byDate: true });
+      else if (ds.length === 1) { const x = day(ds[0]); x.pairs.push({ video: v.video, lives: [] }); pushU(x.videos, v.video); }
+      return;
+    }
     const d = dates[0] || v.headerOnly;
-    if (!d) { unsure.push({ video: v.video, lives, shorts: v.shorts, header: v.header, post: v.post, why: lives.length ? '생방 날짜를 모름' : `생방 링크 없음${vDate ? ` (영상 올린 날 ${vDate})` : ''}` }); return; }
+    if (!d) { unsure.push({ video: v.video, lives, shorts: v.shorts, header: v.header, post: v.post, why: lives.length ? '생방 날짜를 모름' : /^\s*([xX]|[?？]+|없음)?\s*$/.test(v.header) ? '카페에 날짜가 X·??로 적힌 것' : `생방 링크·날짜 없음${vDate ? ` (영상 올린 날 ${vDate})` : ''}` }); return; }
     if (d >= before) return;
     const x = day(d);
     const pairLives = lives.map((l) => ({ id: l.id, url: l.url }));

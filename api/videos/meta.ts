@@ -7,7 +7,7 @@ import { setCorsHeaders } from '../_cors.js';
  */
 
 const ID_RE = /^[A-Za-z0-9_-]{11}$/;
-const DAILY_NEW_LOOKUP_LIMIT = 3000; // 하루에 처음 보는 영상 조회 최대 개수 (기존 영상은 저장된 값 사용)
+const DAILY_NEW_LOOKUP_LIMIT = 10000; // 하루에 처음 보는 영상 조회 최대 개수 (기존 영상은 저장된 값 사용)
 
 function parseIsoDuration(iso: string): number | null {
   const m = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso || '');
@@ -65,7 +65,7 @@ export default async function handler(req: any, res: any) {
   const wantLive = !!req.query?.live;
   try {
     const { db } = await import('../_firebase.js');
-    const result: Record<string, { durationSec: number | null; publishedAt: string | null; liveAt?: string | null } | null> = {};
+    const result: Record<string, { durationSec: number | null; publishedAt: string | null; liveAt?: string | null; title?: string } | null> = {};
 
     // 1. 저장된 값
     const refs = ids.map((id) => db.collection('video_meta').doc(id));
@@ -73,8 +73,8 @@ export default async function handler(req: any, res: any) {
     const missing: string[] = [];
     snaps.forEach((snap: any, i: number) => {
       const d = snap.exists ? snap.data() : null;
-      if (d && typeof d.durationSec === 'number' && typeof d.publishedAt === 'string' && (!wantLive || 'liveAt' in d)) {
-        result[ids[i]] = { durationSec: d.durationSec, publishedAt: d.publishedAt, ...('liveAt' in d ? { liveAt: d.liveAt ?? null } : {}) };
+      if (d && typeof d.durationSec === 'number' && typeof d.publishedAt === 'string' && (!wantLive || ('liveAt' in d && 'title' in d))) {
+        result[ids[i]] = { durationSec: d.durationSec, publishedAt: d.publishedAt, ...('liveAt' in d ? { liveAt: d.liveAt ?? null } : {}), ...('title' in d ? { title: d.title } : {}) };
       } else if (d && d.notFound) result[ids[i]] = null; // 한 번 조회한 영상은 다시 부르지 않음
       else missing.push(ids[i]);
     });
@@ -101,13 +101,14 @@ export default async function handler(req: any, res: any) {
       if (!r.ok) {
         return res.status(200).json({ videos: result, error: json?.error?.message || `YouTube API HTTP ${r.status}` });
       }
-      const found = new Map<string, { durationSec: number | null; publishedAt: string | null; liveAt: string | null }>();
+      const found = new Map<string, { durationSec: number | null; publishedAt: string | null; liveAt: string | null; title: string }>();
       (json?.items || []).forEach((it: any) => {
         if (!it?.id) return;
         found.set(it.id, {
           durationSec: parseIsoDuration(it?.contentDetails?.duration),
           publishedAt: typeof it?.snippet?.publishedAt === 'string' ? it.snippet.publishedAt : null,
           liveAt: it?.liveStreamingDetails?.actualStartTime || it?.liveStreamingDetails?.scheduledStartTime || null,
+          title: String(it?.snippet?.title || ''),
         });
       });
       const batch = db.batch();
@@ -117,7 +118,7 @@ export default async function handler(req: any, res: any) {
         result[id] = meta ?? null;
         batch.set(
           db.collection('video_meta').doc(id),
-          meta ? { durationSec: meta.durationSec ?? 0, publishedAt: meta.publishedAt || '', liveAt: meta.liveAt, fetchedAt: now } : { notFound: true, fetchedAt: now }
+          meta ? { durationSec: meta.durationSec ?? 0, publishedAt: meta.publishedAt || '', liveAt: meta.liveAt, title: meta.title, fetchedAt: now } : { notFound: true, fetchedAt: now }
         );
       });
       await batch.commit();
