@@ -150,3 +150,15 @@ describe('머리말 날짜 더 많은 모양', () => {
     expect(r.unsure.map((u) => u.video?.id)).toEqual(['CCCCCCCCCCC']);
   });
 });
+
+describe('(❗날짜❗) 영상 생방링크 [제목] 글', () => {
+  it('첫 링크는 영상(제목은 글 제목에서), 다음은 생방 · 날짜는 유튜브 생방 시작일', () => {
+    const b = parseCafeBlocks(`===== (❗2024.11.26❗) 영상 생방링크 [눈치 게임]\n영상링크\nhttps://youtu.be/VVVVVVVVVVV\n생방링크\nhttps://youtu.be/LLLLLLLLLL1\n===== (❗2024.12.01❗) 영상 생방링크 [쇼츠]\nhttps://youtube.com/shorts/SSSSSSSSSSS\nhttps://youtu.be/LLLLLLLLLL3`);
+    expect(b[0].videos[0]).toMatchObject({ id: 'VVVVVVVVVVV', title: '눈치 게임' });
+    expect(b[0].lives.map((l) => l.id)).toEqual(['LLLLLLLLLL1']);
+    expect(b[1].shorts[0].title).toBe('쇼츠');
+    const r = blocksToPlanInput(b, new Map([['LLLLLLLLLL1', '2024-11-25'], ['LLLLLLLLLL3', '2024-11-30']]));
+    expect(r.days.find((d) => d.date === '2024-11-25')!.videos[0].id).toBe('VVVVVVVVVVV');
+    expect(r.days.find((d) => d.date === '2024-11-30')!.shorts[0].id).toBe('SSSSSSSSSSS');
+  });
+});

@@ -336,6 +336,7 @@ export function parseCafeBlocks(text: string): CafeBlock[] {
   let cur: CafeBlock | null = null;
   let year: number | null = null;
   let section: 'live' | 'video' | 'shorts' | null = null;
+  let itsTitle = '';
   let last: CafeLink | (CafeLink & { note?: string }) | null = null;
   let lastKind: 'live' | 'video' | 'shorts' | null = null;
   const seen = new Set<string>();
@@ -344,7 +345,17 @@ export function parseCafeBlocks(text: string): CafeBlock[] {
   String(text || '').split(/\r?\n/).forEach((raw) => {
     const line = raw.replace(ZW, ' ').trim();
     if (!line) return;
-    if (line.startsWith('=====')) { close(); post = line.replace(/^=+\s*/, '').trim(); return; }
+    if (line.startsWith('=====')) {
+      close(); post = line.replace(/^=+\s*/, '').trim();
+      // 2024.07~ '(❗2024.11.26❗) 영상 생방링크 [제목]' 글: 글 하나가 묶음 하나 (영상 링크 → 생방 링크 순서, 날짜는 유튜브 생방 시작일로)
+      if (/영상\s*생방\s*링크/.test(post)) {
+        const td = post.match(/(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})/);
+        cur = { post, headerRaw: td ? `영상 글 날짜 ${td[1]}.${td[2]}.${td[3]}` : '', headerDates: [], lives: [], videos: [], shorts: [], its: true } as CafeBlock;
+        itsTitle = (post.match(/\[([^\]]+)\]\s*$/) || [])[1] || '';
+        year = td ? Number(td[1]) : null;
+      }
+      return;
+    }
     // 닫는 ']' 를 빼먹은 머리말도 ('[생방날짜: 2018.')
     const h = line.match(/^\[\s*생방\s*날짜\s*[:：]?\s*([^\]]*)\]?/);
     if (h) {
@@ -370,11 +381,13 @@ export function parseCafeBlocks(text: string): CafeBlock[] {
         if (!id) return;
         if (seen.has(id)) return; // 미리보기(embed)로 같은 영상이 한 번 더 나옴
         seen.add(id);
-        const k = /\/shorts\//.test(url) ? 'shorts' : section || (/\/live\//.test(url) ? 'live' : 'video');
+        const its = (b as any).its;
+        // 영상 생방링크 글: 따로 표시가 없으면 첫 링크가 영상, 그다음부터 생방
+        const k = /\/shorts\//.test(url) ? 'shorts' : section || (/\/live\//.test(url) ? 'live' : its && (b.videos.length || b.shorts.length) ? 'live' : 'video');
         const clean = `https://youtu.be/${id}`;
         if (k === 'live') { const l = { id, url: clean }; b.lives.push(l); last = l; lastKind = 'live'; }
-        else if (k === 'shorts') { const l = { id, url: clean }; b.shorts.push(l); last = l; lastKind = 'shorts'; }
-        else { const l = { id, url: clean }; b.videos.push(l); last = l; lastKind = 'video'; }
+        else if (k === 'shorts') { const l: CafeLink = { id, url: clean, ...((b as any).its && !b.shorts.length && !b.videos.length && itsTitle ? { title: itsTitle } : {}) }; b.shorts.push(l); last = l; lastKind = 'shorts'; }
+        else { const l: CafeLink = { id, url: clean, ...((b as any).its && !b.videos.length && itsTitle ? { title: itsTitle } : {}) }; b.videos.push(l); last = l; lastKind = 'video'; }
       });
       return;
     }

@@ -125,45 +125,77 @@ export function cafeCollector() {
       ($('uzu-cp') as HTMLButtonElement).textContent = '복사했어요 ✓';
     };
   }
-  async function listMode() {
-    // 화면(과 카페 본문 프레임)에 보이는 글 링크 + 그 줄의 글자(작성자 이름 거르기용)
-    const docs: Document[] = [document];
-    document.querySelectorAll('iframe').forEach((f) => { try { if (f.contentDocument) docs.push(f.contentDocument); } catch { /* 다른 사이트 */ } });
-    const rows = new Map<string, { club: string; aid: string; art?: string; title: string; row: string }>();
+  // 한 화면(문서)에서 글 링크·그 줄 글자, 페이지 번호 링크 찾기
+  function scan(d0: Document) {
+    const docs: Document[] = [d0];
+    d0.querySelectorAll('iframe').forEach((f) => { try { if (f.contentDocument) docs.push(f.contentDocument); } catch { /* 다른 사이트 */ } });
+    const rows: { club: string; aid: string; art?: string; title: string; row: string }[] = [];
+    const pages: { n: number; href: string; next: boolean }[] = [];
     docs.forEach((d) => d.querySelectorAll('a[href]').forEach((a) => {
       const href = (a as HTMLAnchorElement).href;
+      const t = (a.textContent || '').replace(/\s+/g, ' ').trim();
+      if (/^javascript:/i.test(href)) return;
+      if (/^\d{1,3}$/.test(t) && /page/i.test(href)) { pages.push({ n: Number(t), href, next: false }); return; }
+      if (/^(다음|다음 ?페이지|›|>)$/.test(t) && /page/i.test(href)) { pages.push({ n: 1e9, href, next: true }); return; }
       const p = parseCafe(href);
-      if (!p || rows.has(p.aid)) return;
-      const t = (a.textContent || '').trim();
-      if (!t || t.length < 2 || /^\d+$/.test(t)) return;
+      if (!p || !t || t.length < 2 || /^\d+$/.test(t)) return;
       let row: Element | null = a;
       for (let i = 0; i < 6 && row && !/^(TR|LI)$/.test(row.tagName) && !(row as HTMLElement).className?.toString().match(/item|article|board|list/); i++) row = row.parentElement;
-      rows.set(p.aid, { ...p, title: t, row: (row?.textContent || t).replace(/\s+/g, ' ').slice(0, 300) });
+      rows.push({ ...p, title: t, row: (row?.textContent || t).replace(/\s+/g, ' ').slice(0, 300) });
     }));
+    return { rows, pages };
+  }
+  // 다음 페이지를 숨은 창에 열어 읽기 (지금 화면은 그대로)
+  function loadHidden(href: string): Promise<Document | null> {
+    return new Promise((resolve) => {
+      const f = document.createElement('iframe');
+      f.setAttribute('style', 'position:fixed;left:-9999px;top:0;width:1000px;height:800px;opacity:0');
+      let done = false;
+      const fin = (d: Document | null) => { if (done) return; done = true; setTimeout(() => f.remove(), 100); resolve(d); };
+      f.onload = () => setTimeout(() => { try { fin(f.contentDocument); } catch { fin(null); } }, 2500);
+      setTimeout(() => fin(null), 20000);
+      f.src = href;
+      document.body.appendChild(f);
+    });
+  }
+  async function listMode() {
     const who = (window.prompt('작성자 이름으로 거를까요? (비우면 모든 글)', '이츠하마타임') || '').trim();
-    const list = [...rows.values()].filter((r) => !who || r.row.includes(who));
+    const auto = window.confirm('다음 페이지들도 자동으로 넘기며 모을까요? (취소: 이 화면만)');
     const acc = loadAcc();
-    if (!list.length) {
-      st(`이 화면에서 ${who ? `'${who}' 글을` : '글을'} 못 찾았어요 · 지금까지 모은 글 ${Object.keys(acc).length}개`);
-      showCopy(Object.values(acc).join('\n\n'), '<button id="uzu-clr" style="margin-top:8px;background:#3f3f46;color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer">모은 것 비우기</button>');
-      ($('uzu-clr') as HTMLButtonElement).onclick = () => { saveAcc({}); st('비웠어요'); };
-      return;
-    }
-    let ok = 0; let fail = 0; let skip = 0;
-    for (const r of list) {
-      if (stop) break;
-      if (acc[r.aid]) { skip++; continue; }
-      st(`이 화면 글 읽는 중… ${ok + fail + skip + 1}/${list.length}`);
-      const a = await readArticle(r.club, r.aid, r.art);
-      if (!a) { fail++; log(`✗ ${r.title}`); continue; }
-      ok++;
-      log(`✓ ${a.title || r.title}`);
-      acc[r.aid] = `===== ${a.title || r.title}\n${toText(a.html).text}`;
-      saveAcc(acc);
-      await sleep(350);
+    let ok = 0; let fail = 0; let skip = 0; let pageNo = 0;
+    const seenPages = new Set<string>([location.href]);
+    let d: Document | null = document;
+    let lastNum = 0;
+    while (d && !stop) {
+      pageNo++;
+      const { rows, pages } = scan(d);
+      const list = rows.filter((r, i) => rows.findIndex((x) => x.aid === r.aid) === i).filter((r) => !who || r.row.includes(who));
+      log(`— ${pageNo}번째 화면: ${who ? `'${who}' ` : ''}글 ${list.length}개`);
+      for (const r of list) {
+        if (stop) break;
+        if (acc[r.aid]) { skip++; continue; }
+        st(`${pageNo}번째 화면 읽는 중… 새로 읽음 ${ok}개 · 지금까지 모은 글 ${Object.keys(acc).length}개`);
+        const a = await readArticle(r.club, r.aid, r.art);
+        if (!a) { fail++; log(`✗ ${r.title}`); continue; }
+        ok++;
+        log(`✓ ${a.title || r.title}`);
+        acc[r.aid] = `===== ${a.title || r.title}\n${toText(a.html).text}`;
+        saveAcc(acc);
+        await sleep(350);
+      }
+      if (!auto || pageNo >= 60) break;
+      // 다음 페이지: 지금 번호보다 큰 가장 작은 번호 → 없으면 '다음'
+      const nums = pages.filter((x) => !x.next && !seenPages.has(x.href) && x.n > lastNum).sort((x, y) => x.n - y.n);
+      const nxt = nums[0] || pages.find((x) => x.next && !seenPages.has(x.href));
+      if (!nxt) break;
+      if (!nxt.next) lastNum = nxt.n;
+      seenPages.add(nxt.href);
+      st(`${nxt.next ? '다음 묶음' : `${nxt.n}페이지`} 여는 중…`);
+      d = await loadHidden(nxt.href);
+      if (!d) log('다음 페이지를 열지 못했어요 (직접 넘겨서 다시 눌러 주세요)');
     }
     const all = Object.values(acc).join('\n\n');
-    st(`이 화면 ${ok}개 읽음${skip ? ` · 이미 모은 ${skip}개` : ''}${fail ? ` · 못 읽음 ${fail}개` : ''} · 지금까지 모은 글 ${Object.keys(acc).length}개 (다음 페이지로 가서 또 누르면 이어서 쌓여요)`);
+    st(`새로 ${ok}개 읽음${skip ? ` · 이미 모은 ${skip}개` : ''}${fail ? ` · 못 읽음 ${fail}개` : ''} · 지금까지 모은 글 ${Object.keys(acc).length}개${auto ? '' : ' (다음 페이지로 가서 또 누르면 이어서 쌓여요)'}`);
     showCopy(all, '<button id="uzu-clr" style="margin-top:8px;background:#3f3f46;color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer">모은 것 비우기</button>');
     ($('uzu-clr') as HTMLButtonElement).onclick = () => { saveAcc({}); st('비웠어요'); };
   }
