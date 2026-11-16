@@ -32,12 +32,20 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
       for (const o of list) if (o.t === 'multi') { try { if ((await getDoc(doc(db, 'compilations', `multi_${o.id}`))).exists()) have.add(`multi_${o.id}`); } catch { have.add(`multi_${o.id}`); } }
       setComps(have);
       setOps(list);
+      try {
+        const ids = [...new Set(list.flatMap((o) => logIds(o)))];
+        const fresh = await loadFreshLogs(ids.map((id) => String((data.logs as any)[id]?.date || '').slice(0, 7)), ids, (d, t) => setLoadMsg(`서버 기록 확인 중 ${d}/${t}`));
+        setServer(fresh); setLoadMsg('');
+      } catch (e: any) { setLoadMsg(`서버 기록을 못 읽어서 이 기기에 있는 기록으로 보여 줘요 (${String(e?.message || e).slice(0, 60)})`); }
     }).catch(() => setOps([]));
   }, []);
-  const logs = data.logs as Record<string, any>;
+  // 목록의 '됨'은 서버에서 새로 읽은 기록 기준 (화면 기록은 오래됐을 수 있어서) — 관리자 화면을 열 때 달 문서를 한 번 읽음
+  const [server, setServer] = useState<Record<string, any> | null>(null);
+  const [loadMsg, setLoadMsg] = useState('');
+  const logs = (server ? { ...(data.logs as Record<string, any>), ...server } : data.logs) as Record<string, any>;
   const rows = useMemo(() => (ops || []).map((o, i) => ({ o, key: opKey(o, i), g: o.group || '', done: isDone(o, logs, comps), text: describe(o, logs) })), [ops, logs, comps]);
   const todo = rows.filter((r) => !r.done);
-  useEffect(() => { setPicked(new Set(todo.filter((r) => GROUPS[r.g]?.on !== false).map((r) => r.key))); }, [ops]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPicked(new Set(todo.filter((r) => GROUPS[r.g]?.on !== false).map((r) => r.key))); }, [ops, server]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!ops || !ops.length) return null;
   const groups = Object.keys(GROUPS).map((g) => ({ g, ...GROUPS[g], rows: todo.filter((r) => r.g === g), done: rows.filter((r) => r.g === g && r.done).length })).filter((x) => x.rows.length || x.done);
   const toggle = (k: string) => setPicked((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n; });
@@ -52,7 +60,7 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
     const ids = [...new Set(sel0.flatMap(({ o }) => logIds(o)))];
     let work: Record<string, any>;
     try {
-      work = await loadFreshLogs(ids.map((id) => String(logs[id]?.date || '').slice(0, 7)), ids);
+      work = await loadFreshLogs(ids.map((id) => String(logs[id]?.date || '').slice(0, 7)), ids, (d, t) => setMsg(`서버에서 최신 기록 읽는 중 ${d}/${t}`));
     } catch (e: any) { setBusy(null); setMsg(`최신 기록을 못 읽어서 멈췄어요: ${String(e?.message || e).slice(0, 80)}`); return; }
     // 날짜 옮기기를 먼저 (여러 날 생방 연결에 바뀐 날짜가 들어가게)
     const sel = sel0.filter(({ o }) => !isDone(o, work, comps)).sort((a, b) => Number(b.o.t === 'setDate') - Number(a.o.t === 'setDate'));
@@ -82,6 +90,7 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
       setBusy({ done: ++n, total: list.length + compDocs.length });
     }
     setBusy(null);
+    setServer((p) => ({ ...(p || {}), ...work }));
     const skipped = sel0.length - sel.length;
     setMsg(!sel.length && !fails.length
       ? `고를 것들은 서버에 이미 다 반영돼 있어요 (${skipped}개). 화면이 예전 기록을 보여 주는 거라 새로고침하면 '됨'으로 바뀌어요.`
@@ -131,6 +140,7 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
           </button>
         </div>
       )}
+      {loadMsg && <p className="px-3 pt-2 text-xs text-zinc-500">{loadMsg}</p>}
       {msg && <p className="px-3 pb-3 text-xs whitespace-pre-line text-zinc-600 dark:text-zinc-300">{msg}</p>}
       {Object.keys(report).length > 0 && (
         <details className="px-3 pb-3 text-xs">

@@ -163,16 +163,18 @@ const normalizeGameLinks = (log: any) =>
  * (화면에 들고 있던 기록이 오래됐으면 — 다른 기기·창에서 고친 것, 오래 열어 둔 화면 — 그걸로 덮어써서
  *  몰아보기·여러 날 생방 연결·쇼츠가 사라지는 일이 있어서. 달마다 읽기 1번)
  */
-export async function loadFreshLogs(months: string[], ids: string[] = []): Promise<Record<string, BroadcastLog>> {
+export async function loadFreshLogs(months: string[], ids: string[] = [], onProgress?: (done: number, total: number) => void): Promise<Record<string, BroadcastLog>> {
   const historical = await loadHistoricalLogs();
   if (!Object.keys(historical).length) throw new Error('과거 기록(JSON)을 못 불러왔어요');
   // 날짜를 옮긴 아카이브 기록은 원래 날짜의 달 문서에 저장돼 있어서 그 달도 읽음
   const idSet = new Set(ids);
   const ms = [...new Set([...months, ...ids.map((id) => String((historical as any)[id]?.date || '').slice(0, 7))].filter((m) => /^\d{4}-\d\d$/.test(m)))];
   const docs: any[] = [];
-  for (const m of ms) {
-    const snap = await getDoc(doc(db, 'logs_by_month', m));
-    if (snap.exists()) docs.push(snap.data());
+  // 10개씩 동시에 (휴대폰에서 백 개 넘게 차례로 읽으면 오래 걸려 멈춘 것처럼 보임)
+  for (let i = 0; i < ms.length; i += 10) {
+    const snaps = await Promise.all(ms.slice(i, i + 10).map((m) => getDoc(doc(db, 'logs_by_month', m))));
+    snaps.forEach((snap) => { if (snap.exists()) docs.push(snap.data()); });
+    onProgress?.(Math.min(i + 10, ms.length), ms.length);
   }
   noteReads('logs_by_month(관리자 새로 읽기)', Math.max(1, ms.length));
   const merged = overlayMonthDocs(historical, docs) as Record<string, BroadcastLog>;
