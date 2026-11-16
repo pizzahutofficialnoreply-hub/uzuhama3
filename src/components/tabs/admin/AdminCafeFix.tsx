@@ -82,14 +82,17 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
       setBusy({ done: ++n, total: list.length + compDocs.length });
     }
     setBusy(null);
-    setMsg(`${ok}개 고쳤어요 · 기록 ${saved}개 저장${sel0.length > sel.length ? ` (이미 돼 있던 ${sel0.length - sel.length}개는 건너뜀)` : ''}${fails.length ? ` · 못 한 것 ${fails.length}개\n${fails.slice(0, 20).join('\n')}` : ''}`);
+    const skipped = sel0.length - sel.length;
+    setMsg(!sel.length && !fails.length
+      ? `고를 것들은 서버에 이미 다 반영돼 있어요 (${skipped}개). 화면이 예전 기록을 보여 주는 거라 새로고침하면 '됨'으로 바뀌어요.`
+      : `${ok}개 고쳤어요 · 기록 ${saved}개 저장${skipped ? ` (이미 돼 있던 ${skipped}개는 건너뜀)` : ''}${fails.length ? ` · 못 한 것 ${fails.length}개\n${fails.slice(0, 20).join('\n')}` : ''}`);
   };
 
   const nPicked = [...picked].filter((k) => todo.some((r) => r.key === k)).length;
   return (
     <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900/60 overflow-hidden">
       <p className="p-3 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/30 break-keep">
-        카페 기준으로 맞추기 — 카페 글 · 유튜브 생방 시작 시각 · 스프레드시트를 맞춰 본 결과 {todo.length ? `(남은 것 ${todo.length}개)` : '· 전부 맞춰졌어요 ✓'}
+        카페 기준으로 맞추기 — 카페 글 · 유튜브 생방 시작 시각 · 스프레드시트를 맞춰 본 결과 {todo.length ? `(남은 것 ${todo.length}개${todo.some((r) => GROUPS[r.g]?.on === false) ? ` · 그중 직접 골라야 하는 것 ${todo.filter((r) => GROUPS[r.g]?.on === false).length}개` : ''})` : '· 전부 맞춰졌어요 ✓'}
       </p>
       <div className="max-h-[28rem] overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800">
         {groups.map((g) => (

@@ -395,15 +395,14 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
     if (Math.abs(Date.parse(`${sDate}T00:00:00Z`) - Date.parse(`${l.date}T00:00:00Z`)) > 86400000) continue;
     // 유튜브 생방송 기록이 있으면 그 시간이 정답 → 다르면 바로 바꿈 (1분 이내 차이는 그대로)
     const fill: any = {};
-    // 방송 날짜: 영상 설명란·제목에 적힌 날짜가 있으면 그게 우선, 없으면 유튜브 시작 시각(한국 시간)의 날짜
-    //  (옛 스프레드시트 기록은 자정 넘어 시작한 방송을 전날로 적은 경우가 있음)
+    // 방송 날짜: 유튜브 시작 시각(한국 시간)의 날짜로 통일 (자정 넘어 시작했으면 그다음 날 · 제목에 '4/13 밤'처럼 적혀 있어도)
+    //  같은 날 방송이 둘이 되어도 그대로 (방송을 나누거나 합치지 않음)
     const firstVid = (l.vods || []).map((v: any) => ytIdOf(typeof v === 'string' ? v : v?.url)).find((id: string) => info.get(id)?.liveStreamingDetails?.actualStartTime);
-    const sn = firstVid ? info.get(firstVid)?.snippet : null;
-    const written = writtenDate(`${sn?.title || ''}\n${sn?.description || ''}`, sDate);
-    const realDate = written || sDate;
+    const written = '';
+    const realDate = sDate;
     if (realDate !== l.date) {
-      const taken = logs.some((o: any) => o !== l && o.date === realDate);
-      const crossMonth = realDate.slice(0, 7) !== String(l.date).slice(0, 7);
+      const taken = false;
+      const crossMonth = !site.historical[l.id] && realDate.slice(0, 7) !== String(l.date).slice(0, 7);
       if (!taken && !crossMonth) { fill.date = realDate; dateFixed.push({ id: l.id, from: l.date, to: realDate, by: written ? '설명란' : '유튜브 시작 시각' }); }
       else issues.push({ id: `date:${l.id}`, type: 'time', logId: l.id, date: l.date, video: firstVid || '', msg: `실제 방송일은 ${realDate}(${written ? '설명란' : '유튜브 시작 시각'})인데 기록은 ${l.date}${taken ? ` — ${realDate}에 다른 기록이 있어서 그대로 둠` : crossMonth ? ' — 달이 바뀌는 날짜라 직접 확인 필요' : ''}` } as any);
     }
