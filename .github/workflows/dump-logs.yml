@@ -1,0 +1,9 @@
+name: ping (임시)
+on: workflow_dispatch
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month/2017-04?key=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM" | head -c 300; echo
+          curl -sS --max-time 60 "https://uzuhama.vercel.app/api/health" | head -c 300; echo
