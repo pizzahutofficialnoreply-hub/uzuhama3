@@ -1,0 +1,38 @@
+name: AI 영상 분석 (계속 돌리기)
+
+# GitHub 예약 실행은 몇 시간씩 밀려서, 한 번 켜지면 약 5시간 50분 동안 스스로 반복해서 분석을 부름
+# - 한도 때문에 쉬라고 하면 그 시각까지 기다림 (최대 20분씩 나눠서)
+# - 한 번에 하나만 (다음 예약은 앞의 것이 끝날 때까지 대기)
+on:
+  schedule:
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ai-loop
+  cancel-in-progress: false
+
+jobs:
+  loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - name: Analyze videos repeatedly
+        run: |
+          end=$(( $(date +%s) + 350*60 ))
+          while [ $(date +%s) -lt $end ]; do
+            r=$(curl -sS --max-time 295 "https://uzuhama.vercel.app/api/videos/search-index?ai=run" | head -c 800 || true)
+            echo "$(date -u +%H:%M) $r"
+            wait=60
+            until=$(echo "$r" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z' | head -1)
+            if [ -n "$until" ]; then
+              wait=$(( $(date -d "$until" +%s) - $(date +%s) + 15 ))
+            elif echo "$r" | grep -q 'RESOURCE_EXHAUSTED\|Quota exceeded'; then
+              wait=1800
+            elif echo "$r" | grep -q '"more":true'; then
+              wait=5
+            fi
+            [ $wait -lt 5 ] && wait=5
+            [ $wait -gt 1200 ] && wait=1200
+            sleep $wait
+          done

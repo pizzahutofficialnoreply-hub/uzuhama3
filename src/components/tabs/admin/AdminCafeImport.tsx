@@ -10,6 +10,7 @@ import { AdminCafeUndo } from './AdminCafeUndo';
 import { AdminCafeFix } from './AdminCafeFix';
 import { AdminStreamErrors } from './AdminStreamErrors';
 import { AdminSongImport } from './AdminSongImport';
+import { AdminCategorySuggest } from './AdminCategorySuggest';
 import { useChannelVideos } from '../../../hooks/useChannelVideos';
 import { confirmSheet } from '../../../utils/ui';
 import { loadFreshLogs } from '../../../hooks/useFirebaseData';
@@ -517,6 +518,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
       <AdminCafeFix data={data} onUpdateLog={onUpdateLog} />
       <AdminStreamErrors data={data} onUpdateLog={onUpdateLog} />
       <AdminSongImport data={data} onUpdateLog={onUpdateLog} />
+      <AdminCategorySuggest data={data} onUpdateLog={onUpdateLog} />
       <AdminCafeUndo data={data} onAddLog={onAddLog} onUpdateLog={onUpdateLog} onDeleteLog={onDeleteLog} cafeIds={cafeIds} />
     </div>
   );

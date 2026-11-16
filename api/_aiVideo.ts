@@ -677,6 +677,50 @@ async function checkGames(db: any, id: string, me: any, mine: any[]) {
   const { FieldValue } = await import('firebase-admin/firestore');
   await db.collection('ai_video').doc(id).set({ gameCheck: { at: new Date().toISOString(), out } }, { merge: true });
   await db.collection('youtube_cache').doc('link_check').set({ gameBad: out.length ? FieldValue.arrayUnion(id) : FieldValue.arrayRemove(id) }, { merge: true });
+  // 카테고리: 바로 고치지 않고, 같은 카테고리에 묶인 다른 게임들과 비슷한지 AI가 판단해 '제안'으로만 쌓음 (한 번에 2개씩 차례로)
+  if (allowCategory) await checkCategories(db, me, mine);
+}
+
+/**
+ * 게임 카테고리 점검 (제안만, 관리자가 적용)
+ * - 이 게임 ↔ 지금 카테고리에 묶인 게임들, 다른 카테고리(자주 쓰는 것)에 묶인 게임들을 보여 주고 어디가 더 비슷한지
+ * - 지금 카테고리보다 20점 넘게 더 맞는 곳이 있을 때만 제안 · 게임마다 한 번만 확인
+ */
+let allowCategory = true;
+async function checkCategories(db: any, me: any, mine: any[]) {
+  const ref = db.collection('youtube_cache').doc('category_suggest');
+  const done = ((await ref.get()).data() || {}) as Record<string, any>;
+  const { loadSiteLogs } = await import('./_siteLogs.js');
+  const all = (await loadSiteLogs(db)).logs as any[];
+  const byCat = new Map<string, Set<string>>();
+  all.forEach((l) => (l.games || []).forEach((g: any) => { if (g?.name && g?.category) (byCat.get(g.category) || byCat.set(g.category, new Set()).get(g.category)!).add(g.name); }));
+  const common = [...byCat.entries()].sort((a, b) => b[1].size - a[1].size).slice(0, 14);
+  const key = (n: string) => gameKey(n).slice(0, 60) || n.slice(0, 60);
+  const todo = mine.flatMap((l) => (l.games || []).filter((g: any) => g?.name && g?.category && !done[key(g.name)])).slice(0, 2);
+  for (const g of todo) {
+    const seen = (me?.chapters || []).filter((c: any) => sameGame(c?.game || '', g.name)).map((c: any) => `${c.title}: ${c.summary}`).join(' / ').slice(0, 1500);
+    const peers = [...(byCat.get(g.category) || [])].filter((n) => n !== g.name).slice(0, 10);
+    const cands = common.filter(([c]) => c !== g.category).map(([c, ns]) => `- ${c}: ${[...ns].slice(0, 6).join(', ')}`).join('\n');
+    const prompt = `스트리머 방송 기록의 게임 카테고리를 점검해. 카테고리는 장르를 쉼표로 묶은 것이고, 같은 카테고리에 묶인 게임끼리 비슷해야 해.
+게임: ${g.name}
+방송에서 이 게임 장면(AI 정리): ${seen || '(없음)'}
+지금 카테고리: ${g.category} — 같이 묶인 게임: ${peers.join(', ') || '(없음)'}
+다른 카테고리와 묶인 게임:
+${cands}
+이 게임이 지금 카테고리의 게임들과 얼마나 비슷한지(0~100), 가장 잘 맞는 카테고리(위 목록 중 하나 또는 지금 것)와 그 점수.
+JSON 으로만: {"current":0~100,"best":"카테고리","bestScore":0~100,"reason":"한 줄"}`;
+    const { text } = await gen([{ text: prompt }], true, 30000, TEXT_MODELS);
+    const r = parseJson(text) || {};
+    const cur = Number(r.current) || 0; const bs = Number(r.bestScore) || 0;
+    const best = typeof r.best === 'string' && byCat.has(r.best) ? r.best : g.category;
+    const suggest = best !== g.category && bs - cur >= 20;
+    await ref.set({ [key(g.name)]: { name: g.name, current: g.category, currentScore: cur, best, bestScore: bs, suggest, reason: String(r.reason || '').slice(0, 160), at: new Date().toISOString() } }, { merge: true });
+  }
+}
+/** 카테고리 제안 처리 표시 (적용함·무시) */
+export async function markCategory(db: any, key: string, mark: 'applied' | 'ignored') {
+  await db.collection('youtube_cache').doc('category_suggest').set({ [key]: { [mark]: true } }, { merge: true });
+  return { ok: true };
 }
 /** 이미 분석이 끝난 생방송도 게임 점검 (AI 호출 없음, 한 번에 25개씩) */
 export async function gameCheckBatch(db: any, from = 0) {
@@ -692,7 +736,9 @@ export async function gameCheckBatch(db: any, from = 0) {
     const d = snaps[i].exists ? snaps[i].data() : null;
     const mine = logs.filter((l) => (l.vods || []).some((v: any) => ytIdOf(v?.url) === part[i]));
     if (!d || !mine.length) continue;
-    await checkGames(db, part[i], d, mine); checked++;
+    allowCategory = false;
+    try { await checkGames(db, part[i], d, mine); } finally { allowCategory = true; }
+    checked++;
   }
   return { done: from + 25 >= ids.length, total: ids.length, next: from + 25, checked };
 }
@@ -771,7 +817,14 @@ export async function aiVideoStatus(db: any) {
     const docs = ids.length ? await db.getAll(...ids.map((i) => db.collection('ai_video').doc(i))) : [];
     gameBad = docs.flatMap((d: any) => { const x = d.exists ? d.data() : null; return (x?.gameCheck?.out || []).map((o: any) => ({ ...o, title: x?.title || d.id })); });
   } catch { /* */ }
-  return { ...st, linkBad, linkChecked, gameBad, lockUntil: undefined, total: (q?.items || []).filter((x: QItem) => !x.comp).length || q?.count || 0, channelCount: q?.channelCount || 0, fetchedAt: q?.fetchedAt, kinds, done, partial, dailySec: DAILY_SEC, models: MODELS };
+  let categorySuggest: any[] = []; let categoryChecked = 0;
+  try {
+    const cs = (await db.collection('youtube_cache').doc('category_suggest').get()).data() || {};
+    const vals = Object.entries(cs).map(([k, v]: [string, any]) => ({ key: k, ...v }));
+    categoryChecked = vals.length;
+    categorySuggest = vals.filter((v: any) => v.suggest && !v.applied && !v.ignored).sort((a: any, b: any) => (b.bestScore - b.currentScore) - (a.bestScore - a.currentScore)).slice(0, 50);
+  } catch { /* */ }
+  return { ...st, linkBad, linkChecked, gameBad, categorySuggest, categoryChecked, lockUntil: undefined, total: (q?.items || []).filter((x: QItem) => !x.comp).length || q?.count || 0, channelCount: q?.channelCount || 0, fetchedAt: q?.fetchedAt, kinds, done, partial, dailySec: DAILY_SEC, models: MODELS };
 }
 
 /** '애매'한 장면 (확실하지 않다고 표시했거나 말투가 추측) */
