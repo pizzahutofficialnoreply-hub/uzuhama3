@@ -135,7 +135,7 @@ async function loadQueue(db: any): Promise<{ items: QItem[]; fresh: boolean }> {
   try {
     // 아카이브 + 고친 기록 전부 (logs 컬렉션만 보면 아카이브 생방송이 빠짐)
     const { loadSiteLogs } = await import('./_siteLogs.js');
-    const siteLogs = (await loadSiteLogs(db)).logs as any[];
+    const siteLogs = (await loadSiteLogs(db, { maxAgeMs: 3600000 })).logs as any[];
     const logs = { docs: siteLogs.map((l) => ({ data: () => l })) };
     // 몰아보기: 각 영상을 이어 붙인 것이라 따로 분석 안 함
     const comps = new Set<string>();
@@ -707,7 +707,7 @@ async function checkCategories(db: any, me: any, mine: any[]) {
   const ref = db.collection('youtube_cache').doc('category_suggest');
   const done = ((await ref.get()).data() || {}) as Record<string, any>;
   const { loadSiteLogs } = await import('./_siteLogs.js');
-  const all = (await loadSiteLogs(db)).logs as any[];
+  const all = (await loadSiteLogs(db, { maxAgeMs: 3600000 })).logs as any[];
   const byCat = new Map<string, Set<string>>();
   all.forEach((l) => (l.games || []).forEach((g: any) => { if (g?.name && g?.category) (byCat.get(g.category) || byCat.set(g.category, new Set()).get(g.category)!).add(g.name); }));
   const common = [...byCat.entries()].sort((a, b) => b[1].size - a[1].size).slice(0, 14);
@@ -745,7 +745,7 @@ export async function gameCheckBatch(db: any, from = 0) {
   const part = ids.slice(from, from + 25);
   if (!part.length) return { done: true, total: ids.length, next: from };
   const { loadSiteLogs } = await import('./_siteLogs.js');
-  const logs = (await loadSiteLogs(db)).logs as any[];
+  const logs = (await loadSiteLogs(db, { maxAgeMs: 3600000 })).logs as any[];
   const snaps = await db.getAll(...part.map((i) => db.collection('ai_video').doc(i)));
   let checked = 0;
   for (let i = 0; i < part.length; i++) {
@@ -760,7 +760,7 @@ export async function gameCheckBatch(db: any, from = 0) {
 }
 async function checkLinks(db: any, id: string, me: any) {
   const { loadSiteLogs } = await import('./_siteLogs.js');
-  const logs = (await loadSiteLogs(db)).logs as any[];
+  const logs = (await loadSiteLogs(db, { maxAgeMs: 3600000 })).logs as any[];
   const has = (l: any, k: string) => (l?.[k] || []).some((x: any) => ytIdOf(x?.url) === id);
   // 게임 점검: 이 생방송 기록에 적힌 게임 ↔ AI가 본 게임, 그리고 게임 링크(스팀)가 그 게임이 맞는지
   try { await checkGames(db, id, me, logs.filter((l) => has(l, 'vods'))); } catch (e: any) { if (isRate(String(e?.message || e))) throw e; }
