@@ -14,6 +14,7 @@ export type Op = Base & (
   | { t: 'fillUrl'; log: string; kind: 'edited' | 'shorts'; title: string; id: string; newTitle: string }
   | { t: 'dropBlank'; log: string; kind: 'edited' | 'shorts'; title: string }
   | { t: 'errorStop'; log: string; main?: string; vod?: string }
+  | { t: 'addVod'; log: string; id: string; title?: string }
   | { t: 'setGame'; log: string; name: string; fromLink: string; link: string; newName?: string }
 );
 
@@ -31,6 +32,7 @@ export const GROUPS: Record<string, { name: string; on: boolean; note?: string }
   gameFill: { name: '링크가 없는 게임에 스팀 링크 채우기', on: true, note: '스팀 이름이 똑같은 것만' },
   gameName: { name: '게임 이름을 스팀 이름으로 (조금 다른 것)', on: false, note: '대소문자·기호·띄어쓰기 정도만 다른 것' },
   gameWrong: { name: '게임 링크가 다른 게임으로 보이는 것', on: false, note: '스팀에서 이름으로 찾은 게임으로 바꾸기 (직접 확인)' },
+  playlist: { name: '생방송 재생목록에 있는데 기록에 없던 생방송 넣기', on: true },
   err: { name: '30분 안에 끊기고 바로 다시 켠 생방을 방송 오류로', on: true, note: '관리자 › 끊긴 생방에서 풀 수 있음' },
 };
 
@@ -59,6 +61,7 @@ export function isDone(o: Op, logs: Record<string, any>, comps?: Set<string>): b
   if (o.t === 'retitle') return Object.entries(o.titles).every(([id, t]) => ['edited', 'shorts'].every((k) => (L(o.log)[k] || []).every((x: any) => yid(x) !== id || x.isCompilation || x.title === t)));
   if (o.t === 'fillUrl') return has(L(o.log), o.kind, o.id) && !(L(o.log)[o.kind] || []).some((x: any) => !x?.url && x?.title === o.title);
   if (o.t === 'dropBlank') return !(L(o.log)[o.kind] || []).some((x: any) => !x?.url && x?.title === o.title);
+  if (o.t === 'addVod') return has(L(o.log), 'vods', o.id);
   if (o.t === 'setGame') return (L(o.log).games || []).some((g: any) => g?.name === (o.newName || o.name) && (g?.link || '') === o.link);
   if (o.t === 'errorStop') return o.main ? L(o.log).errorStopOf === o.main : (L(o.log).vods || []).some((v: any) => yid(v) === o.vod && v.errorStop);
   if (o.t === 'move') return has(L(o.to), o.kind, o.id) && o.from.every((id) => !(L(id)[o.kind === 'shorts' ? 'edited' : 'shorts'] || []).some((x: any) => yid(x) === o.id && !isLinked(x)) && (id === o.to || !(L(id)[o.kind] || []).some((x: any) => yid(x) === o.id && !isLinked(x))));
@@ -81,6 +84,7 @@ export function describe(o: Op, logs: Record<string, any>): string {
   if (o.t === 'fillUrl') return `${d(o.log)} 「${short(o.title)}」 칸에 링크 채우기 — ${o.why}`;
   if (o.t === 'dropBlank') return `${d(o.log)} 「${short(o.title)}」 빈 칸 빼기 — ${o.why}`;
   if (o.t === 'errorStop') return `${o.why}`;
+  if (o.t === 'addVod') return `${d(o.log)} 기록에 생방송 링크 넣기 — ${o.why}`;
   if (o.t === 'setGame') return `${d(o.log)} 「${o.name}」${o.newName && o.newName !== o.name ? ` → 「${o.newName}」` : ''} ${o.link ? `링크 ${o.link.replace(/^https?:\/\//, '').slice(0, 45)}` : ''} — ${o.why}`;
   return `「${o.title}」 영상 넣고 생방 ${o.logs.map(d).join(', ')}에 '여러 날 생방'으로 연결`;
 }
@@ -126,6 +130,9 @@ export function applyOne(o: Op, work: Record<string, any>, cur: (id: string) => 
     const l = cur(o.log);
     const already = has(l, o.kind, o.id);
     l[o.kind] = (l[o.kind] || []).flatMap((x: any) => (!x?.url && x?.title === o.title ? (already ? [] : [{ ...x, title: o.newTitle || x.title, url: `https://youtu.be/${o.id}` }]) : [x]));
+  } else if (o.t === 'addVod') {
+    const l = cur(o.log);
+    if (!has(l, 'vods', o.id)) l.vods = [...(l.vods || []), { title: o.title || '우주하마 생방송!', url: `https://youtu.be/${o.id}` }];
   } else if (o.t === 'setGame') {
     const l = cur(o.log);
     l.games = (l.games || []).map((g: any) => (g?.name === o.name && (g?.link || '') === (o.fromLink || '') ? { ...g, name: o.newName || g.name, link: o.link } : g));
