@@ -352,6 +352,25 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Cache-Control', 'public, s-maxage=3600');
     return res.status(200).json({ games });
   }
+  // 재생목록 영상 + 생방송 시작 시각 (관리자 확인용: 기록과 비교) — DB 안 읽음, 유튜브 50개당 2단위
+  if (req.query?.playlist) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    const pl = String(req.query.playlist).replace(/[^\w-]/g, '').slice(0, 64);
+    try {
+      const { playlistIds } = await import('./_aiVideo.js');
+      const items: any[] = await playlistIds(pl);
+      const key = process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY || '';
+      for (let i = 0; i < items.length; i += 50) {
+        const part = items.slice(i, i + 50);
+        const r = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails,contentDetails&id=${part.map((x) => x.id).join(',')}&key=${key}`, { signal: AbortSignal.timeout(10000) });
+        const j: any = await r.json();
+        const m = new Map((j.items || []).map((v: any) => [v.id, v]));
+        part.forEach((x) => { const v: any = m.get(x.id); x.liveAt = v?.liveStreamingDetails?.actualStartTime || null; x.duration = v?.contentDetails?.duration || ''; });
+      }
+      res.setHeader('Cache-Control', 'public, s-maxage=3600');
+      return res.status(200).json({ items });
+    } catch (e: any) { return res.status(502).json({ error: String(e?.message || e) }); }
+  }
   // 스팀에서 게임 이름으로 찾기 (생방쏭 가져오기: 게임 링크 채우기) — DB 안 읽음
   if (req.query?.steam) {
     res.setHeader('Access-Control-Allow-Origin', '*');

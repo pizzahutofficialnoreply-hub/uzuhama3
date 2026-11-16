@@ -35,7 +35,7 @@ const PV = 4; // 4: 생방송 노가리·오팬무 // 3: 한 말·함께한 사�
 const TEXT_MODELS = [...new Set([process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest'].filter(Boolean))] as string[];
 
 type QItem = { id: string; title: string; publishedAt: string; kind?: 'video' | 'short' | 'live'; duration?: number; live?: string; logDate?: string; games?: string[]; gameLinks?: Record<string, string>; comp?: boolean };
-const QUEUE_VER = 3; // 2: 방송 기록의 생방송 다시보기 포함, 3: 몰아보기 표시(분석 안 함)
+const QUEUE_VER = 4; // 2: 방송 기록의 생방송 다시보기 포함, 3: 몰아보기 표시(분석 안 함), 4: 아카이브 생방송 전부·따로 받은 생방송 재생목록
 export type Scene = { t: number; d: string; k: string[]; u?: number /* 1: 확실하지 않음 */; q?: string /* 한 말 */; w?: string[] /* 함께한 사람 */ };
 
 const kstDay = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
@@ -102,7 +102,9 @@ async function channelId(db: any): Promise<string> {
   const ch = await yt(`channels?part=id&forHandle=${encodeURIComponent(process.env.YOUTUBE_CHANNEL_HANDLE || '@uzuhama')}`);
   return ch?.items?.[0]?.id || '';
 }
-async function playlistIds(pl: string): Promise<{ id: string; title: string; publishedAt: string }[]> {
+/** 생방송으로 분석할 재생목록 (관리자가 알려 준 것) */
+export const EXTRA_LIVE_PLAYLISTS = ['PLbQ644AvftHoSsEoENc4On-gy50g8FHKx'];
+export async function playlistIds(pl: string): Promise<{ id: string; title: string; publishedAt: string }[]> {
   const out: { id: string; title: string; publishedAt: string }[] = [];
   let token = '';
   let guard = 0;
@@ -131,7 +133,10 @@ async function loadQueue(db: any): Promise<{ items: QItem[]; fresh: boolean }> {
   // 방송 기록의 '생방송' 다시보기 링크 (사이트 라이브 탭과 같은 것) → 생방송으로 분석. 다른 채널에 올라간 것도 포함
   const byId = new Map<string, QItem>(items.map((x) => [x.id, x]));
   try {
-    const logs = await db.collection('logs').get();
+    // 아카이브 + 고친 기록 전부 (logs 컬렉션만 보면 아카이브 생방송이 빠짐)
+    const { loadSiteLogs } = await import('./_siteLogs.js');
+    const siteLogs = (await loadSiteLogs(db)).logs as any[];
+    const logs = { docs: siteLogs.map((l) => ({ data: () => l })) };
     // 몰아보기: 각 영상을 이어 붙인 것이라 따로 분석 안 함
     const comps = new Set<string>();
     logs.docs.forEach((d: any) => (d.data()?.edited || []).forEach((e: any) => {
@@ -163,6 +168,17 @@ async function loadQueue(db: any): Promise<{ items: QItem[]; fresh: boolean }> {
       });
     });
   } catch { /* 기록 없이 */ }
+  // 따로 받은 생방송 재생목록 (다른 채널·아카이브 재생목록)
+  for (const pl of EXTRA_LIVE_PLAYLISTS) {
+    try {
+      for (const x of await playlistIds(pl)) {
+        const ex = byId.get(x.id);
+        if (ex) { ex.kind = 'live'; continue; }
+        const it: QItem = { ...prev.get(x.id), id: x.id, title: x.title, publishedAt: x.publishedAt, kind: 'live' };
+        byId.set(x.id, it); items.push(it);
+      }
+    } catch { /* 재생목록 못 읽음 */ }
+  }
   // 길이·생방송 여부 (50개당 1단위)
   const need = items.filter((x) => !x.duration || x.live === 'upcoming' || x.live === 'live');
   for (let i = 0; i < need.length; i += 50) {
