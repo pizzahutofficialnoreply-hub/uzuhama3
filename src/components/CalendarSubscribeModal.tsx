@@ -238,8 +238,8 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
 
             {/* 심플한 안내 문구 */}
             <div className="p-3.5 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200/60 dark:border-purple-800/40 text-zinc-600 dark:text-zinc-400 text-xs leading-relaxed space-y-1.5">
-              <p className="font-semibold text-purple-700 dark:text-purple-300">• 🔄 실시간 자동 갱신: 방송 기록 데이터가 업데이트되면 구독 중인 기기 캘린더에도 자동으로 일정이 최신화돼요.</p>
-              <p>• 📌 특정 방송만 1회성으로 추가하고 싶으시다면, 방송 기록 탭의 <strong>'캘린더 선택 등록'</strong> 기능을 이용해주세요.</p>
+              <p className="font-semibold text-purple-700 dark:text-purple-300">• 실시간 자동 갱신: 방송 기록 데이터가 업데이트되면 구독 중인 기기 캘린더에도 자동으로 일정이 최신화돼요.</p>
+              <p>• 특정 방송만 1회성으로 추가하고 싶으시다면, 방송 기록 탭의 <strong>'캘린더 선택 등록'</strong> 기능을 이용해주세요.</p>
               <p>• 구독을 중단하고 싶으실 때는 언제든 캘린더 앱 내 구독 목록에서 손쉽게 삭제하실 수 있어요.</p>
             </div>
 

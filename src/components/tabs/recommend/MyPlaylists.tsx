@@ -72,7 +72,7 @@ export function MyPlaylists({ searchTerm, logs, onNavigateToCalendar }: { search
 }
 
 function shareTextOf(l: MyList) {
-  return [`📂 ${l.name} (${l.items.length}개)`, '', ...l.items.map((x, i) => `${i + 1}. ${x.title}\n${urlOf(x.kind, x.id)}`)].join('\n');
+  return [`${l.name} (${l.items.length}개)`, '', ...l.items.map((x, i) => `${i + 1}. ${x.title}\n${urlOf(x.kind, x.id)}`)].join('\n');
 }
 
 function MyListCard({ list, isDefault, onOpen }: { list: MyList; isDefault: boolean; onOpen: () => void }) {

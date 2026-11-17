@@ -17,7 +17,6 @@ import {
   Hourglass,
   Moon,
   Coffee,
-  Sparkles,
   Bell,
   PartyPopper,
   Clock3,
@@ -361,10 +360,10 @@ export function CurrentProbability({
     messageContent = ABSENCE_OPTIONS[timeSlotSeed % ABSENCE_OPTIONS.length];
   } else if (probabilityLevel === "high") {
     const HIGH_OPTIONS = [
-      "슬슬 기대해볼 만한 시간이에요! ✨",
+      "슬슬 기대해볼 만한 시간이에요",
       "언제 켜져도 이상하지 않은 시간이에요",
       "조금만 더 지켜볼까요?",
-      "알림에 귀 기울여볼 시간이에요 🔔",
+      "알림에 귀 기울여볼 시간이에요",
       "기분 좋은 기대감을 가져볼 시간이에요",
       "오늘 방송 시작이 가장 유력한 시간대예요",
       "설레는 마음으로 조금만 지켜봐요"
@@ -432,7 +431,6 @@ export function CurrentProbability({
         <div className="absolute top-4 right-4 z-20">
           <WidgetShareButton targetId="current-prob-live-card" title="생방송 진행 중" />
         </div>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-red-500/10 dark:bg-red-500/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
 
         <div className="relative z-10 flex flex-col items-center gap-4 w-full">
           <div className="animate-pulse bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-4 py-1.5 rounded-full font-black tracking-widest text-sm flex items-center gap-2 border border-red-200 dark:border-red-800/50">
@@ -484,7 +482,6 @@ export function CurrentProbability({
       <div className="absolute top-4 right-4 z-20">
         <WidgetShareButton targetId="current-prob-card" title="현재 방송 확률" />
       </div>
-      <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 dark:bg-purple-500/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
 
       
 
@@ -553,12 +550,12 @@ export function CurrentProbability({
           {(() => {
             // 상황별 아이콘 여러 개 중 문구와 같은 시드로 선택
             const iconSets: Record<string, React.ComponentType<{ className?: string }>[]> = {
-              high: [Radio, Sparkles, Bell, PartyPopper],
+              high: [Radio, Star, Bell, PartyPopper],
               medium: [Hourglass, Clock3, Eye, Headphones],
               lowDay: [Coffee, Sun, BookOpen, Cookie, Leaf],
               lowNight: [Moon, Star, BedDouble, CloudMoon],
               absence: [HeartPulse, HeartHandshake, Bandage, Sprout],
-              streamedToday: [ThumbsUp, Tv, Sparkles, Heart],
+              streamedToday: [ThumbsUp, Tv, Star, Heart],
             };
             const group = hasStreamedToday
               ? "streamedToday"

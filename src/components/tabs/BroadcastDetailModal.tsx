@@ -454,7 +454,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-purple-900/30 via-zinc-900 to-zinc-950 flex flex-col items-center justify-center text-purple-400 group-hover:scale-105 transition-transform duration-500">
+                            <div className="w-full h-full bg-zinc-900 flex flex-col items-center justify-center text-zinc-400 group-hover:scale-105 transition-transform duration-500">
                               <PlaySquare className="w-10 h-10 opacity-70" />
                               <span className="text-xs font-semibold mt-2 text-zinc-300">생방송 다시보기</span>
                             </div>

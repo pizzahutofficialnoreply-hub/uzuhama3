@@ -88,7 +88,7 @@ export function VideoListRow({
         {videoId ? (
           <img src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
         ) : (
-          <span className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-zinc-100 dark:from-purple-950/60 dark:to-zinc-900 text-purple-700 dark:text-purple-300 text-xs font-bold tabular-nums">{placeholder}</span>
+          <span className="w-full h-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-xs font-bold tabular-nums">{placeholder}</span>
         )}
         {typeof meta?.durationSec === 'number' && meta.durationSec > 0 && (
           <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/75 text-white text-[11px] font-bold tabular-nums">

@@ -22,7 +22,7 @@ import {
   parseISO
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, PlaySquare, Smartphone, Video, Calendar as CalendarIcon, ChevronDown, X, CalendarPlus, Check, CalendarDays, Sparkles, Search, Play, Bell, CheckSquare, Square, CalendarCheck, AlertCircle, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlaySquare, Smartphone, Video, Calendar as CalendarIcon, ChevronDown, X, CalendarPlus, Check, CalendarDays, Search, Play, Bell, CheckSquare, Square, CalendarCheck, AlertCircle, AlertTriangle } from 'lucide-react';
 import { AppData, BroadcastLog } from '../../types';
 import { cn, formatDuration, formatTo12Hour, parseTimeTo24, fuzzyKoreanMatch, fuzzyDateMatch } from '../../utils';
 import { extractYoutubeId, extractChzzkId, isVideoUrl, matchMediaUrl, matchLogMedia } from '../../utils/urlUtils';

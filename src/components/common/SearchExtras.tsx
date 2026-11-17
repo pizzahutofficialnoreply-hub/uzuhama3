@@ -1,7 +1,8 @@
 import { RowSkeleton } from './Skeleton';
+import { politeKo } from '../../utils/politeKo';
 import { getPrefs } from '../../utils/userPrefs';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, Pin, Play, Sparkles, X } from 'lucide-react';
+import { BookOpen, Pin, Play, X, ScanSearch } from 'lucide-react';
 import { openAiSummary } from './AiSummaryHost';
 import { cn } from '../../utils';
 import { squash } from '../../utils/smartSearch';
@@ -47,7 +48,7 @@ function ExtraCard({ c }: { c: Card }) {
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-1">
             {c.from === 'ai' ? (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-purple-600 text-white text-[10px] font-black"><Sparkles className="w-3 h-3" /> {c.checked ? 'AI가 영상에서 확인' : 'AI 검색'}</span>
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-purple-600 text-white text-[10px] font-black"><ScanSearch className="w-3 h-3" /> {c.checked ? 'AI가 영상에서 확인' : 'AI 검색'}</span>
             ) : (
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[10px] font-black"><Pin className="w-3 h-3" /> 추천 결과</span>
             )}
@@ -66,7 +67,7 @@ function ExtraCard({ c }: { c: Card }) {
               {i === 0 ? '찾으신 장면은 ' : '이 장면도 있어요: '}
               <button type="button" onClick={() => play(s.t)} className="font-black text-purple-600 dark:text-purple-400 underline underline-offset-2 tabular-nums cursor-pointer">{fmtTime(s.t)}</button>
               {i === 0 ? '에 나와요' : ''}
-              {s.d && <span className="text-zinc-500 dark:text-zinc-400"> · {s.d}</span>}
+              {s.d && <span className="text-zinc-500 dark:text-zinc-400"> · {politeKo(s.d)}</span>}
               {s.vague && <span className="text-[10px] text-amber-600"> (확실하지 않음)</span>}
             </p>
           ))}
@@ -154,7 +155,7 @@ export function SearchExtras({ query, aiEnabled }: { query: string; aiEnabled: b
   return (
     <section className="mb-5 space-y-2" aria-label="AI 검색">
       <h3 className="px-1 text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5">
-        <Sparkles className="w-4 h-4 text-purple-500" /> 콕 집어 찾은 결과
+        <ScanSearch className="w-4 h-4 text-purple-500" /> 콕 집어 찾은 결과
         {loading && !cards.length && <span className="text-[11px] font-semibold text-zinc-400 ml-1">AI가 정리해 둔 장면에서 찾는 중…</span>}
       </h3>
       {verifying && <p className="px-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-ping" /> AI가 이 장면들을 영상에서 직접 보고 확인하는 중이에요 (처음 찾는 말은 10~40초)</p>}

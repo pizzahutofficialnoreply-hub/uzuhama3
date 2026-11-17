@@ -1,10 +1,10 @@
 import { hideVideo } from '../../utils/hiddenVideos';
-import { EyeOff } from 'lucide-react';
+import { EyeOff, ScrollText } from 'lucide-react';
 import { usePrefs } from '../../utils/userPrefs';
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bookmark, Flag, Link2, MoreVertical, Sparkles } from 'lucide-react';
+import { Bookmark, Flag, Link2, MoreVertical } from 'lucide-react';
 import { openAiSummary, useAiStarted } from './AiSummaryHost';
 import { cn } from '../../utils';
 import { requestSave, useMyPlaylists, type MyItemKind } from '../../utils/myPlaylists';
@@ -106,7 +106,7 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
                 ))}
                 {/^[\w-]{11}$/.test(id) && labAi && aiStarted && (
                   <button type="button" role="menuitem" className={cn(item, extraItems.length > 0 && 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); openAiSummary({ id, title, kind }); }}>
-                    <Sparkles className="w-4 h-4 text-purple-500" />
+                    <ScrollText className="w-4 h-4 text-purple-500" />
                     AI 영상 요약
                   </button>
                 )}

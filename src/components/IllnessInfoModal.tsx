@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ExternalLink, Activity, BookOpen, ShieldAlert, Sparkles, CheckCircle2 } from 'lucide-react';
+import { X, ExternalLink, Activity, BookOpen, ShieldAlert, CheckCircle2, Stethoscope } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useBodyScrollLock } from '../utils';
 
@@ -187,8 +187,8 @@ export function IllnessInfoModal({
           <div className="bg-amber-50/70 dark:bg-zinc-950/70 border border-amber-200/80 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm shadow-xs relative text-left">
             <div className="flex items-center justify-between text-amber-800 dark:text-amber-400 font-bold text-[11px] sm:text-xs mb-3 pb-2 border-b border-amber-200/60 dark:border-zinc-800/80 text-left">
               <div className="flex items-center gap-1.5 text-left">
-                <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                <span>핵심 건강 정보 요약 (Medical Note)</span>
+                <Stethoscope className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span>핵심 건강 정보 요약</span>
               </div>
               <span className="text-[10px] text-amber-700/80 dark:text-amber-400/80 font-normal">
                 공식 요약

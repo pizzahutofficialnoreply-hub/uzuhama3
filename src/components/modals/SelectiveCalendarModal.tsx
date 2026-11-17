@@ -9,8 +9,7 @@ import {
   Gamepad2, 
   Clock, 
   AlertCircle,
-  HelpCircle,
-  Sparkles
+  HelpCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BroadcastLog } from '../../types';

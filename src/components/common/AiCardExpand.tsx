@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, animate, useMotionValue, useTransform } from 'motion/react';
-import { ChevronDown, EyeOff, Eye, Sparkles, X } from 'lucide-react';
+import { ChevronDown, EyeOff, Eye, X, ScrollText } from 'lucide-react';
 import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { useBackToClose } from '../../hooks/useBackToClose';
 import { SummaryBody, CompilationSummary, loadDetail, goSearch, openAiSummary } from './AiSummaryHost';
@@ -261,7 +261,7 @@ export function AiCardExpandHost() {
                 {showSummary && <div className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
                   <div className="flex items-center gap-2 px-4 py-3">
                     <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex-1 min-w-0 flex items-center gap-1.5 text-left cursor-pointer">
-                      <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
+                      <ScrollText className="w-4 h-4 text-purple-500 shrink-0" />
                       <span className="text-[13px] font-black text-purple-700 dark:text-purple-300">AI 영상 요약</span>
                       <motion.span animate={{ rotate: open ? 180 : 0 }} className="ml-0.5 text-purple-400"><ChevronDown className="w-4 h-4" /></motion.span>
                       <span className="sr-only">{open ? '접기' : '펼치기'}</span>

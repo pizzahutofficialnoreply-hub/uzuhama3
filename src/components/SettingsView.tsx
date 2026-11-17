@@ -7,7 +7,7 @@ import {
   MessageSquare, User, Bell, Palette, Database, Megaphone, 
   BookOpen, FileText, ExternalLink, Mail, AlertCircle, Gavel, 
   ShieldCheck, Trash2, LogOut, ChevronRight, Check, RefreshCw,
-  Copy, Smartphone, Sun, Moon, Laptop, Sparkles, Youtube, X, Share2, Type,
+  Copy, Smartphone, Sun, Moon, Laptop, History, Layers, Youtube, X, Share2, Type,
   FileCode2, Lock, Compass, SlidersHorizontal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -427,7 +427,7 @@ export function SettingsView({
               className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <Sparkles className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <History className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
                 <span className="text-sm font-semibold text-zinc-900 dark:text-white">맞춤 추천·시청 기록</span>
               </div>
               <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'recommend' && "rotate-90")} />
@@ -609,7 +609,7 @@ export function SettingsView({
                       </div>
 
                       <div className="p-2.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-800/50 text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1 leading-relaxed">
-                        <p className="font-semibold text-zinc-700 dark:text-zinc-300">💡 알림이 오지 않는 경우 체크리스트:</p>
+                        <p className="font-semibold text-zinc-700 dark:text-zinc-300">알림이 오지 않는 경우 체크리스트:</p>
                         <p>• <strong>아이폰(iOS)</strong>: 사파리 공유 버튼 &gt; <strong>'홈 화면에 추가'</strong> 후 실행해야 웹 푸시가 작동해요.</p>
                         <p>• <strong>안드로이드/PC</strong>: 브라우저 주소창 좌측 자물쇠(설정) 아이콘에서 <strong>알림 '허용'</strong>인지 확인해주세요.</p>
                       </div>
@@ -706,7 +706,7 @@ export function SettingsView({
                     <div className="mt-4 pt-3.5 border-t border-zinc-200/60 dark:border-zinc-800/60 space-y-2.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
-                          <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          <Layers className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                           <span className="text-xs font-bold text-zinc-900 dark:text-white">
                             하단 탭바 투명도 및 블러 효과
                           </span>

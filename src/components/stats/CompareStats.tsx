@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { format, subDays, subYears, startOfYear, endOfYear, parseISO, differenceInCalendarDays } from 'date-fns';
-import { Sparkles } from 'lucide-react';
+import { ListChecks } from 'lucide-react';
 import type { BroadcastLog } from '../../types';
 import { parseTimeTo24, cn } from '../../utils';
 
@@ -192,8 +192,8 @@ export function CompareSection({ logs, a, b, parts }: { logs: BroadcastLog[]; a:
   return (
     <div className="space-y-5 min-w-0" data-testid="stats-compare">
       {/* 비교 한눈에 */}
-      {has('summary') && <div className={cn(card, 'bg-gradient-to-br from-indigo-50/60 to-amber-50/40 dark:from-indigo-950/20 dark:to-amber-950/10')}>
-        <h3 className="flex items-center gap-1.5 text-[15px] font-black text-zinc-900 dark:text-white"><Sparkles className="w-4 h-4 text-indigo-500" /> 이렇게 달라졌어요</h3>
+      {has('summary') && <div className={card}>
+        <h3 className="flex items-center gap-1.5 text-[15px] font-black text-zinc-900 dark:text-white"><ListChecks className="w-4 h-4 text-indigo-500" /> 이렇게 달라졌어요</h3>
         <ul className="mt-3 space-y-2">
           {lines.map((s, i) => <li key={i} className="text-sm text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep flex gap-2"><span className="mt-2 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />{s}</li>)}
         </ul>

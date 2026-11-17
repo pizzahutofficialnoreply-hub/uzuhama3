@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, X, Check, Pointer } from 'lucide-react';
+import { X, Check, Pointer, Compass } from 'lucide-react';
 import type { Tab } from '../types';
 import { INSTALL_SEEN_KEY, needsIOSInstall, openSetupGuide } from '../utils/setupStatus';
 
@@ -520,7 +520,7 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
           <div className="rounded-[22px] bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] ring-1 ring-black/5 dark:ring-white/10 p-5">
             {centered && (
               <div className="w-12 h-12 rounded-2xl bg-purple-600/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3">
-                <Sparkles className="w-6 h-6" />
+                <Compass className="w-6 h-6" />
               </div>
             )}
             <div className="flex items-start justify-between gap-2">

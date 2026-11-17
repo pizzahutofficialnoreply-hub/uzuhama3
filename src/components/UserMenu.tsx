@@ -379,15 +379,15 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
 
               <div className="space-y-3 text-xs text-zinc-600 dark:text-zinc-400 mb-6 bg-zinc-50 dark:bg-zinc-950 p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800">
                 <div>
-                  <p className="font-bold text-zinc-900 dark:text-zinc-200 mb-1">💻 PC (Chrome / Edge / Whale)</p>
+                  <p className="font-bold text-zinc-900 dark:text-zinc-200 mb-1">PC (Chrome / Edge / Whale)</p>
                   <p>주소창 오른쪽 끝의 <span className="font-bold text-purple-600">[설치]</span> 아이콘을 누르거나 브라우저 메뉴에서 <span className="font-bold">[앱 설치]</span>를 클릭하세요.</p>
                 </div>
                 <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                  <p className="font-bold text-zinc-900 dark:text-zinc-200 mb-1">📱 모바일 Safari (아이폰)</p>
+                  <p className="font-bold text-zinc-900 dark:text-zinc-200 mb-1">모바일 Safari (아이폰)</p>
                   <p>하단 공유 버튼(네모에 위 화살표)을 누른 후 <span className="font-bold text-purple-600">[홈 화면에 추가]</span>를 선택하세요.</p>
                 </div>
                 <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                  <p className="font-bold text-zinc-900 dark:text-zinc-200 mb-1">📱 모바일 Chrome (안드로이드)</p>
+                  <p className="font-bold text-zinc-900 dark:text-zinc-200 mb-1">모바일 Chrome (안드로이드)</p>
                   <p>우측 상단 메뉴(점 3개)를 누르고 <span className="font-bold text-purple-600">[앱 설치]</span> 또는 <span className="font-bold">[홈 화면에 추가]</span>를 누르세요.</p>
                 </div>
               </div>

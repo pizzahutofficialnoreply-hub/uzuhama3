@@ -18,7 +18,7 @@ import { useSearchTuning } from '../../hooks/useSearchTuning';
 import { SearchRating } from '../common/SearchRating';
 import { SearchExtras } from '../common/SearchExtras';
 import { type Intent, CONCEPTS, GAME_ALIASES, autoAliases, groupWeights, hasTerm, isHit, isNaturalQuery, makeDoc, planQuery, scoreDoc, textHits, type SearchDoc } from '../../utils/searchPlan';
-import { RefreshCw, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Star, CheckCircle, Search, Filter, Cloud, CloudDownload, X, Loader2, AlertCircle, AlertTriangle, Calendar, Layers, Play, Sparkles, Clock } from 'lucide-react';
+import { RefreshCw, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Star, CheckCircle, Search, Filter, Cloud, CloudDownload, X, Loader2, AlertCircle, AlertTriangle, Calendar, Layers, Play, Clock, ScrollText, Link2, Info } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -362,7 +362,7 @@ export const VideoCard = ({
             )}
             {aiDone && !held && (
               <span className="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-[10.5px] font-bold pointer-events-none">
-                <Sparkles className="w-3 h-3 text-purple-300" /> AI 요약
+                <ScrollText className="w-3 h-3 text-purple-300" /> AI 요약
               </span>
             )}
           </button>
@@ -2241,7 +2241,7 @@ export function RecommendTab({
               : "bg-amber-50 dark:bg-amber-950/50 border-amber-200/80 dark:border-amber-800/60 text-amber-700 dark:text-amber-300"
           )}>
             {firstRelated
-              ? <Sparkles className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 shrink-0" />
+              ? <Link2 className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 shrink-0" />
               : <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />}
             <span>{label}</span>
           </div>
@@ -2486,7 +2486,7 @@ export function RecommendTab({
             {/* 줄임말·말하듯 검색 안내 */}
             {planBundle && planBundle.plan.notes.length > 0 && (
               <p className="text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 mt-px text-purple-500 shrink-0" />
+                <Info className="w-3.5 h-3.5 mt-px text-purple-500 shrink-0" />
                 <span>{planBundle.plan.notes.join(' · ')}</span>
               </p>
             )}

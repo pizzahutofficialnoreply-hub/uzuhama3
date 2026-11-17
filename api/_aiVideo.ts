@@ -309,14 +309,14 @@ async function analyzeSegment(item: QItem, start: number, end: number, desc: str
 영상 제목: ${item.title}
 종류: ${item.kind === 'short' ? '쇼츠' : item.kind === 'live' ? '생방송 다시보기' : '편집 영상'}${item.duration ? ` / 전체 길이 ${fmt(item.duration)}` : ''}
 ${item.logDate ? `방송 날짜: ${item.logDate}\n` : ''}${item.games?.length ? `방송 기록에 적힌 게임: ${item.games.join(', ')}\n` : ''}${desc ? `설명: ${desc.slice(0, 600)}\n` : ''}${whole ? '' : `지금 보는 건 원본 영상의 ${fmt(start)} ~ ${fmt(end)} 구간이야.\n`}
-화면·자막·말소리를 모두 보고 아래 JSON 으로만 답해. 모르는 건 지어내지 마.
+화면·자막·말소리를 모두 보고 아래 JSON 으로만 답해. 모르는 건 지어내지 마. 말투: 설명 문장은 모두 '~해요/~했어요' 체로 끝내 (~한다·~합니다·~함 섞지 말 것).
 {
  "summary": "이 ${whole ? '영상' : '구간'}에서 일어난 일 2~3문장 (한국어)",
  "scenes": [{"t": "원본 영상 기준 시작 시각 MM:SS 또는 H:MM:SS", "d": "무슨 장면인지 한 문장", "k": ["검색 키워드 3~8개: 장면 성격(점프스케어, 귀신, 비명, 웃음, 노래, 보스전, 엔딩, 사망, 실패, 성공 등)·등장 대상·감정·맵/스테이지 이름"], "say": "그 순간 우주하마나 함께한 사람이 한 인상적인 말 (그대로, 없으면 빈칸)", "who": ["화면·말로 확인되는 함께한 사람 이름이나 닉네임"], "sure": true}],
  "games": [{"name": "화면에 나온 게임 정식 이름(영문이면 영문 그대로)", "ko": "한국어 이름이나 흔히 부르는 이름"}],
  "keywords": ["이 ${whole ? '영상' : '구간'} 전체를 대표하는 검색어 5~15개 (한국어)"],
  "mood": ["분위기 단어 1~5개 (공포, 웃김, 힐링, 긴장감, 감동, 혼돈 등)"]${item.kind === 'live' ? `,
- "nogari": "게임 시작 전 수다(노가리) 부분이 이 구간에 있으면: 무슨 얘기를 했는지 앞뒤 흐름 그대로, 웃긴 말·드립·리액션을 살려서 시청자가 말하듯 편하게 3~8문장. 요약 보고서 말투(~했다, ~를 언급함) 말고 '~했는데 ~해서 빵 터짐' 같은 말투. 노가리가 없으면 빈칸",
+ "nogari": "게임 시작 전 수다(노가리) 부분이 이 구간에 있으면: 무슨 얘기를 했는지 앞뒤 흐름 그대로, 웃긴 말·드립·리액션을 살려서 시청자가 말하듯 편하게 3~8문장. 요약 보고서 말투(~했다, ~를 언급함) 말고 '~했는데 ~해서 빵 터졌어요' 같은 편한 해요체. 노가리가 없으면 빈칸",
  "opanmu": "우주하마가 오늘 입은 팬티 색·무늬를 직접 정확히 말했으면 그 말 그대로 짧게 (예: 파란색, 핑크 땡땡이). 말 안 했거나 애매하면 빈칸"` : ''}
 }
 k 에는 화면에 실제로 또렷이 나온 것·실제로 들린 것만 넣어. '비명'은 크게 놀라 지르는 소리만 (작은 감탄사·"음~"·웃음·혼잣말은 '비명' 아님). 예: 귀신·괴물이 실제로 화면에 보이면 '귀신', 소리만 나거나 그림자·착각·"귀신인가?" 하는 말뿐이면 '귀신' 대신 '귀신 의심'·'소리'처럼 쓰고 sure 를 false 로. 확실하면 sure 는 true.
@@ -416,7 +416,7 @@ async function buildStory(title: string, cur: any, games: any[]) {
   const opanmu = ((cur?.parts || []).find((p: any) => p.opanmu) || {}).opanmu || '';
   const gl = games.map((g: any) => `- ${g.ko && g.ko !== g.name ? `${g.ko} (${g.name})` : g.name}${g.about ? `: ${g.about}` : ''}`).join('\n');
   const prompt = `스트리머 우주하마의 영상 "${title}" 을 AI가 보고 정리한 기록이야. 장면 하나하나가 아니라, 시청자가 한눈에 보게 '이야기·사건 단위'로 묶어 줘.
-규칙: 한국어. 기록에 없는 건 지어내지 말 것. 시간은 초(정수), 기록에 있는 시간만. 너무 잘게 나누지 말고 큰 흐름 위주.
+규칙: 한국어. 기록에 없는 건 지어내지 말 것. 말투: 설명 문장은 모두 '~해요/~했어요' 체로 끝내 (~한다·~합니다·~함 섞지 말 것). 시간은 초(정수), 기록에 있는 시간만. 너무 잘게 나누지 말고 큰 흐름 위주.
 JSON 으로만:
 {"summary":"영상 전체 3~4문장",
  "chapters":[{"from":초,"to":초,"title":"이 구간 이름 (짧게)","summary":"무슨 일이 있었는지 1~2문장","game":"이때 하던 게임 이름(없으면 빈칸)"}],
@@ -458,7 +458,7 @@ async function compOverview(item: QItem, desc: string) {
  "games": [{"name": "게임 원래 이름", "ko": "한국어 이름(있으면)"}],
  "keywords": ["검색어 5~12개 (한국어)"]
 }
-보이고 들린 것·설명란에 적힌 것만. 모르는 건 빈칸.`;
+보이고 들린 것·설명란에 적힌 것만. 모르는 건 빈칸. 말투: 문장은 모두 '~해요/~했어요' 체로.`;
   const part: any = { fileData: { fileUri: `https://www.youtube.com/watch?v=${item.id}` }, videoMetadata: { startOffset: '0s', endOffset: `${Math.min(600, Number(item.duration || 600))}s`, fps: 0.5 } };
   const { text, model } = await gen([part, { text: prompt }], true, AI_TIMEOUT, MODELS, { mediaResolution: 'MEDIA_RESOLUTION_LOW' });
   const out = parseJson(text);
@@ -932,7 +932,7 @@ export async function aiSearch(db: any, q: string, sceneLimit = 3) {
         const ex = new Set<string>([...has(txt, extra), ...(s.k || []).flatMap((k) => has(k, extra))]);
         const vague = s.u === 1 || HEDGE.test(s.d) || (s.k || []).some((k) => /의심/.test(k));
         const n = (main.size + ex.size * 0.6) * (vague ? 0.35 : 1);
-        return { t: s.t, d: s.q ? `${s.d} — "${s.q}"` : s.d, n, vague };
+        return { t: s.t, d: s.q ? `${s.d} “${s.q}”` : s.d, n, vague };
       }).filter((s: any) => s.n > 0).sort((a: any, b: any) => b.n - a.n || a.t - b.t);
       if (scenes.length) score += scenes[0].n * 3 + Math.min(3, scenes.filter((x: any) => !x.vague).length) * 0.5;
       const gameText = (v.games || []).map((g: any) => [g.name, g.ko, ...(g.tags || []), ...(g.aliases || []), g.genre, g.about].join(' ')).join(' ') + ' ' + (v.gameStories || []).map((g: any) => `${g.story} ${g.result}`).join(' ');
@@ -993,7 +993,7 @@ export async function aiVideoDetail(db: any, id: string) {
     found: true, id, title: d.title, kind: d.kind, status: d.status, seg: d.seg, segTotal: d.segTotal, model: d.model,
     chapters: d.chapters || [], gameStories: d.gameStories || [], nogari: d.nogari || '', opanmu: d.opanmu || '',
     summary: d.summary || '', parts: (d.parts || []).map((p: any) => ({ from: p.from, to: p.to, summary: p.summary })),
-    scenes: (d.scenes || []).map((s: Scene) => ({ t: s.t, d: s.q ? `${s.d} — "${s.q}"` : s.d, k: s.k, ...(s.u ? { vague: true } : {}) })),
+    scenes: (d.scenes || []).map((s: Scene) => ({ t: s.t, d: s.d, ...(s.q ? { q: s.q } : {}), k: s.k, ...(s.u ? { vague: true } : {}) })),
     games: games.map((g: any) => ({ name: g.name, ko: g.ko, genre: g.genre, about: g.about, tags: g.tags, horror: g.horror })),
     keywords: d.keywords || [], mood: d.mood || [],
   };

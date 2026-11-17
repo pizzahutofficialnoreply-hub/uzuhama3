@@ -55,8 +55,8 @@ export function buildCalendarEventDetails(log: BroadcastLog): CalendarEventDetai
 
   // 설명 본문 구성
   const descLines: string[] = [
-    `🎮 게임: ${gameName}`,
-    `📅 방송일: ${dateStr}`
+    `게임: ${gameName}`,
+    `방송일: ${dateStr}`
   ];
 
   // 게임 링크 추가 (각 게임별 다운로드/스토어 링크 및 VOD 구간 링크)
@@ -64,7 +64,7 @@ export function buildCalendarEventDetails(log: BroadcastLog): CalendarEventDetai
     const gamesWithLinks = log.games.filter(g => Boolean(g.link || g.vodUrl));
     if (gamesWithLinks.length > 0) {
       descLines.push('');
-      descLines.push('🔗 게임 링크:');
+      descLines.push('게임 링크:');
       gamesWithLinks.forEach(g => {
         if (g.link) {
           descLines.push(`- ${g.name} 링크: ${g.link}`);
@@ -83,7 +83,7 @@ export function buildCalendarEventDetails(log: BroadcastLog): CalendarEventDetai
   }
 
   descLines.push('');
-  descLines.push('📺 다시보기 및 방송 링크:');
+  descLines.push('다시보기 및 방송 링크:');
   if (log.chzzkUrl) descLines.push(`- 치지직 생방송/다시보기: ${log.chzzkUrl}`);
   if (log.youtubeUrl) descLines.push(`- 유튜브 생방송/다시보기: ${log.youtubeUrl}`);
   if (log.vods && log.vods.length > 0) {
@@ -95,7 +95,7 @@ export function buildCalendarEventDetails(log: BroadcastLog): CalendarEventDetai
 
   if (log.edited && log.edited.length > 0) {
     descLines.push('');
-    descLines.push('🎬 유튜브 편집 영상:');
+    descLines.push('유튜브 편집 영상:');
     log.edited.forEach((e, idx) => {
       const editTitle = e.title ? e.title : `편집 영상 ${idx + 1}`;
       descLines.push(`- [편집본] ${editTitle}: ${e.url}`);
@@ -104,7 +104,7 @@ export function buildCalendarEventDetails(log: BroadcastLog): CalendarEventDetai
 
   if (log.shorts && log.shorts.length > 0) {
     descLines.push('');
-    descLines.push('📱 유튜브 쇼츠:');
+    descLines.push('유튜브 쇼츠:');
     log.shorts.forEach((s, idx) => {
       const shortsTitle = s.title ? s.title : `쇼츠 ${idx + 1}`;
       descLines.push(`- [쇼츠] ${shortsTitle}: ${s.url}`);
