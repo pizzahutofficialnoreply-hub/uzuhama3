@@ -230,6 +230,8 @@ async function loadQueue(db: any): Promise<{ items: QItem[]; fresh: boolean }> {
 // 모델별 쉬는 시간 (하루 한도면 다음 한도 초기화까지, 분당 한도면 알려 준 시간만큼, 붐비면 5분)
 let modelCool: Record<string, number> = {};
 let modelWhy: Record<string, string> = {};
+// 한도 걸린 이유 원문 (어느 한도 · 몇 개) — 왜 계속 막히는지 보려고
+let modelQuota: Record<string, string> = {};
 /** 무료 한도 초기화: 미국 태평양 자정 (한국 오후 4~5시) */
 const nextQuotaReset = () => {
   const d = new Date();
@@ -244,9 +246,14 @@ const retryMs = (msg: string) => {
 function coolModel(model: string, msg: string) {
   if (isRate(msg)) {
     // 하루 한도: 메시지에 PerDay 가 있거나, 다시 하라는 시간이 30분보다 길면
-    const daily = /PerDay|per day|daily|RPD/i.test(msg) || retryMs(msg) > 30 * 60000;
+    const ids = [...msg.matchAll(/"quotaId":\s*"([^"]+)"/g)].map((m) => m[1]);
+    const vals = [...msg.matchAll(/"quotaValue":\s*"?(\d+)/g)].map((m) => m[1]);
+    // 무료로 아예 못 쓰는 모델 (한도 0) → 하루 쉼
+    const none = vals.length > 0 && vals.every((v) => v === '0') || /limit:\s*0\b/.test(msg);
+    const daily = none || /PerDay|per day|daily|RPD/i.test(msg) || retryMs(msg) > 30 * 60000;
     modelCool[model] = daily ? nextQuotaReset() : Date.now() + Math.max(60000, retryMs(msg) || 10 * 60000);
-    modelWhy[model] = daily ? 'day' : 'minute';
+    modelWhy[model] = none ? 'none' : daily ? 'day' : 'minute';
+    modelQuota[model] = `${ids.join(',') || '-'} = ${vals.join(',') || '?'} · retry ${Math.round(retryMs(msg) / 1000)}s`.slice(0, 200);
   } else if (isBusy(msg)) {
     modelCool[model] = Date.now() + 5 * 60000;
     modelWhy[model] = 'busy';
@@ -480,6 +487,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
   const st = (await stRef.get()).data() || {};
   modelCool = Object.fromEntries(Object.entries(st.modelCool || {}).filter(([, v]) => Number(v) > now)) as Record<string, number>;
   modelWhy = { ...(st.modelWhy || {}) };
+  modelQuota = { ...(st.modelQuota || {}) };
   if (st.paused) return { skipped: '관리자가 멈춤' };
   if (Number(st.lockUntil || 0) > now) return { skipped: '다른 요청이 분석 중' };
   if (Number(st.coolUntil || 0) > now) return { skipped: `한도 · ${new Date(st.coolUntil).toISOString()} 까지 쉼`, why: String(st.lastError || '').slice(0, 300) };
@@ -489,7 +497,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
   if (usedSec >= DAILY_SEC || calls >= DAILY_CALLS) return { skipped: `오늘 한도 다 씀 (${Math.round(usedSec / 60)}분 · ${calls}번)` };
   await stRef.set({ lockUntil: now + AI_TIMEOUT + 60000, day, usedSec, calls }, { merge: true });
 
-  const release = (patch: any = {}) => stRef.set({ lockUntil: 0, lastRunAt: new Date().toISOString(), modelCool, modelWhy, ...patch }, { mergeFields: ['lockUntil', 'lastRunAt', 'modelCool', 'modelWhy', ...Object.keys(patch)] });
+  const release = (patch: any = {}) => stRef.set({ lockUntil: 0, lastRunAt: new Date().toISOString(), modelCool, modelWhy, modelQuota, ...patch }, { mergeFields: ['lockUntil', 'lastRunAt', 'modelCool', 'modelWhy', 'modelQuota', ...Object.keys(patch)] });
   try {
     const { items: queue, fresh } = await loadQueue(db);
     // 목록을 방금 새로 받았으면 시간이 빠듯하니 분석은 다음 차례에
