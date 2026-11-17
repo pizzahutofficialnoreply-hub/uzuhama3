@@ -85,10 +85,10 @@ interface DetailedStatsTabProps {
 /** 비교 기간 표시 띠 (따로 보여 주는 표·카테고리 위) */
 function CompareBadge({ range }: { range: { start: string; end: string } }) {
   return (
-    <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border" style={{ borderColor: '#f59e0b55', background: '#f59e0b14' }}>
+    <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500">
       <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#f59e0b' }} />
-      <span className="text-sm font-black" style={{ color: '#d97706' }}>비교 기간</span>
-      <span className="text-xs text-zinc-500 tabular-nums">{range.start} ~ {range.end}</span>
+      <span style={{ color: '#d97706' }}>비교 기간</span>
+      <span className="tabular-nums">{range.start} ~ {range.end}</span>
     </div>
   );
 }
@@ -1018,35 +1018,33 @@ export function DetailedStatsTab({
                 const e2 = format(subDays(parseISO(startDate), 1), 'yyyy-MM-dd');
                 setRange2({ start: format(subDays(parseISO(e2), len), 'yyyy-MM-dd'), end: e2 });
               }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer">
-              <span className="text-base leading-none">+</span> 비교할 기간 더하기
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 cursor-pointer transition-all">
+              <span className="leading-none">+</span> 다른 기간과 비교
             </button>
           ) : (
-            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 p-3 space-y-2.5" style={{ boxShadow: `inset 4px 0 0 ${COLOR_B}` }} data-testid="stats-compare-range">
-              <div className="flex items-center gap-2 pl-1.5">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: COLOR_B }} />
-                <span className="text-sm font-black text-zinc-900 dark:text-white whitespace-nowrap">비교 기간</span>
-                <button type="button" onClick={() => setRange2(null)} className="ml-auto shrink-0 w-7 h-7 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center cursor-pointer" aria-label="비교 끄기"><X className="w-4 h-4 text-zinc-500" /></button>
-              </div>
-              <p className="pl-1.5 text-[11px] text-zinc-500 break-keep">아래 분석에 <b style={{ color: COLOR_A }}>지금 기간</b>과 <b style={{ color: COLOR_B }}>비교 기간</b>을 색을 달리해 겹쳐 보여 줘요</p>
-              <div className="flex gap-1.5 overflow-x-auto hide-scrollbar pl-1.5" data-no-swipe>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 text-sm min-w-0" data-testid="stats-compare-range">
+              <div className="flex items-center gap-1.5 min-w-0 shrink-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar min-w-0 flex-1" data-no-swipe>
                 {comparePresets(firstDateStr).map((p) => {
                   const on = p.r.start === range2.start && p.r.end === range2.end;
                   return (
-                    <button key={p.key} type="button" onClick={() => setRange2(p.r)}
-                      className={cn('shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap cursor-pointer', on ? 'text-white' : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300')}
+                    <button key={p.key} type="button" aria-pressed={on} onClick={() => setRange2(p.r)}
+                      className={cn('px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer', on ? 'text-white shadow-xs' : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300')}
                       style={on ? { background: COLOR_B } : undefined}>
                       {p.label}
                     </button>
                   );
                 })}
               </div>
-              <div className="flex items-center gap-2 pl-1.5">
+                <button type="button" onClick={() => setRange2(null)} className="shrink-0 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-500 inline-flex items-center gap-1 cursor-pointer" aria-label="비교 끄기"><X className="w-3.5 h-3.5" />비교 끄기</button>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
+                <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ background: COLOR_B }} title="비교 기간" aria-label="비교 기간" />
                 <input type="date" value={range2.start} min={firstDateStr} onChange={(e) => e.target.value && setRange2({ ...range2, start: e.target.value })}
-                  className="flex-1 min-w-0 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm text-zinc-900 dark:text-white" aria-label="비교 기간 시작일" />
-                <span className="text-zinc-400">~</span>
+                  className="flex-1 w-full min-w-0 max-w-full box-border bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 sm:px-3.5 py-2 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-400 text-sm" aria-label="비교 기간 시작일" />
+                <span className="text-zinc-400 shrink-0">~</span>
                 <input type="date" value={range2.end} min={range2.start} onChange={(e) => e.target.value && setRange2({ ...range2, end: e.target.value })}
-                  className="flex-1 min-w-0 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-sm text-zinc-900 dark:text-white" aria-label="비교 기간 종료일" />
+                  className="flex-1 w-full min-w-0 max-w-full box-border bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 sm:px-3.5 py-2 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-400 text-sm" aria-label="비교 기간 종료일" />
               </div>
             </div>
           )}
@@ -1227,7 +1225,7 @@ export function DetailedStatsTab({
                               <ReferenceLine y={stats.avgDaily} stroke="#f43f5e" strokeDasharray="3 3" label={{ position: 'top', value: `평균(${stats.avgDaily.toFixed(1)}%)`, fill: '#f43f5e', fontSize: 10 }} />
                               <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
                                 {stats.dailyStatsArray.map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
+                                  <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#a3b4d6'} />
                                 ))}
                               </Bar>
                               {stats2 && <Bar dataKey="probability2" fill={COLOR_B} radius={[4, 4, 0, 0]} animationDuration={300} />}
@@ -1273,16 +1271,11 @@ export function DetailedStatsTab({
 <div className="space-y-6">
               <CategoryStatsTab 
                 logs={logsArray} 
+                compareLogs={range2 ? logs2 : null}
                 isActive={isActive} 
                 onNavigateToCalendar={onNavigateToCalendar}
                 onNavigateToRecommend={onNavigateToRecommend}
               />
-              {range2 && (
-                <div className="space-y-3">
-                  <CompareBadge range={range2} />
-                  <CategoryStatsTab logs={logs2} isActive={isActive} onNavigateToCalendar={onNavigateToCalendar} onNavigateToRecommend={onNavigateToRecommend} />
-                </div>
-              )}
               </div>
             )}
           </>
@@ -1489,7 +1482,7 @@ export function DetailedStatsTab({
                             <Bar dataKey="probability" radius={[4, 4, 0, 0]} animationDuration={300} animationEasing="ease-out">
                               <LabelList dataKey="probability" position="top" fill="#4b5563" fontSize={11} offset={4} fontWeight="bold" className="chart-capture-only-label" formatter={(val: number) => `${val.toFixed(1)}%`} />
                               {stats.dailyStatsArray.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
+                                <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#a3b4d6'} />
                               ))}
                             </Bar>
                             {stats2 && <Bar dataKey="probability2" fill={COLOR_B} radius={[4, 4, 0, 0]} animationDuration={300} />}
@@ -1534,16 +1527,11 @@ export function DetailedStatsTab({
 <div className="space-y-6">
               <CategoryStatsTab 
                 logs={logsArray} 
+                compareLogs={range2 ? logs2 : null}
                 isActive={isActive} 
                 onNavigateToCalendar={onNavigateToCalendar}
                 onNavigateToRecommend={onNavigateToRecommend}
               />
-              {range2 && (
-                <div className="space-y-3">
-                  <CompareBadge range={range2} />
-                  <CategoryStatsTab logs={logs2} isActive={isActive} onNavigateToCalendar={onNavigateToCalendar} onNavigateToRecommend={onNavigateToRecommend} />
-                </div>
-              )}
               </div>
             )}
           </>
@@ -1600,7 +1588,7 @@ export function DetailedStatsTab({
                         <Bar dataKey="probability" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                           <LabelList dataKey="probability" position="top" fill="#6b7280" fontSize={11} formatter={(val: number) => `${val.toFixed(1)}%`} />
                           {stats.dailyStatsArray.map((entry, index) => (
-                            <Cell key={`legacy-pdf-cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
+                            <Cell key={`legacy-pdf-cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#a3b4d6'} />
                           ))}
                         </Bar>
                       </BarChart>
@@ -2013,7 +2001,7 @@ export function DetailedStatsTab({
                       <Bar dataKey="probability" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                         <LabelList dataKey="probability" position="top" fill="#6b7280" fontSize={11} formatter={(val: number) => `${val.toFixed(1)}%`} />
                         {stats.dailyStatsArray.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#6366f1'} />
+                          <Cell key={`cell-${index}`} fill={entry.probability > stats.avgDaily * 1.2 ? '#7791c1' : entry.probability < stats.avgDaily * 0.8 ? '#ef4444' : '#a3b4d6'} />
                         ))}
                       </Bar>
                     </BarChart>

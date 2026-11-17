@@ -24,6 +24,8 @@ import { StatInsightSummary } from './StatInsightSummary';
 
 interface CategoryStatsTabProps {
   logs: BroadcastLog[];
+  /** 비교 기간 기록: 있으면 같은 표에 겹쳐 보여 줌 */
+  compareLogs?: BroadcastLog[] | null;
   isActive?: boolean;
   onNavigateToCalendar?: (dateStr: string) => void;
   onNavigateToRecommend?: (category?: string, searchTerm?: string) => void;
@@ -39,6 +41,8 @@ interface CategoryData {
 }
 
 // 부드럽고 눈에 편한 파스텔톤 팔레트
+const COMPARE_A = '#7791c1';
+const COMPARE_B = '#f59e0b';
 const PASTEL_PALETTE = [
   '#93a9d2', // pastel violet (메인 테마 보라)
   '#93c5fd', // pastel blue
@@ -123,6 +127,7 @@ const CategoryPieTooltip = ({ active, payload }: any) => {
 
 export function CategoryStatsTab({ 
   logs, 
+  compareLogs,
   isActive = true,
   onNavigateToCalendar,
   onNavigateToRecommend
@@ -132,6 +137,25 @@ export function CategoryStatsTab({
   const [sortBy, setSortBy] = useState<'count' | 'hours' | 'games' | 'name'>('count');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [expandedCategoryNames, setExpandedCategoryNames] = useState<Set<string>>(new Set());
+
+  // 비교 기간: 카테고리별 횟수·비중·시간 (같은 셈법)
+  const cmp = useMemo(() => {
+    if (!compareLogs) return null;
+    const m = new Map<string, { count: number; hours: number }>();
+    let total = 0;
+    compareLogs.forEach((log) => {
+      if (log.isAbsence) return;
+      const list = (log.games && log.games.length > 0) ? log.games : (log.game ? [{ name: log.game, link: '', category: log.category || '종합' }] : []);
+      const per = list.length > 0 ? (log.durationHours || 0) / list.length : 0;
+      list.forEach((g: any) => {
+        if (!String(g.name || '').trim()) return;
+        const cats = String(g.category || log.category || '기타').split(/[,/]/).map((c) => c.trim()).filter(Boolean);
+        const t = cats.length ? cats : ['기타'];
+        t.forEach((c) => { total++; const e = m.get(c) || { count: 0, hours: 0 }; e.count++; e.hours += per / t.length; m.set(c, e); });
+      });
+    });
+    return { m, total };
+  }, [compareLogs]);
 
   const handleCategoryClick = (catName: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -730,6 +754,14 @@ export function CategoryStatsTab({
           </div>
         </div>
 
+        {cmp && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-zinc-500 break-keep">
+            <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-1.5 rounded-full" style={{ background: COMPARE_A }} />지금 기간</span>
+            <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-1.5 rounded-full" style={{ background: COMPARE_B }} />비교 기간</span>
+            {(() => { const only = [...cmp.m.entries()].filter(([k]) => !categories.some((c) => c.name === k)); return only.length ? <span>비교 기간에만: {only.map(([k, v]) => `${k} ${v.count}회`).join(' · ')}</span> : null; })()}
+          </div>
+        )}
+
         {/* 순위표 테이블 (PC에서는 넉넉한 칸 띄움과 정렬, 모바일에서는 최소 스크롤 최적화) */}
         <div className="overflow-x-auto rounded-2xl border border-zinc-200 dark:border-zinc-800 custom-scrollbar">
           <table className="w-full text-left text-xs sm:text-sm whitespace-nowrap table-auto lg:table-fixed">
@@ -777,7 +809,9 @@ export function CategoryStatsTab({
                 filteredCategories.map((cat, index) => {
                   const rank = index + 1;
                   const maxCount = categories[0]?.count || 1;
-                  const barWidth = Math.max(8, (cat.count / maxCount) * 100);
+                  // 비교 중엔 길이가 다른 두 기간을 비중(%)으로 맞춰 겹쳐 봄
+                  const maxShare = Math.max(categories[0]?.share || 1, ...(cmp && cmp.total ? [...cmp.m.values()].map((v) => (v.count / cmp.total) * 100) : [0]));
+                  const barWidth = Math.max(8, cmp ? (cat.share / maxShare) * 100 : (cat.count / maxCount) * 100);
                   const isExpanded = expandedCategoryNames.has(cat.name);
                   const visibleGames = isExpanded ? cat.games : cat.games.slice(0, 3);
                   const hiddenCount = cat.games.length - 3;
@@ -823,10 +857,10 @@ export function CategoryStatsTab({
                       <td className="px-3 sm:px-5 lg:px-6 py-3.5 sm:py-4">
                         <div className="flex flex-col gap-1 w-24 sm:w-44">
                           <div className="flex items-center justify-between text-[11px] sm:text-xs">
-                            <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                            <span className="font-bold text-emerald-600 dark:text-emerald-400" style={cmp ? { color: COMPARE_A } : undefined}>
                               {cat.count}회
                             </span>
-                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400" style={cmp ? { color: COMPARE_A } : undefined}>
                               {cat.share.toFixed(1)}%
                             </span>
                           </div>
@@ -835,10 +869,25 @@ export function CategoryStatsTab({
                               className="h-full rounded-full transition-all duration-300" 
                               style={{ 
                                 width: `${barWidth}%`, 
-                                backgroundColor: cat.color 
+                                backgroundColor: cmp ? COMPARE_A : cat.color 
                               }}
                             />
                           </div>
+                          {cmp && (() => {
+                            const c = cmp.m.get(cat.name);
+                            const n = c?.count || 0;
+                            return (
+                              <>
+                                <div className="h-1.5 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full" style={{ width: `${n && cmp.total ? Math.max(8, ((n / cmp.total) * 100 / maxShare) * 100) : 0}%`, backgroundColor: COMPARE_B }} />
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-semibold" style={{ color: COMPARE_B }}>
+                                  <span>{n}회</span>
+                                  <span>{cmp.total ? ((n / cmp.total) * 100).toFixed(1) : '0.0'}%</span>
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       </td>
 
@@ -847,6 +896,7 @@ export function CategoryStatsTab({
                         <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm">
                           {cat.estimatedHours}시간
                         </span>
+                        {cmp && <div className="text-[10px] sm:text-[11px] font-semibold mt-0.5" style={{ color: COMPARE_B }}>{Math.round((cmp.m.get(cat.name)?.hours || 0) * 10) / 10}시간</div>}
                       </td>
 
                       {/* 대표 플레이 게임 목록: 여러 번 한 게임은 검색으로 그 게임 영상 전체, 한 번만 한 게임은 그 방송일 달력으로 */}

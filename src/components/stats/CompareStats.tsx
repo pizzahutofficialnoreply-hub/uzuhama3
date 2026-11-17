@@ -11,7 +11,7 @@ import { parseTimeTo24, cn } from '../../utils';
  */
 export type Range = { start: string; end: string };
 export const COLOR_A = '#f59e0b'; // 기간 1 (주황)
-export const COLOR_B = '#6366f1'; // 기간 2 (남색)
+export const COLOR_B = '#f59e0b'; // 기간 2 (주황, 분석 탭 비교와 같은 색)
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 // 방송일 기준 시작 시각 (새벽 0~5시는 전날 방송의 늦은 시각으로 봄)
 const BUCKETS = [12, 14, 16, 18, 20, 22, 24, 26, 28];
