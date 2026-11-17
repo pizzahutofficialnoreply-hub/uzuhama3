@@ -32,7 +32,8 @@ const PREFER_FLASH = String(process.env.AI_VIDEO_PREFER || '').toLowerCase() ===
 const MODELS = [...new Set([process.env.GEMINI_VIDEO_MODEL, ...(PREFER_FLASH ? [...FLASH, ...LITE] : [...LITE, ...FLASH])].filter(Boolean))] as string[];
 /** 분석 방식 버전: 바뀌면 예전 방식(가벼운 모델·낮은 화질)으로 본 영상을 다시 봄 */
 const PV = 4; // 4: 생방송 노가리·오팬무 // 3: 한 말·함께한 사람도 기록
-const TEXT_MODELS = [...new Set([process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest'].filter(Boolean))] as string[];
+const TEXT_MODELS = [...new Set([process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'].filter(Boolean))] as string[];
+// ↑ 끝의 셋: 영상 보기에 쓰는 가벼운 모델 — 위 모델이 다 한도면 정리(이야기·게임)도 이걸로 (전엔 정리 단계만 계속 막혀 영상이 '다 봄'이 안 됐음)
 
 type QItem = { id: string; title: string; publishedAt: string; kind?: 'video' | 'short' | 'live'; duration?: number; live?: string; logDate?: string; games?: string[]; gameLinks?: Record<string, string>; comp?: boolean };
 const QUEUE_VER = 4; // 2: 방송 기록의 생방송 다시보기 포함, 3: 몰아보기 표시(분석 안 함), 4: 아카이브 생방송 전부·따로 받은 생방송 재생목록
