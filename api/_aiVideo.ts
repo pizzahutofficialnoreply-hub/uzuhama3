@@ -119,9 +119,26 @@ export async function playlistIds(pl: string): Promise<{ id: string; title: stri
   } while (token && ++guard < 80);
   return out;
 }
+
+/** 분석 목록: 문서 하나가 1MB를 넘지 않게 나눠 저장 (ai_queue + ai_queue_1, _2 …) */
+const QUEUE_CHUNK = 1500;
+export async function readQueueDoc(db: any): Promise<any> {
+  const head = (await db.collection('youtube_cache').doc('ai_queue').get()).data();
+  if (!head) return null;
+  const n = Number(head.parts || 0);
+  if (n <= 1) return head;
+  const rest = await db.getAll(...Array.from({ length: n - 1 }, (_, i) => db.collection('youtube_cache').doc(`ai_queue_${i + 1}`)));
+  return { ...head, items: [...(head.items || []), ...rest.flatMap((d: any) => (d.exists ? d.data()?.items || [] : []))] };
+}
+async function writeQueueDoc(db: any, meta: any, items: QItem[]) {
+  const chunks: QItem[][] = [];
+  for (let i = 0; i < items.length; i += QUEUE_CHUNK) chunks.push(items.slice(i, i + QUEUE_CHUNK));
+  if (!chunks.length) chunks.push([]);
+  for (let i = 1; i < chunks.length; i++) await db.collection('youtube_cache').doc(`ai_queue_${i}`).set({ items: chunks[i] });
+  await db.collection('youtube_cache').doc('ai_queue').set({ ...meta, items: chunks[0], parts: chunks.length });
+}
 async function loadQueue(db: any): Promise<{ items: QItem[]; fresh: boolean }> {
-  const ref = db.collection('youtube_cache').doc('ai_queue');
-  const cur = (await ref.get()).data();
+  const cur = await readQueueDoc(db);
   if (cur?.items?.length && cur.v === QUEUE_VER && Date.now() - Date.parse(cur.fetchedAt || '0') < QUEUE_TTL) return { items: cur.items, fresh: false };
   const cid = await channelId(db);
   if (!cid) throw new Error('채널을 찾지 못했어요');
@@ -203,7 +220,9 @@ async function loadQueue(db: any): Promise<{ items: QItem[]; fresh: boolean }> {
   items.sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''));
   let channelCount = 0;
   try { channelCount = Number((await yt(`channels?part=statistics&id=${cid}`))?.items?.[0]?.statistics?.videoCount || 0); } catch { /* 없어도 됨 */ }
-  await ref.set({ items, fetchedAt: new Date().toISOString(), count: items.length, channelCount, v: QUEUE_VER });
+  // 게임 링크는 길어서 목록에는 이름만 남기고 줄임 (문서 크기)
+  items.forEach((x) => { if (x.gameLinks) x.gameLinks = Object.fromEntries(Object.entries(x.gameLinks).slice(0, 4).map(([k, v]) => [k, String(v).slice(0, 160)])); if (x.title) x.title = x.title.slice(0, 120); });
+  await writeQueueDoc(db, { fetchedAt: new Date().toISOString(), count: items.length, channelCount, v: QUEUE_VER }, items);
   return { items, fresh: true };
 }
 
@@ -463,7 +482,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
   modelWhy = { ...(st.modelWhy || {}) };
   if (st.paused) return { skipped: '관리자가 멈춤' };
   if (Number(st.lockUntil || 0) > now) return { skipped: '다른 요청이 분석 중' };
-  if (Number(st.coolUntil || 0) > now) return { skipped: `한도 · ${new Date(st.coolUntil).toISOString()} 까지 쉼` };
+  if (Number(st.coolUntil || 0) > now) return { skipped: `한도 · ${new Date(st.coolUntil).toISOString()} 까지 쉼`, why: String(st.lastError || '').slice(0, 300) };
   const day = kstDay();
   const usedSec = st.day === day ? Number(st.usedSec || 0) : 0;
   const calls = st.day === day ? Number(st.calls || 0) : 0;
@@ -643,7 +662,10 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
     return { id: item.id, title: item.title, finished: true };
   } catch (e: any) {
     const msg = String(e?.message || e).slice(0, 1500);
-    await release({ lastError: msg });
+    // 유튜브 하루 한도: 다음 초기화(한국 오후 4~5시)까지 쉼 — 계속 다시 부르면 사이트의 다른 기능이 쓸 한도까지 써 버림
+    if (/exceeded your.*quota|quotaExceeded|dailyLimitExceeded/i.test(msg)) { await release({ lastError: msg, coolUntil: nextQuotaReset() }); return { error: msg, cool: 'youtube' }; }
+    // 그 밖의 오류도 바로 다시 하지 않고 15분 쉼 (목록 저장 실패 등이 계속 되풀이되며 한도를 쓰지 않게)
+    await release({ lastError: msg, coolUntil: Date.now() + 15 * 60000 });
     return { error: msg };
   }
 }
@@ -806,7 +828,7 @@ JSON 으로만: {"verdict":"match|mismatch|unsure","bFrom":B에서 A 내용이 �
 /** 진행 상황 (관리자) */
 export async function aiVideoStatus(db: any) {
   const st = (await db.collection('youtube_cache').doc('ai_state').get()).data() || {};
-  const q = (await db.collection('youtube_cache').doc('ai_queue').get()).data();
+  const q = await readQueueDoc(db);
   let done = 0;
   let partial = 0;
   try {
@@ -1182,7 +1204,7 @@ export async function youtubeViews(db: any) {
   const ref = db.collection('youtube_cache').doc('views');
   const cur = (await ref.get()).data();
   if (cur?.v && Date.now() - Date.parse(cur.at || '0') < 6 * 3600000) return { views: cur.v, at: cur.at };
-  const q = (await db.collection('youtube_cache').doc('ai_queue').get()).data();
+  const q = await readQueueDoc(db);
   const ids: string[] = [...new Set<string>((q?.items || []).map((x: any) => String(x.id)).filter((id: string) => /^[\w-]{11}$/.test(id)))];
   const v: Record<string, number> = { ...(cur?.v || {}) };
   for (let i = 0; i < ids.length; i += 50) {

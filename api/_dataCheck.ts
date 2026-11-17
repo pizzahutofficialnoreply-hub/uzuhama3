@@ -251,7 +251,7 @@ async function cleanupLinks(db: any, logs: any[], info: Map<string, any>, histor
 
   // ── D) 생방이 빠진 기록: 채널의 생방송 중 아무 기록에도 안 걸린 것에서, 방송일(설명란 날짜 → 시작일)이 같은 것을 찾아 넣음 ──
   try {
-    const q = (await db.collection('youtube_cache').doc('ai_queue').get()).data();
+    const q = await (await import('./_aiVideo.js')).readQueueDoc(db);
     const linked = new Set<string>();
     logs.forEach((l: any) => (cur(l).vods || []).concat(cur(l).edited || [], cur(l).shorts || []).forEach((v: any) => { const id = itemId(v); if (id) linked.add(id); }));
     const free = (q?.items || []).filter((x: any) => x.kind === 'live' && !linked.has(x.id));
