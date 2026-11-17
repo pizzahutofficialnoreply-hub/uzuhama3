@@ -37,7 +37,12 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
   const basePerPage = usePrefs().collectionPageSize;
   const PER_PAGE = viewStyle === 'list' ? basePerPage * 2 : basePerPage;
   const logsList = useMemo(() => (allLogs ? (Array.isArray(allLogs) ? allLogs : Object.values(allLogs)) : []), [allLogs]);
-  const dates = useMemo(() => getBroadcastDates(video, logsList), [video, logsList]);
+  // 순서: 몰아보기에 등록한 생방송 순서(= 영상 속 순서) 그대로. 없으면 예전 방식
+  const dates = useMemo(() => {
+    const reg: string[] = Array.isArray(video?.allBroadcastDates) ? video.allBroadcastDates.filter(Boolean) : [];
+    const base = getBroadcastDates(video, logsList);
+    return reg.length > 1 ? [...new Set([...reg, ...base.filter((d) => !reg.includes(d))])] : base;
+  }, [video, logsList]);
   const isCompilation = !!(video?.isCompilation || video?.compilationId);
   const ytId = extractYoutubeId(video?.videoUrl || '') || video?.id;
   const gameCount = isCompilation && Array.isArray(video?.games) && video.games.length > 0 ? video.games.length : dates.length;
@@ -46,9 +51,14 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
     const log: any = logsList.find((l: any) => l?.date === date) || (video?.parentLog?.date === date ? video.parentLog : null);
     const edits = (Array.isArray(log?.edited) ? log.edited : []).filter((e: any) => e?.url && !e.isCompilation && !e.compilationId && e.url !== video?.videoUrl && !String(e.title || '').includes('몰아보기'));
     const primary = edits[0];
-    const games: string[] = isCompilation && Array.isArray(video?.games)
-      ? video.games.filter((g: any) => !g?.date || g.date === date).map((g: any) => (typeof g === 'string' ? g : g?.name)).filter(Boolean)
-      : (Array.isArray(log?.games) && log.games.length ? log.games.map((g: any) => g?.name).filter(Boolean) : log?.game ? [log.game] : []);
+    // 그 방송에서 몰아보기에 들어간 게임만 (방송마다 고른 게임)
+    const nameOf = (g: any) => (typeof g === 'string' ? g : g?.name);
+    const link = isCompilation ? (Array.isArray(log?.edited) ? log.edited : []).find((e: any) => (video?.compilationId && e?.compilationId === video.compilationId) || (e?.isCompilation && e?.url === video?.videoUrl)) : null;
+    const logGames: string[] = Array.isArray(log?.games) && log.games.length ? log.games.map(nameOf).filter(Boolean) : log?.game ? [log.game] : [];
+    const games: string[] = isCompilation
+      ? (Array.isArray(link?.games) && link.games.length ? link.games.map(nameOf).filter(Boolean)
+        : Array.isArray(video?.games) ? video.games.filter((g: any) => (g?.date ? g.date === date : logGames.includes(nameOf(g)))).map(nameOf).filter(Boolean) : [])
+      : logGames;
     const liveUrl = (Array.isArray(log?.vods) ? log.vods : []).map((v: any) => (typeof v === 'string' ? v : v?.url)).find(Boolean) || log?.vodUrl || '';
     return {
       date,
@@ -91,7 +101,7 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
               placeholder={r.date.replace(/-/g, '.')}
               title={r.title}
               href={r.href}
-              badge={`${dayLabel(r.date)} 방송${r.games.length ? ` · ${r.games.slice(0, 3).join(', ')}${r.games.length > 3 ? ` 외 ${r.games.length - 3}개` : ''}` : ''}`}
+              badge={`${dayLabel(r.date)} 방송${r.games.length ? ` · ${isCompilation ? r.games[0] : `${r.games.slice(0, 3).join(', ')}${r.games.length > 3 ? ` 외 ${r.games.length - 3}개` : ''}`}` : ''}`}
               liveUrl={r.liveUrl || undefined}
               shorts={r.shorts}
             />

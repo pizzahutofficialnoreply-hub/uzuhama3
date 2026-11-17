@@ -350,9 +350,9 @@ export const VideoCard = ({
             title={aiDone ? '눌러서 AI 요약과 함께 보기' : '클릭하여 화면 내에서 바로 영상 재생'}
           >
             <img 
-              src={`https://img.youtube.com/vi/${video.id}/mqdefault.jpg`} 
-              alt={video.videoTitle} 
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+              src={`https://i.ytimg.com/vi/${extractYoutubeId(video.videoUrl || "") || video.id}/mqdefault.jpg`} 
+              alt="" 
+              className="w-full h-full object-cover bg-zinc-200 dark:bg-zinc-800 group-hover:scale-105 transition-transform duration-500" 
             />
             {/* 카드가 펼쳐지는 영상은 재생 버튼을 펼친 뒤에 보여 줌 */}
             {!(compExpand || aiDone) && (

@@ -59,6 +59,12 @@ const ChzzkIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+
+/** 괄호 묶음 '(대둔근 조절 장애)'가 줄 끝에서 '('만 남고 갈라지지 않게 한 덩어리로 */
+function keepParen(text: string) {
+  return String(text || '').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')').split(/(\([^()]{1,40}\))/).map((t, i) => (i % 2 ? <span key={i} className="whitespace-nowrap">{t}</span> : t));
+}
+
 export function CurrentProbability({
   logs = [],
   onProbChange,
@@ -514,26 +520,26 @@ export function CurrentProbability({
           if (activeIllness && patternMessage.includes(activeIllness)) {
             const parts = patternMessage.split(activeIllness);
             return (
-              <p className="max-w-[19rem] mx-auto text-[13px] font-medium text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep [text-wrap:balance]">
+              <p className="max-w-[19rem] mx-auto text-[14px] font-hanna font-pro text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep [text-wrap:balance]">
                 <span aria-hidden className="inline-block w-1.5 h-1.5 rounded-full bg-purple-400/80 align-middle mr-1.5 -mt-0.5" />
-                {parts[0]}
+                {keepParen(parts[0])}
                 <button
                   type="button"
                   onClick={() => setShowIllnessModal(true)}
                   className="font-bold underline decoration-purple-500 underline-offset-4 text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 cursor-pointer mx-0.5 transition-colors"
                   title="클릭 시 병명 의학 정보 확인"
                 >
-                  {activeIllness}
+                  {keepParen(activeIllness)}
                 </button>
-                {parts.slice(1).join(activeIllness)}
+                {keepParen(parts.slice(1).join(activeIllness))}
               </p>
             );
           }
 
           return (
-            <p className="max-w-[19rem] mx-auto text-[13px] font-medium text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep [text-wrap:balance]">
+            <p className="max-w-[19rem] mx-auto text-[14px] font-hanna font-pro text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep [text-wrap:balance]">
               <span aria-hidden className="inline-block w-1.5 h-1.5 rounded-full bg-purple-400/80 align-middle mr-1.5 -mt-0.5" />
-              {patternMessage}
+              {keepParen(patternMessage)}
             </p>
           );
         })()}

@@ -1,3 +1,4 @@
+import { installThumbFallback } from './utils/thumbFallback';
 import { startOverlayScrollLock } from './utils/overlayLock';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
@@ -26,6 +27,7 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
 startOverlayScrollLock();
 // 안내만 하는 alert 창은 모두 토스트로 (화면을 막지 않음)
 try { window.alert = (m?: any) => { void import('./utils/ui').then((u) => u.toast(String(m ?? ''))); }; } catch { /* */ }
+installThumbFallback();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
