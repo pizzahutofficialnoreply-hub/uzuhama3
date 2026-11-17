@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, animate, useMotionValue, useTransform } from 'motion/react';
-import { ChevronDown, EyeOff, Eye, X, ScrollText } from 'lucide-react';
+import { ChevronDown, EyeOff, Eye, X } from 'lucide-react';
 import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { useBackToClose } from '../../hooks/useBackToClose';
-import { SummaryBody, CompilationSummary, loadDetail, goSearch, openAiSummary } from './AiSummaryHost';
+import { SummaryBody, CompilationSummary, loadDetail, goSearch, useDetailUpdates } from './AiSummaryHost';
+import { SimilarVideos } from './SimilarVideos';
 import { GlassPlayButton } from './MediaIcons';
 import { Skeleton } from './Skeleton';
 
@@ -76,7 +77,13 @@ const DRAG_CLOSE = 110;
 /** 상태 표시줄 아래 손잡이 막대 높이 */
 const BAR_H = 40;
 
-export function AiCardExpandHost() {
+/** 재생기가 붙을 자리: 카드·줄 안의 썸네일 */
+function thumbOf(el: HTMLElement | null | undefined): HTMLElement | null {
+  if (!el || !el.isConnected) return null;
+  return (el.matches('[data-thumb]') ? el : el.querySelector('[data-thumb]')) as HTMLElement | null || el;
+}
+
+export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) {
   const [t, setT] = useState<Target | null>(null);
   const [closing, setClosing] = useState(false);
   const [to, setTo] = useState<Rect>(() => (typeof window !== 'undefined' ? finalRect() : { top: 0, left: 0, width: 0, height: 0 }));
@@ -84,6 +91,11 @@ export function AiCardExpandHost() {
   const [open, setOpen] = useState(true);
   const [spoil, setSpoil] = useState(() => { try { return localStorage.getItem(SPOIL_KEY) !== '0'; } catch { return true; } });
   const [play, setPlay] = useState<{ t: number; id?: string } | null>(null);
+  /** 닫았는데 재생 중이던 영상: 원래 카드 썸네일 자리에서 계속 재생 (누르면 다시 펼침) */
+  const [dock, setDock] = useState<Target | null>(null);
+  const keepPlay = useRef(false);
+  const slotRef = useRef<HTMLDivElement | null>(null);
+  const layerRef = useRef<HTMLDivElement | null>(null);
   /** 다 펼쳐진 뒤에 재생 버튼 */
   const [settled, setSettled] = useState(false);
   const frame = useRef<HTMLIFrameElement | null>(null);
@@ -116,7 +128,11 @@ export function AiCardExpandHost() {
 
   useEffect(() => {
     const on = (e: any) => {
-      setTo(finalRect()); setSafeTop(safeInsets().top); dragY.set(0); setT(e.detail); setClosing(false); setData(null); setOpen(true); setPlay(null); setSettled(false); back.current = null;
+      // 썸네일 자리에서 재생 중이던 같은 영상을 다시 펼치면 재생은 그대로
+      const same = dockRef.current && dockRef.current.id === e.detail?.id;
+      setTo(finalRect()); setSafeTop(safeInsets().top); dragY.set(0); setT(e.detail); setClosing(false); setData(null); setOpen(true); setSettled(false); back.current = null;
+      if (!same) setPlay(null);
+      setDock(null); keepPlay.current = false;
       // 원래 카드는 들려 올라간 것처럼 자리만 남김
       try { if (e.detail?.src) e.detail.src.style.visibility = 'hidden'; } catch { /* */ }
     };
@@ -125,6 +141,42 @@ export function AiCardExpandHost() {
     window.addEventListener('resize', rs);
     return () => { window.removeEventListener(AI_CARD_EVENT, on); window.removeEventListener('resize', rs); };
   }, []);
+  const dockRef = useRef<Target | null>(null);
+  dockRef.current = dock;
+  useDetailUpdates(t?.id, setData);
+  // 재생기 자리 맞추기: 펼친 동안엔 위 영상 칸, 닫힌 뒤엔 원래 썸네일 위 (매 프레임)
+  useEffect(() => {
+    if (!play || (!t && !dock)) return;
+    let raf = 0;
+    const tick = () => {
+      const L = layerRef.current;
+      let r: DOMRect | null = null;
+      let radius = '0px';
+      if (t) r = slotRef.current?.getBoundingClientRect() || null;
+      else if (dock) {
+        const el = thumbOf(dock.src) || thumbOf(document.querySelector(`[data-ai-card="${dock.id}"]`) as HTMLElement | null);
+        if (!el) { setPlay(null); setDock(null); return; } // 그 화면을 떠남 → 멈춤
+        r = el.getBoundingClientRect();
+        radius = el.getAttribute('data-thumb-radius') || getComputedStyle(el).borderRadius || '12px';
+        if (!r.width || !r.height) { setPlay(null); setDock(null); return; }
+      }
+      if (L && r) {
+        L.style.transform = `translate(${r.left}px, ${r.top}px)`;
+        L.style.width = `${r.width}px`; L.style.height = `${r.height}px`;
+        L.style.borderRadius = radius;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+    return () => cancelAnimationFrame(raf);
+  }, [play, t, dock]);
+  const reopenDock = () => {
+    if (!dock) return;
+    const el = thumbOf(dock.src) || (document.querySelector(`[data-ai-card="${dock.id}"]`) as HTMLElement | null);
+    const card = (dock.src && dock.src.isConnected ? dock.src : el) as HTMLElement | null;
+    const r = (el || card)?.getBoundingClientRect();
+    window.dispatchEvent(new CustomEvent(AI_CARD_EVENT, { detail: { ...dock, from: r ? { top: r.top, left: r.left, width: r.width, height: r.height } : dock.from, src: card } }));
+  };
   useEffect(() => {
     if (!t || t.noSummary) return;
     let alive = true;
@@ -138,7 +190,9 @@ export function AiCardExpandHost() {
     const el = (t.src && t.src.isConnected ? t.src : document.querySelector(`[data-ai-card="${t.id}"]`)) as HTMLElement | null;
     const r = el?.getBoundingClientRect();
     back.current = r && r.bottom > 0 && r.top < window.innerHeight ? { top: r.top, left: r.left, width: r.width, height: r.height } : { ...t.from, top: window.innerHeight + 40 };
-    setPlay(null);
+    // 재생 중이면 닫아도 카드 썸네일 자리에서 계속 재생 (화면 밖이면 멈춤)
+    keepPlay.current = Boolean(play && (ytState.current === 1 || ytState.current === 3) && el && r && r.bottom > 0 && r.top < window.innerHeight);
+    if (!keepPlay.current) setPlay(null);
     setSettled(false);
     setClosing(true);
     animate(dragY, 0, { duration: 0.3, ease: [0.4, 0, 0.2, 1] });
@@ -188,14 +242,29 @@ export function AiCardExpandHost() {
       w.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
     } else setPlay({ t: s });
   };
+  /** 비슷한 영상 누름: 펼친 채로 그 영상으로 바꿔 바로 재생 */
+  const switchTo = (id: string, title: string) => {
+    if (!t) return;
+    try { if (t.src) t.src.style.visibility = ''; } catch { /* */ }
+    const el = document.querySelector(`[data-ai-card="${id}"]`) as HTMLElement | null;
+    setT({ id, title, from: t.from, src: el && el.getBoundingClientRect().width ? el : null });
+    setData(null); setOpen(true); setPlay({ t: 0 });
+    scrollEl.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const toggleSpoil = () => setSpoil((v) => { try { localStorage.setItem(SPOIL_KEY, v ? '0' : '1'); } catch { /* */ } return !v; });
   const ready = data?.found && !data.pending && !data.compilation;
   const compHas = Boolean(data?.compilation && ((data.sources || []).length || data.overview?.opening || data.overview?.theme));
   // 몰아보기는 요약이 있을 때만, 재생목록은 없음
-  const showSummary = t && !t.noSummary && (!t.compilation || !data || compHas);
+  // 요약이 없는 영상(아직 안 봄)은 요약 칸 없이
+  const showSummary = t && !t.noSummary && (!data || (t.compilation ? compHas : ready));
   const finish = () => {
     if (closing) {
       try { if (t?.src) t.src.style.visibility = ''; } catch { /* */ }
+      if (keepPlay.current && t) {
+        const el = (t.src && t.src.isConnected ? t.src : document.querySelector(`[data-ai-card="${t.id}"]`)) as HTMLElement | null;
+        setDock({ ...t, src: el });
+      }
+      keepPlay.current = false;
       setT(null); setClosing(false);
     } else {
       setSettled(true);
@@ -204,7 +273,9 @@ export function AiCardExpandHost() {
     }
   };
 
+  const cur = t || dock;
   return createPortal(
+    <>
     <AnimatePresence>
       {t && (
         <motion.div key="ai-card" className="fixed inset-0 z-[320]" initial={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0 } }}>
@@ -228,17 +299,7 @@ export function AiCardExpandHost() {
               <span className="mb-[14px] h-1 w-10 rounded-full bg-white/40" aria-hidden />
               <button type="button" onClick={close} style={{ opacity: settled ? 1 : 0, transition: 'opacity .2s' }} className="absolute right-2 bottom-1 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
             </div>
-            <div className="relative w-full aspect-video bg-black shrink-0">
-              {play ? (
-                <iframe
-                  ref={(el) => { frame.current = el; trackYoutubeFrame(el); }}
-                  src={t.embed && !play.id ? t.embed : embedSrc(play.id || t.id, play.t ? { start: Math.floor(play.t) } : {})}
-                  title={t.title}
-                  className="absolute inset-0 w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : null}
+            <div ref={slotRef} className="relative w-full aspect-video bg-black shrink-0">
               {play ? null : (
                 <button type="button" onClick={() => setPlay({ t: 0 })} className="absolute inset-0 w-full h-full cursor-pointer" aria-label="여기서 재생">
                   <img src={t.thumb || `https://img.youtube.com/vi/${t.id}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />
@@ -261,7 +322,6 @@ export function AiCardExpandHost() {
                 {showSummary && <div className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
                   <div className="flex items-center gap-2 px-4 py-3">
                     <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex-1 min-w-0 flex items-center gap-1.5 text-left cursor-pointer">
-                      <ScrollText className="w-4 h-4 text-purple-500 shrink-0" />
                       <span className="text-[13px] font-black text-purple-700 dark:text-purple-300">AI 영상 요약</span>
                       <motion.span animate={{ rotate: open ? 180 : 0 }} className="ml-0.5 text-purple-400"><ChevronDown className="w-4 h-4" /></motion.span>
                       <span className="sr-only">{open ? '접기' : '펼치기'}</span>
@@ -283,12 +343,7 @@ export function AiCardExpandHost() {
                             <SummaryBody d={data} spoil={spoil} onSeek={(s) => seek(s)} onSearch={(q) => { close(); goSearch(q); }} />
                           ) : compHas ? (
                             <CompilationSummary data={data} spoil={spoil} onSeek={(s, id) => seek(s, id)} onSearch={(q) => { close(); goSearch(q); }} />
-                          ) : (
-                            <div className="text-[13px] text-zinc-600 dark:text-zinc-300 break-keep">
-                              요약을 불러오지 못했어요.{' '}
-                              <button type="button" className="font-bold text-purple-600 underline cursor-pointer" onClick={() => { close(); openAiSummary({ id: t.id, title: t.title }); }}>요약 창으로 보기</button>
-                            </div>
-                          )}
+                          ) : null}
                           <p className="mt-4 text-[10.5px] text-zinc-400 break-keep">AI가 영상을 보고 정리한 내용이라 틀릴 수 있어요. 시간을 누르면 위에서 그 장면부터 재생돼요.</p>
                         </div>
                       </motion.div>
@@ -296,6 +351,11 @@ export function AiCardExpandHost() {
                   </AnimatePresence>
                 </div>}
                 {t.extra && <div className="mt-4 -mx-3">{t.extra(close)}</div>}
+                {!t.compilation && !t.embed && (
+                  <div className="-mx-1.5">
+                    <SimilarVideos id={t.id} title={data?.title || t.title} logs={logs} ai={ready ? data : null} onPick={(id, title) => switchTo(id, title)} />
+                  </div>
+                )}
               </div>
             </motion.div>
             </div>
@@ -303,7 +363,27 @@ export function AiCardExpandHost() {
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>,
+    </AnimatePresence>
+    {play && cur && (
+      <div ref={layerRef} className="fixed left-0 top-0 overflow-hidden bg-black" style={{ zIndex: t ? 321 : 40, willChange: 'transform' }} data-testid="ai-card-player">
+        <iframe
+          ref={(el) => { frame.current = el; trackYoutubeFrame(el); }}
+          src={cur.embed && !play.id ? cur.embed : embedSrc(play.id || cur.id, play.t ? { start: Math.floor(play.t) } : {})}
+          title={cur.title}
+          className="absolute inset-0 w-full h-full border-0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+        {!t && dock && (
+          <>
+            {/* 썸네일 자리에서 재생 중: 누르면 다시 펼쳐서 거기서 조정 */}
+            <button type="button" onClick={reopenDock} className="absolute inset-0 w-full h-full cursor-pointer" aria-label={`${dock.title} 펼쳐서 보기`} data-testid="ai-card-dock" />
+            <button type="button" onClick={() => { setPlay(null); setDock(null); }} className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/70 text-white flex items-center justify-center cursor-pointer" aria-label="재생 멈추기"><X className="w-3.5 h-3.5" /></button>
+          </>
+        )}
+      </div>
+    )}
+    </>,
     document.body,
   );
 }

@@ -1486,7 +1486,7 @@ function MainApp() {
       </AnimatePresence>
       {/* 저장 버튼 → 저장할 곳 고르기 창·알림 */}
       <AiSummaryHost />
-      <AiCardExpandHost />
+      <AiCardExpandHost logs={data?.logs} />
       <PullToRefresh onRefresh={refreshData} />
       <SaveHost />
       {/* 시청 기록 전체 보기 */}

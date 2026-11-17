@@ -18,7 +18,7 @@ import { useSearchTuning } from '../../hooks/useSearchTuning';
 import { SearchRating } from '../common/SearchRating';
 import { SearchExtras } from '../common/SearchExtras';
 import { type Intent, CONCEPTS, GAME_ALIASES, autoAliases, groupWeights, hasTerm, isHit, isNaturalQuery, makeDoc, planQuery, scoreDoc, textHits, type SearchDoc } from '../../utils/searchPlan';
-import { RefreshCw, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Star, CheckCircle, Search, Filter, Cloud, CloudDownload, X, Loader2, AlertCircle, AlertTriangle, Calendar, Layers, Play, Clock, ScrollText, Link2, Info } from 'lucide-react';
+import { RefreshCw, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Star, CheckCircle, Search, Filter, Cloud, CloudDownload, X, Loader2, AlertCircle, AlertTriangle, Calendar, Layers, Play, Clock, Link2, Info } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -308,7 +308,7 @@ export const VideoCard = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div ref={thumbRef} className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+      <div ref={thumbRef} data-thumb data-thumb-radius="24px 24px 0 0" className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
         {held && <HeldCover compact={isCompact} />}
         {isPlayingInline && !held ? (
           <div className="relative w-full h-full bg-black z-20">
@@ -359,11 +359,6 @@ export const VideoCard = ({
               <div className="absolute inset-0 bg-black/10 group-hover/thumb:bg-black/0 transition-colors flex items-center justify-center">
                 <GlassPlayButton size={isCompact ? 'sm' : 'md'} />
               </div>
-            )}
-            {aiDone && !held && (
-              <span className="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-[10.5px] font-bold pointer-events-none">
-                <ScrollText className="w-3 h-3 text-purple-300" /> AI 요약
-              </span>
             )}
           </button>
         )}

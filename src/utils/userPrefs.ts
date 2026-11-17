@@ -33,6 +33,8 @@ export interface UserPrefs {
   labAiCard: boolean;
   /** 실험실: 과거 영상 생방 연동 — 팬카페 정리 글에서 가져온 2020년 전 링크(비교적 부정확)도 보여 주기 */
   labCafeOld: boolean;
+  /** 목록 보기에서 영상을 누르면: 사이트 안에서 펼쳐 재생 / 유튜브 링크로 */
+  listPlay: 'site' | 'link';
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -53,6 +55,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   labAiSummary: true,
   labAiCard: true,
   labCafeOld: false,
+  listPlay: 'site',
 };
 
 export const PAGE_SIZE_OPTIONS = [8, 12, 20, 30];

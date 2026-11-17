@@ -12,6 +12,8 @@ import { LinkMenu, type MenuLink } from './LinkMenu';
 import { useInterestTracker, noteInterest } from '../../hooks/useInterestTracker';
 import type { InterestItem } from '../../utils/interest';
 import { ItemMenu } from './ItemMenu';
+import { usePrefs } from '../../utils/userPrefs';
+import { openAiCard } from './AiCardExpand';
 
 /**
  * 유튜브 '동영상' 탭 같은 한 줄 목록 (왼쪽 썸네일 + 오른쪽 제목·업로드 정보)
@@ -72,19 +74,28 @@ export function VideoListRow({
   const upload = meta?.publishedAt ? `${toKstDate(meta.publishedAt)} · ${formatRelativeTime(meta.publishedAt)}` : '';
   const validShorts = shorts.filter((s) => s?.url);
   const held = useIsHeld(videoId);
+  const prefs = usePrefs();
+  const thumbRef = useRef<HTMLDivElement>(null);
+  // 사이트 안에서 재생: 유튜브 영상(그 영상 주소)일 때만 — 다른 주소(치지직 등)는 링크로
+  const sitePlay = prefs.listPlay !== 'link' && Boolean(videoId) && (!href || (href.includes(videoId) && /youtu/.test(href)));
   const iconBtn = 'w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 cursor-pointer';
 
   return (
     <VideoSwipe id={videoId} kind={(saveKind || interest?.kind || 'video') as any} title={title} shareText={shareText} radius={16} cell onEngage={() => noteInterest(interest, 'engage')}>
     <div ref={trackRef} data-ai-card={onLiveClick && isCompilation ? videoId : undefined} className={cn('group relative flex items-center gap-3.5 rounded-2xl transition-colors', held && 'video-held', dense ? 'p-2' : 'px-2.5 py-2.5', highlighted ? 'bg-purple-50 dark:bg-purple-950/40' : 'hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60')}>
       {/* 줄 전체를 덮는 링크 (버튼들은 그 위에 따로) */}
-      <a href={link} target="_blank" rel="noreferrer" onClick={() => noteInterest(interest, 'play')} className="absolute inset-0 rounded-2xl" aria-label={`${title} 유튜브에서 보기`} />
+      <a href={link} target="_blank" rel="noreferrer" onClick={(e) => {
+        noteInterest(interest, 'play');
+        if (!sitePlay) return;
+        e.preventDefault();
+        openAiCard(videoId, title, thumbRef.current, subline || upload || badge);
+      }} className="absolute inset-0 rounded-2xl" aria-label={sitePlay ? `${title} 펼쳐서 보기` : `${title} 유튜브에서 보기`} />
 
       {typeof index === 'number' && (
         <span className="w-5 text-right text-[11px] text-zinc-400 tabular-nums shrink-0 pointer-events-none">{index}</span>
       )}
 
-      <div className="relative w-[42%] max-w-[176px] sm:max-w-[200px] aspect-video rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 shrink-0 pointer-events-none">
+      <div ref={thumbRef} data-thumb data-ai-card={onLiveClick && isCompilation ? undefined : videoId || undefined} className="relative w-[42%] max-w-[176px] sm:max-w-[200px] aspect-video rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 shrink-0 pointer-events-none">
         {videoId ? (
           <img src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
         ) : (

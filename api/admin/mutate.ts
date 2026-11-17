@@ -265,6 +265,7 @@ export default async function handler(req: any, res: any) {
         }
         const ai = await import('../_aiVideo.js');
         if (op === 'categoryMark') return res.status(200).json({ success: true, ...(await ai.markCategory(db, String(payload?.key || ''), payload?.mark === 'ignored' ? 'ignored' : 'applied')) });
+        if (op === 'editSummary') return res.status(200).json({ success: true, detail: await ai.editSummary(db, String(payload?.id || ''), payload?.patch || {}) });
         if (op === 'gameCheck') return res.status(200).json({ success: true, ...(await ai.gameCheckBatch(db, Number(payload?.from || 0))) });
         if (op === 'run') {
           // 분석은 최대 몇 분 걸려서 바로 돌아오고, 이 함수가 뒤에서 이어서 (최대 300초)

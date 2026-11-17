@@ -966,6 +966,35 @@ export async function aiSearch(db: any, q: string, sceneLimit = 3) {
 }
 
 /** ⋮ › AI 영상 요약: 저장된 분석 결과 (검색용 내부 칸은 빼고) */
+/** 관리자: AI 요약 내용 직접 고치기 (요약·노가리·흐름·장면·게임 줄거리). 고친 때를 editedAt 에 남김 */
+export async function editSummary(db: any, id: string, patch: any) {
+  if (!/^[\w-]{11}$/.test(id)) throw new Error('영상 번호가 이상해요');
+  const ref = db.collection('ai_video').doc(id);
+  const d = (await ref.get()).data();
+  if (!d) throw new Error('요약이 없는 영상이에요');
+  const str = (x: any, n: number) => String(x ?? '').replace(/\s+$/g, '').slice(0, n);
+  const num = (x: any) => Math.max(0, Math.round(Number(x) || 0));
+  const out: any = { editedAt: new Date().toISOString() };
+  if (typeof patch?.summary === 'string') out.summary = str(patch.summary, 1500);
+  if (typeof patch?.nogari === 'string') out.nogari = str(patch.nogari, 3000);
+  if (Array.isArray(patch?.chapters)) out.chapters = patch.chapters.slice(0, 80).map((c: any) => ({ from: num(c.from), to: num(c.to), title: str(c.title, 120), summary: str(c.summary, 800), ...(c.game ? { game: str(c.game, 120) } : {}) }));
+  if (Array.isArray(patch?.scenes)) {
+    // 장면: 원래 장면(i 번째)의 검색용 정보(k·w)는 그대로 두고 시간·설명·한 말만 바꿈
+    const old: Scene[] = d.scenes || [];
+    out.scenes = patch.scenes.slice(0, 1500).filter((x: any) => String(x?.d || '').trim()).map((x: any) => {
+      const o: any = { ...(Number.isInteger(x.i) && old[x.i] ? old[x.i] : { k: [] }), t: num(x.t), d: str(x.d, 300) };
+      if (String(x.q || '').trim()) o.q = str(x.q, 200); else delete o.q;
+      return o;
+    });
+  }
+  if (Array.isArray(patch?.gameStories)) {
+    const old: any[] = d.gameStories || [];
+    out.gameStories = patch.gameStories.slice(0, 20).map((g: any, i: number) => ({ ...(old.find((o) => o.name === g.name) || old[i] || {}), name: str(g.name, 120), story: str(g.story, 2000), ...(g.result != null ? { result: str(g.result, 40) } : {}) }));
+  }
+  await ref.set(out, { merge: true });
+  return { summary: '요약을 고쳤어요', ...(await aiVideoDetail(db, id)) };
+}
+
 export async function aiVideoDetail(db: any, id: string) {
   if (!/^[\w-]{11}$/.test(id)) return { found: false };
   const d = (await db.collection('ai_video').doc(id).get()).data();

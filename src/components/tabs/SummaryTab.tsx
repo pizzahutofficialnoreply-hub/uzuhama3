@@ -361,7 +361,7 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-bold text-zinc-900 dark:text-white">최근 요일별 집중도</h4>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/40">{latestYear}년</span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/40">{latestYear}년</span>
               <WidgetShareButton targetId="summary-daily-density-card" title="최근 요일별 집중도" />
             </div>
           </div>

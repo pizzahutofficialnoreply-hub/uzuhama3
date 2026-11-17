@@ -1,8 +1,11 @@
 import { Skeleton, TextSkeleton } from './Skeleton';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { auth } from '../../lib/firebase';
+import { isAdminUser, adminSessionValid } from '../../utils/adminAuth';
+const AiSummaryEditor = lazy(() => import('./AiSummaryEditor'));
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { BookOpen, ChevronRight, Flag, Gamepad2, Loader2, Search, Star, X, ScrollText, MessageCircle } from 'lucide-react';
+import { BookOpen, ChevronRight, Flag, Gamepad2, Loader2, Search, Star, X, MessageCircle } from 'lucide-react';
 import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { aiSearch, fmtTime, type AiResult } from '../../utils/aiSearch';
 import { useBackToClose } from '../../hooks/useBackToClose';
@@ -194,7 +197,43 @@ function Flow({ from, to, shownTo, title, game, summary, scenes, spoil, dot, onS
 }
 
 /** 한 영상의 요약 본문 (몰아보기 원본에도 같이 씀). spoil: 결말·결과·하이라이트·흐름 내용 가리기 */
-export function SummaryBody({ d, onSeek, onSearch, spoil = false }: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean }) {
+/** 관리자가 요약을 고치면: 캐시를 바꾸고 열린 창들에 알림 */
+export const AI_DETAIL_EVENT = 'uzuhama-ai-detail';
+export function useDetailUpdates(id: string | undefined, set: (d: any) => void) {
+  useEffect(() => {
+    const on = (e: any) => { if (id && e.detail?.id === id) set(e.detail); };
+    window.addEventListener(AI_DETAIL_EVENT, on);
+    return () => window.removeEventListener(AI_DETAIL_EVENT, on);
+  }, [id]);
+}
+const isAdminNow = () => { try { return isAdminUser(auth.currentUser) && adminSessionValid(); } catch { return false; } };
+
+export function SummaryBody(props: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const admin = isAdminNow();
+  if (editing) {
+    return (
+      <Suspense fallback={<TextSkeleton />}>
+        <AiSummaryEditor d={props.d} onCancel={() => setEditing(false)} onSaved={(next) => {
+          const full = { ...props.d, ...next, found: true };
+          detailCache.set(props.d.id, Promise.resolve(full));
+          window.dispatchEvent(new CustomEvent(AI_DETAIL_EVENT, { detail: full }));
+          setEditing(false);
+        }} />
+      </Suspense>
+    );
+  }
+  return (
+    <>
+      <SummaryView {...props} />
+      {admin && props.d?.id && (
+        <button type="button" onClick={() => setEditing(true)} className="mt-4 px-3 py-1.5 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 cursor-pointer" data-testid="ai-summary-edit">요약 고치기 (관리자)</button>
+      )}
+    </>
+  );
+}
+
+function SummaryView({ d, onSeek, onSearch, spoil = false }: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean }) {
   const chapters: any[] = d.chapters || [];
   const stories: any[] = d.gameStories || [];
   const games: any[] = d.games || [];
@@ -282,6 +321,7 @@ export function SummaryBody({ d, onSeek, onSearch, spoil = false }: { d: any; on
 export function AiSummaryHost() {
   const [target, setTarget] = useState<Target | null>(null);
   const [data, setData] = useState<any>(null);
+  useDetailUpdates(data?.id, setData);
   const [play, setPlay] = useState<{ id: string; t: number } | null>(null);
   const [asked, setAsked] = useState('');
   const [q, setQ] = useState('');
@@ -351,7 +391,6 @@ export function AiSummaryHost() {
             {/* 머리 + 플레이어: 내려도 위에 붙어 있음 → 아래 시간을 눌러도 바로 보임 */}
             <div className="sticky top-0 z-10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur border-b border-zinc-100 dark:border-zinc-800">
               <div className="px-5 pt-4 pb-3 flex items-start gap-2">
-                <ScrollText className="w-5 h-5 text-purple-500 shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-black text-purple-600 dark:text-purple-400">AI 영상 요약</p>
                   <h2 className="text-sm font-bold text-zinc-900 dark:text-white line-clamp-2">{data?.title || target.title}</h2>

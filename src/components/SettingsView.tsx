@@ -1387,6 +1387,9 @@ function ViewPrefsPanel() {
       <Row title="카드·목록 보기 바꾸기" desc="한 곳에서 바꾸면 모든 화면이 같이 바뀔지, 화면(추천 영상·재생목록·몰아보기)마다 따로 기억할지">
         <Seg k="viewStyleScope" options={[['global', '모든 화면 같이'], ['per-page', '화면마다 따로']]} />
       </Row>
+      <Row title="영상 재생 기본값" desc="목록 보기에서 영상을 눌렀을 때 (카드 보기는 그대로)">
+        <Seg k="listPlay" options={[['site', '사이트 안에서 재생'], ['link', '유튜브 링크로']]} />
+      </Row>
       <Row title="쇼츠 기본 정렬" desc="정렬 기준과 순서">
         <div className="flex flex-wrap gap-2">
           <Seg k="shortsSortBy" options={[['upload', '업로드일'], ['live', '방송일']]} />
