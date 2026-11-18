@@ -55,14 +55,19 @@ const LUNAR: Record<string, { seollal: string; chuseok: string; buddha: string }
 /** 수능 (교육부 발표) — 일정에 따로 안 넣어도 그날은 시험지 그림 */
 const SUNEUNG: Record<string, string> = { '2026': '2026-11-19' };
 
-/** 오늘 그림: 관리자 일정(당일) 먼저, 없으면 수능 */
+/** 오늘 그림: 관리자 일정(당일) 먼저, 없으면 수능 — 시험(수능)은 전날(D-1)부터 */
 export function eventArtFor(events: DdayEvent[] | undefined, day: string): { kind: ArtKind; label: string } | null {
+  const tomorrow = addDays(day, 1);
   for (const e of events || []) {
-    if (!e || e.active === false || e.date !== day) continue;
+    if (!e || e.active === false) continue;
     const k = artFor(e.title, (e as any).art);
-    if (k) return { kind: k, label: e.title };
+    if (!k) continue;
+    if (e.date === day) return { kind: k, label: e.title };
+    if (k === 'exam' && e.date === tomorrow) return { kind: k, label: `내일 ${e.title}` };
   }
-  if (SUNEUNG[day.slice(0, 4)] === day) return { kind: 'exam', label: '수능 날 · 수험생 여러분 응원해요' };
+  const sn = SUNEUNG[day.slice(0, 4)];
+  if (sn === day) return { kind: 'exam', label: '수능 날 · 수험생 여러분 응원해요' };
+  if (sn === tomorrow) return { kind: 'exam', label: '내일 수능 · 수험생 여러분 응원해요' };
   return null;
 }
 
