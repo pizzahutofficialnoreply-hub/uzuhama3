@@ -16,6 +16,7 @@ export type Op = Base & (
   | { t: 'errorStop'; log: string; main?: string; vod?: string }
   | { t: 'addVod'; log: string; id: string; title?: string }
   | { t: 'setGame'; log: string; name: string; fromLink: string; link: string; newName?: string }
+  | { t: 'compOrder'; id: string; title: string; logs: string[] }
 );
 
 export const GROUPS: Record<string, { name: string; on: boolean; note?: string }> = {
@@ -33,6 +34,7 @@ export const GROUPS: Record<string, { name: string; on: boolean; note?: string }
   gameName: { name: '게임 이름을 스팀 이름으로 (조금 다른 것)', on: false, note: '대소문자·기호·띄어쓰기 정도만 다른 것' },
   gameWrong: { name: '게임 링크가 다른 게임으로 보이는 것', on: false, note: '스팀에서 이름으로 찾은 게임으로 바꾸기 (직접 확인)' },
   playlist: { name: '생방송 재생목록에 있는데 기록에 없던 생방송 넣기', on: true },
+  compOrder: { name: '몰아보기 영상 안 생방 순서를 카페 생방정리 글 순서로', on: true, note: '영상에 나오는 순서 · 날짜가 예전 것으로 남은 칸도 기록 날짜로' },
   err: { name: '30분 안에 끊기고 바로 다시 켠 생방을 방송 오류로', on: true, note: '관리자 › 끊긴 생방에서 풀 수 있음' },
 };
 
@@ -45,14 +47,19 @@ const short = (t: string) => (t || '').replace(/\s*#shorts/i, '').slice(0, 40);
 const has = (l: any, k: string, id: string) => (l?.[k] || []).some((x: any) => yid(x) === id);
 export const logIds = (o: Op): string[] => {
   if (o.t === 'shorts') return [...o.add, ...o.remove];
-  if (o.t === 'multi') return o.logs;
+  if (o.t === 'multi' || o.t === 'compOrder') return o.logs;
   if (o.t === 'add') return [o.to];
   if (o.t === 'move') return [...o.from, o.to];
   return [(o as any).log];
 };
 
-export function isDone(o: Op, logs: Record<string, any>, comps?: Set<string>): boolean {
+export function isDone(o: Op, logs: Record<string, any>, comps?: Set<string>, compData?: Record<string, any>): boolean {
   const L = (id: string) => logs[id] || {};
+  if (o.t === 'compOrder') {
+    const b = compData?.[`multi_${o.id}`]?.broadcasts;
+    if (!Array.isArray(b)) return false;
+    return b.length === o.logs.length && o.logs.every((id, i) => b[i]?.logId === id && (!L(id).date || b[i]?.date === L(id).date));
+  }
   if (o.t === 'setVod') return has(L(o.log), 'vods', o.to) && !has(L(o.log), 'vods', o.from);
   if (o.t === 'shorts') return o.add.every((id) => has(L(id), 'shorts', o.id)) && o.remove.every((id) => !has(L(id), 'shorts', o.id));
   if (o.t === 'removeEdited') return !(L(o.log).edited || []).some((x: any) => yid(x) === o.id && !isLinked(x));
@@ -86,12 +93,31 @@ export function describe(o: Op, logs: Record<string, any>): string {
   if (o.t === 'errorStop') return `${o.why}`;
   if (o.t === 'addVod') return `${d(o.log)} 기록에 생방송 링크 넣기 — ${o.why}`;
   if (o.t === 'setGame') return `${d(o.log)} 「${o.name}」${o.newName && o.newName !== o.name ? ` → 「${o.newName}」` : ''} ${o.link ? `링크 ${o.link.replace(/^https?:\/\//, '').slice(0, 45)}` : ''} — ${o.why}`;
+  if (o.t === 'compOrder') return `몰아보기 「${short(o.title)}」 순서 ${o.logs.map(d).join(' → ')}`;
   return `「${o.title}」 영상 넣고 생방 ${o.logs.map(d).join(', ')}에 '여러 날 생방'으로 연결`;
 }
 
 
 /** 한 줄을 work(기록 id → 기록, 최신으로 새로 읽은 것)에 바로 반영. cur(id)는 그 기록을 '바뀜'으로 표시하고 돌려줌 */
-export function applyOne(o: Op, work: Record<string, any>, cur: (id: string) => any, compDocs: any[]) {
+export function applyOne(o: Op, work: Record<string, any>, cur: (id: string) => any, compDocs: any[], compData?: Record<string, any>) {
+  if (o.t === 'compOrder') {
+    const compId = `multi_${o.id}`;
+    const c = compData?.[compId];
+    if (!c || !Array.isArray(c.broadcasts)) throw new Error('몰아보기 문서를 못 읽었어요');
+    const by = new Map<string, any>(c.broadcasts.map((b: any) => [b.logId, b]));
+    if (o.logs.some((id) => !by.has(id)) || by.size !== o.logs.length) throw new Error('몰아보기에 연결된 생방이 목록과 달라요 (직접 확인)');
+    const broadcasts = o.logs.map((id) => ({ ...by.get(id), logId: id, date: work[id]?.date || by.get(id).date }));
+    const dates = broadcasts.map((b) => b.date);
+    compDocs.push({ id: compId, title: c.title, broadcasts, ...(Array.isArray(c.allBroadcastDates) ? { allBroadcastDates: dates } : {}) });
+    // 기록에 들어 있는 연결 칸의 날짜 순서도 같이 (없는 기록은 화면에서 몰아보기 문서로 채움)
+    for (const id of o.logs) {
+      const has = (work[id]?.edited || []).some((e: any) => e?.multiId === compId || e?.compilationId === compId);
+      if (!has) continue;
+      const l = cur(id);
+      l.edited = l.edited.map((e: any) => (e?.multiId === compId || e?.compilationId === compId ? { ...e, allBroadcastDates: dates } : e));
+    }
+    return;
+  }
   const itemOf = (id: string, kind: string) => Object.values(work).flatMap((x: any) => x[kind] || []).find((x: any) => yid(x) === id && !isLinked(x) && x.url);
   if (o.t === 'setVod') {
     const l = cur(o.log); l.vods = (l.vods || []).map((v: any) => (yid(v) === o.from ? { ...v, url: `https://youtu.be/${o.to}` } : v));

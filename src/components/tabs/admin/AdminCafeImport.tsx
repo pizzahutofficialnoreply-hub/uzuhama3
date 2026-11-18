@@ -301,7 +301,8 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
         const compId = `multi_${m.video.id}`;
         const url = `https://youtu.be/${m.video.id}`;
         const title = m.video.title || titleOf.get(m.video.id) || '영상';
-        const dates = hits.map((h) => h.log.date).sort();
+        // 영상에 나오는 순서 그대로 (몰아보기 문서 순서와 같게)
+        const dates = [...new Set(hits.map((h) => h.log.date))];
         const createdAt = new Date().toISOString();
         await setDoc(doc(db, 'compilations', compId), {
           id: compId, kind: 'multi', title, url, createdAt, gameSortOrder: 'custom',

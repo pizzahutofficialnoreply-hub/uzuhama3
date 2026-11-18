@@ -18,6 +18,7 @@ import { loadFreshLogs } from '../../../hooks/useFirebaseData';
 export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog?: (log: BroadcastLog) => Promise<void> }) {
   const [ops, setOps] = useState<Op[] | null>(null);
   const [comps, setComps] = useState<Set<string>>(new Set());
+  const [compData, setCompData] = useState<Record<string, any>>({});
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<{ done: number; total: number } | null>(null);
   const [msg, setMsg] = useState('');
@@ -31,6 +32,10 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
       const have = new Set<string>();
       for (const o of list) if (o.t === 'multi') { try { if ((await getDoc(doc(db, 'compilations', `multi_${o.id}`))).exists()) have.add(`multi_${o.id}`); } catch { have.add(`multi_${o.id}`); } }
       setComps(have);
+      // 순서 맞추기는 몰아보기 문서 자체를 봐야 함
+      const cd: Record<string, any> = {};
+      for (const o of list) if (o.t === 'compOrder') { try { const s = await getDoc(doc(db, 'compilations', `multi_${o.id}`)); if (s.exists()) cd[s.id] = s.data(); } catch {} }
+      setCompData(cd);
       setOps(list);
       try {
         const ids = [...new Set(list.flatMap((o) => logIds(o)))];
@@ -43,7 +48,7 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
   const [server, setServer] = useState<Record<string, any> | null>(null);
   const [loadMsg, setLoadMsg] = useState('');
   const logs = (server ? { ...(data.logs as Record<string, any>), ...server } : data.logs) as Record<string, any>;
-  const rows = useMemo(() => (ops || []).map((o, i) => ({ o, key: opKey(o, i), g: o.group || '', done: isDone(o, logs, comps), text: describe(o, logs) })), [ops, logs, comps]);
+  const rows = useMemo(() => (ops || []).map((o, i) => ({ o, key: opKey(o, i), g: o.group || '', done: isDone(o, logs, comps, compData), text: describe(o, logs) })), [ops, logs, comps, compData]);
   const todo = rows.filter((r) => !r.done);
   useEffect(() => { setPicked(new Set(todo.filter((r) => GROUPS[r.g]?.on !== false).map((r) => r.key))); }, [ops, server]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!ops || !ops.length) return null;
@@ -63,7 +68,7 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
       work = await loadFreshLogs(ids.map((id) => String(logs[id]?.date || '').slice(0, 7)), ids, (d, t) => setMsg(`서버에서 최신 기록 읽는 중 ${d}/${t}`));
     } catch (e: any) { setBusy(null); setMsg(`최신 기록을 못 읽어서 멈췄어요: ${String(e?.message || e).slice(0, 80)}`); return; }
     // 날짜 옮기기를 먼저 (여러 날 생방 연결에 바뀐 날짜가 들어가게)
-    const sel = sel0.filter(({ o }) => !isDone(o, work, comps)).sort((a, b) => Number(b.o.t === 'setDate') - Number(a.o.t === 'setDate'));
+    const sel = sel0.filter(({ o }) => !isDone(o, work, comps, compData)).sort((a, b) => Number(b.o.t === 'setDate') - Number(a.o.t === 'setDate'));
     // 고칠 내용을 먼저 전부 메모리에서 바꾸고, 바뀐 기록만 한 번씩 저장
     const dirty = new Set<string>();
     const cur = (id: string) => { const l = work[id]; if (!l) throw new Error(`기록을 못 찾았어요 (${id})`); dirty.add(id); return l; };
@@ -72,7 +77,7 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
     let ok = 0;
     for (const { o } of sel) {
       try {
-        applyOne(o, work, cur, compDocs);
+        applyOne(o, work, cur, compDocs, compData);
         ok++;
       } catch (e: any) { fails.push(`${postTitle(o.why)}: ${String(e?.message || e).slice(0, 80)}`); }
     }
@@ -81,9 +86,10 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
     setBusy({ done: 0, total: list.length + compDocs.length });
     let n = 0;
     for (const c of compDocs) {
-      try { await setDoc(doc(db, 'compilations', c.id), c, { merge: true }); setComps((p) => new Set([...p, c.id])); } catch (e: any) { fails.push(`연결 문서 ${c.title}: ${String(e?.message || e).slice(0, 60)}`); }
+      try { await setDoc(doc(db, 'compilations', c.id), c, { merge: true }); setComps((p) => new Set([...p, c.id])); setCompData((p) => (p[c.id] ? { ...p, [c.id]: { ...p[c.id], ...c } } : p)); } catch (e: any) { fails.push(`연결 문서 ${c.title}: ${String(e?.message || e).slice(0, 60)}`); }
       setBusy({ done: ++n, total: list.length + compDocs.length });
     }
+    if (compDocs.length) { try { localStorage.removeItem('uzuhama_fs_compilations_v1_at'); } catch {} }
     let saved = 0;
     for (const id of list) {
       try { await onUpdateLog(work[id]); saved++; } catch (e: any) { fails.push(`${work[id]?.date || id} 저장: ${String(e?.message || e).slice(0, 60)}`); }
