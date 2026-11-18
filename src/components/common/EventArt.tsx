@@ -248,10 +248,10 @@ export function TitleCelebrate() {
 const ART: Record<Exclude<ArtKind, 'banner' | 'party'>, () => React.ReactElement> = { balloon: Balloons, popper: Popper, exam: Exam, birthday: HippoBirthday, cheer: HippoCheer };
 
 /** 누르면 색종이 터짐 */
-export function EventArt({ kind, label, text }: { kind: ArtKind; label?: string; text?: string }) {
+export function EventArt({ kind, label, text, image }: { kind: ArtKind; label?: string; text?: string; /** 관리자가 올린 그림 (있으면 그린 하마 대신) */ image?: string }) {
   const [burst, setBurst] = useState(0);
-  if (kind === 'party') return null;
-  const A = kind === 'banner' ? () => <HippoBanner text={text || bannerText(label || '')} /> : ART[kind];
+  if (kind === 'party' && !image) return null;
+  const A = image ? () => <img src={image} alt="" className="w-full h-full object-contain" draggable={false} /> : kind === 'banner' ? () => <HippoBanner text={text || bannerText(label || '')} /> : ART[kind];
   return (
     <span role="img" aria-label={label || '오늘의 그림'} title={label} onClick={() => setBurst((n) => n + 1)}
       className={`relative inline-flex shrink-0 cursor-pointer select-none ${kind === 'banner' || kind === 'birthday' || kind === 'cheer' ? 'h-[1.9em] w-[1.9em] -my-[0.25em]' : 'h-[1.45em] w-[1.45em]'}`}>

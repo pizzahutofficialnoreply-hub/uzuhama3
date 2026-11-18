@@ -184,6 +184,8 @@ export interface DdayEvent {
   art?: 'auto' | 'none' | 'balloon' | 'popper' | 'exam' | 'banner' | 'birthday' | 'cheer' | 'party';
   /** 플래카드 글 (짧게, 비우면 이름에서: '10주년') */
   banner?: string;
+  /** 관리자가 올린 그림 (그린 하마 대신 · 공식 이모티콘 등 쓸 수 있는 그림) */
+  image?: string;
   /** 그림을 세 번 누르면 나오는 말 (비우면 기본 말: 수능 화이팅!! 등) */
   message?: string;
   /** 매년 반복 (생일 등): 날짜의 월·일로 */

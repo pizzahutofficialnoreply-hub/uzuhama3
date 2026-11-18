@@ -13,6 +13,9 @@ import { INSTALL_SEEN_KEY, needsIOSInstall, openSetupGuide } from '../utils/setu
  */
 
 export const TUTORIAL_DONE_KEY = 'uzuhama_tutorial_done_v1';
+/** 새 기능 둘러보기 (예전 둘러보기를 본 사람에게 한 번): 버전이 바뀌면 이름을 바꿔 다시 */
+export const TUTORIAL_NEW_KEY = 'uzuhama_tutorial_new_1.2.0';
+const NEW_VERSION = '1.2.0';
 export const TUTORIAL_START_EVENT = 'uzuhama-start-tutorial';
 
 type Step = {
@@ -35,6 +38,14 @@ type Step = {
   extra?: { label: string; onClick: () => void };
   /** 이 단계에 들어오면 설정 패널을 닫음 */
   closeSettings?: boolean;
+  /** 말풍선 위 작은 묶음 이름 (예: 방송 예측, 영상) */
+  chapter?: string;
+  /** 새 기능 (말풍선에 '새 기능' 표시, 새 기능 둘러보기에 들어감) */
+  isNew?: boolean;
+  /** 새 기능 둘러보기에도 넣음 (새 기능으로 가는 길: 탭 이동·설정 열기) */
+  inNew?: boolean;
+  /** 둘러보기 시작할 때 화면에 이게 있어야만 넣음 (예: 연말 결산 카드는 12월 중순~1월 중순에만) */
+  onlyIf?: () => boolean;
 };
 
 // 같은 요소가 모바일·PC 용으로 두 번 있을 수 있어서, 화면에 보이는 것만 봄
@@ -59,6 +70,7 @@ const STEPS: Step[] = [
   },
   {
     id: 'prob',
+    chapter: '방송 예측',
     title: '지금 방송이 켜질 확률',
     body: '요일, 최근 방송 간격, 평소 시작 시간을 보고 1분마다 다시 계산해요.',
     target: { mobile: '#current-prob-card, #current-prob-live-card', desktop: '#current-prob-card, #current-prob-live-card' },
@@ -81,7 +93,29 @@ const STEPS: Step[] = [
     tab: 'summary',
   },
   {
+    id: 'title-egg',
+    chapter: '방송 예측',
+    isNew: true,
+    title: '제목 옆 그림을 세 번 눌러 보세요',
+    body: '기념일·수능·할로윈·추석 같은 날에는 제목 글씨체와 그림이 바뀌어요. 그림을 빠르게 세 번 누르면 숨은 장면이 나와요.',
+    target: { mobile: 'header h1 [role="img"], header h1 .title-decor', desktop: 'header h1 [role="img"], header h1 .title-decor' },
+    tab: 'summary',
+    scrollTop: true,
+    onlyIf: () => visible('header h1 [role="img"], header h1 .title-decor'),
+  },
+  {
+    id: 'recap',
+    chapter: '방송 예측',
+    isNew: true,
+    title: '올해의 연말 결산',
+    body: '한 해 방송을 한 장씩 돌아봐요. 가장 많이 한 게임은 눌러서 바로 볼 수 있고, ⋯ 에서 사진으로 저장하거나 틀린 곳을 알려 줄 수 있어요.',
+    target: { mobile: '[data-testid="recap-banner"]', desktop: '[data-testid="recap-banner"]' },
+    tab: 'summary',
+    onlyIf: () => visible('[data-testid="recap-banner"]'),
+  },
+  {
     id: 'tab-try',
+    chapter: '방송 기록',
     title: '방송 기록으로 가 볼까요?',
     body: '',
     target: { mobile: 'nav[aria-label="하단 네비게이션"]', desktop: '#desktop-tab-bar' },
@@ -107,6 +141,8 @@ const STEPS: Step[] = [
   },
   {
     id: 'detailed-try',
+    chapter: '분석',
+    inNew: true,
     title: '이번엔 분석 탭',
     body: '',
     target: { mobile: 'nav[aria-label="하단 네비게이션"]', desktop: '#desktop-tab-bar' },
@@ -121,7 +157,18 @@ const STEPS: Step[] = [
     tab: 'detailed',
   },
   {
+    id: 'compare',
+    chapter: '분석',
+    isNew: true,
+    title: '다른 기간과 겹쳐 보기',
+    body: "'다른 기간과 비교'를 누르면 두 번째 기간(주황)이 생겨요. 추이·요일·시간 그래프와 카테고리 표에 지금 기간(파랑)과 겹쳐서 나와요.",
+    target: { mobile: '[data-testid="stats-compare-add"], [data-testid="stats-compare-range"]', desktop: '[data-testid="stats-compare-add"], [data-testid="stats-compare-range"]' },
+    tab: 'detailed',
+  },
+  {
     id: 'search-try',
+    chapter: '영상',
+    inNew: true,
     title: '영상 찾기',
     body: '',
     target: { mobile: 'button[aria-label="영상 검색 및 추천"]', desktop: '#desktop-tab-bar > button:nth-of-type(4)' },
@@ -137,7 +184,27 @@ const STEPS: Step[] = [
     scrollTop: true,
   },
   {
+    id: 'video-open',
+    chapter: '영상',
+    isNew: true,
+    title: '사이트 안에서 펼쳐 보기',
+    body: '썸네일을 누르면 화면이 펼쳐지며 바로 재생돼요. 아래에는 AI 요약과 대사 스크립트(자막처럼 보기), 이 방송의 생방송·쇼츠, 추천 영상이 이어져요. 재생 중에 닫아도 썸네일 자리에서 계속 나오고, 그걸 누르면 다시 펼쳐져요.',
+    target: { mobile: '#recommend-tab-view [data-thumb], [data-thumb]', desktop: '#recommend-tab-view [data-thumb], [data-thumb]' },
+    tab: 'recommend',
+  },
+  {
+    id: 'video-swipe',
+    chapter: '영상',
+    isNew: true,
+    title: '옆으로 밀어서 바로',
+    body: '영상 카드나 목록 줄을 오른쪽으로 밀면 저장, 왼쪽으로 밀면 공유·신고예요. 끝까지 밀면 바로 실행돼요. 신고에서 이 영상 가리기도 할 수 있어요.',
+    target: { mobile: '[data-swipe-row]', desktop: '[data-swipe-row]' },
+    tab: 'recommend',
+  },
+  {
     id: 'settings-try',
+    chapter: '설정',
+    inNew: true,
     title: '마지막으로 설정',
     body: '',
     target: { mobile: '#header-settings-btn', desktop: '#header-settings-btn' },
@@ -163,6 +230,15 @@ const STEPS: Step[] = [
         extra: { label: '지금 알림 켜기', onClick: () => openSetupGuide('notify') },
       },
   {
+    id: 'settings-play',
+    chapter: '설정',
+    isNew: true,
+    title: '영상 재생 기본값',
+    body: "'사이트 안에서 재생'이면 목록 보기의 영상과 카드의 생방송 버튼은 펼쳐서, 쇼츠 버튼은 쇼츠 화면으로 열려요. 쇼츠는 다 보면 비슷한 쇼츠로 이어져요. 유튜브 앱이 편하면 '유튜브 링크로'를 고르세요.",
+    target: { mobile: '[data-tour="settings-play"]', desktop: '[data-tour="settings-play"]' },
+    scrollIntoView: true,
+  },
+  {
     id: 'settings-setup',
     title: '안내는 여기서 다시',
     body: '앱 설치 · 알림 · 캘린더 등록 안내는 언제든 여기서 다시 볼 수 있어요. 바로 아래에서 이 둘러보기도 다시 볼 수 있어요.',
@@ -171,11 +247,22 @@ const STEPS: Step[] = [
   },
   {
     id: 'done',
+    inNew: true,
     title: '준비 끝!',
     body: '이제 편하게 둘러보세요. 방송 켜지는 날 같이 기다려요.',
     closeSettings: true,
   },
 ];
+
+/** 이번 둘러보기 단계: 전체 / 새 기능만 (화면에 없어야 할 단계는 뺌) */
+function buildSteps(mode: 'full' | 'new'): Step[] {
+  const keep = (x: Step) => !x.onlyIf || x.onlyIf();
+  if (mode === 'full') return STEPS.filter(keep);
+  return [
+    { id: 'welcome-new', title: `v${NEW_VERSION}에서 새로 생긴 것들`, body: '이미 둘러보셨으니 새 기능만 짧게 짚어 드릴게요.\n언제든 오른쪽 위 X로 닫을 수 있어요.' },
+    ...STEPS.filter((x) => (x.isNew || x.inNew) && keep(x)),
+  ];
+}
 
 const PAD = 8;
 const SPRING = { type: 'spring' as const, stiffness: 320, damping: 32, mass: 1 };
@@ -219,6 +306,10 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
   const [running, setRunning] = useState(false);
   const runningRef = useRef(false);
   const [index, setIndex] = useState(0);
+  const [steps, setSteps] = useState<Step[]>(STEPS);
+  const stepsRef = useRef<Step[]>(STEPS);
+  stepsRef.current = steps;
+  const [mode, setMode] = useState<'full' | 'new'>('full');
   const [rect, setRect] = useState<Rect | null>(null);
   const [vp, setVp] = useState({ w: typeof window !== 'undefined' ? window.innerWidth : 390, h: typeof window !== 'undefined' ? window.innerHeight : 844 });
   const rootRef = useRef<HTMLDivElement>(null);
@@ -234,22 +325,28 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
   const [settling, setSettling] = useState(true);
   runningRef.current = running;
   const isMobile = vp.w < 640;
-  const step = STEPS[index];
+  const step = steps[Math.min(index, steps.length - 1)];
 
   // ── 시작 조건: 처음 방문 + 관리자 허용 + 다른 팝업이 다 닫힌 뒤 ──
   useEffect(() => {
-    if (!enabled || !autoStart) return;
+    if (!enabled) return;
     let done = false;
-    try { done = localStorage.getItem(TUTORIAL_DONE_KEY) === '1'; } catch {}
-    if (done || running) return;
+    let seenNew = false;
+    try { done = localStorage.getItem(TUTORIAL_DONE_KEY) === '1'; seenNew = localStorage.getItem(TUTORIAL_NEW_KEY) === '1'; } catch {}
+    if ((done && seenNew) || running) return;
+    // 처음 오는 사람은 처음 시작 화면이 끝날 때 시작 (autoStart 꺼짐) · 예전에 둘러본 사람의 '새 기능'은 바로
+    if (!autoStart && !done) return;
+    // 예전 둘러보기를 본 사람은 새 기능만
+    const m: 'full' | 'new' = done ? 'new' : 'full';
     let calm = 0;
     const id = window.setInterval(() => {
       calm = isOtherOverlayOpen(rootRef.current) ? 0 : calm + 1;
       if (calm >= 3) { // 약 0.9초 동안 팝업 없음
         window.clearInterval(id);
         if (runningRef.current) return;
-        firstRunRef.current = true;
+        firstRunRef.current = m === 'full';
         originalTabRef.current = activeTab;
+        setMode(m); setSteps(buildSteps(m));
         setIndex(0);
         setRunning(true);
       }
@@ -264,6 +361,7 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
       if (runningRef.current) return;
       try { firstRunRef.current = localStorage.getItem(TUTORIAL_DONE_KEY) !== '1'; } catch { firstRunRef.current = false; }
       originalTabRef.current = activeTab;
+      setMode('full'); setSteps(buildSteps('full'));
       setIndex(0);
       setRunning(true);
     };
@@ -284,7 +382,7 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
 
   const finish = useCallback((completed = false) => {
     clearDemo();
-    try { localStorage.setItem(TUTORIAL_DONE_KEY, '1'); } catch {}
+    try { localStorage.setItem(TUTORIAL_DONE_KEY, '1'); localStorage.setItem(TUTORIAL_NEW_KEY, '1'); } catch {}
     setRunning(false);
     setRect(null);
     onCloseSettings?.();
@@ -297,7 +395,7 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
   const next = useCallback(() => {
     clearDemo();
     setIndex((i) => {
-      if (i >= STEPS.length - 1) { window.setTimeout(() => finish(true), 0); return i; }
+      if (i >= stepsRef.current.length - 1) { window.setTimeout(() => finish(true), 0); return i; }
       return i + 1;
     });
   }, [clearDemo, finish]);
@@ -373,7 +471,7 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
       if (step.action!.done({ activeTab: activeTabRef.current })) {
         fired = true;
         setActionDone(true);
-        window.setTimeout(() => setIndex((i) => (STEPS[i]?.id === step.id ? Math.min(i + 1, STEPS.length - 1) : i)), 650);
+        window.setTimeout(() => setIndex((i) => (stepsRef.current[i]?.id === step.id ? Math.min(i + 1, stepsRef.current.length - 1) : i)), 650);
       }
     }, 120);
     return () => window.clearInterval(id);
@@ -427,7 +525,7 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
 
   if (!running) return null;
   const centered = !step.target;
-  const total = STEPS.length;
+  const total = steps.length;
 
   const isAction = Boolean(step.action);
   const nudge = () => {
@@ -524,7 +622,11 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
               </div>
             )}
             <div className="flex items-start justify-between gap-2">
-              <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400 tabular-nums">{index + 1} / {total}</p>
+              <p className="flex items-center gap-1.5 text-[11px] font-bold text-purple-600 dark:text-purple-400 tabular-nums">
+                <span>{index + 1} / {total}</span>
+                {step.chapter && <span className="px-1.5 py-px rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">{step.chapter}</span>}
+                {(step.isNew || step.id === 'welcome-new') && <span className="px-1.5 py-px rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">새 기능</span>}
+              </p>
               <button type="button" onClick={() => finish(false)} className="-mt-2 -mr-2 w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" aria-label="둘러보기 닫기">
                 <X className="w-4 h-4" />
               </button>
@@ -551,12 +653,12 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
                   </button>
                 )}
                 <button type="button" onClick={index < total - 1 ? next : () => finish(true)} className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer ${isAction ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}>
-                  {index === 0 ? '둘러보기 시작' : isAction ? '넘어가기' : index < total - 1 ? '다음' : '시작하기'}
+                  {index === 0 ? (mode === 'new' ? '새 기능 보기' : '둘러보기 시작') : isAction ? '넘어가기' : index < total - 1 ? '다음' : '시작하기'}
                 </button>
               </div>
             </div>
             <div className="mt-3 flex justify-center gap-1" aria-hidden="true">
-              {STEPS.map((s, i) => (
+              {steps.map((s, i) => (
                 <span key={s.id} className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? 'w-4 bg-purple-600' : 'w-1.5 bg-zinc-300 dark:bg-zinc-700'}`} />
               ))}
             </div>

@@ -115,9 +115,10 @@ export function usePatchNotes() {
     };
   }, []);
 
-  const addPatchNote = async (item: Omit<PatchNote, 'id'>) => {
+  const addPatchNote = async (item: Omit<PatchNote, 'id'>, idOverride?: string) => {
     const cleanVersion = item.version.replace(/^v/, '').trim();
-    const docId = `patch-v${cleanVersion}`;
+    // 개발일지처럼 한 버전에 여러 글이면 따로 문서 번호 (같은 버전 패치노트를 덮어쓰지 않게)
+    const docId = idOverride || `patch-v${cleanVersion}`;
     const newNote: PatchNote = {
       ...item,
       id: docId,

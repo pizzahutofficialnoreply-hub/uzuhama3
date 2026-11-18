@@ -3,6 +3,7 @@ import { CalendarClock, Plus, Trash2 } from 'lucide-react';
 import type { DdayEvent } from '../../../../types';
 import { daysUntil, ddayLabel, nextDate } from '../../../../utils/dday';
 import { EventArt, artFor, ART_KINDS, bannerText } from '../../../common/EventArt';
+import { mutate } from './SearchTuningCard';
 
 /** 관리자 › 시스템 › 공지: 일정 (헤더 제목 옆 D-day). 저장은 아래 '저장' 버튼 */
 export function DdayEventsCard({ value, onChange }: { value: DdayEvent[]; onChange: (v: DdayEvent[]) => void }) {
@@ -15,6 +16,19 @@ export function DdayEventsCard({ value, onChange }: { value: DdayEvent[]; onChan
     if (!title.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
     onChange([...value, { id: `ev-${Date.now().toString(36)}`, title: title.trim().slice(0, 20), date, daysBefore: Math.max(0, Math.min(365, Number(before) || 14)), active: true }]);
     setTitle(''); setDate('');
+  };
+  const [upErr, setUpErr] = useState('');
+  // 그림 올리기: 그림 저장소에 올리고 주소만 일정에 (공식 이모티콘처럼 쓸 수 있는 그림)
+  const upload = async (id: string, f: File | undefined) => {
+    setUpErr('');
+    if (!f) return;
+    if (!/^image\/(png|gif|webp|jpeg)$/.test(f.type)) { setUpErr('png·gif·webp·jpg 그림만 올릴 수 있어요'); return; }
+    if (f.size > 900_000) { setUpErr('그림이 너무 커요 (최대 약 900KB)'); return; }
+    try {
+      const data: string = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(new Error('그림을 읽지 못했어요')); r.readAsDataURL(f); });
+      const j = await mutate('uploadImage', { data });
+      set(id, { image: j.url });
+    } catch (e: any) { setUpErr(String(e?.message || e)); }
   };
   const input = 'px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm';
   return (
@@ -29,6 +43,7 @@ export function DdayEventsCard({ value, onChange }: { value: DdayEvent[]; onChan
         <label className="space-y-1"><span className="text-[11px] font-bold text-zinc-500">며칠 전부터</span><input type="number" min={0} max={365} value={before} onChange={(e) => setBefore(Number(e.target.value))} className={`${input} w-24`} /></label>
         <button type="button" onClick={add} disabled={!title.trim() || !date} className="h-[38px] px-4 rounded-xl bg-purple-600 text-white text-sm font-bold flex items-center gap-1 cursor-pointer disabled:opacity-40"><Plus className="w-4 h-4" /> 추가</button>
       </div>
+      {upErr && <p className="text-xs text-red-500">{upErr}</p>}
       {list.length === 0 ? <p className="text-xs text-zinc-400">아직 일정이 없어요.</p> : (
         <ul className="space-y-2">
           {list.map((e) => {
@@ -46,9 +61,17 @@ export function DdayEventsCard({ value, onChange }: { value: DdayEvent[]; onChan
                   <select value={e.art || 'auto'} onChange={(ev) => set(e.id, { art: ev.target.value as any })} className={`${input} py-1.5`}>
                     <option value="auto">이름 보고 자동</option>{ART_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}<option value="none">없음</option>
                   </select>
-                  {(() => { const k = artFor(e.title, e.art); return k ? <span className="text-xl"><EventArt kind={k} label={e.title} text={e.banner} /></span> : <span className="text-[11px] text-zinc-400">그림 없음</span>; })()}
+                  {(() => { const k = artFor(e.title, e.art); return k ? <span className="text-xl"><EventArt kind={k} label={e.title} text={e.banner} image={e.image} /></span> : <span className="text-[11px] text-zinc-400">그림 없음</span>; })()}
                 </label>
-                {artFor(e.title, e.art) === 'banner' && (
+                {artFor(e.title, e.art) && (
+                  <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+                    <label className="px-2.5 py-1.5 rounded-lg bg-zinc-200 dark:bg-zinc-700 font-bold cursor-pointer">{e.image ? '그림 바꾸기' : '그림 올리기'}
+                      <input type="file" accept="image/png,image/gif,image/webp,image/jpeg" className="hidden" onChange={(ev) => { void upload(e.id, ev.target.files?.[0]); ev.target.value = ''; }} />
+                    </label>
+                    {e.image && <button type="button" onClick={() => set(e.id, { image: '' })} className="underline cursor-pointer">그린 하마로</button>}
+                  </span>
+                )}
+                {artFor(e.title, e.art) === 'banner' && !e.image && (
                   <label className="flex items-center gap-1 text-xs text-zinc-500">플래카드 글
                     <input value={e.banner || ''} onChange={(ev) => set(e.id, { banner: ev.target.value.slice(0, 6) })} placeholder={bannerText(e.title)} maxLength={6} className={`${input} w-24 py-1.5`} />
                   </label>

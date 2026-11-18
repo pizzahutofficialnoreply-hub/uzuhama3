@@ -12,7 +12,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { cn } from '../utils';
 import { KEYBOARD_OPTIONS, getPrefs, setPref, type KeyboardLayout } from '../utils/userPrefs';
-import { TUTORIAL_DONE_KEY, TUTORIAL_START_EVENT } from './Tutorial';
+import { TUTORIAL_DONE_KEY, TUTORIAL_NEW_KEY, TUTORIAL_START_EVENT } from './Tutorial';
 import { OnboardingArt } from './OnboardingArt';
 import { SetupItemList, useSetupItems } from './SetupGuides';
 import { isStandaloneMode, openSetupGuide } from '../utils/setupStatus';
@@ -228,7 +228,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
     if (startTour && tutorialEnabled) {
       window.setTimeout(() => window.dispatchEvent(new Event(TUTORIAL_START_EVENT)), 500);
     } else {
-      try { localStorage.setItem(TUTORIAL_DONE_KEY, '1'); } catch { /* 무시 */ }
+      try { localStorage.setItem(TUTORIAL_DONE_KEY, '1'); localStorage.setItem(TUTORIAL_NEW_KEY, '1'); } catch { /* 무시 */ }
       // 둘러보기를 건너뛰어도 '더 알아볼까요?' 는 보여 줌 (앱으로 연 상태면 이미 알림 안내를 봤으니 생략)
       if (!standalone) window.setTimeout(() => openSetupGuide(undefined, 'after-tour'), 450);
     }

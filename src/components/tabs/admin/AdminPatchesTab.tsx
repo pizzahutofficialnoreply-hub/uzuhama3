@@ -23,6 +23,7 @@ import { cn } from '../../../utils';
 import Markdown from 'react-markdown';
 import { RichTextEditor } from '../../common/RichTextEditor';
 import { confirmSheet } from '../../../utils/ui';
+import { PATCH_DRAFTS, type PatchDraft } from '../../../data/patchDrafts';
 
 const TEMPLATES: Record<PatchCategory, { title: string; highlights: string[]; content: string }> = {
   patch: {
@@ -200,8 +201,48 @@ export function AdminPatchesTab() {
     return n.category === filterCategory;
   });
 
+  // 준비된 글: 미리 써 둔 패치노트·개발일지를 눌러서 올리기
+  const draftId = (d: PatchDraft) => (d.category === 'dev' ? `dev-${d.key}` : `patch-v${d.version}`);
+  const draftAdded = (d: PatchDraft) => patchNotes.some((n) => n.id === draftId(d) || (n.category === d.category && n.version === d.version && n.title === d.title));
+  const [draftBusy, setDraftBusy] = useState('');
+  const addDraft = async (d: PatchDraft) => {
+    setDraftBusy(d.key);
+    try { await addPatchNote({ version: d.version, category: d.category, title: d.title, date: d.date, content: d.content, highlights: d.highlights, author: d.author, ...(d.kind ? { kind: d.kind } : {}) } as any, draftId(d)); }
+    finally { setDraftBusy(''); }
+  };
+  const draftsLeft = PATCH_DRAFTS.filter((d) => !draftAdded(d));
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm space-y-3" data-testid="patch-drafts">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-bold text-zinc-900 dark:text-white">준비된 글</h3>
+            <p className="text-xs text-zinc-500 mt-0.5 break-keep">미리 써 둔 패치노트·개발일지예요. '추가하기'를 누르면 바로 올라가요. 올린 뒤에도 아래 목록에서 고칠 수 있어요.</p>
+          </div>
+          {draftsLeft.length > 1 && (
+            <button type="button" disabled={!!draftBusy} onClick={async () => { if (!await confirmSheet(`준비된 글 ${draftsLeft.length}개를 모두 올릴까요?`)) return; for (const d of draftsLeft) await addDraft(d); }}
+              className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-purple-600 text-white cursor-pointer disabled:opacity-50">모두 추가 ({draftsLeft.length})</button>
+          )}
+        </div>
+        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {PATCH_DRAFTS.map((d) => {
+            const added = draftAdded(d);
+            return (
+              <li key={d.key} className="py-2.5 flex items-center gap-3">
+                <span className={cn('shrink-0 px-2 py-0.5 rounded-md text-[11px] font-bold', d.category === 'dev' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300' : 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300')}>{d.category === 'dev' ? '개발일지' : '패치노트'} v{d.version}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-zinc-800 dark:text-zinc-100 truncate">{d.title}</span>
+                  <span className="block text-[11px] text-zinc-400">{d.date} · 글자 {d.content.length.toLocaleString()}자</span>
+                </span>
+                {added ? <span className="shrink-0 text-xs font-bold text-emerald-600">추가됨</span> : (
+                  <button type="button" disabled={!!draftBusy} onClick={() => void addDraft(d)} className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 cursor-pointer disabled:opacity-50">{draftBusy === d.key ? '올리는 중…' : '추가하기'}</button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
       {/* Top Banner */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

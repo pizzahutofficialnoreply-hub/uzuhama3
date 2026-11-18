@@ -67,14 +67,14 @@ const LUNAR: Record<string, { seollal: string; chuseok: string; buddha: string }
 const SUNEUNG: Record<string, string> = { '2026': '2026-11-19' };
 
 /** 오늘 그림: 관리자 일정(당일) 먼저, 없으면 수능 — 시험(수능)은 전날(D-1)부터 */
-export function eventArtFor(events: DdayEvent[] | undefined, day: string): { kind: ArtKind; label: string; text?: string; message?: string } | null {
+export function eventArtFor(events: DdayEvent[] | undefined, day: string): { kind: ArtKind; label: string; text?: string; message?: string; image?: string } | null {
   const tomorrow = addDays(day, 1);
   for (const e of events || []) {
     if (!e || e.active === false) continue;
     const k = artFor(e.title, (e as any).art);
     if (!k) continue;
-    if (occursOn(e, day)) return { kind: k, label: e.title, text: e.banner, message: e.message };
-    if ((k === 'exam' || k === 'cheer') && occursOn(e, tomorrow)) return { kind: k, label: `내일 ${e.title}`, text: e.banner, message: e.message };
+    if (occursOn(e, day)) return { kind: k, label: e.title, text: e.banner, message: e.message, image: e.image };
+    if ((k === 'exam' || k === 'cheer') && occursOn(e, tomorrow)) return { kind: k, label: `내일 ${e.title}`, text: e.banner, message: e.message, image: e.image };
   }
   const sn = SUNEUNG[day.slice(0, 4)];
   if (sn === day) return { kind: 'cheer', label: '수능 날 · 수험생 여러분 응원해요' };
@@ -142,11 +142,11 @@ export function HeaderTitle({ decor, events, className, previewDay }: { decor?: 
     const exam = art.kind === 'cheer' || art.kind === 'exam';
     const eggKind: EggKind | null = exam ? 'exam' : celebrates(art.kind) ? 'party' : null;
     const eggMsg = (art as any).message || (exam ? (art.label.startsWith('내일') ? '내일 수능, 다들 화이팅!!' : '수능 화이팅!!') : `${art.text || bannerText(art.label)} 축하해요!`);
-    const icon = <EventArt kind={art.kind} label={art.label} text={art.text} />;
+    const icon = <EventArt kind={art.kind} label={art.label} text={art.text} image={(art as any).image} />;
     const text = <span className="ea-title-text text-zinc-900 dark:text-white truncate" style={fontStyle}>{TITLE}</span>;
     return (
       <h1 className={cn(base, 'flex items-center gap-1.5 min-w-0 !overflow-visible', className)} title={art.label} aria-label={`우주하마 방송 예측 · ${art.label}`}>
-        {eggKind && art.kind !== 'party' ? <EggTrigger kind={eggKind} message={eggMsg} sub={exam ? '찍은 것도 다 맞길!' : undefined} label={art.label} hero={exam ? undefined : <EventArt kind={art.kind} label={art.label} text={art.text} />}>{icon}</EggTrigger> : icon}
+        {eggKind && art.kind !== 'party' ? <EggTrigger kind={eggKind} message={eggMsg} sub={exam ? '찍은 것도 다 맞길!' : undefined} label={art.label} hero={exam ? undefined : <EventArt kind={art.kind} label={art.label} text={art.text} image={(art as any).image} />}>{icon}</EggTrigger> : icon}
         <span className="ea-title-wrap">
           {celebrates(art.kind) && <TitleCelebrate />}
           {art.kind === 'party' ? <EggTrigger kind="party" message={eggMsg} label={art.label}>{text}</EggTrigger> : text}
