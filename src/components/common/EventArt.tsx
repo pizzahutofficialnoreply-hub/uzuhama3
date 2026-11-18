@@ -118,28 +118,14 @@ function Exam() {
 }
 
 /**
- * 하마 (이 사이트만의 캐릭터): 보라 하마 · 작은 귀 · 넓은 코 · 분홍 볼 · 머리 위 별 (우주)
+ * 하마: 사이트 아이콘의 하마 그림(/img/hippo.png)에 소품만 그려 얹음
+ *  - 플래카드(주년) · 고깔모자(생일) · 필승 머리띠와 연필(시험)
  */
-const HIPPO = '#b7a4f2';
-const SNOUT = '#d9cffb';
-function HippoHead({ y = 0, star = true }: { y?: number; star?: boolean }) {
-  return (
-    <g transform={`translate(0 ${y})`}>
-      <circle cx="20" cy="27" r="4.2" fill={HIPPO} stroke={LINE} strokeWidth="2.4" />
-      <circle cx="44" cy="27" r="4.2" fill={HIPPO} stroke={LINE} strokeWidth="2.4" />
-      <circle cx="20" cy="27" r="1.7" fill="#f29bb5" />
-      <circle cx="44" cy="27" r="1.7" fill="#f29bb5" />
-      <ellipse cx="32" cy="40" rx="16.5" ry="14" fill={HIPPO} stroke={LINE} strokeWidth="2.6" />
-      <ellipse cx="32" cy="46.5" rx="12" ry="7.4" fill={SNOUT} stroke={LINE} strokeWidth="2.2" />
-      <ellipse cx="27.6" cy="45.6" rx="1.5" ry="2.1" fill={LINE} />
-      <ellipse cx="36.4" cy="45.6" rx="1.5" ry="2.1" fill={LINE} />
-      <circle cx="25.5" cy="35" r="1.9" fill={LINE} className="ea-blink" />
-      <circle cx="38.5" cy="35" r="1.9" fill={LINE} className="ea-blink" />
-      <ellipse cx="19.5" cy="41" rx="2.8" ry="1.8" fill="#f29bb5" opacity=".75" />
-      <ellipse cx="44.5" cy="41" rx="2.8" ry="1.8" fill="#f29bb5" opacity=".75" />
-      {star && <path d="M32 21.2 l1.5 3.1 3.4.5 -2.5 2.3.6 3.3 -3-1.6 -3 1.6.6-3.3 -2.5-2.3 3.4-.5z" fill="#ffd34d" stroke={LINE} strokeWidth="1.4" strokeLinejoin="round" className="ea-twinkle" />}
-    </g>
-  );
+const HIPPO = '#7092bf';
+const HIPPO_SRC = '/img/hippo.png';
+/** 하마 얼굴 그림 (가로:세로 = 512:410) */
+function HippoImg({ x = 9, y = 24, w = 46 }: { x?: number; y?: number; w?: number }) {
+  return <image href={HIPPO_SRC} x={x} y={y} width={w} height={w * 410 / 512} className="ea-blink-img" />;
 }
 /** 하마가 플래카드를 번쩍 (주년) */
 function HippoBanner({ text }: { text: string }) {
@@ -147,17 +133,19 @@ function HippoBanner({ text }: { text: string }) {
   return (
     <svg viewBox="0 0 64 64" className="event-art" aria-hidden="true">
       <g className="ea-cheer">
-        <path d="M12 30 L13 5 M52 30 L51 5" stroke={LINE} strokeWidth="2.4" strokeLinecap="round" />
-        <path d="M13 5 L51 5 L50.5 19 L13.5 19 Z" fill="#8fd3ff" stroke={LINE} strokeWidth="2.4" strokeLinejoin="round" />
-        <text x="32" y={13.9 + (10 - fs) * 0.25} textAnchor="middle" fontSize={fs} fontWeight="900" fill="#ffe24d" stroke={LINE} strokeWidth="1.6" paintOrder="stroke" fontFamily="'BMHANNAPro','Black Han Sans',sans-serif">{text}</text>
-        <circle cx="13" cy="5" r="1.8" fill="#ffe24d" stroke={LINE} strokeWidth="1.4" />
-        <circle cx="51" cy="5" r="1.8" fill="#ffe24d" stroke={LINE} strokeWidth="1.4" />
-        <path d="M17 36 Q 12 32 12.5 27" fill="none" stroke={LINE} strokeWidth="7.4" strokeLinecap="round" />
-        <path d="M17 36 Q 12 32 12.5 27" fill="none" stroke={HIPPO} strokeWidth="4" strokeLinecap="round" />
-        <path d="M47 36 Q 52 32 51.5 27" fill="none" stroke={LINE} strokeWidth="7.4" strokeLinecap="round" />
-        <path d="M47 36 Q 52 32 51.5 27" fill="none" stroke={HIPPO} strokeWidth="4" strokeLinecap="round" />
+        <path d="M13 31 L13.5 5 M51 31 L50.5 5" stroke="#f5d76e" strokeWidth="2.6" strokeLinecap="round" />
+        <path d="M13 31 L13.5 5 M51 31 L50.5 5" stroke={LINE} strokeWidth="0.9" strokeLinecap="round" opacity=".55" />
+        <path d="M12.5 5 L51.5 5 L51 19 L13 19 Z" fill="#7cc8f8" stroke={LINE} strokeWidth="2.2" strokeLinejoin="round" />
+        <text x="32" y={13.9 + (10 - fs) * 0.25} textAnchor="middle" fontSize={fs} fontWeight="900" fill="#ffe24d" stroke={LINE} strokeWidth="1.5" paintOrder="stroke" fontFamily="'BMHANNAPro','Black Han Sans',sans-serif">{text}</text>
+        <circle cx="13.5" cy="5" r="1.7" fill="#ffe24d" stroke={LINE} strokeWidth="1.2" />
+        <circle cx="50.5" cy="5" r="1.7" fill="#ffe24d" stroke={LINE} strokeWidth="1.2" />
+        {/* 번쩍 든 두 팔 */}
+        <path d="M17 40 Q 11 34 12.5 26" fill="none" stroke={LINE} strokeWidth="7.6" strokeLinecap="round" />
+        <path d="M17 40 Q 11 34 12.5 26" fill="none" stroke={HIPPO} strokeWidth="4.6" strokeLinecap="round" />
+        <path d="M47 40 Q 53 34 51.5 26" fill="none" stroke={LINE} strokeWidth="7.6" strokeLinecap="round" />
+        <path d="M47 40 Q 53 34 51.5 26" fill="none" stroke={HIPPO} strokeWidth="4.6" strokeLinecap="round" />
       </g>
-      <HippoHead y={4} star={false} />
+      <HippoImg x={9} y={27} w={46} />
     </svg>
   );
 }
@@ -165,13 +153,13 @@ function HippoBanner({ text }: { text: string }) {
 function HippoBirthday() {
   return (
     <svg viewBox="0 0 64 64" className="event-art" aria-hidden="true">
-      <g className="ea-bob" style={{ transformOrigin: '32px 60px' }}>
-        <HippoHead y={6} star={false} />
-        <g transform="rotate(-12 32 22)">
-          <path d="M23 29 L33 5 L42 28 Z" fill="#ff7aa8" stroke={LINE} strokeWidth="2.4" strokeLinejoin="round" />
-          <path d="M26.2 21.5 L39.3 21 M29.3 14 L36.5 13.7" stroke="#ffe24d" strokeWidth="2.6" />
-          <path d="M23 29 L33 5 L42 28 Z" fill="none" stroke={LINE} strokeWidth="2.4" strokeLinejoin="round" />
-          <circle cx="33" cy="5" r="3" fill="#ffe24d" stroke={LINE} strokeWidth="1.8" className="ea-twinkle" />
+      <g className="ea-bob" style={{ transformOrigin: '32px 62px' }}>
+        <HippoImg x={8} y={26} w={48} />
+        <g transform="rotate(-10 34 22)">
+          <path d="M24 30 L34 5 L44 29 Z" fill="#ff7aa8" stroke={LINE} strokeWidth="2.3" strokeLinejoin="round" />
+          <path d="M27.4 22 L40.8 21.5 M30.6 14.5 L37.6 14.2" stroke="#ffe24d" strokeWidth="2.6" />
+          <path d="M24 30 L34 5 L44 29 Z" fill="none" stroke={LINE} strokeWidth="2.3" strokeLinejoin="round" />
+          <circle cx="34" cy="5" r="3" fill="#ffe24d" stroke={LINE} strokeWidth="1.7" className="ea-twinkle" />
         </g>
       </g>
     </svg>
@@ -181,22 +169,21 @@ function HippoBirthday() {
 function HippoCheer() {
   return (
     <svg viewBox="0 0 64 64" className="event-art" aria-hidden="true">
-      <HippoHead y={2} star={false} />
-      <path d="M16.5 33 Q 32 25.5 47.5 33 L47 38.5 Q 32 31 17 38.5 Z" fill="#ffffff" stroke={LINE} strokeWidth="2.2" strokeLinejoin="round" />
-      <text x="32" y="36.3" textAnchor="middle" fontSize="6" fontWeight="900" fill="#e8344f" fontFamily="'BMHANNAPro','Black Han Sans',sans-serif">필승</text>
-      <path d="M47 33.5 l6 -3 M47.2 36.5 l6.5 1" stroke={LINE} strokeWidth="2" strokeLinecap="round" className="ea-flutter" />
+      <HippoImg x={6} y={24} w={48} />
+      <path d="M13.5 30.5 Q 30 27 47.5 29 L47.3 34.5 Q 30 32.5 13.8 36 Z" fill="#ffffff" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+      <text x="30.5" y="33.9" textAnchor="middle" fontSize="5.6" fontWeight="900" fill="#e8344f" fontFamily="'BMHANNAPro','Black Han Sans',sans-serif">필승</text>
+      <path d="M47.4 30.5 l6 -3.4 M47.4 33.5 l6.6 0.8" stroke={LINE} strokeWidth="1.9" strokeLinecap="round" className="ea-flutter" />
       <g className="ea-pencil">
-        <g transform="rotate(35 54 40)">
-          <rect x="50.5" y="26" width="7" height="22" fill="#ffc83d" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
-          <rect x="50.5" y="23" width="7" height="4.4" rx="1.5" fill="#ff8fab" stroke={LINE} strokeWidth="2" />
-          <path d="M50.5 48 L54 55 L57.5 48 Z" fill="#f6d7ad" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+        <g transform="rotate(35 55 42)">
+          <rect x="51.5" y="28" width="7" height="22" fill="#ffc83d" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+          <rect x="51.5" y="25" width="7" height="4.4" rx="1.5" fill="#ff8fab" stroke={LINE} strokeWidth="2" />
+          <path d="M51.5 50 L55 57 L58.5 50 Z" fill="#f6d7ad" stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
         </g>
       </g>
     </svg>
   );
 }
 
-/** 제목 둘레: 양쪽 불꽃이 펑펑 + 색종이 둥실 + 반짝 (그림 1 처럼) */
 /**
  * 불꽃 하나 (자세히): 아래에서 올라오는 꼬리 → 펑 → 꽃잎 두 겹(가운데 하양 → 끝 색) · 끝에 반짝이 · 퍼지며 아래로 처짐
  */

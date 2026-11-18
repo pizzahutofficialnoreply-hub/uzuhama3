@@ -23,6 +23,13 @@ const ADMIN_MUTATE_URL = (typeof window !== 'undefined' && window.location.hostn
   ? '/api/admin/mutate'
   : 'https://uzuhama.vercel.app/api/admin/mutate';
 
+// 방금 이 기기에서 올린 글: 서버 목록(CDN 30분 보관)에 아직 없어도 1시간 동안은 보이게
+const PENDING_KEY = 'uzuhama_patch_notes_pending';
+const readPending = (): PatchNote[] => {
+  try { const a = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); return Array.isArray(a) ? a.filter((n) => Date.now() - Date.parse(n.updatedAt || '') < 3600000) : []; } catch { return []; }
+};
+const addPending = (n: PatchNote) => { try { localStorage.setItem(PENDING_KEY, JSON.stringify([n, ...readPending().filter((x) => x.id !== n.id)])); } catch { /* */ } };
+
 export function usePatchNotes() {
   const [patchNotes, setPatchNotes] = useState<PatchNote[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -56,6 +63,7 @@ export function usePatchNotes() {
           noteMap.set(note.id, note);
         }
       });
+      readPending().forEach((n) => { if (!noteMap.has(n.id) && !deletedIds.has(n.id)) noteMap.set(n.id, n); });
 
       const mergedList = Array.from(noteMap.values());
       mergedList.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
@@ -72,9 +80,10 @@ export function usePatchNotes() {
       (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')
     ).replace(/\/+$/, '');
     let pollTimer: number | undefined;
-    const fetchNotes = async () => {
+    const fetchNotes = async (fresh = false) => {
       try {
-        const r = await fetch(`${API_BASE}/api/patch-notes`);
+        // 방금 올린 게 있으면 CDN 보관본 말고 새로 (주소가 다르면 새로 받음)
+        const r = await fetch(`${API_BASE}/api/patch-notes${fresh || readPending().length ? `?t=${Math.floor(Date.now() / 60000)}` : ''}`);
         const json = await r.json();
         if (isMounted && Array.isArray(json?.notes)) {
           const serverNotes = json.notes as PatchNote[];
@@ -137,6 +146,7 @@ export function usePatchNotes() {
       }
     } catch {}
 
+    addPending(newNote);
     setPatchNotes(prev => {
       const exists = prev.some(p => p.id === docId);
       const next = exists ? prev.map(p => p.id === docId ? newNote : p) : [newNote, ...prev];

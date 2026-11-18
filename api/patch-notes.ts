@@ -439,15 +439,25 @@ export default async function handler(req: any, res: any) {
         content: x.content || '',
         highlights: Array.isArray(x.highlights) ? x.highlights : [],
         author: x.author || '운영진',
+        ...(x.kind ? { kind: x.kind } : {}),
         source: 'firestore',
         updatedAt: toIso(x.updatedAt) || toIso(x.createdAt),
       };
     });
 
     const notion = await loadNotionNotes(db);
-    // 같은 버전이 양쪽에 있으면 Notion 쪽을 사용
-    const notionVersions = new Set(notion.notes.map((n) => n.version).filter((v) => v && v !== '0.0.0'));
-    const merged = [...fsNotes.filter((n) => !notionVersions.has(n.version)), ...notion.notes]
+    // 같은 글이 양쪽에 있으면:
+    //  - 패치노트(개발일지 말고)는 같은 버전이면 Notion 쪽
+    //  - 개발일지는 버전이 같아도 여러 개일 수 있음 → 같은 번호(#6 = #06)일 때만 겹침, 이때는 사이트에서 새로 쓴 쪽(Firestore)
+    //    (예전엔 버전만 보고 겹친다고 봐서, Notion 에 1.0.0·1.1.0 이 있으면 그 버전 개발일지를 새로 올려도 안 보였음)
+    const devNo = (n: Note) => { const m = String(n.title || '').match(/#\s*0*(\d+)/); return m ? Number(m[1]) : null; };
+    const isDev = (n: Note) => n.category === 'dev';
+    const notionVersions = new Set(notion.notes.filter((n) => !isDev(n)).map((n) => n.version).filter((v) => v && v !== '0.0.0'));
+    const fsDevNos = new Set(fsNotes.filter(isDev).map(devNo).filter((x) => x != null));
+    const merged = [
+      ...fsNotes.filter((n) => isDev(n) || !notionVersions.has(n.version)),
+      ...notion.notes.filter((n) => !(isDev(n) && devNo(n) != null && fsDevNos.has(devNo(n)))),
+    ]
       .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.version || '').localeCompare(a.version || '', undefined, { numeric: true }));
 
     // 새 패치노트 → 자동 공지 (실패해도 목록은 그대로)

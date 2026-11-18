@@ -202,8 +202,8 @@ export function AdminPatchesTab() {
   });
 
   // 준비된 글: 미리 써 둔 패치노트·개발일지를 눌러서 올리기
-  const draftId = (d: PatchDraft) => (d.category === 'dev' ? `dev-${d.key}` : `patch-v${d.version}`);
-  const draftAdded = (d: PatchDraft) => patchNotes.some((n) => n.id === draftId(d) || (n.category === d.category && n.version === d.version && n.title === d.title));
+  const draftId = (d: PatchDraft) => (d.category === 'dev' ? `devlog-${d.key.replace(/^dev-/, '')}` : `patch-v${d.version}`);
+  const draftAdded = (d: PatchDraft) => patchNotes.some((n) => !n.id.startsWith('dev-dev-') && (n.id === draftId(d) || (n.category === d.category && n.version === d.version && n.title === d.title)));
   const [draftBusy, setDraftBusy] = useState('');
   const addDraft = async (d: PatchDraft) => {
     setDraftBusy(d.key);
@@ -211,6 +211,8 @@ export function AdminPatchesTab() {
     finally { setDraftBusy(''); }
   };
   const draftsLeft = PATCH_DRAFTS.filter((d) => !draftAdded(d));
+  // 번호를 고치기 전에 올렸던 개발일지 (#07~#13 → #06~#12 로 바뀜)
+  const stale = patchNotes.filter((n) => n.id.startsWith('dev-dev-'));
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -225,6 +227,12 @@ export function AdminPatchesTab() {
               className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-purple-600 text-white cursor-pointer disabled:opacity-50">모두 추가 ({draftsLeft.length})</button>
           )}
         </div>
+        {stale.length > 0 && (
+          <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5">
+            <p className="text-xs text-amber-800 dark:text-amber-200 break-keep">번호를 고치기 전에 올린 개발일지 {stale.length}개가 있어요. 지우고 아래 새 번호로 다시 올려 주세요.</p>
+            <button type="button" disabled={!!draftBusy} onClick={async () => { setDraftBusy('stale'); try { for (const n of stale) await deletePatchNote(n.id); } finally { setDraftBusy(''); } }} className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-600 text-white cursor-pointer disabled:opacity-50">{draftBusy === 'stale' ? '지우는 중…' : '정리하기'}</button>
+          </div>
+        )}
         <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {PATCH_DRAFTS.map((d) => {
             const added = draftAdded(d);
