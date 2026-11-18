@@ -181,7 +181,11 @@ export interface DdayEvent {
   daysBefore?: number; // 기본 14
   active?: boolean;
   /** 당일 헤더 그림: auto(이름으로) · balloon 풍선 · popper 폭죽 · exam 시험지 · none */
-  art?: 'auto' | 'balloon' | 'popper' | 'exam' | 'none';
+  art?: 'auto' | 'none' | 'balloon' | 'popper' | 'exam' | 'banner' | 'birthday' | 'cheer' | 'party';
+  /** 플래카드 글 (짧게, 비우면 이름에서: '10주년') */
+  banner?: string;
+  /** 매년 반복 (생일 등): 날짜의 월·일로 */
+  repeat?: 'yearly';
 }
 
 export interface SystemConfig {

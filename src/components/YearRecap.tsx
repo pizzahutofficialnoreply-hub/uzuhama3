@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flag, MoreHorizontal, Play, Share, X } from 'lucide-react';
+import { openAiCard, AI_CARD_CLOSED } from './common/AiCardExpand';
+import { requestReport } from './common/ItemMenu';
+import { shareNodeAsImage } from '../utils/shareUtils';
 import type { BroadcastLog } from '../types';
 import { buildRecap, liveIdsOf, recapYearNow, yearsWithData, type YearRecap } from '../utils/yearRecap';
 import { useVideoMetaMany } from '../hooks/useVideoDuration';
@@ -71,7 +74,10 @@ const Bars = ({ values, labels, hi }: { values: number[]; labels: string[]; hi: 
   );
 };
 
-function slides(r: YearRecap): { key: string; body: React.ReactNode }[] {
+type Play = (id: string, title: string, el: HTMLElement, sub?: string) => void;
+const SLIDE_NAME: Record<string, string> = { cover: '표지', none: '기록 없음', count: '방송 횟수', games: '가장 많이 한 게임', new: '처음 한 게임·장르', when: '요일·달', records: '기록', videos: '영상·쇼츠', end: '마무리' };
+
+function slides(r: YearRecap, play: Play): { key: string; body: React.ReactNode }[] {
   const out: { key: string; body: React.ReactNode }[] = [];
   out.push({ key: 'cover', body: (
     <div className="space-y-5 text-center">
@@ -102,7 +108,13 @@ function slides(r: YearRecap): { key: string; body: React.ReactNode }[] {
         {r.topGames.map((g, i) => (
           <motion.li key={g.name} initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 + i * 0.08 }} className="flex items-center gap-3">
             <span className="w-7 font-hanna font-pro text-[24px] text-white/60 tabular-nums">{i + 1}</span>
-            {g.video ? <img src={`https://i.ytimg.com/vi/${g.video}/mqdefault.jpg`} alt="" className="w-20 aspect-video rounded-lg object-cover bg-white/10 shrink-0" /> : <span className="w-20 aspect-video rounded-lg bg-white/10 shrink-0" />}
+            {g.video ? (
+              <button type="button" data-thumb onClick={(e) => { e.stopPropagation(); play(g.video!, g.name, e.currentTarget, `${r.year} 결산`); }} aria-label={`${g.name} 영상 보기`}
+                className="relative w-20 aspect-video rounded-lg overflow-hidden bg-white/10 shrink-0 pointer-events-auto cursor-pointer z-[6]">
+                <img src={`https://i.ytimg.com/vi/${g.video}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />
+                <span className="absolute inset-0 flex items-center justify-center bg-black/20" data-no-share="true"><Play className="w-4 h-4 text-white fill-white" /></span>
+              </button>
+            ) : <span className="w-20 aspect-video rounded-lg bg-white/10 shrink-0" />}
             <span className="min-w-0 flex-1">
               <span className="block text-[15px] font-bold text-white truncate">{g.name}</span>
               <span className="block text-[12px] text-white/70">{g.count}번{g.hours > 0 ? ` · 약 ${g.hours}시간` : ''}</span>
@@ -143,7 +155,8 @@ function slides(r: YearRecap): { key: string; body: React.ReactNode }[] {
   ) });
   out.push({ key: 'records', body: (
     <div className="space-y-7">
-      {r.longest && <div className="space-y-1"><Sub>가장 긴 방송 · {md(r.longest.date)}</Sub><Big><Count to={r.longest.hours} dec={1} />시간</Big>{r.longest.games.length > 0 && <Sub>{r.longest.games.slice(0, 3).join(', ')}</Sub>}</div>}
+      {r.longest && <div className="space-y-1"><Sub>가장 긴 방송 · {md(r.longest.date)}</Sub><Big><Count to={r.longest.hours} dec={1} />시간</Big>{r.longest.games.length > 0 && <Sub>{r.longest.games.slice(0, 3).join(', ')}</Sub>}
+        {r.longest.video && <button type="button" data-thumb data-no-share="true" onClick={(e) => { e.stopPropagation(); play(r.longest!.video!, `${md(r.longest!.date)} 생방송`, e.currentTarget, '가장 긴 방송'); }} className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/25 text-white text-[12.5px] font-bold pointer-events-auto cursor-pointer relative z-[6]"><Play className="w-3.5 h-3.5 fill-white" />이 방송 보기</button>}</div>}
       {r.streak && <div className="space-y-1"><Sub>가장 오래 이어서 켠 기간</Sub><Big><Count to={r.streak.days} />일 연속</Big><Sub>{md(r.streak.from)} ~ {md(r.streak.to)}</Sub></div>}
       {r.rest && r.rest.days >= 7 && <div className="space-y-1"><Sub>가장 오래 쉰 기간</Sub><Big><Count to={r.rest.days} />일</Big><Sub>{md(r.rest.from)} ~ {md(r.rest.to)}</Sub></div>}
     </div>
@@ -182,21 +195,42 @@ export function YearRecapModal({ initialYear, logs, fetchLogs, onClose }: { init
   const meta = useVideoMetaMany(ids);
   const metaKey = ids.filter((id) => meta.has(id)).length;
   const recap = useMemo(() => buildRecap(logs, year, meta), [logs, year, metaKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  const list = useMemo(() => slides(recap), [recap]);
+  // 영상 보기: 결산은 그대로 두고 위에 영상 화면 → 닫으면 보던 장 그대로
+  const [watching, setWatching] = useState(false);
+  useEffect(() => {
+    const on = () => setWatching(false);
+    window.addEventListener(AI_CARD_CLOSED, on);
+    return () => window.removeEventListener(AI_CARD_CLOSED, on);
+  }, []);
+  const play: Play = (id, title, el, sub) => { setWatching(true); openAiCard(id, title, el, sub); };
+  const list = useMemo(() => slides(recap, play), [recap]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [menu, setMenu] = useState(false);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const saveImage = async () => {
+    setMenu(false);
+    const el = cardRef.current;
+    if (!el) return;
+    el.setAttribute('data-capturing', 'true');
+    try { await shareNodeAsImage(el, `${year} 우주하마 결산 - ${SLIDE_NAME[cur?.key || ''] || ''}`, bg); } finally { el.removeAttribute('data-capturing'); }
+  };
+  const report = () => {
+    setMenu(false);
+    requestReport({ id: `recap-${year}`, kind: 'video', title: `${year} 결산`, recap: `${year}년 결산 · ${SLIDE_NAME[cur?.key || ''] || cur?.key}`, search: { query: '', concepts: [], understood: '' } });
+  };
   const years = useMemo(() => yearsWithData(logs), [logs]);
   const cur = list[Math.min(i, list.length - 1)];
   const go = (d: number) => setI((x) => Math.max(0, Math.min(list.length - 1, x + d)));
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); if (e.key === 'ArrowRight') go(1); if (e.key === 'ArrowLeft') go(-1); };
+    const k = (e: KeyboardEvent) => { if (watching) return; if (e.key === 'Escape') onClose(); if (e.key === 'ArrowRight') go(1); if (e.key === 'ArrowLeft') go(-1); };
     window.addEventListener('keydown', k);
     const prev = document.body.style.overflow; document.body.style.overflow = 'hidden';
     return () => { window.removeEventListener('keydown', k); document.body.style.overflow = prev; };
-  }, [list.length]);
+  }, [list.length, watching]);
   const bg = BG[Math.min(i, list.length - 1) % BG.length];
 
   return createPortal(
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[400] flex items-center justify-center bg-black/80" role="dialog" aria-modal="true" aria-label={`${year} 우주하마 결산`} data-testid="recap">
-      <motion.div animate={{ backgroundColor: bg }} transition={{ duration: 0.4 }} className="relative w-full h-full sm:h-[min(92vh,760px)] sm:max-w-[420px] sm:rounded-[28px] overflow-hidden select-none"
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`fixed inset-0 ${watching ? 'z-[300]' : 'z-[395]'} flex items-center justify-center bg-black/80`} data-no-dock="true" role="dialog" aria-modal="true" aria-label={`${year} 우주하마 결산`} data-testid="recap">
+      <motion.div ref={cardRef} animate={{ backgroundColor: bg }} transition={{ duration: 0.4 }} className="relative w-full h-full sm:h-[min(92vh,760px)] sm:max-w-[420px] sm:rounded-[28px] overflow-hidden select-none"
         style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {/* 위: 장 수 · 해 · 닫기 */}
         <div className="relative z-10 px-4 pt-3 space-y-3" style={{ marginTop: 'env(safe-area-inset-top)' }}>
@@ -208,7 +242,19 @@ export function YearRecapModal({ initialYear, logs, fetchLogs, onClose }: { init
               className="h-8 px-2.5 rounded-full bg-black/25 text-white text-[12.5px] font-bold border-0 focus:outline-none">
               {[...new Set([initialYear, ...years])].sort((a, b) => b - a).map((y) => <option key={y} value={y} className="text-black">{y}년 결산</option>)}
             </select>
-            <button type="button" onClick={onClose} className="w-9 h-9 rounded-full bg-black/25 text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4.5 h-4.5" /></button>
+            <span className="flex items-center gap-2 relative" data-no-share="true">
+              <button type="button" onClick={() => setMenu((v) => !v)} aria-expanded={menu} className="w-9 h-9 rounded-full bg-black/25 text-white flex items-center justify-center cursor-pointer" aria-label="더 보기"><MoreHorizontal className="w-5 h-5" /></button>
+              <button type="button" onClick={onClose} className="w-9 h-9 rounded-full bg-black/25 text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4.5 h-4.5" /></button>
+              <AnimatePresence>
+                {menu && (
+                  <motion.div initial={{ opacity: 0, y: -6, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-11 z-20 w-56 rounded-2xl overflow-hidden bg-white dark:bg-zinc-800 shadow-xl ring-1 ring-black/10" role="menu">
+                    <button type="button" role="menuitem" onClick={() => void saveImage()} className="w-full px-4 py-3 flex items-center gap-2.5 text-left text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"><Share className="w-4 h-4" />이 장 사진으로 공유·저장</button>
+                    <button type="button" role="menuitem" onClick={report} className="w-full px-4 py-3 flex items-center gap-2.5 text-left text-[13.5px] font-semibold text-red-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 border-t border-zinc-100 dark:border-zinc-700 cursor-pointer"><Flag className="w-4 h-4" />잘못된 정보 신고</button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </span>
           </div>
         </div>
         {/* 누르는 곳: 왼쪽 1/3 이전, 나머지 다음 */}
@@ -221,7 +267,8 @@ export function YearRecapModal({ initialYear, logs, fetchLogs, onClose }: { init
             </motion.div>
           </AnimatePresence>
         </div>
-        <div className="absolute bottom-4 inset-x-0 z-10 flex justify-center gap-2 pointer-events-none" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="absolute bottom-5 left-6 text-[11px] font-bold text-white/60 pointer-events-none">uzuhama.vercel.app · {year} 결산</div>
+        <div className="absolute bottom-4 inset-x-0 z-10 flex justify-center gap-2 pointer-events-none" style={{ marginBottom: 'env(safe-area-inset-bottom)' }} data-no-share="true">
           <span className="pointer-events-auto flex gap-2">
             <button type="button" onClick={() => go(-1)} disabled={i === 0} className="w-9 h-9 rounded-full bg-black/25 text-white flex items-center justify-center disabled:opacity-30 cursor-pointer" aria-label="이전 장"><ChevronLeft className="w-5 h-5" /></button>
             <button type="button" onClick={() => go(1)} disabled={i >= list.length - 1} className="w-9 h-9 rounded-full bg-black/25 text-white flex items-center justify-center disabled:opacity-30 cursor-pointer" aria-label="다음 장"><ChevronRight className="w-5 h-5" /></button>

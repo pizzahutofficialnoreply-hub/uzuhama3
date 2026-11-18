@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '../../utils';
-import { EventArt, artFor, type ArtKind } from './EventArt';
+import { EventArt, artFor, celebrates, TitleCelebrate, type ArtKind } from './EventArt';
+import { occursOn } from '../../utils/dday';
 import type { DdayEvent } from '../../types';
 
 /**
@@ -56,18 +57,18 @@ const LUNAR: Record<string, { seollal: string; chuseok: string; buddha: string }
 const SUNEUNG: Record<string, string> = { '2026': '2026-11-19' };
 
 /** 오늘 그림: 관리자 일정(당일) 먼저, 없으면 수능 — 시험(수능)은 전날(D-1)부터 */
-export function eventArtFor(events: DdayEvent[] | undefined, day: string): { kind: ArtKind; label: string } | null {
+export function eventArtFor(events: DdayEvent[] | undefined, day: string): { kind: ArtKind; label: string; text?: string } | null {
   const tomorrow = addDays(day, 1);
   for (const e of events || []) {
     if (!e || e.active === false) continue;
     const k = artFor(e.title, (e as any).art);
     if (!k) continue;
-    if (e.date === day) return { kind: k, label: e.title };
-    if (k === 'exam' && e.date === tomorrow) return { kind: k, label: `내일 ${e.title}` };
+    if (occursOn(e, day)) return { kind: k, label: e.title, text: e.banner };
+    if ((k === 'exam' || k === 'cheer') && occursOn(e, tomorrow)) return { kind: k, label: `내일 ${e.title}`, text: e.banner };
   }
   const sn = SUNEUNG[day.slice(0, 4)];
-  if (sn === day) return { kind: 'exam', label: '수능 날 · 수험생 여러분 응원해요' };
-  if (sn === tomorrow) return { kind: 'exam', label: '내일 수능 · 수험생 여러분 응원해요' };
+  if (sn === day) return { kind: 'cheer', label: '수능 날 · 수험생 여러분 응원해요' };
+  if (sn === tomorrow) return { kind: 'cheer', label: '내일 수능 · 수험생 여러분 응원해요' };
   return null;
 }
 
@@ -120,12 +121,17 @@ export function HeaderTitle({ decor, events, className, previewDay }: { decor?: 
   const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
   const base = 'text-xl sm:text-[25px] font-extrabold tracking-tight truncate';
 
-  const art = custom ? null : eventArtFor(events, day);
+  // ?titleart=banner&titletext=10주년 으로 그림 미리 보기 (관리자 확인용)
+  const pv = (() => { try { const q = new URLSearchParams(window.location.search); const k = q.get('titleart'); return k ? { kind: artFor('', k) as ArtKind, label: q.get('titletext') || '미리 보기', text: q.get('titletext') || undefined } : null; } catch { return null; } })();
+  const art = pv?.kind ? pv : custom ? null : eventArtFor(events, day);
   if (art) {
     return (
-      <h1 className={cn(base, 'flex items-center gap-1.5 min-w-0', className)} title={art.label} aria-label={`우주하마 방송 예측 · ${art.label}`}>
-        <EventArt kind={art.kind} label={art.label} />
-        <span className="text-zinc-900 dark:text-white truncate">우주하마 방송 예측</span>
+      <h1 className={cn(base, 'flex items-center gap-1.5 min-w-0 !overflow-visible', className)} title={art.label} aria-label={`우주하마 방송 예측 · ${art.label}`}>
+        <EventArt kind={art.kind} label={art.label} text={art.text} />
+        <span className="ea-title-wrap">
+          {celebrates(art.kind) && <TitleCelebrate />}
+          <span className="ea-title-text text-zinc-900 dark:text-white truncate">우주하마 방송 예측</span>
+        </span>
       </h1>
     );
   }

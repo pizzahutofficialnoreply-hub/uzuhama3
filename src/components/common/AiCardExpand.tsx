@@ -16,6 +16,8 @@ import { Skeleton } from './Skeleton';
  *  - 맨 위: 바로 재생 / 제목 아래: AI 요약 펼침(접기 가능) / 스포 가리기
  */
 export const AI_CARD_EVENT = 'uzuhama-ai-card';
+/** 펼친 영상 화면이 다 닫혔을 때 (결산처럼 아래에 있던 화면이 다시 앞으로) */
+export const AI_CARD_CLOSED = 'uzuhama-ai-card-closed';
 type Rect = { top: number; left: number; width: number; height: number };
 export type CardOpts = {
   /** 몰아보기: 요약이 있을 때만 요약 칸, 없으면 바로 아래 목록 */
@@ -213,7 +215,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
     const r = el?.getBoundingClientRect();
     back.current = r && r.bottom > 0 && r.top < window.innerHeight ? { top: r.top, left: r.left, width: r.width, height: r.height } : { ...t.from, top: window.innerHeight + 40 };
     // 재생 중이면 닫아도 카드 썸네일 자리에서 계속 재생 (화면 밖이면 멈춤)
-    keepPlay.current = Boolean(play && (ytState.current === 1 || ytState.current === 3) && el && r && r.bottom > 0 && r.top < window.innerHeight);
+    keepPlay.current = Boolean(play && (ytState.current === 1 || ytState.current === 3) && el && r && r.bottom > 0 && r.top < window.innerHeight && !(el as HTMLElement).closest?.('[data-no-dock]'));
     if (!keepPlay.current) setPlay(null);
     setSettled(false);
     setClosing(true);
@@ -288,6 +290,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
       }
       keepPlay.current = false;
       setT(null); setClosing(false);
+      window.dispatchEvent(new Event(AI_CARD_CLOSED));
     } else {
       setSettled(true);
       // 펼쳐지면 바로 재생

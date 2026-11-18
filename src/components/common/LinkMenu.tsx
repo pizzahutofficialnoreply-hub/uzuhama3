@@ -14,7 +14,7 @@ export type MenuLink = { url: string; title?: string };
 export const POPOVER_CLS = 'rounded-2xl overflow-hidden bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 ring-1 ring-black/5 dark:ring-white/10 shadow-[0_18px_40px_-8px_rgba(0,0,0,0.30),0_4px_12px_rgba(0,0,0,0.10)] dark:shadow-[0_20px_46px_-6px_rgba(0,0,0,0.85),0_4px_12px_rgba(0,0,0,0.5)]';
 
 export function LinkMenu({
-  items, label, menuTitle, icon, tone, variant = 'card', onOpen,
+  items, label, menuTitle, icon, tone, variant = 'card', onOpen, onPick,
 }: {
   items: MenuLink[];
   /** 버튼 글자 (예: 쇼츠 보기 / 편집본) — variant 'icon' 에서는 숨김 */
@@ -25,6 +25,8 @@ export function LinkMenu({
   variant?: 'card' | 'icon';
   /** 펼치거나 열 때 (관심 기록 등) */
   onOpen?: () => void;
+  /** 사이트 안에서 열기: true 를 돌려주면 링크로 가지 않음 */
+  onPick?: (link: MenuLink, index: number, el: HTMLElement) => boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -64,7 +66,7 @@ export function LinkMenu({
 
   if (valid.length === 1) {
     return (
-      <a href={valid[0].url} target="_blank" rel="noreferrer" onClick={onOpen} title={valid[0].title || label} aria-label={label}
+      <a href={valid[0].url} target="_blank" rel="noreferrer" onClick={(e) => { onOpen?.(); if (onPick?.(valid[0], 0, e.currentTarget)) e.preventDefault(); }} title={valid[0].title || label} aria-label={label}
         className={cn(btnCls, variant === 'card' && 'flex-1 min-w-0')}>
         {icon}{variant === 'card' && <span className="truncate font-hanna font-pro">{label}</span>}
       </a>
@@ -106,7 +108,7 @@ export function LinkMenu({
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.03 * idx, duration: 0.18 }}
-                  onClick={() => setOpen(false)}
+                  onClick={(e) => { setOpen(false); if (onPick?.(s, idx, (ref.current || e.currentTarget) as HTMLElement)) e.preventDefault(); }}
                   className="px-3.5 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700/60 border-t border-zinc-100 dark:border-zinc-700 truncate shrink-0"
                 >
                   {s.title || `${menuTitle} ${idx + 1}`}

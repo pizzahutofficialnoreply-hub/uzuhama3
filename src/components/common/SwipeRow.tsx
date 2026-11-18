@@ -158,7 +158,7 @@ export function SwipeRow({ left = [], right = [], radius = 24, disabled = false,
     const growW = Math.max(BTN_W, shown - 2 * GAP - (acts.length - 1) * (BTN_W * 0.6 + GAP));
     return (
       <div
-        className={cn('absolute inset-y-0 flex items-center', sideDir === -1 ? 'right-0 justify-end' : 'left-0 justify-start')}
+        className={cn('absolute inset-y-0 flex items-center overflow-hidden', sideDir === -1 ? 'right-0 justify-end' : 'left-0 justify-start')}
         style={{ width: shown, gap: GAP, paddingLeft: GAP, paddingRight: GAP }}
         aria-hidden={openAt.current === 0}
       >
@@ -188,7 +188,8 @@ export function SwipeRow({ left = [], right = [], radius = 24, disabled = false,
     <div ref={root} data-swipe-row className={cn("relative", className)} style={{ touchAction: "pan-y" }} aria-roledescription={`${label} · 옆으로 밀어서 메뉴`}>
       {side(left, 1)}
       {side(right, -1)}
-      <motion.div style={{ x }} className="relative h-full">
+      {/* 미는 동안: 움직이는 칸에 둥근 회색 바탕 (목록 줄은 바탕이 투명해서 뭐가 밀리는지 안 보였음 · 뒤 버튼이 비쳐 보이지 않게) */}
+      <motion.div style={{ x, borderRadius: dx !== 0 ? radius : undefined }} className={cn('relative h-full transition-colors duration-150', dx !== 0 && 'bg-zinc-100 dark:bg-zinc-800 shadow-sm')}>
         {children}
       </motion.div>
     </div>

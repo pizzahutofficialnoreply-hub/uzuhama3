@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { VideoSwipe } from '../common/VideoSwipe';
 import { useAiDone } from '../common/AiSummaryHost';
 import { openAiCard } from '../common/AiCardExpand';
+import { ShortsPlayer } from '../common/ShortsPlayer';
 import { useIsHeld } from '../../utils/held';
 import HeldCover from '../common/HeldCover';
 import { useYoutubeViews } from '../../hooks/useYoutubeViews';
@@ -145,6 +146,21 @@ export const VideoCard = ({
   const labCard = lab.labAiCard && lab.labAiSummary && !video?.isShorts && !video?.isShort;
   const aiDone = useAiDone(video?.id, labCard);
   const thumbRef = useRef<HTMLDivElement>(null);
+  // 설정 '영상 재생 기본값'이 사이트 안이면: 생방송 버튼은 펼쳐서 재생, 쇼츠 버튼은 쇼츠 보기 화면
+  const sitePlay = lab.listPlay !== 'link';
+  const [shortsAt, setShortsAt] = useState<number | null>(null);
+  const ytOf = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
+  const pickLive = (l: { url: string; title?: string }) => {
+    const id = ytOf(l.url);
+    if (!sitePlay || !id) return false;
+    openAiCard(id, l.title && !/^우주하마\s*생방송!?$/.test(l.title) ? l.title : `${video.parentLog?.date || ''} 생방송`.trim(), thumbRef.current, '생방송');
+    return true;
+  };
+  const pickShort = (_l: { url: string }, i: number) => {
+    if (!sitePlay || !ytOf(_l.url)) return false;
+    setShortsAt(i);
+    return true;
+  };
 
   // 쇼츠: 이 영상에 직접 연결된 쇼츠 먼저, 그다음 같은 방송 기록의 쇼츠 (중복 제거, 쇼츠 표시 태그는 뗌)
   const shorts = useMemo(() => mergeShorts(linkedShorts, video.parentLog?.shorts), [linkedShorts, video.parentLog?.shorts]);
@@ -574,7 +590,7 @@ export const VideoCard = ({
                 : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
             }`}
           >
-            {video.isLive ? <PlaySquare className="w-4 h-4 text-purple-600 dark:text-purple-400" /> : <YoutubeLogo className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />} <span className="font-hanna font-pro">{video.isLive ? '생방송 보기' : '영상 보기'}</span>
+            {video.isLive ? <PlaySquare className="w-4 h-4 text-purple-600 dark:text-purple-400" /> : <YoutubeLogo className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />} <span className="font-hanna font-pro">{sitePlay ? '유튜브로 보기' : video.isLive ? '생방송 보기' : '영상 보기'}</span>
           </a>
           
           {(!video.isCompilation || video.isLive) && (
@@ -584,12 +600,13 @@ export const VideoCard = ({
                 <LinkMenu items={liveEdits} label="편집본" menuTitle="편집본" tone="zinc" icon={<YoutubeLogo className="w-4 h-4 shrink-0" />} onOpen={() => noteInterest(interestItem, 'engage')} />
               ) : (
                 // 생방송이 하나면 바로, 여러 개면 골라 보기 (생방 두 개에 걸친 편집본도)
-                <LinkMenu items={liveLinks} label={liveLinks.length > 1 ? '생방송' : '생방송 (풀영상)'} menuTitle="생방송" tone="purple" icon={<PlaySquare className="w-4 h-4 shrink-0" />} onOpen={() => noteInterest(interestItem, 'play')} />
+                <LinkMenu items={liveLinks} label={liveLinks.length > 1 ? '생방송' : '생방송 (풀영상)'} menuTitle="생방송" tone="purple" icon={<PlaySquare className="w-4 h-4 shrink-0" />} onOpen={() => noteInterest(interestItem, 'play')} onPick={pickLive} />
               )}
 
-              <LinkMenu items={shorts} label={shorts.length > 1 ? '쇼츠' : '쇼츠 보기'} menuTitle="쇼츠" tone="red" icon={<ShortsIcon className="w-4 h-4" />} onOpen={() => noteInterest(interestItem, 'engage')} />
+              <LinkMenu items={shorts} label={shorts.length > 1 ? '쇼츠' : '쇼츠 보기'} menuTitle="쇼츠" tone="red" icon={<ShortsIcon className="w-4 h-4" />} onOpen={() => noteInterest(interestItem, 'engage')} onPick={pickShort} />
             </div>
           )}
+          {shortsAt !== null && <ShortsPlayer items={shorts.map((x: any) => ({ url: x.url, title: x.title }))} startIndex={shortsAt} onClose={() => setShortsAt(null)} allLogs={allLogs} />}
         </div>
       </div>
     </div>

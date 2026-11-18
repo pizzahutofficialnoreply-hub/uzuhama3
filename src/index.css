@@ -663,3 +663,23 @@ html.overlay-open { overscroll-behavior: none; }
 @keyframes ea-burst { 0% { transform: rotate(var(--a)) translateX(0) scale(.4); opacity: 1; } 100% { transform: rotate(var(--a)) translateX(var(--d)) translateY(14px) rotate(220deg) scale(1); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .ea-bob, .ea-pop, .ea-confetti, .ea-pencil, .ea-check { animation: none !important; } .ea-check { stroke-dashoffset: 0; } .ea-confetti { opacity: 1; } }
 .dark .event-art { filter: drop-shadow(0 0 1.2px rgba(255,255,255,.6)); }
+/* 하마·제목 불꽃 (EventArt) */
+.ea-cheer { animation: ea-cheer 1.4s ease-in-out infinite; }
+@keyframes ea-cheer { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
+.ea-blink { transform-box: fill-box; transform-origin: center; animation: ea-blink 4s infinite; }
+@keyframes ea-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.15); } }
+.ea-twinkle { transform-box: fill-box; transform-origin: center; animation: ea-twinkle 1.8s ease-in-out infinite; }
+@keyframes ea-twinkle { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.18) rotate(12deg); } }
+.ea-flutter { transform-box: fill-box; transform-origin: 0 50%; animation: ea-flutter .9s ease-in-out infinite; }
+@keyframes ea-flutter { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-14deg); } }
+.ea-title-wrap { position: relative; display: inline-flex; min-width: 0; }
+.ea-celebrate { position: absolute; inset: -14px -10px; pointer-events: none; z-index: 0; }
+.ea-firework { position: absolute; top: -6px; overflow: visible; opacity: 0; animation: ea-firework 2.6s ease-out infinite; }
+@keyframes ea-firework { 0% { transform: scale(.15); opacity: 0; } 8% { opacity: 1; } 45% { transform: scale(1); opacity: .95; } 70%, 100% { transform: scale(1.12); opacity: 0; } }
+.ea-bit { position: absolute; width: 7px; height: 3.5px; border-radius: 1.5px; animation: ea-bit 3.2s ease-in-out infinite; opacity: .95; }
+@keyframes ea-bit { 0%, 100% { translate: 0 0; rotate: 0deg; } 50% { translate: 0 3px; rotate: 40deg; } }
+.ea-spark { position: absolute; width: 9px; height: 9px; animation: ea-spark 1.9s ease-in-out infinite; }
+@keyframes ea-spark { 0%, 100% { transform: scale(.3); opacity: .2; } 50% { transform: scale(1); opacity: 1; } }
+.ea-title-text { position: relative; z-index: 1; text-shadow: 0 0 10px rgba(255,255,255,.18); }
+html:not(.dark) .ea-spark path { fill: #c9b8ff; }
+@media (prefers-reduced-motion: reduce) { .ea-cheer, .ea-blink, .ea-twinkle, .ea-flutter, .ea-bit, .ea-spark { animation: none !important; } .ea-firework { animation: none !important; opacity: .9; transform: none; } }

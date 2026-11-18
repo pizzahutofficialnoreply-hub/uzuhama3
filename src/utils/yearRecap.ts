@@ -14,7 +14,7 @@ export type YearRecap = {
   prev: { count: number; hours: number } | null;
   first: string | null;
   last: string | null;
-  longest: { date: string; hours: number; games: string[] } | null;
+  longest: { date: string; hours: number; games: string[]; video?: string } | null;
   topGames: GameStat[];
   newGames: string[];
   gameCount: number;
@@ -157,7 +157,7 @@ export function buildRecap(logs: Record<string, BroadcastLog> | undefined, year:
     prev: prevList.length ? basic(prevList) : null,
     first: mine[0]?.date || null,
     last: mine[mine.length - 1]?.date || null,
-    longest: longestLog && hoursOf(longestLog) > 0 ? { date: longestLog.date, hours: Math.round(hoursOf(longestLog) * 10) / 10, games: (longestLog.games || []).map((g) => g.name).filter(Boolean) } : null,
+    longest: longestLog && hoursOf(longestLog) > 0 ? { date: longestLog.date, hours: Math.round(hoursOf(longestLog) * 10) / 10, games: (longestLog.games || []).map((g) => g.name).filter(Boolean), video: vodIds(longestLog)[0] || '' } : null,
     topGames, newGames, gameCount: games.size,
     categories: [...cats.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, c]) => ({ name, count: c, share: catTotal ? Math.round((c / catTotal) * 1000) / 10 : 0 })),
     months, bestMonth: maxIdx(months) == null ? null : (maxIdx(months) as number) + 1,

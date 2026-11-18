@@ -22,7 +22,12 @@ import { hasAiSummary } from './AiSummaryHost';
  */
 type Item = Omit<MyItem, 'addedAt'>;
 
-const REASONS = (t: ReportTarget, hasAi: boolean) => [
+const REASONS = (t: ReportTarget, hasAi: boolean) => t.recap ? [
+  { key: 'wrong_recap', label: '결산 숫자·내용이 틀려요' },
+  { key: 'wrong_game_name', label: '게임 이름이 달라요' },
+  { key: 'wrong_date', label: '방송 날짜가 달라요' },
+  { key: 'other', label: '기타' },
+] : [
   ...(hasAi ? [{ key: 'wrong_ai_summary', label: 'AI 영상 요약이 틀려요' }] : []),
   ...(t.search.concepts.length ? [{ key: 'not_match', label: `'${t.search.concepts.join(' · ')}'에 안 맞아요` }] : t.search.query ? [{ key: 'not_match', label: `'${t.search.query}' 검색 결과에 안 맞아요` }] : []),
   { key: 'wrong_link', label: '연결된 생방송·쇼츠·편집본이 틀려요' },
@@ -60,15 +65,15 @@ function ReportSheet({ target, onClose }: { target: ReportTarget; onClose: () =>
         vid: visitorId(),
         reason,
         // 연결·게임·날짜 문제는 관리자 '연동' 탭으로
-        route: reason === 'wrong_ai_summary' ? 'ai' : reason.startsWith('wrong_') ? (reason === 'wrong_game_name' || reason === 'wrong_game_link' ? 'game' : 'link') : null,
+        route: target.recap ? null : reason === 'wrong_ai_summary' ? 'ai' : reason.startsWith('wrong_') ? (reason === 'wrong_game_name' || reason === 'wrong_game_link' ? 'game' : 'link') : null,
         videoId: target.id,
         kind: target.kind,
         query: target.search.query || null,
         concepts: target.search.concepts,
         understood: target.search.understood || null,
         note: note.trim() || null,
-        title: reason === 'wrong_ai_summary' ? `[AI 요약 신고] ${target.title}`.slice(0, 120) : `[검색 신고] ${label}`,
-        content: [`영상: ${target.title}`, `https://youtu.be/${target.id}`, target.search.query ? `검색어: ${target.search.query}` : '', target.search.understood ? `해석: ${target.search.understood}` : '', note.trim() ? `의견: ${note.trim()}` : ''].filter(Boolean).join('\n'),
+        title: target.recap ? `[결산 신고] ${target.recap} · ${label}`.slice(0, 120) : reason === 'wrong_ai_summary' ? `[AI 요약 신고] ${target.title}`.slice(0, 120) : `[검색 신고] ${label}`,
+        content: [target.recap ? `결산: ${target.recap}` : `영상: ${target.title}`, target.recap ? '' : `https://youtu.be/${target.id}`, target.search.query ? `검색어: ${target.search.query}` : '', target.search.understood ? `해석: ${target.search.understood}` : '', note.trim() ? `의견: ${note.trim()}` : ''].filter(Boolean).join('\n'),
         createdAt: serverTimestamp(),
       });
       noteSubmit('report', guardKey);

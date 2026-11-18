@@ -575,3 +575,24 @@ export function formatPlaylistShareText(
   const head = [`• 재생목록: ${p.title}, https://www.youtube.com/playlist?list=${p.id}`, `• 영상 ${items.length}개${lives ? ` · 생방 ${lives}개` : ''}`];
   return [head.join('\n'), ...blocks].join('\n\n');
 }
+
+
+/** 화면 그대로(색·배경 유지) 사진으로: 결산 한 장처럼 이미 색이 정해진 칸. 공유 시트가 없으면 내려받기 */
+export async function shareNodeAsImage(el: HTMLElement, title: string, bg: string): Promise<boolean> {
+  const htmlToImage = await import('html-to-image');
+  const opts: any = { pixelRatio: 3, backgroundColor: bg, cacheBust: true, filter: (n: any) => !(n instanceof HTMLElement && n.dataset?.noShare === 'true') };
+  let blob: Blob | null = null;
+  try { blob = await htmlToImage.toBlob(el, opts); } catch { /* 바깥 그림(썸네일)을 못 읽으면 그림 빼고 */ }
+  if (!blob) blob = await htmlToImage.toBlob(el, { ...opts, filter: (n: any) => opts.filter(n) && !(n instanceof HTMLImageElement) });
+  if (!blob) return false;
+  const name = `${title.replace(/[^\w\sㄱ-힣-]/g, '').trim() || '우주하마'}.png`;
+  const file = new File([blob], name, { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ title, files: [file] }); return true; } catch (e: any) { if (e?.name === 'AbortError') return true; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  showSimpleToast('사진을 저장했어요.');
+  return true;
+}
