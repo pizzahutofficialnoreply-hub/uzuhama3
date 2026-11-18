@@ -183,6 +183,24 @@ export default async function handler(req: any, res: any) {
         res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
         return res.status(200).json(await ai.aiVideoDetail(db, String(req.query?.id || '')));
       }
+      if (aiMode === 'script') {
+        res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=3600');
+        return res.status(200).json(await ai.aiScript(db, String(req.query?.id || '')));
+      }
+      if (aiMode === 'scripttest') {
+        // 스크립트 정확도 확인용 (저장 안 함): ?ai=scripttest&id=…&from=초&to=초&kind=live
+        res.setHeader('Cache-Control', 'no-store');
+        const from = Math.max(0, Number(req.query?.from) || 0);
+        const to = Math.max(from + 30, Math.min(from + 600, Number(req.query?.to) || from + 180));
+        // 무료 한도를 아끼려고 하루 6번까지만
+        const tref = db.collection('youtube_cache').doc('script_test');
+        const day = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+        const tc = (await tref.get()).data() || {};
+        const n = tc.day === day ? Number(tc.n || 0) : 0;
+        if (n >= 6) return res.status(429).json({ error: '오늘 확인 횟수를 다 썼어요' });
+        await tref.set({ day, n: n + 1 });
+        return res.status(200).json(await ai.transcribeSegment({ id: String(req.query?.id || ''), title: String(req.query?.title || ''), kind: String(req.query?.kind || 'video'), duration: 1e9 }, from, to));
+      }
       if (aiMode === 'prioritize') {
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(await ai.aiPrioritize(db, String(req.query?.id || '')));

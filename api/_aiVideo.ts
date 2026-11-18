@@ -303,6 +303,50 @@ const toSec = (v: any): number => {
 };
 const words = (a: any, n: number, len = 30) => [...new Set((Array.isArray(a) ? a : []).map((x: any) => String(x || '').trim()).filter((x: string) => x && x.length <= len))].slice(0, n) as string[];
 
+/**
+ * 스크립트(대사): 구간에서 들린 말을 시간과 함께 빠짐없이
+ * - 생방송은 자막이 없어서 소리를 듣고 받아 적음 → 잘 안 들리면 지어내지 않고 (잘 안 들림)
+ * - 노래는 가사를 적지 않고 '♪' 로만 (저작권)
+ */
+const SCRIPT_LINE = `{"t": "말을 시작한 시각 (원본 영상 기준 MM:SS 또는 H:MM:SS)", "w": "말한 사람 (우주하마 / 함께한 사람 이름 / 게임)", "s": "한 말 그대로"}`;
+const SCRIPT_RULE = `lines 는 이 구간에서 들린 말을 처음부터 끝까지 빠짐없이 시간 순서로 받아 적은 스크립트야 (자막처럼).
+- 들린 그대로 적되 한 줄은 한두 문장(80자 이내). 말이 길면 여러 줄로 나눠.
+- 말을 고치거나 요약하지 마. 사투리·말버릇·감탄사(아, 어, 와)도 그대로. 욕은 그대로 두지 말고 '○○'로.
+- 잘 안 들리는 부분은 지어내지 말고 그 자리에 '(잘 안 들림)'. 전혀 모르겠으면 그 줄은 빼.
+- 게임 캐릭터 목소리·화면 자막 대사는 w 를 "게임"으로. 노래를 부르면 가사는 적지 말고 s 를 "♪ (노래)"로.
+- 말이 없는 구간(게임 소리만)은 줄을 만들지 마.`;
+function cleanLines(a: any, from: number, to: number): { t: number; s: string; w?: string }[] {
+  let out: { t: number; s: string; w?: string }[] = (Array.isArray(a) ? a : []).map((x: any) => ({ t: toSec(x?.t), s: String(x?.s || '').replace(/\s+/g, ' ').trim().slice(0, 160), w: String(x?.w || '').trim().slice(0, 20) }))
+    .filter((x) => Number.isFinite(x.t) && x.s);
+  // 구간 기준(0부터)으로 답했으면 원본 기준으로
+  if (from > 0 && out.length && Math.max(...out.map((x) => x.t)) < from) out = out.map((x) => ({ ...x, t: x.t + from }));
+  out = out.filter((x) => x.t >= from - 5 && x.t <= to + 5).map((x) => ({ t: Math.max(0, Math.round(x.t)), s: x.s, ...(x.w && x.w !== '우주하마' ? { w: x.w } : {}) }));
+  out.sort((a2, b2) => a2.t - b2.t);
+  return out.slice(0, 600);
+}
+/** 스크립트 저장: ai_script/{id} 의 segs.{시작초} 에 구간별로 (다시 봐도 같은 구간은 덮어씀) */
+async function saveScript(db: any, id: string, from: number, to: number, lines: any[]) {
+  await db.collection('ai_script').doc(id).set({ id, segs: { [String(from)]: { from, to, lines } }, updatedAt: new Date().toISOString() }, { merge: true });
+}
+export async function aiScript(db: any, id: string) {
+  if (!/^[\w-]{11}$/.test(id)) return { found: false };
+  const d = (await db.collection('ai_script').doc(id).get()).data();
+  if (!d?.segs) return { found: false, lines: [] };
+  const segs = Object.values(d.segs as Record<string, any>).sort((a: any, b: any) => a.from - b.from);
+  return { found: true, id, covered: segs.map((x: any) => [x.from, x.to]), lines: segs.flatMap((x: any) => x.lines || []) };
+}
+/** 스크립트만 받아 적기 (예전에 스크립트 없이 본 영상 채우기 · 정확도 확인용) */
+export async function transcribeSegment(item: { id: string; title: string; kind?: string; duration?: number }, start: number, end: number) {
+  const whole = !item.duration || item.duration <= end - start + 30;
+  const prompt = `스트리머 "우주하마"의 ${item.kind === 'live' ? '생방송 다시보기(자막 없음, 소리를 듣고 받아 적어야 함)' : '영상'} "${item.title}"${whole ? '' : `의 ${fmt(start)} ~ ${fmt(end)} 구간`}을 듣고 스크립트를 만들어. 아래 JSON 으로만 답해.
+{"lines": [${SCRIPT_LINE}]}
+${SCRIPT_RULE}`;
+  const part: any = { fileData: { fileUri: `https://www.youtube.com/watch?v=${item.id}` } };
+  if (!whole) part.videoMetadata = { startOffset: `${start}s`, endOffset: `${end}s` };
+  const { text, model } = await gen([part, { text: prompt }], true, AI_TIMEOUT, MODELS, { mediaResolution: 'MEDIA_RESOLUTION_LOW' });
+  return { model, lines: cleanLines(parseJson(text).lines, whole ? 0 : start, whole ? (item.duration || 1e9) : end) };
+}
+
 async function analyzeSegment(item: QItem, start: number, end: number, desc: string) {
   const whole = item.kind === 'short' || !item.duration || item.duration <= end - start + 30;
   const prompt = `너는 스트리머 "우주하마"의 영상을 검색용으로 꼼꼼히 정리하는 사람이야. (시청자·함께한 사람들은 우주하마를 좜마·우좜마·우잠마·우자마·하마·좜마형·하마형 등으로 부르기도 해. 그렇게 들리면 우주하마를 말하는 거야. 본인이 직접 이렇게 말하는 일은 드물어.) 시청자가 나중에 "귀신 점프스케어 나오는 장면", "노래 부르는 부분", "엔딩 보고 우는 장면"처럼 찾을 수 있게 정리해.
@@ -315,12 +359,14 @@ ${item.logDate ? `방송 날짜: ${item.logDate}\n` : ''}${item.games?.length ? 
  "scenes": [{"t": "원본 영상 기준 시작 시각 MM:SS 또는 H:MM:SS", "d": "무슨 장면인지 한 문장", "k": ["검색 키워드 3~8개: 장면 성격(점프스케어, 귀신, 비명, 웃음, 노래, 보스전, 엔딩, 사망, 실패, 성공 등)·등장 대상·감정·맵/스테이지 이름"], "say": "그 순간 우주하마나 함께한 사람이 한 인상적인 말 (그대로, 없으면 빈칸)", "who": ["화면·말로 확인되는 함께한 사람 이름이나 닉네임"], "sure": true}],
  "games": [{"name": "화면에 나온 게임 정식 이름(영문이면 영문 그대로)", "ko": "한국어 이름이나 흔히 부르는 이름"}],
  "keywords": ["이 ${whole ? '영상' : '구간'} 전체를 대표하는 검색어 5~15개 (한국어)"],
- "mood": ["분위기 단어 1~5개 (공포, 웃김, 힐링, 긴장감, 감동, 혼돈 등)"]${item.kind === 'live' ? `,
+ "mood": ["분위기 단어 1~5개 (공포, 웃김, 힐링, 긴장감, 감동, 혼돈 등)"],
+ "lines": [${SCRIPT_LINE}]${item.kind === 'live' ? `,
  "nogari": "게임 시작 전 수다(노가리) 부분이 이 구간에 있으면: 무슨 얘기를 했는지 앞뒤 흐름 그대로, 웃긴 말·드립·리액션을 살려서 시청자가 말하듯 편하게 3~8문장. 요약 보고서 말투(~했다, ~를 언급함) 말고 '~했는데 ~해서 빵 터졌어요' 같은 편한 해요체. 노가리가 없으면 빈칸",
  "opanmu": "우주하마가 오늘 입은 팬티 색·무늬를 직접 정확히 말했으면 그 말 그대로 짧게 (예: 파란색, 핑크 땡땡이). 말 안 했거나 애매하면 빈칸"` : ''}
 }
 k 에는 화면에 실제로 또렷이 나온 것·실제로 들린 것만 넣어. '비명'은 크게 놀라 지르는 소리만 (작은 감탄사·"음~"·웃음·혼잣말은 '비명' 아님). 예: 귀신·괴물이 실제로 화면에 보이면 '귀신', 소리만 나거나 그림자·착각·"귀신인가?" 하는 말뿐이면 '귀신' 대신 '귀신 의심'·'소리'처럼 쓰고 sure 를 false 로. 확실하면 sure 는 true.
-scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'}), 시간 순서로.`;
+scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'}), 시간 순서로.
+${SCRIPT_RULE}`;
   // mimeType 을 붙이면 유튜브 주소를 느린 방식으로 읽어 시간 초과가 남 → 주소만
   const part: any = { fileData: { fileUri: `https://www.youtube.com/watch?v=${item.id}` } };
   if (!whole) part.videoMetadata = { startOffset: `${start}s`, endOffset: `${end}s` };
@@ -343,6 +389,7 @@ scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'
     keywords: words(out.keywords, 15),
     mood: words(out.mood, 5, 10),
     nogari: String(out.nogari || '').trim().slice(0, 1200),
+    lines: cleanLines(out.lines, whole ? 0 : start, whole ? (item.duration || 1e9) : end),
     opanmu: String(out.opanmu || '').trim().slice(0, 30),
   };
 }
@@ -546,7 +593,47 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
         if (!d || busySkip || redo || (d.status !== 'done' && d.status !== 'skip' && !(d.status === 'error' && (d.tries || 0) >= 3))) { item = part[j]; cur = redo ? null : d; break; }
       }
     }
-    if (!item) { await release({ lastError: '', idle: true }); return { done: true, message: '모든 영상을 분석했어요' }; }
+    if (!item) {
+      // 다 봤으면: 스크립트 없이 본 예전 영상의 대사를 한 구간씩 채움
+      const doneIds = queue.filter((q) => !q.comp && q.live !== 'live' && q.live !== 'upcoming' && (!finSet.size || finSet.has(q.id)));
+      for (let i = 0; i < doneIds.length; i += 30) {
+        const part = doneIds.slice(i, i + 30);
+        const snaps = await db.getAll(...part.map((q) => db.collection('ai_script').doc(q.id)));
+        for (let j = 0; j < part.length; j++) {
+          const q = part[j];
+          const segs = Object.values((snaps[j].exists ? snaps[j].data()?.segs : null) || {}) as any[];
+          const dur = Number(q.duration || 0);
+          const whole = q.kind === 'short' || !dur;
+          // 아직 안 채운 첫 구간
+          let from = 0;
+          const sorted = segs.sort((a, b) => a.from - b.from);
+          for (const g of sorted) { if (g.from <= from + 5) from = Math.max(from, g.to); }
+          if (whole ? sorted.length : from >= dur - 5) continue;
+          if (snaps[j].exists && snaps[j].data()?.noSpeech) continue;
+          const to = whole ? dur : Math.min(dur, from + 5 * 60);
+          pickedId = '';
+          try {
+            const r = await transcribeSegment(q, from, to);
+            await saveScript(db, q.id, from, to, r.lines);
+            await release({ usedSec: usedSec + Math.max(60, to - from), calls: calls + 1, lastError: '', idle: true, model: r.model });
+            return { script: q.id, from, to, lines: r.lines.length, model: r.model };
+          } catch (e: any) {
+            const msg = String(e?.message || e).slice(0, 1500);
+            if (isRate(msg) || isBusy(msg)) {
+              const waits = MODELS.map((m) => modelCool[m] || 0);
+              const cool = waits.every((w) => w > Date.now()) ? Math.min(...waits) : Date.now() + 5 * 60000;
+              await release({ coolUntil: cool, lastError: msg, calls: calls + 1 });
+              return { error: msg, cool: new Date(cool).toISOString() };
+            }
+            // 안 되는 영상은 빈 구간으로 채워 넘어감
+            await saveScript(db, q.id, from, to, []);
+            await release({ lastError: msg, calls: calls + 1 });
+            return { script: q.id, error: msg };
+          }
+        }
+      }
+      await release({ lastError: '', idle: true }); return { done: true, message: '모든 영상을 분석했어요' };
+    }
     pickedId = item.id;
 
     const ref = col.doc(item.id);
@@ -635,6 +722,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
         status: whole || end >= dur ? 'finishing' : 'partial', model: r.model, pv: PV, tries: 0, error: '', updatedAt: new Date().toISOString(),
       };
       await ref.set({ ...next, kw: buildKw(next) }, { merge: true });
+      try { await saveScript(db, item.id, start, end, r.lines); } catch { /* 스크립트는 없어도 됨 */ }
       await release({ usedSec: usedSec + lenSec, calls: calls + 1, lastError: '', lastId: item.id, model: r.model, idle: false });
       return { id: item.id, title: item.title, seg: next.seg, segTotal: next.segTotal, scenes: r.scenes.length, model: r.model };
     }
