@@ -283,7 +283,7 @@ function SummaryView({ d, onSeek, onSearch, spoil = false }: { d: any; onSeek: (
             {[...games.map((g) => ({ g, s: storyOf(g) })), ...extraStories.map((s) => ({ g: { name: s.name }, s }))].map(({ g, s }, i) => (
               <div key={`${g.name}-${i}`} className="rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 p-3.5 space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <button type="button" onClick={() => onSearch(g.ko || g.name)} className="text-left min-w-0 cursor-pointer group">
+                  <button type="button" onClick={() => onSearch(g.name || g.ko)} className="text-left min-w-0 cursor-pointer group">
                     <p className="text-[13.5px] font-black text-zinc-900 dark:text-white group-hover:text-purple-600 break-keep">{g.ko && g.ko !== g.name ? `${g.ko}` : g.name}</p>
                     {g.ko && g.ko !== g.name && <p className="text-[11px] text-zinc-400 truncate">{g.name}</p>}
                   </button>

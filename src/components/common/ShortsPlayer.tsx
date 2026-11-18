@@ -25,7 +25,7 @@ export type ShortsPlayerItem = {
 
 const SWIPE_PX = 60;
 
-export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: ShortsPlayerItem[]; startIndex: number; onClose: () => void; allLogs?: any }) {
+export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = false, zIndex }: { items: ShortsPlayerItem[]; startIndex: number; onClose: () => void; allLogs?: any; /** 끝나면 다음 쇼츠로 (연결된 쇼츠 → 추천 쇼츠) */ autoNext?: boolean; zIndex?: number }) {
 
   const [index, setIndex] = useState(Math.min(Math.max(0, startIndex), items.length - 1));
   const [drag, setDrag] = useState(0);
@@ -69,7 +69,10 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: S
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
   }, []);
 
-  // 플레이어 이벤트 받기 (끝나면 처음부터 다시)
+  const autoNextRef = useRef(autoNext); autoNextRef.current = autoNext;
+  const idxRef = useRef(index); idxRef.current = index;
+  const goRef = useRef<(d: 1 | -1) => void>(() => {});
+  // 플레이어 이벤트 받기 (끝나면 처음부터 다시 · autoNext 면 다음 쇼츠)
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       if (typeof e.origin !== 'string' || !e.origin.includes('youtube')) return;
@@ -77,7 +80,10 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: S
       try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
       if (d?.event === 'onReady') { setReady(true); hideCaptions(); }
       const state = d?.event === 'onStateChange' ? d.info : d?.event === 'infoDelivery' ? d.info?.playerState : undefined;
-      if (state === 0) { command('seekTo', [0, true]); command('playVideo'); }
+      if (state === 0) {
+        if (autoNextRef.current && idxRef.current < items.length - 1) goRef.current(1);
+        else { command('seekTo', [0, true]); command('playVideo'); }
+      }
       if (state === 1) { setPaused(false); setSwitching(false); hideCaptions(); }
       if (state === 2) setPaused(true);
     };
@@ -114,6 +120,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: S
     });
     setDrag(0);
   }, [items.length]);
+  goRef.current = go;
 
   // 뒤로가기 버튼으로 닫기 + 화면 스크롤 막기 + 키보드
   useEffect(() => {
@@ -190,6 +197,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs }: { items: S
     // 화면 위에 따로 떠 있어도 React 이벤트는 부모로 올라가므로, 뒤쪽 화면(하위 탭 좌우 밀기)에 손가락이 전달되지 않게 막음
     <div
       className="fixed inset-0 z-[300] bg-black text-white select-none overscroll-none"
+      style={zIndex ? { zIndex } : undefined}
       role="dialog" aria-modal="true" aria-label="쇼츠 보기" data-no-swipe
       onTouchStart={(e) => e.stopPropagation()}
       onTouchMove={(e) => e.stopPropagation()}

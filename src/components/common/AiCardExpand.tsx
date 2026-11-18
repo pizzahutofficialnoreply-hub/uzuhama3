@@ -6,6 +6,8 @@ import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { useBackToClose } from '../../hooks/useBackToClose';
 import { SummaryBody, CompilationSummary, loadDetail, goSearch, useDetailUpdates } from './AiSummaryHost';
 import { SimilarVideos } from './SimilarVideos';
+import { ShortsPlayer } from './ShortsPlayer';
+import { recommendShorts } from '../../utils/relatedShorts';
 import { ScriptView, loadScript, lineAt, type Script } from './ScriptView';
 import { GlassPlayButton } from './MediaIcons';
 import { Skeleton } from './Skeleton';
@@ -99,6 +101,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
   const [script, setScript] = useState<Script | null>(null);
   const [tab, setTab] = useState<'sum' | 'script'>('sum');
   const [subOn, setSubOn] = useState(false);
+  const [shortsView, setShortsView] = useState<{ items: { url: string; title?: string }[]; i: number } | null>(null);
   const keepPlay = useRef(false);
   const slotRef = useRef<HTMLDivElement | null>(null);
   const layerRef = useRef<HTMLDivElement | null>(null);
@@ -399,7 +402,11 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                 {t.extra && <div className="mt-4 -mx-3">{t.extra(close)}</div>}
                 {!t.compilation && !t.embed && (
                   <div className="-mx-1.5">
-                    <SimilarVideos id={t.id} title={data?.title || t.title} logs={logs} ai={ready ? data : null} onPick={(id, title) => switchTo(id, title)} />
+                    <SimilarVideos id={t.id} title={data?.title || t.title} logs={logs} ai={ready ? data : null} onPick={(id, title) => switchTo(id, title)} onShorts={(items, i, games) => {
+                      // 쇼츠 보기: 연결된 쇼츠를 다 보고 나면 추천 쇼츠로 이어서 (영상은 멈춤)
+                      try { frame.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*'); } catch { /* */ }
+                      setShortsView({ items: [...items, ...recommendShorts(logs, games, items.map((x) => x.url))], i });
+                    }} />
                   </div>
                 )}
               </div>
@@ -410,6 +417,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
         </motion.div>
       )}
     </AnimatePresence>
+    {shortsView && <ShortsPlayer items={shortsView.items} startIndex={shortsView.i} onClose={() => setShortsView(null)} allLogs={logs} autoNext zIndex={340} />}
     {play && cur && (
       <div ref={layerRef} className="fixed left-0 top-0 overflow-hidden bg-black" style={{ zIndex: t ? 321 : 40, willChange: 'transform' }} data-testid="ai-card-player">
         <iframe

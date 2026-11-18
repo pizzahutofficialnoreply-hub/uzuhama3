@@ -113,6 +113,14 @@ if (typeof window !== 'undefined') {
     let frame: HTMLIFrameElement | undefined;
     frames.forEach((f) => { if (!f.isConnected) frames.delete(f); else if (f.contentWindow === ev.source) frame = f; });
     if (!frame) return;
+    // 한 영상이 재생되기 시작하면 다른 재생 중인 영상은 멈춤 (동시에 두 소리가 나지 않게)
+    if (d.info.playerState === 1) {
+      const me = frame;
+      frames.forEach((f) => {
+        if (f === me || !f.isConnected) return;
+        try { f.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*'); } catch { /* 무시 */ }
+      });
+    }
     const prev = currentOf.get(frame) || { id: '', t: 0 };
     const id = d.info.videoData?.video_id || prev.id;
     const t = Number(d.info.currentTime ?? prev.t);

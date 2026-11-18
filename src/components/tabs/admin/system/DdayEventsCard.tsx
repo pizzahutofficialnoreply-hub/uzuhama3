@@ -53,6 +53,11 @@ export function DdayEventsCard({ value, onChange }: { value: DdayEvent[]; onChan
                     <input value={e.banner || ''} onChange={(ev) => set(e.id, { banner: ev.target.value.slice(0, 6) })} placeholder={bannerText(e.title)} maxLength={6} className={`${input} w-24 py-1.5`} />
                   </label>
                 )}
+                {artFor(e.title, e.art) && (
+                  <label className="flex items-center gap-1 text-xs text-zinc-500 w-full sm:w-auto">세 번 누르면 나오는 말
+                    <input value={e.message || ''} onChange={(ev) => set(e.id, { message: ev.target.value.slice(0, 30) })} placeholder={['cheer', 'exam'].includes(artFor(e.title, e.art) || '') ? '수능 화이팅!!' : `${bannerText(e.title)} 축하해요!`} maxLength={30} className={`${input} flex-1 sm:w-44 py-1.5`} />
+                  </label>
+                )}
                 <label className="flex items-center gap-1 text-xs font-bold text-zinc-600 dark:text-zinc-300 cursor-pointer"><input type="checkbox" checked={e.repeat === 'yearly'} onChange={(ev) => set(e.id, { repeat: ev.target.checked ? 'yearly' : undefined })} /> 매년 (생일 등)</label>
                 <span className="w-full text-[10.5px] text-zinc-400">{e.repeat === 'yearly' ? `다음: ${nextDate(e)} · ` : ''}{shown ? '지금 보이는 중' : left < 0 ? '지난 일정 (안 보임)' : e.active === false ? '꺼 둠' : `${left - Number(e.daysBefore ?? 14)}일 뒤부터 보여요`}</span>
               </li>

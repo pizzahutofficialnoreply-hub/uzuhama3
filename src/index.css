@@ -676,10 +676,28 @@ html.overlay-open { overscroll-behavior: none; }
 .ea-celebrate { position: absolute; inset: -14px -10px; pointer-events: none; z-index: 0; }
 .ea-firework { position: absolute; top: -6px; overflow: visible; opacity: 0; animation: ea-firework 2.6s ease-out infinite; }
 @keyframes ea-firework { 0% { transform: scale(.15); opacity: 0; } 8% { opacity: 1; } 45% { transform: scale(1); opacity: .95; } 70%, 100% { transform: scale(1.12); opacity: 0; } }
-.ea-bit { position: absolute; width: 7px; height: 3.5px; border-radius: 1.5px; animation: ea-bit 3.2s ease-in-out infinite; opacity: .95; }
+.ea-bit { position: absolute; width: 7px; height: 3.5px; border-radius: 1.5px; animation: ea-bit 3.2s ease-in-out infinite; opacity: .95; rotate: var(--r, 0deg); }
 @keyframes ea-bit { 0%, 100% { translate: 0 0; rotate: 0deg; } 50% { translate: 0 3px; rotate: 40deg; } }
 .ea-spark { position: absolute; width: 9px; height: 9px; animation: ea-spark 1.9s ease-in-out infinite; }
 @keyframes ea-spark { 0%, 100% { transform: scale(.3); opacity: .2; } 50% { transform: scale(1); opacity: 1; } }
 .ea-title-text { position: relative; z-index: 1; text-shadow: 0 0 10px rgba(255,255,255,.18); }
 html:not(.dark) .ea-spark path { fill: #c9b8ff; }
 @media (prefers-reduced-motion: reduce) { .ea-cheer, .ea-blink, .ea-twinkle, .ea-flutter, .ea-bit, .ea-spark { animation: none !important; } .ea-firework { animation: none !important; opacity: .9; transform: none; } }
+
+/* 불꽃 (자세히) */
+.ea-fw { position: absolute; pointer-events: none; }
+.ea-fw-trail { stroke-dasharray: 42; stroke-dashoffset: 42; opacity: 0; animation: ea-fw-trail 3s ease-out infinite; animation-delay: var(--d); }
+@keyframes ea-fw-trail { 0% { stroke-dashoffset: 42; opacity: .9; } 16% { stroke-dashoffset: 0; opacity: .9; } 24%, 100% { stroke-dashoffset: -42; opacity: 0; } }
+.ea-fw-burst { transform-origin: 0 0; transform: scale(.1); opacity: 0; animation: ea-fw-burst 3s cubic-bezier(.2,.8,.3,1) infinite; animation-delay: var(--d); }
+@keyframes ea-fw-burst { 0%, 17% { transform: scale(.1); opacity: 0; } 21% { opacity: 1; } 44% { transform: scale(1) translateY(0); opacity: 1; } 72% { transform: scale(1.08) translateY(3px); opacity: 0; } 100% { transform: scale(1.08); opacity: 0; } }
+.ea-fw-glit { animation: ea-fw-glit .5s ease-in-out infinite alternate; }
+@keyframes ea-fw-glit { from { opacity: .2; } to { opacity: 1; } }
+.ea-bit-r { animation-name: ea-bit-r !important; }
+@keyframes ea-bit-r { 0%, 100% { translate: 0 0; rotate: var(--r, 0deg); } 50% { translate: 2px 4px; rotate: calc(var(--r, 0deg) + 160deg); } }
+@media (prefers-reduced-motion: reduce) { .ea-fw-trail { display: none; } .ea-fw-burst { animation: none !important; transform: none; opacity: .9; } .ea-fw-glit { animation: none !important; } }
+/* 이스터에그 (TitleEggs) */
+.egg-glow { transform-box: fill-box; transform-origin: center; animation: egg-glow 2.2s ease-in-out infinite; }
+@keyframes egg-glow { 0%, 100% { opacity: .14; transform: scale(.96); } 50% { opacity: .32; transform: scale(1.04); } }
+.egg-flicker { animation: egg-flicker 1.3s steps(1) infinite; }
+@keyframes egg-flicker { 0%, 100% { opacity: 1; } 42% { opacity: .82; } 47% { opacity: 1; } 71% { opacity: .9; } }
+@media (prefers-reduced-motion: reduce) { .egg-glow, .egg-flicker { animation: none !important; } }

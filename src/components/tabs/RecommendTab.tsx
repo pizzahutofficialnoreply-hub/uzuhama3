@@ -4,6 +4,7 @@ import { VideoSwipe } from '../common/VideoSwipe';
 import { useAiDone } from '../common/AiSummaryHost';
 import { openAiCard } from '../common/AiCardExpand';
 import { ShortsPlayer } from '../common/ShortsPlayer';
+import { recommendShorts } from '../../utils/relatedShorts';
 import { useIsHeld } from '../../utils/held';
 import HeldCover from '../common/HeldCover';
 import { useYoutubeViews } from '../../hooks/useYoutubeViews';
@@ -606,7 +607,7 @@ export const VideoCard = ({
               <LinkMenu items={shorts} label={shorts.length > 1 ? '쇼츠' : '쇼츠 보기'} menuTitle="쇼츠" tone="red" icon={<ShortsIcon className="w-4 h-4" />} onOpen={() => noteInterest(interestItem, 'engage')} onPick={pickShort} />
             </div>
           )}
-          {shortsAt !== null && <ShortsPlayer items={shorts.map((x: any) => ({ url: x.url, title: x.title }))} startIndex={shortsAt} onClose={() => setShortsAt(null)} allLogs={allLogs} />}
+          {shortsAt !== null && <ShortsPlayer items={[...shorts.map((x: any) => ({ url: x.url, title: x.title })), ...recommendShorts(allLogs, (video.parentLog?.games || []).map((g: any) => g?.name), shorts.map((x: any) => x.url))]} startIndex={shortsAt} onClose={() => setShortsAt(null)} allLogs={allLogs} autoNext />}
         </div>
       </div>
     </div>

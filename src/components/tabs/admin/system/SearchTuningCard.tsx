@@ -258,7 +258,7 @@ function AiVideoPanel() {
                 <li key={m} className="flex items-center gap-1.5">
                   <span className={`w-1.5 h-1.5 rounded-full ${waiting ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                   <span className="font-mono">{m}</span>
-                  <span>{!waiting ? '쓸 수 있음' : why === 'none' ? '무료로는 못 쓰는 모델 (한도 0)' : why === 'day' ? `오늘 무료 한도 다 씀 → ${at}에 다시` : why === 'busy' ? `구글 쪽이 붐빔 → ${at}에 다시` : `잠깐 한도 → ${at}에 다시`}</span>
+                  <span>{!waiting ? '쓸 수 있음' : why === 'none' ? '무료로는 못 쓰는 모델 (한도 0)' : why === 'gone' ? `없어진 모델 → ${at}에 다시 확인` : why === 'day' ? `오늘 무료 한도 다 씀 → ${at}에 다시` : why === 'busy' ? `구글 쪽이 붐빔 → ${at}에 다시` : `잠깐 한도 → ${at}에 다시`}</span>
                 </li>
               );
             })}

@@ -197,32 +197,49 @@ function HippoCheer() {
 }
 
 /** 제목 둘레: 양쪽 불꽃이 펑펑 + 색종이 둥실 + 반짝 (그림 1 처럼) */
-export function TitleCelebrate() {
-  const fw = (x: string, color: string, light: string, delay: number, size: number) => (
-    <svg viewBox="-22 -22 44 44" className="ea-firework" style={{ left: x, width: size, height: size, animationDelay: `${delay}s`, filter: `drop-shadow(0 0 3px ${color})` }} aria-hidden="true">
-      {Array.from({ length: 14 }, (_, i) => {
-        const a = (i / 14) * Math.PI * 2 - Math.PI / 2;
-        const r2 = i % 2 ? 15 : 19;
-        return <line key={`o${i}`} x1={Math.cos(a) * 7} y1={Math.sin(a) * 7} x2={Math.cos(a) * r2} y2={Math.sin(a) * r2} stroke={color} strokeWidth="4.2" strokeLinecap="round" />;
-      })}
-      {Array.from({ length: 8 }, (_, i) => {
-        const a = (i / 8) * Math.PI * 2 + 0.2;
-        return <line key={`i${i}`} x1={Math.cos(a) * 3.5} y1={Math.sin(a) * 3.5} x2={Math.cos(a) * 9} y2={Math.sin(a) * 9} stroke={light} strokeWidth="2.6" strokeLinecap="round" />;
-      })}
-      {Array.from({ length: 6 }, (_, i) => { const a = (i / 6) * Math.PI * 2 + 0.5; return <circle key={`d${i}`} cx={Math.cos(a) * 21} cy={Math.sin(a) * 21} r="1.3" fill={light} />; })}
-    </svg>
+/**
+ * 불꽃 하나 (자세히): 아래에서 올라오는 꼬리 → 펑 → 꽃잎 두 겹(가운데 하양 → 끝 색) · 끝에 반짝이 · 퍼지며 아래로 처짐
+ */
+let fwSeq = 0;
+export function Firework({ color, light, size, delay = 0, style }: { color: string; light: string; size: number; delay?: number; style?: React.CSSProperties }) {
+  const [gid] = useState(() => `fw${++fwSeq}`);
+  const petal = (len: number, w: number) => `M0 ${-w * 0.25} Q ${len * 0.55} ${-w} ${len} 0 Q ${len * 0.55} ${w} 0 ${w * 0.25} Z`;
+  return (
+    <span className="ea-fw" style={{ width: size, height: size * 1.5, ...style, ['--d' as any]: `${delay}s` }} aria-hidden="true">
+      <svg viewBox="-24 -24 48 72" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+        <defs>
+          <linearGradient id={`${gid}o`} x1="0" x2="1"><stop offset="0" stopColor="#fff" /><stop offset=".35" stopColor={light} /><stop offset="1" stopColor={color} /></linearGradient>
+          <linearGradient id={`${gid}i`} x1="0" x2="1"><stop offset="0" stopColor="#fff" /><stop offset="1" stopColor={light} /></linearGradient>
+          <radialGradient id={`${gid}g`}><stop offset="0" stopColor={color} stopOpacity=".45" /><stop offset="1" stopColor={color} stopOpacity="0" /></radialGradient>
+        </defs>
+        <path d="M0 44 Q 1.5 24 0 4" className="ea-fw-trail" stroke={light} strokeWidth="1.6" strokeLinecap="round" fill="none" />
+        <g className="ea-fw-burst">
+          <circle r="24" fill={`url(#${gid}g)`} />
+          {Array.from({ length: 16 }, (_, i) => <path key={`o${i}`} d={petal(i % 2 ? 17 : 21, 2.4)} fill={`url(#${gid}o)`} transform={`rotate(${(i / 16) * 360 - 90}) translate(5 0)`} />)}
+          {Array.from({ length: 10 }, (_, i) => <path key={`i${i}`} d={petal(9, 1.6)} fill={`url(#${gid}i)`} transform={`rotate(${(i / 10) * 360 + 18}) translate(2 0)`} />)}
+          <circle r="2.6" fill="#fff" />
+          {Array.from({ length: 10 }, (_, i) => { const a = (i / 10) * Math.PI * 2 + 0.3; const r = i % 2 ? 22.5 : 25; return <circle key={`d${i}`} cx={Math.cos(a) * r} cy={Math.sin(a) * r} r={i % 3 ? 0.9 : 1.4} fill={i % 2 ? '#fff' : light} className="ea-fw-glit" style={{ animationDelay: `calc(var(--d) + ${0.9 + (i % 4) * 0.12}s)` }} />; })}
+        </g>
+      </svg>
+    </span>
   );
-  const bits: [string, string, string, number][] = [
-    ['4%', '78%', '#3fb6ff', 0], ['14%', '-8%', '#ff5c93', 0.4], ['30%', '96%', '#ffcf3a', 0.8], ['46%', '-14%', '#a78bfa', 0.2],
-    ['58%', '92%', '#ff5c93', 0.6], ['72%', '-10%', '#3fb6ff', 1], ['88%', '86%', '#ffcf3a', 0.3], ['97%', '10%', '#a78bfa', 0.7],
+}
+
+/** 제목 둘레: 양쪽 불꽃이 펑펑 + 색종이 흩날림 + 반짝 (그림 1 처럼) */
+export function TitleCelebrate() {
+  const bits: [string, string, string, number, number][] = [
+    ['1%', '70%', '#3fb6ff', 0, 1], ['12%', '-10%', '#ff5c93', 0.4, 0], ['27%', '98%', '#ffcf3a', 0.8, 1], ['41%', '-16%', '#a78bfa', 0.2, 0],
+    ['55%', '96%', '#ff5c93', 0.6, 1], ['68%', '-12%', '#ffcf3a', 1, 0], ['86%', '90%', '#3fb6ff', 0.3, 1], ['98%', '8%', '#a78bfa', 0.7, 0],
+    ['35%', '40%', '#7ed957', 1.4, 1], ['80%', '45%', '#ff5c93', 1.8, 0],
   ];
   return (
     <span className="ea-celebrate" aria-hidden="true">
-      {fw('4%', '#ff4f8b', '#ffc2d6', 0, 42)}
-      {fw('76%', '#3b8cff', '#bfe0ff', 1.3, 42)}
-      {bits.map(([x, y, c, d], i) => <i key={i} className="ea-bit" style={{ left: x, top: y, background: c, animationDelay: `${d}s`, transform: `rotate(${i * 37}deg)` }} />)}
-      {[['24%', '-18%', 0.2], ['66%', '100%', 1.1], ['92%', '50%', 0.6]].map(([x, y, d], i) => (
-        <svg key={i} viewBox="-6 -6 12 12" className="ea-spark" style={{ left: String(x), top: String(y), animationDelay: `${d}s` }}><path d="M0 -5 Q 1 -1 5 0 Q 1 1 0 5 Q -1 1 -5 0 Q -1 -1 0 -5Z" fill="#fff" /></svg>
+      <Firework color="#ff3d7f" light="#ffb3cf" size={44} style={{ left: '-2%', top: '-58%' }} />
+      <Firework color="#2f7dff" light="#b9dcff" size={44} delay={1.3} style={{ left: '74%', top: '-62%' }} />
+      <Firework color="#a855f7" light="#e9d5ff" size={26} delay={2.1} style={{ left: '44%', top: '-70%' }} />
+      {bits.map(([x, y, c, d, k], i) => <i key={i} className={k ? 'ea-bit ea-bit-r' : 'ea-bit'} style={{ left: x, top: y, background: c, animationDelay: `${d}s`, ['--r' as any]: `${i * 37}deg` }} />)}
+      {[['22%', '-24%', 0.2, 10], ['63%', '104%', 1.1, 8], ['94%', '52%', 0.6, 9], ['6%', '108%', 1.6, 7]].map(([x, y, d, w], i) => (
+        <svg key={i} viewBox="-6 -6 12 12" className="ea-spark" style={{ left: String(x), top: String(y), width: Number(w), height: Number(w), animationDelay: `${d}s` }}><path d="M0 -5.5 Q .9 -.9 5.5 0 Q .9 .9 0 5.5 Q -.9 .9 -5.5 0 Q -.9 -.9 0 -5.5Z" fill="#fff" /></svg>
       ))}
     </span>
   );
@@ -236,7 +253,7 @@ export function EventArt({ kind, label, text }: { kind: ArtKind; label?: string;
   if (kind === 'party') return null;
   const A = kind === 'banner' ? () => <HippoBanner text={text || bannerText(label || '')} /> : ART[kind];
   return (
-    <span role="img" aria-label={label || '오늘의 그림'} title={label} onClick={(e) => { e.stopPropagation(); setBurst((n) => n + 1); }}
+    <span role="img" aria-label={label || '오늘의 그림'} title={label} onClick={() => setBurst((n) => n + 1)}
       className={`relative inline-flex shrink-0 cursor-pointer select-none ${kind === 'banner' || kind === 'birthday' || kind === 'cheer' ? 'h-[1.9em] w-[1.9em] -my-[0.25em]' : 'h-[1.45em] w-[1.45em]'}`}>
       <A />
       {burst > 0 && (
