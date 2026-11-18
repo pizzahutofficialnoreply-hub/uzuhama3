@@ -1,0 +1,10 @@
+name: ai-peek
+on: workflow_dispatch
+jobs:
+  peek:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sS --max-time 60 "https://uzuhama.vercel.app/api/patch-notes?t=$RANDOM$RANDOM" | python3 -c "
+          import json,sys; j=json.load(sys.stdin); print(j.get('counts'))
+          for n in j['notes']: print(n.get('id'), n.get('source'), n.get('version'), n.get('category'), n.get('title'))"
