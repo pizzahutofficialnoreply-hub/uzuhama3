@@ -642,3 +642,24 @@ html.overlay-open { overscroll-behavior: none; }
 .ai-card-seam .seam-l1 { -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent 100%); mask-image: linear-gradient(to bottom, #000 40%, transparent 100%); }
 .ai-card-seam .seam-l2 { -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); -webkit-mask-image: linear-gradient(to bottom, #000 20%, transparent 70%); mask-image: linear-gradient(to bottom, #000 20%, transparent 70%); }
 .ai-card-seam .seam-l3 { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 45%); mask-image: linear-gradient(to bottom, #000 0%, transparent 45%); }
+
+/* 일정 당일 그림 (EventArt) */
+.event-art { width: 100%; height: 100%; overflow: visible; }
+.ea-bob { animation: ea-bob 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+.ea-d1 { animation-delay: -.8s; } .ea-d2 { animation-delay: -1.6s; }
+@keyframes ea-bob { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-3px) rotate(4deg); } }
+.ea-pop { transform-origin: 24px 26px; animation: ea-pop 2.8s ease-out infinite; }
+@keyframes ea-pop { 0% { transform: scale(.55); opacity: .4; } 14% { transform: scale(1.08); opacity: 1; } 24%, 100% { transform: scale(1); opacity: 1; } }
+.ea-confetti { transform-box: fill-box; transform-origin: center; animation: ea-conf 2.8s ease-out infinite; }
+.ea-c1 { animation-delay: .1s; } .ea-c2 { animation-delay: .2s; } .ea-c3 { animation-delay: .15s; }
+@keyframes ea-conf { 0% { transform: translate(8px, 8px) scale(.3) rotate(0); opacity: 0; } 15% { opacity: 1; } 60% { transform: translate(-3px, -4px) scale(1) rotate(160deg); opacity: 1; } 100% { transform: translate(-4px, 4px) scale(1) rotate(260deg); opacity: 0; } }
+.ea-pencil { animation: ea-write 1.6s ease-in-out infinite; }
+@keyframes ea-write { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-2px, 1px); } 50% { transform: translate(1px, -1px); } 75% { transform: translate(-1px, 2px); } }
+.ea-check { stroke-dasharray: 9; stroke-dashoffset: 9; animation: ea-check 4.8s ease-out infinite; }
+.ea-k1 { animation-delay: .6s; } .ea-k2 { animation-delay: 1.2s; } .ea-k3 { animation-delay: 1.8s; }
+@keyframes ea-check { 0% { stroke-dashoffset: 9; } 10%, 85% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 9; } }
+.ea-burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; z-index: 5; }
+.ea-burst > i { position: absolute; width: 6px; height: 6px; border-radius: 2px; border: 1px solid #1f1a24; left: -3px; top: -3px; animation: ea-burst .9s ease-out forwards; }
+@keyframes ea-burst { 0% { transform: rotate(var(--a)) translateX(0) scale(.4); opacity: 1; } 100% { transform: rotate(var(--a)) translateX(var(--d)) translateY(14px) rotate(220deg) scale(1); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ea-bob, .ea-pop, .ea-confetti, .ea-pencil, .ea-check { animation: none !important; } .ea-check { stroke-dashoffset: 0; } .ea-confetti { opacity: 1; } }
+.dark .event-art { filter: drop-shadow(0 0 1.2px rgba(255,255,255,.6)); }

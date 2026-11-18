@@ -1,4 +1,5 @@
 import { useMemo, useEffect, useState } from 'react';
+import { YearRecapBanner } from '../YearRecap';
 import { PatternAnalysis } from '../PatternAnalysis';
 import { WidgetShareButton } from '../common/WidgetShareButton';
 import { IllnessInfoModal } from '../IllnessInfoModal';
@@ -16,7 +17,7 @@ interface SummaryTabProps {
   isActive?: boolean;
 }
 
-export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
+export function SummaryTab({ data, fetchLogs, isActive = true }: SummaryTabProps) {
   // 가장 최근 연도의 데이터만 표시
   const latestYear = useMemo(() => {
     const dates = Object.values(data.logs || {}).map(l => l.date).filter(Boolean).sort();
@@ -307,6 +308,7 @@ export function SummaryTab({ data, isActive = true }: SummaryTabProps) {
 
   return (
     <div className="space-y-6">
+      <YearRecapBanner logs={data.logs} fetchLogs={fetchLogs} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div id="summary-weekly-trend-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative">
           <div className="flex items-center justify-between mb-4">

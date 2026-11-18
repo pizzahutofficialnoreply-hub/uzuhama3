@@ -180,6 +180,8 @@ export interface DdayEvent {
   date: string; // YYYY-MM-DD (한국 시간)
   daysBefore?: number; // 기본 14
   active?: boolean;
+  /** 당일 헤더 그림: auto(이름으로) · balloon 풍선 · popper 폭죽 · exam 시험지 · none */
+  art?: 'auto' | 'balloon' | 'popper' | 'exam' | 'none';
 }
 
 export interface SystemConfig {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CalendarClock, Plus, Trash2 } from 'lucide-react';
 import type { DdayEvent } from '../../../../types';
 import { daysUntil, ddayLabel } from '../../../../utils/dday';
+import { EventArt, artFor } from '../../../common/EventArt';
 
 /** 관리자 › 시스템 › 공지: 일정 (헤더 제목 옆 D-day). 저장은 아래 '저장' 버튼 */
 export function DdayEventsCard({ value, onChange }: { value: DdayEvent[]; onChange: (v: DdayEvent[]) => void }) {
@@ -20,7 +21,7 @@ export function DdayEventsCard({ value, onChange }: { value: DdayEvent[]; onChan
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
       <div>
         <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2"><CalendarClock className="w-4 h-4 text-purple-500" /> 일정 · D-day</h3>
-        <p className="text-xs text-zinc-500 mt-1 break-keep">정한 날짜 며칠 전부터 맨 위 '우주하마 방송 예측' 옆에 회색 캡슐로 'D-12 10주년'처럼 보여요. 당일은 D-DAY, 지나면 자동으로 사라져요. 고친 뒤 아래 저장을 눌러 주세요.</p>
+        <p className="text-xs text-zinc-500 mt-1 break-keep">정한 날짜 며칠 전부터 맨 위 '우주하마 방송 예측' 옆에 회색 캡슐로 'D-12 10주년'처럼 보여요. 당일은 D-DAY, 지나면 자동으로 사라져요. 당일에는 제목 앞에 그림(풍선·폭죽·시험지)이 나와요 (이름에 '주년'·'수능' 등이 있으면 자동으로 골라요). 고친 뒤 아래 저장을 눌러 주세요.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
         <label className="space-y-1"><span className="text-[11px] font-bold text-zinc-500">이름 (짧게)</span><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 10주년" maxLength={20} className={`${input} w-full`} /></label>
@@ -41,6 +42,12 @@ export function DdayEventsCard({ value, onChange }: { value: DdayEvent[]; onChan
                 <label className="flex items-center gap-1 text-xs text-zinc-500"><input type="number" min={0} max={365} value={e.daysBefore ?? 14} onChange={(ev) => set(e.id, { daysBefore: Math.max(0, Math.min(365, Number(ev.target.value) || 0)) })} className={`${input} w-16 py-1.5`} />일 전부터</label>
                 <label className="flex items-center gap-1 text-xs font-bold text-zinc-600 dark:text-zinc-300 cursor-pointer"><input type="checkbox" checked={e.active !== false} onChange={(ev) => set(e.id, { active: ev.target.checked })} /> 표시</label>
                 <button type="button" onClick={() => onChange(value.filter((x) => x.id !== e.id))} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 cursor-pointer" aria-label="삭제"><Trash2 className="w-4 h-4" /></button>
+                <label className="flex items-center gap-1.5 text-xs text-zinc-500">당일 그림
+                  <select value={e.art || 'auto'} onChange={(ev) => set(e.id, { art: ev.target.value as any })} className={`${input} py-1.5`}>
+                    <option value="auto">이름 보고 자동</option><option value="balloon">풍선</option><option value="popper">폭죽</option><option value="exam">시험지</option><option value="none">없음</option>
+                  </select>
+                  {(() => { const k = artFor(e.title, e.art); return k ? <span className="text-xl"><EventArt kind={k} label={e.title} /></span> : <span className="text-[11px] text-zinc-400">그림 없음</span>; })()}
+                </label>
                 <span className="w-full text-[10.5px] text-zinc-400">{shown ? '지금 보이는 중' : left < 0 ? '지난 일정 (안 보임)' : e.active === false ? '꺼 둠' : `${left - Number(e.daysBefore ?? 14)}일 뒤부터 보여요`}</span>
               </li>
             );

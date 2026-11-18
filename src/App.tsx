@@ -1123,7 +1123,7 @@ function MainApp() {
               className="flex items-center gap-1.5 text-left group cursor-pointer select-none focus:outline-none py-1 px-1 -ml-1 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/60 active:scale-95 transition-all touch-manipulation min-w-0"
               title="홈(요약)으로 이동 및 최상단 스크롤"
             >
-              <HeaderTitle decor={(data?.system as any)?.titleDecor} />
+              <HeaderTitle decor={(data?.system as any)?.titleDecor} events={data?.system?.events} />
             </button>
             {(() => { const dd = activeDdays(data?.system?.events); return dd.length > 0 ? <HeaderDday items={dd} /> : null; })()}
           </div>

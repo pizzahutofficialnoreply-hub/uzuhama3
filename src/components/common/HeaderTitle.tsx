@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '../../utils';
+import { EventArt, artFor, type ArtKind } from './EventArt';
+import type { DdayEvent } from '../../types';
 
 /**
  * 헤더 제목 '우주하마 방송 예측' 꾸미기
@@ -50,6 +52,20 @@ const LUNAR: Record<string, { seollal: string; chuseok: string; buddha: string }
   '2030': { seollal: '2030-02-03', chuseok: '2030-09-12', buddha: '2030-05-09' },
 };
 
+/** 수능 (교육부 발표) — 일정에 따로 안 넣어도 그날은 시험지 그림 */
+const SUNEUNG: Record<string, string> = { '2026': '2026-11-19' };
+
+/** 오늘 그림: 관리자 일정(당일) 먼저, 없으면 수능 */
+export function eventArtFor(events: DdayEvent[] | undefined, day: string): { kind: ArtKind; label: string } | null {
+  for (const e of events || []) {
+    if (!e || e.active === false || e.date !== day) continue;
+    const k = artFor(e.title, (e as any).art);
+    if (k) return { kind: k, label: e.title };
+  }
+  if (SUNEUNG[day.slice(0, 4)] === day) return { kind: 'exam', label: '수능 날 · 수험생 여러분 응원해요' };
+  return null;
+}
+
 const kstToday = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
 const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
@@ -84,7 +100,7 @@ export function activeCustomDecor(list?: TitleDecor[], day = kstToday()) {
 
 const reduceMotion = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
-export function HeaderTitle({ decor, className, previewDay }: { decor?: TitleDecor[]; className?: string; previewDay?: string }) {
+export function HeaderTitle({ decor, events, className, previewDay }: { decor?: TitleDecor[]; events?: DdayEvent[]; className?: string; previewDay?: string }) {
   // ?titleday=2026-12-25 로 미리 보기 (관리자 확인용)
   const day = previewDay || (() => { try { const q = new URLSearchParams(window.location.search).get('titleday'); return q && /^\d{4}-\d{2}-\d{2}$/.test(q) ? q : kstToday(); } catch { return kstToday(); } })();
   const custom = activeCustomDecor(decor, day);
@@ -99,6 +115,15 @@ export function HeaderTitle({ decor, className, previewDay }: { decor?: TitleDec
   const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
   const base = 'text-xl sm:text-[25px] font-extrabold tracking-tight truncate';
 
+  const art = custom ? null : eventArtFor(events, day);
+  if (art) {
+    return (
+      <h1 className={cn(base, 'flex items-center gap-1.5 min-w-0', className)} title={art.label} aria-label={`우주하마 방송 예측 · ${art.label}`}>
+        <EventArt kind={art.kind} label={art.label} />
+        <span className="text-zinc-900 dark:text-white truncate">우주하마 방송 예측</span>
+      </h1>
+    );
+  }
   if (custom) {
     return (
       <h1 className={cn(base, 'flex items-center gap-1.5', className)} title={custom.label || undefined}>
