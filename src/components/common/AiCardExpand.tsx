@@ -6,6 +6,7 @@ import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { useBackToClose } from '../../hooks/useBackToClose';
 import { SummaryBody, CompilationSummary, loadDetail, goSearch, useDetailUpdates } from './AiSummaryHost';
 import { SimilarVideos } from './SimilarVideos';
+import { ScriptView, loadScript, lineAt, type Script } from './ScriptView';
 import { GlassPlayButton } from './MediaIcons';
 import { Skeleton } from './Skeleton';
 
@@ -93,6 +94,9 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
   const [play, setPlay] = useState<{ t: number; id?: string } | null>(null);
   /** 닫았는데 재생 중이던 영상: 원래 카드 썸네일 자리에서 계속 재생 (누르면 다시 펼침) */
   const [dock, setDock] = useState<Target | null>(null);
+  const [script, setScript] = useState<Script | null>(null);
+  const [tab, setTab] = useState<'sum' | 'script'>('sum');
+  const [subOn, setSubOn] = useState(false);
   const keepPlay = useRef(false);
   const slotRef = useRef<HTMLDivElement | null>(null);
   const layerRef = useRef<HTMLDivElement | null>(null);
@@ -110,10 +114,19 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
   const drag = useRef<{ y0: number; x0: number; on: boolean; dead: boolean; video: boolean; moved: boolean } | null>(null);
   /** 재생기 상태 (1 재생, 2 멈춤) — 영상 위를 누르면 재생/멈춤 */
   const ytState = useRef(-1);
+  /** 지금 재생 위치 (스크립트를 자막처럼 따라가려고) */
+  const [now, setNow] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   useEffect(() => {
     const on = (ev: MessageEvent) => {
       if (!frame.current || ev.source !== frame.current.contentWindow) return;
-      try { const d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data; const st = d?.info?.playerState ?? (d?.event === 'onStateChange' ? d.info : undefined); if (typeof st === 'number') ytState.current = st; } catch { /* */ }
+      try {
+        const d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data;
+        const st = d?.info?.playerState ?? (d?.event === 'onStateChange' ? d.info : undefined);
+        if (typeof st === 'number') { ytState.current = st; setIsPlaying(st === 1 || st === 3); }
+        const ct = d?.info?.currentTime;
+        if (typeof ct === 'number') setNow((p) => (Math.abs(p - ct) >= 0.5 ? ct : p));
+      } catch { /* */ }
     };
     window.addEventListener('message', on);
     return () => window.removeEventListener('message', on);
@@ -144,6 +157,15 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
   const dockRef = useRef<Target | null>(null);
   dockRef.current = dock;
   useDetailUpdates(t?.id, setData);
+  useEffect(() => {
+    setScript(null); setTab('sum'); setNow(0);
+    if (!t || t.compilation || t.embed) return;
+    let alive = true;
+    loadScript(t.id).then((s) => { if (alive) setScript(s); });
+    return () => { alive = false; };
+  }, [t?.id]);
+  const hasScript = Boolean(script?.lines?.length);
+  const subLine = subOn && hasScript && play ? (script!.lines[lineAt(script!.lines, now)] || null) : null;
   // 재생기 자리 맞추기: 펼친 동안엔 위 영상 칸, 닫힌 뒤엔 원래 썸네일 위 (매 프레임)
   useEffect(() => {
     if (!play || (!t && !dock)) return;
@@ -308,6 +330,11 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
               )}
             </div>
 
+            {subOn && hasScript && (
+              <div className="shrink-0 min-h-[40px] px-4 py-2 bg-black text-center text-[13.5px] font-semibold text-white leading-snug break-keep" aria-live="polite" data-testid="ai-subtitle">
+                {subLine ? <>{subLine.w && <span className="mr-1 text-[11px] text-zinc-400">{subLine.w}</span>}{subLine.s}</> : <span className="text-zinc-500 text-[12px]">{play ? '…' : '재생하면 여기에 대사가 나와요'}</span>}
+              </div>
+            )}
             <div className="relative flex-1 min-h-0">
             {/* 영상과 아래 내용 사이: 영상 아랫부분이 비치는 빛 + 밑으로 지나가는 내용은 흐리게 (한 덩어리로 이어 보이게) */}
             {/* 영상 바로 아래: 밑으로 지나가는 내용을 실시간으로 흐리게 (위로 갈수록 더 흐리고 어둡게, 단계 없이 이어지게) */}
@@ -319,22 +346,38 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                 <h2 className="text-[16px] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
                 {t.sub && <p className="mt-1 text-[12px] text-zinc-500 tabular-nums">{t.sub}</p>}
 
-                {showSummary && <div className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
+                {(showSummary || hasScript) && <div className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
                   <div className="flex items-center gap-2 px-4 py-3">
+                    {showSummary && hasScript ? (
+                      <div className="flex-1 min-w-0 flex items-center gap-1" role="tablist">
+                        {([['sum', 'AI 영상 요약'], ['script', '스크립트']] as const).map(([k, l]) => (
+                          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => { setTab(k); setOpen(true); }}
+                            className={`px-2.5 py-1 rounded-full text-[12.5px] font-black cursor-pointer ${tab === k ? 'bg-purple-600 text-white' : 'text-purple-700 dark:text-purple-300'}`}>{l}</button>
+                        ))}
+                        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label={open ? '접기' : '펼치기'} className="ml-0.5 text-purple-400 cursor-pointer"><motion.span animate={{ rotate: open ? 180 : 0 }} className="inline-block"><ChevronDown className="w-4 h-4" /></motion.span></button>
+                      </div>
+                    ) : (
                     <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex-1 min-w-0 flex items-center gap-1.5 text-left cursor-pointer">
-                      <span className="text-[13px] font-black text-purple-700 dark:text-purple-300">AI 영상 요약</span>
+                      <span className="text-[13px] font-black text-purple-700 dark:text-purple-300">{showSummary ? 'AI 영상 요약' : '스크립트'}</span>
                       <motion.span animate={{ rotate: open ? 180 : 0 }} className="ml-0.5 text-purple-400"><ChevronDown className="w-4 h-4" /></motion.span>
                       <span className="sr-only">{open ? '접기' : '펼치기'}</span>
                     </button>
+                    )}
+                    {(tab === 'script' || !showSummary) ? (
+                      <button type="button" onClick={() => { setSubOn((v) => !v); if (!play) setPlay({ t: 0 }); }} aria-pressed={subOn} className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${subOn ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'}`}>자막처럼 보기</button>
+                    ) : (
                     <button type="button" onClick={toggleSpoil} aria-pressed={spoil} className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${spoil ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'}`}>
                       {spoil ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />} 스포 가리기
                     </button>
+                    )}
                   </div>
                   <AnimatePresence initial={false}>
                     {open && (
                       <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
                         <div className="px-4 pb-4">
-                          {!data ? (
+                          {(tab === 'script' || !showSummary) ? (
+                            <ScriptView script={script} now={now} playing={isPlaying} onSeek={(s) => seek(s)} />
+                          ) : !data ? (
                             <div className="space-y-2" aria-busy="true" aria-label="불러오는 중">
                               <Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-11/12" /><Skeleton className="h-4 w-2/3" />
                               <Skeleton className="mt-3 h-16 w-full rounded-2xl" />
@@ -344,7 +387,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                           ) : compHas ? (
                             <CompilationSummary data={data} spoil={spoil} onSeek={(s, id) => seek(s, id)} onSearch={(q) => { close(); goSearch(q); }} />
                           ) : null}
-                          <p className="mt-4 text-[10.5px] text-zinc-400 break-keep">AI가 영상을 보고 정리한 내용이라 틀릴 수 있어요. 시간을 누르면 위에서 그 장면부터 재생돼요.</p>
+                          {tab === 'sum' && showSummary && <p className="mt-4 text-[10.5px] text-zinc-400 break-keep">AI가 영상을 보고 정리한 내용이라 틀릴 수 있어요. 시간을 누르면 위에서 그 장면부터 재생돼요.</p>}
                         </div>
                       </motion.div>
                     )}

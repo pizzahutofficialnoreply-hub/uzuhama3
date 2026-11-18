@@ -6,6 +6,6 @@ jobs:
     steps:
       - run: |
           sleep 150
-          for q in "id=IXuJBMnG2H4&kind=live&from=600&to=780&title=Carnival%20Massacre" "id=QCqIFQraATI&kind=video&from=60&to=240&title=%EC%83%B7%EA%B1%B4"; do
+          for q in "id=QCqIFQraATI&kind=video&from=60&to=240&title=%EC%83%B7%EA%B1%B4" "id=aXXfjiVoZ10&kind=live&from=1500&to=1680&title=Panopticon"; do
             echo "=== $q"; curl -sS --max-time 200 "https://uzuhama.vercel.app/api/videos/search-index?ai=scripttest&$q" | head -c 9000; echo
           done
