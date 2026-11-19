@@ -5,4 +5,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          curl -sS --max-time 120 "https://uzuhama.vercel.app/api/videos/search-index?ai=diag&ping=1" | head -c 7000; echo
+          for i in $(seq 1 20); do r=$(curl -sS --max-time 120 "https://uzuhama.vercel.app/api/videos/search-index?ai=diag&ping=1"); echo "$r" | grep -q '"ping":{' && break; sleep 15; done
+          echo "$r" | head -c 7000; echo
