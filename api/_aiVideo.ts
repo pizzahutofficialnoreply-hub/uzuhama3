@@ -355,8 +355,9 @@ function cleanLines(a: any, from: number, to: number): { t: number; s: string; w
 /** 스크립트 저장: ai_script/{id} 의 segs.{시작초} 에 구간별로 (다시 봐도 같은 구간은 덮어씀) */
 const SCRIPT_V = 3; // 2: 화면 채팅창은 받아 적지 않음 · 3: 화면에 뜬 글자(아이템 이름 등)도 안 적음, 편집본은 말 자막 참고
 /** 예전 방식으로 받아 적은 구간 중 후원 줄이 너무 많은 것 (화면 채팅을 후원으로 읽음) */
-function badScriptSeg(g: any): boolean {
+function badScriptSeg(g: any, kind?: string): boolean {
   if (Number(g?.v || 1) >= SCRIPT_V) return false;
+  if (kind && kind !== 'live') return true; // 편집본은 말 자막을 보고 다시 (더 정확)
   const L = Array.isArray(g?.lines) ? g.lines : [];
   const don = L.filter((l: any) => l?.w === '후원' || l?.w === '게임').length;
   return L.length >= 8 && don / L.length > 0.25;
@@ -683,7 +684,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
           // 아직 안 채운 첫 구간
           let from = 0;
           // 채팅창 글을 후원으로 잘못 받아 적은 예전 구간(후원 줄이 너무 많음)은 다시
-          const sorted = segs.filter((g) => !badScriptSeg(g)).sort((a, b) => a.from - b.from);
+          const sorted = segs.filter((g) => !badScriptSeg(g, q.kind)).sort((a, b) => a.from - b.from);
           for (const g of sorted) { if (g.from <= from + 5) from = Math.max(from, g.to); }
           if (whole ? sorted.length : from >= dur - 5) continue;
           if (snaps[j].exists && snaps[j].data()?.noSpeech) continue;
