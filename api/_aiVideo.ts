@@ -1327,6 +1327,15 @@ export async function aiDiag(db: any, ping = false) {
         pingOut[m] = { status: r.status, body: (await r.text()).slice(0, 2500) };
       } catch (e: any) { pingOut[m] = { error: String(e?.message || e).slice(0, 300) }; }
     }
+    // 영상 넣은 호출: 쇼츠 통째 · 긴 생방 30초만 (어느 쪽에서 한도가 걸리는지)
+    const vid = async (name: string, part: any) => {
+      try {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${aiKey()}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts: [part, { text: '이 영상에서 무슨 일이 있는지 한 문장' }] }], generationConfig: { mediaResolution: 'MEDIA_RESOLUTION_LOW' } }) });
+        pingOut[name] = { status: r.status, body: (await r.text()).slice(0, 2500) };
+      } catch (e: any) { pingOut[name] = { error: String(e?.message || e).slice(0, 300) }; }
+    };
+    await vid('short', { fileData: { fileUri: 'https://www.youtube.com/watch?v=O1bYieIerIo' } });
+    await vid('live30s', { fileData: { fileUri: 'https://www.youtube.com/watch?v=TFC5Vuezgj4' }, videoMetadata: { startOffset: '0s', endOffset: '30s' } });
   }
   const st = (await db.collection('youtube_cache').doc('ai_state').get()).data() || {};
   let models: string[] = [];
