@@ -1343,6 +1343,15 @@ export async function aiDiag(db: any, ping = false) {
         pingOut[m] = { status: r.status, body: (await r.text()).slice(0, 2500) };
       } catch (e: any) { pingOut[m] = { error: String(e?.message || e).slice(0, 300) }; }
     }
+    // 실제 분석과 같은 길(SDK)로: 글 · 영상 30초
+    const { GoogleGenAI } = await import('@google/genai');
+    const sdk = new GoogleGenAI({ apiKey: aiKey() });
+    const tryS = async (name: string, parts: any[]) => {
+      try { const r = await sdk.models.generateContent({ model: 'gemini-3.1-flash-lite', contents: [{ role: 'user', parts }], config: { temperature: 0.2, httpOptions: { timeout: 60000 }, mediaResolution: 'MEDIA_RESOLUTION_LOW' as any } }); pingOut[name] = { ok: (r.text || '').slice(0, 80) }; } catch (e: any) { pingOut[name] = { error: String(e?.message || e).slice(0, 600) }; }
+    };
+    await tryS('sdkText', [{ text: '1+1=? 숫자만' }]);
+    await tryS('sdkVideo', [{ fileData: { fileUri: 'https://www.youtube.com/watch?v=uY7u9p4fgZ0' }, videoMetadata: { startOffset: '60s', endOffset: '90s' } }, { text: '한 문장' }]);
+    pingOut.env = { gemini: !!process.env.GEMINI_API_KEY, google: !!process.env.GOOGLE_API_KEY, vite: !!process.env.VITE_GEMINI_API_KEY, vertex: process.env.GOOGLE_GENAI_USE_VERTEXAI || '', same: (process.env.GOOGLE_API_KEY || '') === aiKey() };
   }
   const st = (await db.collection('youtube_cache').doc('ai_state').get()).data() || {};
   let models: string[] = [];
