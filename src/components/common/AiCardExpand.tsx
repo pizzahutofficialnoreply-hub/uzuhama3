@@ -11,6 +11,7 @@ import { recommendShorts } from '../../utils/relatedShorts';
 import { ScriptView, loadScript, lineAt, type Script } from './ScriptView';
 import { GlassPlayButton } from './MediaIcons';
 import { Skeleton } from './Skeleton';
+import { VideoCardInfo } from './VideoCardInfo';
 
 /**
  * 실험실 · 카드 펼쳐 요약과 함께 보기
@@ -349,8 +350,10 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
             </div>
             <motion.div ref={scrollEl} className="absolute inset-0 overflow-y-auto overscroll-contain" initial={{ opacity: 0.35 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: closing ? 0.14 : 0.24 }}>
               <div className="px-5 pt-16 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
-                <h2 className="text-[16px] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
-                {t.sub && <p className="mt-1 text-[12px] text-zinc-500 tabular-nums">{t.sub}</p>}
+                {t.embed || t.compilation ? (<>
+                  <h2 className="text-[16px] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
+                  {t.sub && <p className="mt-1 text-[12px] text-zinc-500 tabular-nums">{t.sub}</p>}
+                </>) : <VideoCardInfo key={t.id} id={t.id} title={data?.title || t.title} sub={t.sub} logs={logs} />}
 
                 {(showSummary || hasScript) && <div className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
                   <div className="flex items-center gap-2 px-4 py-3">

@@ -5,16 +5,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          curl -sS "https://uzuhama.vercel.app/api/videos/search-index?ai=script&id=EWciq134_24&t=$RANDOM" > s.json
-          python3 - <<'P'
-          import json
-          s=json.load(open('s.json'))
-          L=s['lines']; cov=s['covered']
-          print('lines',len(L),'segs',len(cov))
-          for a,b in cov:
-            ts=[l['t']-a for l in L if a<=l['t']<b]
-            if not ts: print('SEG',a,b,'empty'); continue
-            n=len(ts); ts.sort(); span=b-a
-            q=lambda p: ts[min(n-1,int(p*n))]
-            print('SEG',a,b,'n',n,'per_min',round(n/(span/60),1),'q25',q(.25),'q50',q(.5),'q90',q(.9),'max',ts[-1], 'last%',round(ts[-1]/span*100))
+          sleep 150
+          for r in "4500 4620" "600 720"; do set -- $r
+            curl -sS --max-time 280 "https://uzuhama.vercel.app/api/videos/search-index?ai=scripttest&id=EWciq134_24&from=$1&to=$2&kind=live" > t.json
+            python3 - "$1" "$2" <<'P'
+          import json,sys
+          a,b=int(sys.argv[1]),int(sys.argv[2])
+          d=json.load(open('t.json')); L=d.get('lines') or []
+          print('TEST',a,b,'n',len(L),'model',d.get('model'),'err',str(d.get('error',''))[:200], 'squeezed', d.get('squeezed'))
+          for l in L: print('L', l['t'], l.get('w',''), l['s'][:70])
           P
+          done
