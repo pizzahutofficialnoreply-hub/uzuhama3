@@ -30,7 +30,9 @@ const LITE = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-li
 // 무료로 버티기 (기본): 무료 한도가 Flash 는 하루 20번, Flash-Lite 는 하루 500번이라 Lite 부터 (Flash 는 Lite 를 다 쓴 뒤에)
 // 결제해서 한도가 넉넉하면 Vercel 환경 변수 AI_VIDEO_PREFER=flash → 정확한 Flash 부터
 const PREFER_FLASH = String(process.env.AI_VIDEO_PREFER || '').toLowerCase() === 'flash';
-const MODELS = [...new Set([process.env.GEMINI_VIDEO_MODEL, ...(PREFER_FLASH ? [...FLASH, ...LITE] : [...LITE, ...FLASH])].filter(Boolean))] as string[];
+// 스크립트 모델(gemini-3.5-flash-lite)은 스크립트 몫으로 남기게 분석은 다른 Lite 부터
+const LITE_A = [...LITE.filter((m) => m !== (process.env.GEMINI_SCRIPT_MODEL || 'gemini-3.5-flash-lite')), process.env.GEMINI_SCRIPT_MODEL || 'gemini-3.5-flash-lite'];
+const MODELS = [...new Set([process.env.GEMINI_VIDEO_MODEL, ...(PREFER_FLASH ? [...FLASH, ...LITE_A] : [...LITE_A, ...FLASH])].filter(Boolean))] as string[];
 /** 분석 방식 버전: 바뀌면 예전 방식(가벼운 모델·낮은 화질)으로 본 영상을 다시 봄 */
 const PV = 4; // 4: 생방송 노가리·오팬무 // 3: 한 말·함께한 사람도 기록
 const TEXT_MODELS = [...new Set([process.env.GEMINI_VIDEO_MODEL, 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite'].filter(Boolean))] as string[];
@@ -329,22 +331,8 @@ const words = (a: any, n: number, len = 30) => [...new Set((Array.isArray(a) ? a
  * - 생방송은 자막이 없어서 소리를 듣고 받아 적음 → 잘 안 들리면 지어내지 않고 (잘 안 들림)
  * - 노래는 가사를 적지 않고 '♪' 로만 (저작권)
  */
-const SCRIPT_LINE = `{"t": "말을 시작한 시각 (지금 보는 구간의 시작을 0:00 으로 한 M:SS)", "w": "말한 사람 (우주하마 / 함께한 사람 이름 / 게임)", "s": "한 말 그대로"}`;
 /** 스크립트 받아 적는 한 번의 길이 (초). 길면 뒤쪽 말이 빠지고 시간이 앞으로 몰림 */
-export const SCRIPT_CHUNK = 120;
-const SCRIPT_RULE = `lines 는 이 구간에서 들린 말을 처음부터 끝까지 빠짐없이 시간 순서로 받아 적은 스크립트야 (자막처럼).
-- 들린 그대로 적되 한 줄은 한두 문장(80자 이내). 말이 길면 여러 줄로 나눠.
-- 말을 고치거나 요약하지 마. 사투리·말버릇·감탄사(아, 어, 와)도 그대로. 욕은 그대로 두지 말고 '○○'로.
-- 잘 안 들리는 부분은 지어내지 말고 그 자리에 '(잘 안 들림)'. 전혀 모르겠으면 그 줄은 빼.
-- 번역하지 마. 들린 언어 그대로 (게임 대사가 영어면 영어로).
-- 게임 캐릭터가 소리 내어 말한 대사(목소리)만 w 를 "게임"으로 (캐릭터 이름을 s 앞에 붙이지 말 것). 목소리 없이 화면에만 뜬 글자(아이템·책 이름, 메뉴, 안내문, 퀘스트, 편집 자막)는 적지 마. 후원 메시지·후원 알림(TTS 기계 목소리 포함)은 아예 적지 마.
-- 화면에 보이는 채팅창·후원 목록 글자도 받아 적지 마. 이 스크립트는 귀로 들린 소리만 (눈으로 본 글자는 하나도 넣지 말 것). 우주하마가 채팅을 소리 내어 읽으면 그건 우주하마가 한 말.
-- 노래를 부르면 가사는 적지 말고 s 를 "♪ (노래)"로.
-- 말이 없는 구간(게임 소리만)은 줄을 만들지 마.`;
-/** 편집 영상·쇼츠: 말한 내용을 적은 편집 자막이 있으니 받아 적을 때 참고 (생방송은 자막 없음) */
-const subRule = (kind?: string) => kind === 'live' ? '' : `
-- 이 영상은 편집본이라 화면에 '말한 내용을 적은 자막'이 있어. 소리를 들으면서 이 자막을 참고해 말을 정확히 받아 적어 (잘 안 들려도 자막이 있으면 자막대로, 시간은 그 말이 들린 때).
-- 말이 아닌 자막(효과음 글자·설명·드립 자막·게임 이름 소개 등 아무도 소리 내어 말하지 않은 것)은 적지 마.`;
+export const SCRIPT_CHUNK = 60;
 function cleanLines(a: any, from: number, to: number): { t: number; s: string; w?: string }[] {
   let out: { t: number; s: string; w?: string }[] = (Array.isArray(a) ? a : []).map((x: any) => ({ t: toSec(x?.t), s: String(x?.s || '').replace(/\s+/g, ' ').trim().slice(0, 160), w: String(x?.w || '').trim().replace(/^(후원|게임|우주하마)\S*$/, '$1').slice(0, 20) }))
     .filter((x) => Number.isFinite(x.t) && x.s && x.w !== '후원');
@@ -355,14 +343,10 @@ function cleanLines(a: any, from: number, to: number): { t: number; s: string; w
   return out.slice(0, 600);
 }
 /** 스크립트 저장: ai_script/{id} 의 segs.{시작초} 에 구간별로 (다시 봐도 같은 구간은 덮어씀) */
-const SCRIPT_V = 4; // 4: 2분씩 따로 받아 적고 구간 기준 시각 · // 2: 화면 채팅창은 받아 적지 않음 · 3: 화면에 뜬 글자(아이템 이름 등)도 안 적음, 편집본은 말 자막 참고
-/** 예전 방식으로 받아 적은 구간 중 후원 줄이 너무 많은 것 (화면 채팅을 후원으로 읽음) */
-function badScriptSeg(g: any, kind?: string): boolean {
-  if (Number(g?.v || 1) >= SCRIPT_V) return false;
-  if (kind) return true; // 예전 방식(분석하면서 같이 받아 적음)은 줄이 많이 빠지고 시간이 몰려서 전부 다시
-  const L = Array.isArray(g?.lines) ? g.lines : [];
-  const don = L.filter((l: any) => l?.w === '후원' || l?.w === '게임').length;
-  return L.length >= 8 && don / L.length > 0.25;
+const SCRIPT_V = 5; // 5: 새로 짬 (한 모델·1분·맥락 없이) · 4: // 4: 2분씩 따로 받아 적고 구간 기준 시각 · // 2: 화면 채팅창은 받아 적지 않음 · 3: 화면에 뜬 글자(아이템 이름 등)도 안 적음, 편집본은 말 자막 참고
+/** 예전 방식(v5 전)으로 받아 적은 구간: 전부 새로 */
+function badScriptSeg(g: any, _kind?: string): boolean {
+  return Number(g?.v || 1) < SCRIPT_V;
 }
 /** 보여 줄 때: 같은 몇 초 안에 몰린 후원 줄(채팅창을 읽은 것)은 빼기 */
 export function dropChatLines(lines: any[]): any[] {
@@ -380,27 +364,43 @@ export async function aiScript(db: any, id: string) {
   if (!/^[\w-]{11}$/.test(id)) return { found: false };
   const d = (await db.collection('ai_script').doc(id).get()).data();
   if (!d?.segs) return { found: false, lines: [] };
-  const all = Object.values(d.segs as Record<string, any>).sort((a: any, b: any) => a.from - b.from);
-  // 새 방식으로 다시 받아 적은 곳은 예전 줄을 빼고 (겹치지 않게)
-  const fresh = all.filter((x: any) => Number(x.v || 1) >= SCRIPT_V);
-  const inFresh = (t: number) => fresh.some((x: any) => t >= x.from && t < x.to);
-  const segs = all.map((x: any) => (Number(x.v || 1) >= SCRIPT_V ? x : { ...x, lines: (x.lines || []).filter((l: any) => !inFresh(l.t)) }));
+  // 새로 짠 방식(v5)으로 받아 적은 것만 (예전 것은 없는 말이 많아서 안 보여 줌)
+  const segs = Object.values(d.segs as Record<string, any>).filter((x: any) => Number(x.v || 1) >= SCRIPT_V).sort((a: any, b: any) => a.from - b.from);
+  if (!segs.length) return { found: false, lines: [] };
   return { found: true, id, covered: segs.map((x: any) => [x.from, x.to]), lines: dropChatLines(segs.flatMap((x: any) => x.lines || []).sort((a: any, b: any) => a.t - b.t)) };
 }
 /** 스크립트만 받아 적기 (예전에 스크립트 없이 본 영상 채우기 · 정확도 확인용) */
+/**
+ * 스크립트 (새로 짬, v5)
+ *  - 한 모델로만 (모델마다 받아 적는 버릇이 달라 섞이면 들쭉날쭉) · 한도면 기다림
+ *  - 1분씩 잘라서, 제목·게임·설명 같은 앞뒤 맥락은 주지 않음 (맥락을 보고 없는 말을 지어냈음)
+ *  - 온도 0
+ */
+export const SCRIPT_MODEL = process.env.GEMINI_SCRIPT_MODEL || 'gemini-3.5-flash-lite';
+function scriptPrompt(kind: string | undefined, len: number) {
+  const live = kind === 'live';
+  return `이 ${len ? `${Math.round(len)}초짜리 ` : ''}${live ? '방송 녹화' : '영상'} 조각의 소리를 듣고, 사람이 실제로 말한 것만 받아 적어. JSON 으로만 답해:
+{"lines": [{"t": "M:SS (이 조각의 시작이 0:00)", "w": "", "s": "들린 말"}]}
+규칙:
+- 귀로 또렷이 들린 말만 적어. 앞뒤를 짐작해서 이어 쓰거나 있을 법한 말을 만들어 넣지 마. 안 들리거나 애매하면 그 줄은 빼.
+- 이 조각 앞뒤에 무슨 일이 있었는지는 몰라도 돼. 이 조각 안에서 들린 것만.
+- 실제로 반복하지 않은 말을 반복해서 적지 마.
+- 말이 하나도 없으면 "lines": [].
+- w: 우주하마(주인공)가 말하면 빈칸. 다른 사람이 말하면 그 사람 이름(모르면 "다른 사람"), 게임 캐릭터 목소리는 "게임".
+- 적지 말 것: 후원·후원 알림·TTS 목소리, 화면에만 보이는 글자(채팅창, 메뉴, 아이템·책 이름, 안내문, 퀘스트), 효과음, 노래 가사 (노래는 "♪ (노래)" 한 줄만).
+- 들린 그대로 (고치거나 요약하거나 번역하지 말 것). 한 줄은 한두 문장. 욕은 ○○.
+- t 는 그 말이 시작된 순간을, 조각 시작 기준으로 초 단위까지 정확히.${live ? '' : `
+- 편집 영상이라 화면에 '말을 적은 자막'이 있을 수 있어. 들린 말의 글자를 정확히 하는 데만 참고해 (자막과 소리가 다르면 소리대로, 말이 아닌 꾸밈 자막·설명 자막은 적지 마).`}`;
+}
 export async function transcribeSegment(item: { id: string; title: string; kind?: string; duration?: number }, start: number, end: number) {
   const whole = !item.duration || item.duration <= end - start + 30;
   const len = whole ? (item.duration || 0) : end - start;
-  const prompt = `스트리머 "우주하마"의 ${item.kind === 'live' ? '생방송 다시보기(자막 없음, 소리를 듣고 받아 적어야 함)' : '영상'} "${item.title}"${whole ? '' : `에서 잘라 낸 ${Math.round(len / 60 * 10) / 10}분짜리 구간`}을 처음부터 끝까지 듣고 스크립트를 만들어. 아래 JSON 으로만 답해.
-{"lines": [${SCRIPT_LINE}]}
-${SCRIPT_RULE}${subRule(item.kind)}
-- 시간(t)은 지금 받은 구간의 시작을 0:00 으로 해서, 그 말이 실제로 들린 때를 정확히 (말은 구간 끝 ${len ? fmt(len) : ''}까지 이어지니 앞쪽에만 몰아 적지 말 것). 몇 초 단위로 대충 맞추지 말고 들린 순간 그대로.`;
   const part: any = { fileData: { fileUri: `https://www.youtube.com/watch?v=${item.id}` } };
   // 생방송은 화면이 거의 필요 없으니 장면을 드물게 (소리에 집중), 편집본은 말 자막을 봐야 해서 1초에 1장
   if (!whole) part.videoMetadata = { startOffset: `${start}s`, endOffset: `${end}s`, ...(item.kind === 'live' ? { fps: 0.2 } : {}) };
   else if (item.kind === 'live') part.videoMetadata = { fps: 0.2 };
-  const { text, model } = await gen([part, { text: prompt }], true, AI_TIMEOUT, MODELS, { mediaResolution: 'MEDIA_RESOLUTION_LOW' });
-  // 구간 기준 시각 → 원본 기준 (원본 기준으로 답했으면 그대로)
+  const { text, model } = await gen([part, { text: scriptPrompt(item.kind, len) }], true, AI_TIMEOUT, [SCRIPT_MODEL], { temperature: 0, mediaResolution: 'MEDIA_RESOLUTION_LOW' });
+  // 조각 기준 시각 → 원본 기준 (원본 기준으로 답했으면 그대로)
   const raw = (parseJson(text).lines || []) as any[];
   const secs = raw.map((x) => toSec(x?.t)).filter((t) => Number.isFinite(t));
   const relative = !whole && start > 0 && secs.length > 0 && Math.max(...secs) <= len + 5;
@@ -690,7 +690,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
       }
     }
     // 스크립트는 따로 2분씩 받아 적음: 다 봤을 때 + 평소에도 두 번에 한 번 (본 영상마다 스크립트가 생기게)
-    const scriptTurn = Boolean(item) && calls % 2 === 1;
+    const scriptTurn = Boolean(item) && calls % 2 === 1 && !((modelCool[SCRIPT_MODEL] || 0) > Date.now());
     if (!item || scriptTurn) {
       const doneIds = queue.filter((q) => !q.comp && q.live !== 'live' && q.live !== 'upcoming' && (!finSet.size || finSet.has(q.id)));
       for (let i = 0; i < doneIds.length; i += 30) {
