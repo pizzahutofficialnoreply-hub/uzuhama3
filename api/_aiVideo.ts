@@ -266,6 +266,20 @@ function coolModel(model: string, msg: string) {
   }
 }
 
+/**
+ * 영상을 넣은 호출이 '할당량 초과'(429)인데 짧은 글은 바로 되면: 진짜 한도가 아니라 그 영상(구간)만 막힌 것
+ * → 모델 쉬는 시간을 풀고 그 영상을 실패로 쳐서 다음으로 넘어감 (예전에는 같은 영상에서 하루 종일 멈춤)
+ */
+async function videoOnlyQuota(): Promise<boolean> {
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${aiKey()}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: '1' }] }], generationConfig: { maxOutputTokens: 4 } }) });
+    if (!r.ok) return false;
+  } catch { return false; }
+  for (const m of Object.keys(modelCool)) if (modelWhy[m] === 'minute' || modelWhy[m] === 'day') { delete modelCool[m]; delete modelWhy[m]; }
+  lastVideoQuota = true;
+  return true;
+}
+let lastVideoQuota = false;
 async function gen(parts: any[], json: boolean, timeoutMs: number, models = MODELS, extraIn: any = {}) {
   // _nextOnTimeout: 시간 초과면 다음 모델로 (검색할 때 확인처럼 기다리는 사람이 있을 때)
   const { _nextOnTimeout, ...extra } = extraIn || {};
@@ -536,6 +550,7 @@ export async function runAiVideoStep(db: any, opts: { kind?: string } = {}): Pro
 
 async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promise<any> {
   if (!aiKey()) return { skipped: 'GEMINI_API_KEY 없음' };
+  lastVideoQuota = false;
   if (!ytKey()) return { skipped: 'YOUTUBE_API_KEY 없음' };
   const stRef = db.collection('youtube_cache').doc('ai_state');
   const now = Date.now();
@@ -626,7 +641,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
             return { script: q.id, from, to, lines: r.lines.length, model: r.model };
           } catch (e: any) {
             const msg = String(e?.message || e).slice(0, 1500);
-            if (isRate(msg) || isBusy(msg)) {
+            if ((isRate(msg) || isBusy(msg)) && !(isRate(msg) && await videoOnlyQuota())) {
               const waits = MODELS.map((m) => modelCool[m] || 0);
               const cool = waits.every((w) => w > Date.now()) ? Math.min(...waits) : Date.now() + 5 * 60000;
               await release({ coolUntil: cool, lastError: msg, calls: calls + 1 });
@@ -656,7 +671,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
         return { id: item.id, title: item.title, comp: true, model: ov.model };
       } catch (e: any) {
         const msg = String(e?.message || e).slice(0, 1500);
-        if (isRate(msg) || isBusy(msg)) {
+        if ((isRate(msg) || isBusy(msg)) && !(isRate(msg) && await videoOnlyQuota())) {
           const waits = MODELS.map((m) => modelCool[m] || 0);
           const cool = waits.every((w) => w > Date.now()) ? Math.min(...waits) : Date.now() + 5 * 60000;
           await release({ coolUntil: cool, lastError: msg, calls: calls + 1 });
@@ -690,7 +705,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
         r = await analyzeSegment(item, start, end, desc);
       } catch (e: any) {
         const msg = String(e?.message || e).slice(0, 1500);
-        if (isRate(msg) || isBusy(msg)) {
+        if ((isRate(msg) || isBusy(msg)) && !(isRate(msg) && await videoOnlyQuota())) {
           // 쓸 수 있는 모델이 다 쉬는 중이면 가장 먼저 풀리는 때까지 쉼
           const waits = MODELS.map((m) => modelCool[m] || 0);
           const cool = waits.every((w) => w > Date.now()) ? Math.min(...waits) : Date.now() + 5 * 60000;
@@ -702,7 +717,8 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
           await release({ coolUntil: Date.now() + 5 * 60000, lastError: msg, calls: calls + 1 });
           return { error: msg, busy: true };
         }
-        const timeout = isTimeout(msg);
+        const vq = lastVideoQuota; lastVideoQuota = false;
+        const timeout = isTimeout(msg) || vq; // 이 구간만 막힘 → 시간 초과처럼 더 잘게 나누다가 그래도 안 되면 그 구간을 건너뜀
         const tries = Number(cur?.tries || 0) + 1;
         const base = { id: item.id, title: item.title, kind: item.kind, publishedAt: item.publishedAt, duration: dur, desc, error: msg, updatedAt: new Date().toISOString() };
         if (timeout && !whole) {
@@ -1321,20 +1337,12 @@ export async function aiDiag(db: any, ping = false) {
   let pingOut: any = undefined;
   if (ping) {
     pingOut = {};
-    for (const m of [] as string[]) {
+    for (const m of ['gemini-3.1-flash-lite']) {
       try {
         const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${aiKey()}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: '1+1=? 숫자만' }] }] }) });
         pingOut[m] = { status: r.status, body: (await r.text()).slice(0, 2500) };
       } catch (e: any) { pingOut[m] = { error: String(e?.message || e).slice(0, 300) }; }
     }
-    // 영상 넣은 호출: 쇼츠 통째 · 긴 생방 30초만 (어느 쪽에서 한도가 걸리는지)
-    const vid = async (name: string, part: any) => {
-      try {
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${aiKey()}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts: [part, { text: '이 영상에서 무슨 일이 있는지 한 문장' }] }], generationConfig: { mediaResolution: 'MEDIA_RESOLUTION_LOW' } }) });
-        pingOut[name] = { status: r.status, body: (await r.text()).slice(0, 2500) };
-      } catch (e: any) { pingOut[name] = { error: String(e?.message || e).slice(0, 300) }; }
-    };
-    for (const [n, a, b] of [['seg2m', 600, 720], ['seg5m', 900, 1200]] as const) await vid(n, { fileData: { fileUri: 'https://www.youtube.com/watch?v=uY7u9p4fgZ0' }, videoMetadata: { startOffset: `${a}s`, endOffset: `${b}s` } });
   }
   const st = (await db.collection('youtube_cache').doc('ai_state').get()).data() || {};
   let models: string[] = [];
