@@ -1316,7 +1316,18 @@ JSON 으로만: {"found":true,"moments":[{"t":"MM:SS 또는 H:MM:SS","d":"한 �
 export { gen as aiGen, parseJson as aiParseJson, yt as ytApi, ytKey as ytApiKey, TEXT_MODELS as AI_TEXT_MODELS, parseDur as ytParseDur };
 
 /** 진단: 쓸 수 있는 Gemini 모델 목록 + 지금 상태 (어느 모델이 왜 쉬는지) */
-export async function aiDiag(db: any) {
+export async function aiDiag(db: any, ping = false) {
+  // ping: 짧은 글 한 번 (한도 오류 원문 그대로 보려고) — 영상 없이 아주 작게
+  let pingOut: any = undefined;
+  if (ping) {
+    pingOut = {};
+    for (const m of ['gemini-3.1-flash-lite', 'gemini-3.5-flash']) {
+      try {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${aiKey()}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: '1+1=? 숫자만' }] }] }) });
+        pingOut[m] = { status: r.status, body: (await r.text()).slice(0, 2500) };
+      } catch (e: any) { pingOut[m] = { error: String(e?.message || e).slice(0, 300) }; }
+    }
+  }
   const st = (await db.collection('youtube_cache').doc('ai_state').get()).data() || {};
   let models: string[] = [];
   try {
@@ -1326,7 +1337,7 @@ export async function aiDiag(db: any) {
   } catch (e: any) { models = [`목록 실패: ${String(e?.message || e).slice(0, 80)}`]; }
   let aiDocs = -1;
   try { aiDocs = (await db.collection('ai_video').count().get()).data().count; } catch { /* */ }
-  return { aiDocs, using: MODELS, models: models.length, state: { day: st.day, usedSec: st.usedSec, calls: st.calls, coolUntil: st.coolUntil ? new Date(st.coolUntil).toISOString() : null, modelCool: Object.fromEntries(Object.entries(st.modelCool || {}).map(([k, v]) => [k, new Date(Number(v)).toISOString()])), modelWhy: st.modelWhy, lastError: String(st.lastError || '').slice(0, 1500), doneCount: st.doneCount, lastId: st.lastId } };
+  return { ping: pingOut, aiDocs, using: MODELS, models: models.length, state: { day: st.day, usedSec: st.usedSec, calls: st.calls, coolUntil: st.coolUntil ? new Date(st.coolUntil).toISOString() : null, modelCool: Object.fromEntries(Object.entries(st.modelCool || {}).map(([k, v]) => [k, new Date(Number(v)).toISOString()])), modelWhy: st.modelWhy, lastError: String(st.lastError || '').slice(0, 1500), doneCount: st.doneCount, lastId: st.lastId } };
 }
 
 /**

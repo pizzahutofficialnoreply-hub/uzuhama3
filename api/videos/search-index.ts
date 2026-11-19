@@ -211,7 +211,7 @@ export default async function handler(req: any, res: any) {
       }
       if (aiMode === 'diag') {
         res.setHeader('Cache-Control', 'no-store');
-        return res.status(200).json(await ai.aiDiag(db));
+        return res.status(200).json(await ai.aiDiag(db, req.query?.ping === '1'));
       }
       if (aiMode === 'ids') {
         // AI가 보기 시작한 영상 목록 (⋮ 메뉴에 'AI 영상 요약'을 보여 줄지)

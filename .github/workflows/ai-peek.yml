@@ -5,4 +5,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          curl -sS "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/youtube_cache/ai_state?key=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM" | grep -A6 '"lastError"' | head -30
+          curl -sS --max-time 120 "https://uzuhama.vercel.app/api/videos/search-index?ai=diag&ping=1" | head -c 7000; echo
