@@ -1,0 +1,25 @@
+name: ai-peek
+on: workflow_dispatch
+jobs:
+  peek:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install -q yt-dlp
+      - run: |
+          yt-dlp --skip-download --write-auto-subs --write-subs --sub-langs "ko.*,ko" --sub-format json3 -o "v.%(ext)s" "https://www.youtube.com/watch?v=EWciq134_24" 2>&1 | tail -5
+          ls -la
+          curl -sS "https://uzuhama.vercel.app/api/videos/search-index?ai=script&id=EWciq134_24&t=$RANDOM" > s.json
+          python3 - <<'P'
+          import json,glob
+          f=glob.glob('v*.json3')
+          print('subs files', f)
+          if f:
+            j=json.load(open(f[0])); ev=[e for e in j.get('events',[]) if e.get('segs')]
+            print('caption events', len(ev))
+            for e in ev:
+              t=e['tStartMs']//1000
+              if 4500<=t<=4560 or 600<=t<=640 or 1500<=t<=1530: print('YT', t, ''.join(s.get('utf8','') for s in e['segs']).replace('\n',' '))
+          s=json.load(open('s.json'))['lines']
+          for l in s:
+            if 4500<=l['t']<=4560 or 600<=l['t']<=640 or 1500<=l['t']<=1530: print('AI', l['t'], l.get('w',''), l['s'])
+          P
