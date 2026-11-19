@@ -5,10 +5,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          mkdir out; for id in EWciq134_24 pYL8QtKSKXo; do
-            curl -sS --max-time 60 "https://uzuhama.vercel.app/api/videos/search-index?ai=video&id=$id&t=$RANDOM" > out/v_$id.json
-            curl -sS --max-time 60 "https://uzuhama.vercel.app/api/videos/search-index?ai=script&id=$id&t=$RANDOM" > out/s_$id.json
+          for id in EWciq134_24 pYL8QtKSKXo; do
+            curl -sS --max-time 60 "https://uzuhama.vercel.app/api/videos/search-index?ai=video&id=$id&t=$RANDOM" > v.json
+            curl -sS --max-time 60 "https://uzuhama.vercel.app/api/videos/search-index?ai=script&id=$id&t=$RANDOM" > s.json
+            python3 - "$id" <<'P'
+          import json,sys
+          v=json.load(open('v.json')); s=json.load(open('s.json'))
+          print('=====',sys.argv[1], v.get('title'), 'kind',v.get('kind'),'opanmu',repr(v.get('opanmu')))
+          print('parts', [(p['from'],p['to']) for p in v.get('parts',[])][-3:], 'nparts',len(v.get('parts',[])))
+          print('scenes max', max([x['t'] for x in v.get('scenes',[])] or [0]), 'n', len(v.get('scenes',[])))
+          for g in v.get('gameStories',[]): print('GS', g['name'], [h['t'] for h in g.get('highlights',[])])
+          for c in v.get('chapters',[]): print('CH', c['from'], c['to'], c['title'])
+          for p in v.get('parts',[]):
+            if '팬티' in p.get('summary',''): print('PANTY part', p['from'], p['summary'][:200])
+          for x in v.get('scenes',[]):
+            if '팬티' in (x.get('d','')+x.get('q','')): print('PANTY scene', x)
+          L=s.get('lines',[])
+          print('script lines', len(L), 'covered', s.get('covered',[])[:3], '...', s.get('covered',[])[-2:])
+          from collections import Counter
+          print('who', Counter(l.get('w','') for l in L).most_common(6))
+          for l in L:
+            if '팬티' in l.get('s',''): print('PANTY line', l)
+          print('sample', [ (l['t'],l.get('w',''),l['s'][:40]) for l in L if l.get('w')=='후원'][:12])
+          P
           done
-          ls -la out
-      - uses: actions/upload-artifact@v4
-        with: { name: out, path: out }
