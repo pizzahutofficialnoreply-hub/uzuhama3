@@ -5,8 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          sleep 120
+          sleep 5
           curl -sS -D h.txt --compressed "https://uzuhama.vercel.app/api/health?snapshot=logs" -o s.json; grep -iE "^(cache-control|x-vercel-cache|content-length)" h.txt
-          python3 -c "import json;d=json.load(open('s.json'));print('at',d.get('at'),'months',len(d.get('months',[])),'comps',len(d.get('comps',[])))" || head -c 300 s.json
+          python3 -c "import json;d=json.load(open('s.json'));print('at',d.get('at'),'months',len(d.get('months',[])),'comps',len(d.get('comps',[])))" ; head -c 300 s.json; echo
           ls -la s.json; gzip -c s.json | wc -c
           curl -sS -D h2.txt -o /dev/null "https://uzuhama.vercel.app/api/health?snapshot=logs"; grep -i x-vercel-cache h2.txt
