@@ -881,6 +881,8 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
     // 연동 점검: 이 영상과 연결된 생방송·영상·쇼츠 중 AI 분석이 끝난 것과 내용이 맞는지 (글로만 비교, 한도에 걸리면 다음에)
     try { await checkLinks(db, item.id, { ...fin, title: item.title }); } catch (e: any) { if (isRate(String(e?.message || e))) { /* 다음 분석 때 */ } }
     await release({ calls: calls + 1, doneCount: Number(st.doneCount || 0) + 1 });
+    // 웃음참기: 이 영상(또는 이 생방송이 들어 있는 웃음참기)의 어디가 어느 생방송인지 다시 맞춤 (한도면 다음에)
+    try { for (const cid of await laughCompsWith(db, item.id)) await compRanges(db, cid); } catch { /* 다음에 */ }
     return { id: item.id, title: item.title, finished: true };
   } catch (e: any) {
     const msg = String(e?.message || e).slice(0, 1500);
@@ -1240,6 +1242,7 @@ export async function aiVideoDetail(db: any, id: string) {
     scenes: (fit.scenes as Scene[]).map((s: Scene) => ({ t: s.t, d: s.d, ...(s.q ? { q: s.q } : {}), k: s.k, ...(s.u ? { vague: true } : {}) })),
     games: games.map((g: any) => ({ name: g.name, ko: g.ko, genre: g.genre, about: g.about, tags: g.tags, horror: g.horror })),
     keywords: d.keywords || [], mood: d.mood || [],
+    ...(Array.isArray(d.ranges) && d.ranges.length ? { ranges: d.ranges } : {}),
   };
 }
 
@@ -1294,6 +1297,60 @@ async function compIndex(db: any): Promise<Record<string, { title: string; dates
   });
   try { await ref.set({ map, at: new Date().toISOString(), lockUntil: 0 }); } catch { /* 너무 크면 다음에 */ }
   return map;
+}
+
+/**
+ * 웃음참기(여러 생방송을 모은 영상): 이 영상의 어느 시간이 어느 생방송에서 나온 건지
+ * 이 영상의 분석(구간 정리·장면)과 생방송들의 요약을 글로만 맞춰 봄 (영상은 다시 안 봄, 호출 1번)
+ * 생방송 분석이 하나 끝날 때마다 다시 맞춤 (다 본 생방송만)
+ */
+export const isLaughComp = (title: string) => /웃음\s*참기/.test(String(title || ''));
+export async function compRanges(db: any, compId: string): Promise<any> {
+  const m = (await compIndex(db))[compId];
+  if (!m || !isLaughComp(m.title)) return null;
+  const me = (await db.collection('ai_video').doc(compId).get()).data();
+  if (!me || me.status !== 'done' || !(me.parts || []).length) return null;
+  const { loadSiteLogs } = await import('./_siteLogs.js');
+  const logs = (await loadSiteLogs(db)).logs;
+  // 날짜마다 그날 생방송 다시보기
+  const lives: { date: string; id: string }[] = [];
+  for (const d of m.dates) for (const l of logs.filter((x: any) => x.date === d)) for (const v of l.vods || []) {
+    const vid = ytIdOf(typeof v === 'string' ? v : v?.url);
+    if (vid && !lives.some((x) => x.id === vid)) lives.push({ date: d, id: vid });
+  }
+  if (!lives.length) return null;
+  const list = lives.slice(0, 30);
+  const snaps = await db.getAll(...list.map((x) => db.collection('ai_video').doc(x.id)));
+  const done = list.map((x, i) => ({ ...x, d: snaps[i].exists ? snaps[i].data() : null })).filter((x) => x.d?.status === 'done');
+  if (!done.length) return null;
+  const key = done.map((x) => x.id).sort().join(',');
+  if (me.rangesKey === key) return me.ranges || [];
+  const mine = (me.parts || []).map((p: any) => `[${fmt(p.from)}~${fmt(p.to)}] ${p.summary}`).join('\n').slice(0, 12000)
+    + '\n' + (me.scenes || []).map((x: Scene) => `${fmt(x.t)} ${x.d}${x.q ? ` "${x.q}"` : ''}`).join('\n').slice(0, 12000);
+  const src = done.map((x, i) => `#${i + 1} ${x.date} 생방송: ${String(x.d.summary || '').slice(0, 400)}\n  흐름: ${(x.d.chapters || []).map((c: any) => c.title).filter(Boolean).join(' / ').slice(0, 400)}\n  게임: ${(x.d.games || []).map((g: any) => g.ko || g.name).join(', ').slice(0, 200)}`).join('\n');
+  const prompt = `"${m.title}" 은 우주하마의 여러 생방송에서 웃긴 장면을 모은 영상이야. 아래 [이 영상 기록]의 각 시간대가 [생방송 목록] 중 어느 방송에서 나온 장면인지 맞춰 줘.
+규칙: 내용(게임·사건·한 말)이 분명히 같을 때만 연결. 애매하면 빼. 목록에 없는 방송에서 나온 부분은 연결하지 마. 같은 방송이 여러 번 나오면 여러 칸으로.
+JSON 으로만: {"ranges":[{"n": 생방송 번호, "from": 시작 초, "to": 끝 초}]}
+
+[생방송 목록]
+${src}
+
+[이 영상 기록]
+${mine}`;
+  const { text } = await gen([{ text: prompt }], true, 40000, TEXT_MODELS);
+  const dur = Number(me.duration || 0) || Math.max(0, ...(me.parts || []).map((p: any) => Number(p.to) || 0));
+  const ranges = ((parseJson(text).ranges || []) as any[]).map((r) => {
+    const x = done[Number(r?.n) - 1];
+    const from = Math.max(0, Math.round(Number(r?.from) || 0)), to = Math.round(Number(r?.to) || 0);
+    return x && to > from && (!dur || from < dur) ? { id: x.id, date: x.date, from, to: dur ? Math.min(to, dur) : to } : null;
+  }).filter(Boolean).sort((a: any, b: any) => a.from - b.from).slice(0, 60);
+  await db.collection('ai_video').doc(compId).set({ ranges, rangesKey: key, rangesAt: new Date().toISOString() }, { merge: true });
+  return ranges;
+}
+/** 방금 분석이 끝난 영상이 들어 있는 웃음참기 영상들 (그 영상 자신이 웃음참기여도) */
+async function laughCompsWith(db: any, id: string): Promise<string[]> {
+  const map = await compIndex(db);
+  return Object.entries(map).filter(([cid, m]) => isLaughComp(m.title) && (cid === id || m.ids.includes(id))).map(([cid]) => cid).slice(0, 5);
 }
 
 /** 몰아보기 영상 → 들어 있는 방송들의 원본 영상(다시보기·편집본) 분석 모음 */

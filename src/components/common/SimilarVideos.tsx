@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { VideoCardInfo } from './VideoCardInfo';
 import type { BroadcastLog } from '../../types';
 import { useVideoMeta, formatDuration, formatRelativeTime } from '../../hooks/useVideoDuration';
@@ -122,7 +122,7 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts }: { id: s
 }
 
 /** 검색 탭 영상 카드와 같은 모양 (썸네일 · 재생 시간 · 생방일 / 제목 · ⋯ / 업로드일 / 게임 태그 / 유튜브로 보기) */
-function Card({ c, onPick, logs }: { c: Cand | (Omit<Cand, 'kind'> & { kind: string }); onPick: (id: string, title: string, el: Element | null) => void; logs?: Record<string, BroadcastLog> }) {
+function Card({ c, onPick, logs, below }: { c: Cand | (Omit<Cand, 'kind'> & { kind: string }); onPick: (id: string, title: string, el: Element | null) => void; logs?: Record<string, BroadcastLog>; below?: React.ReactNode }) {
   const meta = useVideoMeta(c.id);
   const ref = useRef<HTMLDivElement>(null);
   const generic = !c.title || /^우주하마\s*생방송!?$/.test(c.title);
@@ -144,6 +144,7 @@ function Card({ c, onPick, logs }: { c: Cand | (Omit<Cand, 'kind'> & { kind: str
         ) : null}
       </div>
       <div className="p-4 flex-1 flex flex-col">
+        {below}
         <VideoCardInfo id={c.id} title={title} logs={logs} card onTitle={pick} />
       </div>
     </div>
@@ -170,5 +171,50 @@ function Row({ c, onPick }: { c: Cand; onPick: (id: string, title: string, el: E
         </span>
       </button>
     </li>
+  );
+}
+
+/**
+ * 웃음참기처럼 여러 생방송을 모은 영상: 들어 있는 생방송을 카드로 (모은 순서대로)
+ * 생방송 분석이 끝나면 이 영상의 어디(몇 분~몇 분)에 그 방송 장면이 나오는지 · 누르면 위 영상이 그 시간부터
+ */
+export function CompLives({ id, logs, ranges, onPick, onSeek }: { id: string; logs?: Record<string, BroadcastLog>; ranges?: { id: string; date: string; from: number; to: number }[]; onPick: (id: string, title: string, el: Element | null) => void; onSeek: (t: number) => void }) {
+  const lives = useMemo(() => {
+    if (!logs) return [] as Cand[];
+    const all = Object.values(logs).filter((l) => l && !l.isAbsence);
+    let dates: string[] = [];
+    for (const l of all) {
+      const e: any = (l.edited || []).find((v: any) => ytId(v?.url) === id);
+      if (e) { dates = (e.allBroadcastDates?.length ? e.allBroadcastDates : [l.date]) as string[]; if (dates.length > 1) break; }
+    }
+    const out: Cand[] = [];
+    for (const d of dates) for (const l of all.filter((x) => x.date === d)) for (const v of l.vods || []) {
+      const vid = ytId((v as any)?.url);
+      if (vid && !out.some((x) => x.id === vid)) out.push({ id: vid, title: (v as any).title || '', games: (l.games || []).map((g) => g.name).filter(Boolean), cats: [], date: l.date, kind: 'live' });
+    }
+    return out;
+  }, [id, logs]);
+  if (!lives.length) return null;
+  const fmt = (t: number) => { const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = Math.floor(t % 60); return `${h ? `${h}:${String(m).padStart(2, '0')}` : m}:${String(s).padStart(2, '0')}`; };
+  return (
+    <section className="mt-6" aria-label="들어 있는 생방송">
+      <h3 className="px-1 mb-1 text-[13px] font-black text-white">들어 있는 생방송 {lives.length}개</h3>
+      <p className="px-1 mb-2.5 text-[11px] text-zinc-400 break-keep">{(ranges || []).length ? '시간을 누르면 위 영상에서 그 방송 장면부터 재생돼요. AI가 맞춘 거라 틀릴 수 있어요.' : '생방송 AI 요약이 끝나면 이 영상의 어디에 나오는지도 보여 드려요.'}</p>
+      <div className="space-y-3">
+        {lives.map((c) => {
+          const rs = (ranges || []).filter((r) => r.id === c.id);
+          return (
+            <Card key={c.id} c={c} onPick={onPick} logs={logs} below={rs.length > 0 && (
+              <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-bold text-zinc-500">이 영상에서</span>
+                {rs.map((r, i) => (
+                  <button key={i} type="button" onClick={() => onSeek(r.from)} className="px-2 py-0.5 rounded-md bg-purple-600/15 text-purple-300 text-[11px] font-black tabular-nums cursor-pointer active:scale-95">{fmt(r.from)}~{fmt(r.to)}</button>
+                ))}
+              </div>
+            )} />
+          );
+        })}
+      </div>
+    </section>
   );
 }

@@ -221,8 +221,8 @@ export function useFirebaseData() {
 
   const lastFetchTimeRef = useRef<number>(0);
   const MONTH_DOCS_KEY = 'logs_by_month_v1';
-  // 전체 다시 받기는 7일에 한 번 (그 사이엔 바뀐 달만)
-  const FULL_RESYNC_MS = 7 * 24 * 3600 * 1000;
+  // 전체 다시 받기는 하루에 한 번 (그 사이엔 바뀐 달만)
+  const FULL_RESYNC_MS = 24 * 3600 * 1000; // 서버 묶음으로 받아서 DB 읽기는 거의 없음
   const COMPILATIONS_CACHE_KEY = 'uzuhama_fs_compilations_v1';
 
   // 핵심 일지 데이터 호출 함수: 과거 아카이브(JSON) + Firestore 최신 데이터(logs, logs_by_month, compilations) 통합 병합
@@ -244,6 +244,7 @@ export function useFirebaseData() {
       let cachedMerged: Record<string, BroadcastLog> | null = null;
       try { cachedMerged = JSON.parse(localStorage.getItem('uzuhama_logs_cache_v4') || 'null'); } catch {}
       let overlayFailed = false;
+      let snapComps: { docId: string; comp: any }[] | null = null;
       let doFull = false;
       let monthChanged = false;
       // 과거 아카이브를 못 불러왔으면(네트워크 등) 덮어쓰지 않고 저장해 둔 결과를 씀
@@ -253,11 +254,32 @@ export function useFirebaseData() {
         doFull = !saved || !saved.docs || now - (saved.fullAt || 0) > FULL_RESYNC_MS;
         let docs: Record<string, any> = doFull ? {} : { ...saved!.docs };
         let syncAt = doFull ? '' : saved!.syncAt || '';
-        const snaps = doFull || !syncAt
+        // 전체 받기: 먼저 서버 묶음(CDN, DB 읽기 0)으로 → 그 뒤 바뀐 달만 DB 에서 (보통 0~1개)
+        let snapOk = false;
+        if (doFull || !syncAt) {
+          try {
+            const base = typeof window !== 'undefined' && /vercel\.app$/.test(window.location.hostname) ? '' : 'https://uzuhama.vercel.app';
+            const r = await fetch(`${base}/api/health?snapshot=logs`);
+            if (r.ok) {
+              const snap = await r.json();
+              if (Array.isArray(snap?.months) && snap.months.length) {
+                docs = {};
+                syncAt = '';
+                for (const { id, ...v } of snap.months) {
+                  docs[id] = v;
+                  if (typeof v?.updatedAt === 'string' && v.updatedAt > syncAt) syncAt = v.updatedAt;
+                }
+                if (Array.isArray(snap.comps)) snapComps = snap.comps;
+                snapOk = true;
+              }
+            }
+          } catch { /* 안 되면 예전처럼 DB 에서 */ }
+        }
+        const snaps = !snapOk && (doFull || !syncAt)
           ? await getDocs(collection(db, 'logs_by_month'))
           : await getDocs(query(collection(db, 'logs_by_month'), where('updatedAt', '>', syncAt)));
-        noteReads(doFull || !syncAt ? 'logs_by_month(전체)' : 'logs_by_month(바뀐 달)', Math.max(1, snaps.size));
-        monthChanged = snaps.size > 0;
+        noteReads(!snapOk && (doFull || !syncAt) ? 'logs_by_month(전체)' : 'logs_by_month(바뀐 달)', Math.max(1, snaps.size));
+        monthChanged = snaps.size > 0 || snapOk;
         snaps.forEach((d) => {
           const v: any = d.data();
           docs[d.id] = v;
@@ -288,7 +310,11 @@ export function useFirebaseData() {
               if (Array.isArray(c) && (Date.now() - at < 24 * 3600 * 1000 || (!monthChanged && at))) cachedComps = c;
             } catch {}
           }
-          if (Array.isArray(cachedComps)) {
+          if (Array.isArray(snapComps)) {
+            // 서버 묶음에 같이 온 몰아보기 (DB 읽기 0)
+            compSources.push(...snapComps);
+            try { localStorage.setItem(COMPILATIONS_CACHE_KEY, JSON.stringify(snapComps)); localStorage.setItem(COMPILATIONS_CACHE_KEY + '_at', String(Date.now())); } catch {}
+          } else if (Array.isArray(cachedComps)) {
             compSources.push(...cachedComps);
           } else {
             const compSnaps = await getDocs(collection(db, 'compilations'));

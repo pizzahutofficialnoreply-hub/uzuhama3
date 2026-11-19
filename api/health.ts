@@ -395,6 +395,19 @@ export default async function handler(req: any, res: any) {
   const st = String(req.query?.selftest || '');
   if (st) return cloudSelftest(st, req, res);
   // DB 읽기 출처: 기기가 보낸 숫자 더하기 (POST) / 관리자 화면에서 보기 (GET)
+  if (req.query?.snapshot === 'logs') {
+    // 방송 기록 묶음: 달마다 문서(logs_by_month) + 몰아보기(compilations)를 한 번에 → CDN 에 30분 보관
+    // 사람마다 DB 에서 문서 수백 개를 읽던 것을 서버가 30분에 한 번만 읽고 모두 이걸 받음 (DB 읽기가 사람 수와 상관없어짐)
+    const { db, hasAdminCredentials } = await import('./_firebase.js');
+    if (!hasAdminCredentials) return res.status(500).json({ error: 'no admin credentials' });
+    const [m, c] = await Promise.all([db.collection('logs_by_month').get(), db.collection('compilations').get()]);
+    const months: any[] = [];
+    m.forEach((d: any) => months.push({ id: d.id, ...d.data() }));
+    const comps: any[] = [];
+    c.forEach((d: any) => comps.push({ docId: d.id, comp: d.data() }));
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=1800, stale-while-revalidate=86400');
+    return res.status(200).json({ at: new Date().toISOString(), months, comps });
+  }
   if (req.query?.readstat) {
     const { db, hasAdminCredentials, verifyAdmin } = await import('./_firebase.js');
     if (!hasAdminCredentials) return res.status(500).json({ error: 'no admin credentials' });

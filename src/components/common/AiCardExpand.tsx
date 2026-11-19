@@ -5,7 +5,7 @@ import { ChevronDown, EyeOff, Eye, X } from 'lucide-react';
 import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { useBackToClose } from '../../hooks/useBackToClose';
 import { SummaryBody, CompilationSummary, loadDetail, goSearch, useDetailUpdates } from './AiSummaryHost';
-import { SimilarVideos } from './SimilarVideos';
+import { SimilarVideos, CompLives } from './SimilarVideos';
 import { ShortsPlayer } from './ShortsPlayer';
 import { recommendShorts } from '../../utils/relatedShorts';
 import { ScriptView, loadScript, lineAt, type Script } from './ScriptView';
@@ -284,7 +284,9 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
   const compHas = Boolean(data?.compilation && ((data.sources || []).length || data.overview?.opening || data.overview?.theme));
   // 몰아보기는 요약이 있을 때만, 재생목록은 없음
   // 요약이 없는 영상(아직 안 봄)은 요약 칸 없이
-  const showSummary = t && !t.noSummary && (!data || (t.compilation ? compHas : ready));
+  // 웃음참기: 들어 있는 생방송을 카드로 + 이 영상의 어디에 나오는지
+  const isLaugh = /웃음\s*참기/.test(String(t?.title || data?.title || ''));
+  const showSummary = t && !t.noSummary && (!data || (t.compilation ? compHas || ready : ready));
   const finish = () => {
     if (closing) {
       try { if (t?.src) t.src.style.visibility = ''; } catch { /* */ }
@@ -402,7 +404,9 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                     )}
                   </AnimatePresence>
                 </div>}
-                {t.extra && <div className="mt-4 -mx-3">{t.extra(close)}</div>}
+                {t.compilation && isLaugh ? (
+                  <div className="-mx-1.5"><CompLives id={t.id} logs={logs} ranges={data?.ranges} onPick={(id, title) => switchTo(id, title)} onSeek={(s) => seek(s)} /></div>
+                ) : t.extra && <div className="mt-4 -mx-3">{t.extra(close)}</div>}
                 {!t.compilation && !t.embed && (
                   <div className="-mx-1.5">
                     <SimilarVideos id={t.id} title={data?.title || t.title} logs={logs} ai={ready ? data : null} onPick={(id, title) => switchTo(id, title)} onShorts={(items, i, games) => {
