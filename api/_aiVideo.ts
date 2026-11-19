@@ -335,11 +335,12 @@ const SCRIPT_RULE = `lines 는 이 구간에서 들린 말을 처음부터 끝�
 - 말을 고치거나 요약하지 마. 사투리·말버릇·감탄사(아, 어, 와)도 그대로. 욕은 그대로 두지 말고 '○○'로.
 - 잘 안 들리는 부분은 지어내지 말고 그 자리에 '(잘 안 들림)'. 전혀 모르겠으면 그 줄은 빼.
 - 번역하지 마. 들린 언어 그대로 (게임 대사가 영어면 영어로).
-- 게임 캐릭터 목소리·화면 자막 대사는 w 를 "게임"으로 (캐릭터 이름을 s 앞에 붙이지 말 것). 후원·채팅을 읽어 주는 소리(TTS 포함)는 w 를 "후원"으로.
+- 게임 캐릭터 목소리·화면 자막 대사는 w 를 "게임"으로 (캐릭터 이름을 s 앞에 붙이지 말 것). 후원 메시지를 소리 내어 읽어 주는 TTS(기계 목소리)만 w 를 "후원"으로.
+- 화면에 보이는 채팅창·후원 목록 글자는 받아 적지 마 (소리로 들린 말만). 우주하마가 채팅을 소리 내어 읽으면 그건 우주하마가 한 말.
 - 노래를 부르면 가사는 적지 말고 s 를 "♪ (노래)"로.
 - 말이 없는 구간(게임 소리만)은 줄을 만들지 마.`;
 function cleanLines(a: any, from: number, to: number): { t: number; s: string; w?: string }[] {
-  let out: { t: number; s: string; w?: string }[] = (Array.isArray(a) ? a : []).map((x: any) => ({ t: toSec(x?.t), s: String(x?.s || '').replace(/\s+/g, ' ').trim().slice(0, 160), w: String(x?.w || '').trim().slice(0, 20) }))
+  let out: { t: number; s: string; w?: string }[] = (Array.isArray(a) ? a : []).map((x: any) => ({ t: toSec(x?.t), s: String(x?.s || '').replace(/\s+/g, ' ').trim().slice(0, 160), w: String(x?.w || '').trim().replace(/^(후원|게임|우주하마)\S*$/, '$1').slice(0, 20) }))
     .filter((x) => Number.isFinite(x.t) && x.s);
   // 구간 기준(0부터)으로 답했으면 원본 기준으로
   if (from > 0 && out.length && Math.max(...out.map((x) => x.t)) < from) out = out.map((x) => ({ ...x, t: x.t + from }));
@@ -348,15 +349,30 @@ function cleanLines(a: any, from: number, to: number): { t: number; s: string; w
   return out.slice(0, 600);
 }
 /** 스크립트 저장: ai_script/{id} 의 segs.{시작초} 에 구간별로 (다시 봐도 같은 구간은 덮어씀) */
+const SCRIPT_V = 2; // 2: 화면 채팅창은 받아 적지 않음
+/** 예전 방식으로 받아 적은 구간 중 후원 줄이 너무 많은 것 (화면 채팅을 후원으로 읽음) */
+function badScriptSeg(g: any): boolean {
+  if (Number(g?.v || 1) >= SCRIPT_V) return false;
+  const L = Array.isArray(g?.lines) ? g.lines : [];
+  const don = L.filter((l: any) => l?.w === '후원').length;
+  return L.length >= 8 && don / L.length > 0.25;
+}
+/** 보여 줄 때: 같은 몇 초 안에 몰린 후원 줄(채팅창을 읽은 것)은 빼기 */
+export function dropChatLines(lines: any[]): any[] {
+  const don = lines.filter((l) => l?.w === '후원');
+  if (don.length < 3) return lines;
+  const busy = (t: number) => don.filter((l) => Math.abs(l.t - t) <= 4).length >= 2;
+  return lines.filter((l) => l?.w !== '후원' || !busy(l.t));
+}
 async function saveScript(db: any, id: string, from: number, to: number, lines: any[]) {
-  await db.collection('ai_script').doc(id).set({ id, segs: { [String(from)]: { from, to, lines } }, updatedAt: new Date().toISOString() }, { merge: true });
+  await db.collection('ai_script').doc(id).set({ id, segs: { [String(from)]: { from, to, lines, v: SCRIPT_V } }, updatedAt: new Date().toISOString() }, { merge: true });
 }
 export async function aiScript(db: any, id: string) {
   if (!/^[\w-]{11}$/.test(id)) return { found: false };
   const d = (await db.collection('ai_script').doc(id).get()).data();
   if (!d?.segs) return { found: false, lines: [] };
   const segs = Object.values(d.segs as Record<string, any>).sort((a: any, b: any) => a.from - b.from);
-  return { found: true, id, covered: segs.map((x: any) => [x.from, x.to]), lines: segs.flatMap((x: any) => x.lines || []) };
+  return { found: true, id, covered: segs.map((x: any) => [x.from, x.to]), lines: dropChatLines(segs.flatMap((x: any) => x.lines || [])) };
 }
 /** 스크립트만 받아 적기 (예전에 스크립트 없이 본 영상 채우기 · 정확도 확인용) */
 export async function transcribeSegment(item: { id: string; title: string; kind?: string; duration?: number }, start: number, end: number) {
@@ -491,6 +507,22 @@ async function indexAiDoc(db: any, id: string) {
 }
 let pickedId = '';
 
+/**
+ * 영상 길이를 넘는 시간·기록에 없는 하이라이트 빼기
+ * (AI가 게임 소개에서 본 내용을 이 영상 일처럼 지어내 시간까지 붙이는 일이 있었음 → 영상 길이 25분인데 40:25 엔딩 등)
+ */
+export function fitTimes<T extends { chapters?: any[]; gameStories?: any[]; scenes?: any[] }>(x: T, duration: number, scenes: { t: number }[] = []): T {
+  const dur = Number(duration) || 0;
+  const inDur = (t: number) => !dur || t <= dur + 5;
+  const near = (t: number) => !scenes.length || scenes.some((s) => Math.abs(s.t - t) <= 45);
+  return {
+    ...x,
+    ...(x.scenes ? { scenes: x.scenes.filter((s: any) => inDur(s.t)) } : {}),
+    ...(x.chapters ? { chapters: x.chapters.filter((c: any) => inDur(c.from)).map((c: any) => (dur && c.to > dur ? { ...c, to: dur } : c)) } : {}),
+    ...(x.gameStories ? { gameStories: x.gameStories.map((g: any) => ({ ...g, highlights: (g.highlights || []).filter((h: any) => inDur(h.t) && near(h.t)) })).filter((g: any) => g.story || g.highlights.length) } : {}),
+  };
+}
+
 async function buildStory(title: string, cur: any, games: any[]) {
   const parts = (cur?.parts || []).map((p: any) => `[${fmt(p.from)}~${fmt(p.to)}] ${p.summary}`).join('\n').slice(0, 14000);
   const scenes = (cur?.scenes || []).filter((x: Scene) => !x.u).map((x: Scene) => `${fmt(x.t)} ${x.d}${x.q ? ` "${x.q}"` : ''}`).join('\n').slice(0, 16000);
@@ -498,7 +530,7 @@ async function buildStory(title: string, cur: any, games: any[]) {
   const opanmu = ((cur?.parts || []).find((p: any) => p.opanmu) || {}).opanmu || '';
   const gl = games.map((g: any) => `- ${g.ko && g.ko !== g.name ? `${g.ko} (${g.name})` : g.name}${g.about ? `: ${g.about}` : ''}`).join('\n');
   const prompt = `스트리머 우주하마의 영상 "${title}" 을 AI가 보고 정리한 기록이야. 장면 하나하나가 아니라, 시청자가 한눈에 보게 '이야기·사건 단위'로 묶어 줘.
-규칙: 한국어. 기록에 없는 건 지어내지 말 것. 말투: 설명 문장은 모두 '~해요/~했어요' 체로 끝내 (~한다·~합니다·~함 섞지 말 것). 시간은 초(정수), 기록에 있는 시간만. 너무 잘게 나누지 말고 큰 흐름 위주.
+규칙: 한국어. 기록에 없는 건 지어내지 말 것 (게임 소개는 무슨 게임인지만 참고하고, 이 영상에서 실제로 나온 일은 [구간별 정리]·[장면 기록]에 있는 것만). 말투: 설명 문장은 모두 '~해요/~했어요' 체로 끝내 (~한다·~합니다·~함 섞지 말 것). 시간은 초(정수), 기록에 있는 시간만. 너무 잘게 나누지 말고 큰 흐름 위주.
 JSON 으로만:
 {"summary":"영상 전체 3~4문장",
  "chapters":[{"from":초,"to":초,"title":"이 구간 이름 (짧게)","summary":"무슨 일이 있었는지 1~2문장","game":"이때 하던 게임 이름(없으면 빈칸)"}],
@@ -525,7 +557,8 @@ ${scenes}`;
     name: String(g.name || '').slice(0, 80), story: String(g.story || '').slice(0, 700), result: String(g.result || '').slice(0, 80),
     highlights: (Array.isArray(g.highlights) ? g.highlights : []).slice(0, 6).map((h: any) => ({ t: num(h.t), d: String(h.d || '').slice(0, 160) })).filter((h: any) => h.d),
   })).filter((g: any) => g.name && (g.story || g.highlights.length));
-  return { summary: String(j.summary || '').slice(0, 800), chapters, gameStories, nogari: String(j.nogari || '').trim().slice(0, 2000) || nogariRaw.replace(/\[[^\]]+\]\s*/g, '').slice(0, 2000), opanmu: String(opanmu).slice(0, 30) };
+  const fitted = fitTimes({ chapters, gameStories }, Number(cur?.duration || 0) || Math.max(0, ...(cur?.parts || []).map((p: any) => Number(p.to) || 0)), cur?.scenes || []);
+  return { summary: String(j.summary || '').slice(0, 800), chapters: fitted.chapters, gameStories: fitted.gameStories, nogari: String(j.nogari || '').trim().slice(0, 2000) || nogariRaw.replace(/\[[^\]]+\]\s*/g, '').slice(0, 2000), opanmu: String(opanmu).slice(0, 30) };
 }
 
 /** 몰아보기 가볍게 보기: 오프닝 10분 + 설명란으로 주제·구성 */
@@ -629,8 +662,9 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
         if (!d || busySkip || redo || (d.status !== 'done' && d.status !== 'skip' && !(d.status === 'error' && (d.tries || 0) >= 3))) { item = part[j]; cur = redo ? null : d; break; }
       }
     }
-    if (!item) {
-      // 다 봤으면: 스크립트 없이 본 예전 영상의 대사를 한 구간씩 채움
+    // 스크립트 없이 본 예전 영상의 대사를 한 구간씩 채움: 다 봤을 때 + 평소에도 네 번에 한 번 (예전 영상도 스크립트가 생기게)
+    const scriptTurn = Boolean(item) && calls % 4 === 3;
+    if (!item || scriptTurn) {
       const doneIds = queue.filter((q) => !q.comp && q.live !== 'live' && q.live !== 'upcoming' && (!finSet.size || finSet.has(q.id)));
       for (let i = 0; i < doneIds.length; i += 30) {
         const part = doneIds.slice(i, i + 30);
@@ -642,7 +676,8 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
           const whole = q.kind === 'short' || !dur;
           // 아직 안 채운 첫 구간
           let from = 0;
-          const sorted = segs.sort((a, b) => a.from - b.from);
+          // 채팅창 글을 후원으로 잘못 받아 적은 예전 구간(후원 줄이 너무 많음)은 다시
+          const sorted = segs.filter((g) => !badScriptSeg(g)).sort((a, b) => a.from - b.from);
           for (const g of sorted) { if (g.from <= from + 5) from = Math.max(from, g.to); }
           if (whole ? sorted.length : from >= dur - 5) continue;
           if (snaps[j].exists && snaps[j].data()?.noSpeech) continue;
@@ -668,7 +703,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
           }
         }
       }
-      await release({ lastError: '', idle: true }); return { done: true, message: '모든 영상을 분석했어요' };
+      if (!item) { await release({ lastError: '', idle: true }); return { done: true, message: '모든 영상을 분석했어요' }; }
     }
     pickedId = item.id;
 
@@ -1144,11 +1179,13 @@ export async function aiVideoDetail(db: any, id: string) {
     // 아직 보는 중: 내용은 다 끝난 뒤에 (진행 상황만)
     return { found: true, pending: true, id, title: d.title, kind: d.kind, status: d.status, seg: d.seg, segTotal: d.segTotal, pos: d.pos, duration: d.duration };
   }
+  const durD = Number(d.duration || 0) || Math.max(0, ...(d.parts || []).map((p: any) => Number(p.to) || 0));
+  const fit = fitTimes({ chapters: d.chapters || [], gameStories: d.gameStories || [], scenes: d.scenes || [] }, durD, d.scenes || []);
   return {
     found: true, id, title: d.title, kind: d.kind, status: d.status, seg: d.seg, segTotal: d.segTotal, model: d.model,
-    chapters: d.chapters || [], gameStories: d.gameStories || [], nogari: d.nogari || '', opanmu: d.opanmu || '',
+    chapters: fit.chapters, gameStories: fit.gameStories, nogari: d.nogari || '', opanmu: d.opanmu || '',
     summary: d.summary || '', parts: (d.parts || []).map((p: any) => ({ from: p.from, to: p.to, summary: p.summary })),
-    scenes: (d.scenes || []).map((s: Scene) => ({ t: s.t, d: s.d, ...(s.q ? { q: s.q } : {}), k: s.k, ...(s.u ? { vague: true } : {}) })),
+    scenes: (fit.scenes as Scene[]).map((s: Scene) => ({ t: s.t, d: s.d, ...(s.q ? { q: s.q } : {}), k: s.k, ...(s.u ? { vague: true } : {}) })),
     games: games.map((g: any) => ({ name: g.name, ko: g.ko, genre: g.genre, about: g.about, tags: g.tags, horror: g.horror })),
     keywords: d.keywords || [], mood: d.mood || [],
   };

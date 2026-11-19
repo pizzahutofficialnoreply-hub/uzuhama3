@@ -168,9 +168,13 @@ function Flow({ from, to, shownTo, title, game, summary, scenes, spoil, dot, onS
   return (
     <li className="relative">
       {dot && <span className="absolute -left-4 top-1.5 w-[11px] h-[11px] rounded-full border-2 border-purple-500 bg-white dark:bg-zinc-900" />}
-      <div className="flex items-start gap-1.5">
+      {/* 시간은 위에 한 줄로 (옆에 두면 글 칸이 너무 좁아짐) */}
+      <div className="flex items-center gap-1.5 flex-wrap">
         <TimeBtn t={from} to={shownTo} onClick={() => onSeek(from)} />
-        <div className="min-w-0 flex-1">
+        {game && <button type="button" onClick={() => onSearch(game)} className="text-[10.5px] font-semibold text-zinc-400 hover:text-purple-600 cursor-pointer truncate max-w-[60%]">#{game}</button>}
+      </div>
+      <div className="mt-1">
+        <div className="min-w-0">
           <Spoiler on={spoil}>
             <button type="button" disabled={!inside.length} onClick={() => setOpen((v) => !v)} aria-expanded={open}
               className="w-full text-left cursor-pointer disabled:cursor-default group">
@@ -179,7 +183,6 @@ function Flow({ from, to, shownTo, title, game, summary, scenes, spoil, dot, onS
               {inside.length > 0 && <span className="mt-0.5 inline-flex items-center gap-0.5 text-[11px] font-semibold text-zinc-400 group-hover:text-purple-600">{open ? '접기' : `자세히 ${inside.length}`}<ChevronRight className={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`} /></span>}
             </button>
           </Spoiler>
-          {game && <button type="button" onClick={() => onSearch(game)} className="text-[10.5px] font-semibold text-zinc-400 hover:text-purple-600 cursor-pointer">#{game}</button>}
           {open && (
             <ul className="mt-1.5 space-y-1 border-l border-zinc-200 dark:border-zinc-700 pl-2.5">
               {inside.map((x, j) => (
@@ -233,6 +236,20 @@ export function SummaryBody(props: { d: any; onSeek: (t: number) => void; onSear
   );
 }
 
+/** 오팬무(오늘 팬티 무슨 색): '남'·'초' 처럼 줄인 것도 색 이름으로 + 색 점 */
+const PANTY: [RegExp, string, string][] = [
+  [/^남(색)?$/, '남색', '#1e3a8a'], [/^(초|초록|초록색|녹색)$/, '초록색', '#16a34a'], [/^(빨|빨강|빨간색|빨간)$/, '빨간색', '#dc2626'], [/^(파|파랑|파란색|파란)$/, '파란색', '#2563eb'],
+  [/^(노|노랑|노란색|노란)$/, '노란색', '#eab308'], [/^(검|검정|검은색|검정색|까만색)$/, '검은색', '#18181b'], [/^(흰|흰색|하양|하얀색)$/, '흰색', '#fafafa'], [/^(분|분홍|분홍색|핑크)$/, '분홍색', '#f472b6'],
+  [/^(보|보라|보라색)$/, '보라색', '#9333ea'], [/^(회|회색)$/, '회색', '#9ca3af'], [/^(주|주황|주황색)$/, '주황색', '#f97316'], [/^(하늘|하늘색)$/, '하늘색', '#7dd3fc'],
+];
+export function opanmuOf(v: string): { text: string; hex?: string } {
+  const t = String(v || '').trim().replace(/^오팬/, '');
+  const first = t.split(/\s+/)[0] || '';
+  for (const [re, name, hex] of PANTY) if (re.test(first)) return { text: t.replace(first, name), hex };
+  const hit = PANTY.find(([, name]) => t.includes(name.replace('색', '')));
+  return { text: t, hex: hit?.[2] };
+}
+
 function SummaryView({ d, onSeek, onSearch, spoil = false }: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean }) {
   const chapters: any[] = d.chapters || [];
   const stories: any[] = d.gameStories || [];
@@ -241,14 +258,20 @@ function SummaryView({ d, onSeek, onSearch, spoil = false }: { d: any; onSeek: (
   const scenes: any[] = d.scenes || [];
   const storyOf = (g: any) => stories.find((s) => [g.name, g.ko].filter(Boolean).some((n: string) => n && (s.name === n || s.name.includes(n) || n.includes(s.name))));
   const extraStories = stories.filter((s) => !games.some((g) => storyOf(g) === s));
-  const chips = [...new Set([...(d.mood || []), ...(d.keywords || [])].map((x: string) => String(x).trim()).filter(Boolean))].slice(0, 18);
+  // '오팬남'처럼 줄여 쓴 건 위 오팬무 칸으로 보여 주니 빼기
+  const chips = [...new Set([...(d.mood || []), ...(d.keywords || [])].map((x: string) => String(x).trim()).filter((x) => x && !/^오팬.$/.test(x)))].slice(0, 18);
   return (
     <div className="space-y-5">
       {d.summary && <p className="text-[14px] text-zinc-800 dark:text-zinc-100 leading-relaxed break-keep">{pk(d.summary)}</p>}
 
       {d.opanmu && (
         <button type="button" onClick={() => onSearch('오팬무')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer">
-          <span className="text-purple-600 dark:text-purple-400">오팬무</span> {d.opanmu}
+          {(() => { const o = opanmuOf(d.opanmu); return (<>
+            <span className="text-purple-600 dark:text-purple-400">오팬무</span>
+            <span className="text-zinc-400 font-semibold">오늘 팬티 무슨 색?</span>
+            {o.hex && <span className="w-3 h-3 rounded-full border border-black/10 dark:border-white/20" style={{ background: o.hex }} />}
+            {o.text}
+          </>); })()}
         </button>
       )}
 
