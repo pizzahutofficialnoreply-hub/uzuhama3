@@ -337,7 +337,7 @@ const SCRIPT_RULE = `lines 는 이 구간에서 들린 말을 처음부터 끝�
 - 말을 고치거나 요약하지 마. 사투리·말버릇·감탄사(아, 어, 와)도 그대로. 욕은 그대로 두지 말고 '○○'로.
 - 잘 안 들리는 부분은 지어내지 말고 그 자리에 '(잘 안 들림)'. 전혀 모르겠으면 그 줄은 빼.
 - 번역하지 마. 들린 언어 그대로 (게임 대사가 영어면 영어로).
-- 게임 캐릭터가 소리 내어 말한 대사(목소리)만 w 를 "게임"으로 (캐릭터 이름을 s 앞에 붙이지 말 것). 목소리 없이 화면에만 뜬 글자(아이템·책 이름, 메뉴, 안내문, 퀘스트, 편집 자막)는 적지 마. 후원 메시지를 소리 내어 읽어 주는 TTS(기계 목소리)만 w 를 "후원"으로.
+- 게임 캐릭터가 소리 내어 말한 대사(목소리)만 w 를 "게임"으로 (캐릭터 이름을 s 앞에 붙이지 말 것). 목소리 없이 화면에만 뜬 글자(아이템·책 이름, 메뉴, 안내문, 퀘스트, 편집 자막)는 적지 마. 후원 메시지·후원 알림(TTS 기계 목소리 포함)은 아예 적지 마.
 - 화면에 보이는 채팅창·후원 목록 글자도 받아 적지 마. 이 스크립트는 귀로 들린 소리만 (눈으로 본 글자는 하나도 넣지 말 것). 우주하마가 채팅을 소리 내어 읽으면 그건 우주하마가 한 말.
 - 노래를 부르면 가사는 적지 말고 s 를 "♪ (노래)"로.
 - 말이 없는 구간(게임 소리만)은 줄을 만들지 마.`;
@@ -347,7 +347,7 @@ const subRule = (kind?: string) => kind === 'live' ? '' : `
 - 말이 아닌 자막(효과음 글자·설명·드립 자막·게임 이름 소개 등 아무도 소리 내어 말하지 않은 것)은 적지 마.`;
 function cleanLines(a: any, from: number, to: number): { t: number; s: string; w?: string }[] {
   let out: { t: number; s: string; w?: string }[] = (Array.isArray(a) ? a : []).map((x: any) => ({ t: toSec(x?.t), s: String(x?.s || '').replace(/\s+/g, ' ').trim().slice(0, 160), w: String(x?.w || '').trim().replace(/^(후원|게임|우주하마)\S*$/, '$1').slice(0, 20) }))
-    .filter((x) => Number.isFinite(x.t) && x.s);
+    .filter((x) => Number.isFinite(x.t) && x.s && x.w !== '후원');
   // 구간 기준(0부터)으로 답했으면 원본 기준으로
   if (from > 0 && out.length && Math.max(...out.map((x) => x.t)) < from) out = out.map((x) => ({ ...x, t: x.t + from }));
   out = out.filter((x) => x.t >= from - 5 && x.t <= to + 5).map((x) => ({ t: Math.max(0, Math.round(x.t)), s: x.s, ...(x.w && x.w !== '우주하마' ? { w: x.w } : {}) }));
@@ -368,10 +368,10 @@ function badScriptSeg(g: any, kind?: string): boolean {
 export function dropChatLines(lines: any[]): any[] {
   // 후원: 몇 초 안에 2줄 넘게 몰림 = 채팅창을 읽은 것 · 게임: 몇 초 간격으로 줄줄이 = 화면 글자(아이템·책 이름 등)를 읽은 것
   const by = (w: string) => lines.filter((l) => l?.w === w);
-  const don = by('후원'), game = by('게임');
-  const busyD = (t: number) => don.filter((l) => Math.abs(l.t - t) <= 4).length >= 2;
+  const game = by('게임');
   const busyG = (t: number) => game.filter((l) => Math.abs(l.t - t) <= 6).length >= 3;
-  return lines.filter((l) => !(l?.w === '후원' && busyD(l.t)) && !(l?.w === '게임' && busyG(l.t)));
+  // 후원은 스크립트에 넣지 않음
+  return lines.filter((l) => l?.w !== '후원' && !(l?.w === '게임' && busyG(l.t)));
 }
 async function saveScript(db: any, id: string, from: number, to: number, lines: any[]) {
   await db.collection('ai_script').doc(id).set({ id, segs: { [String(from)]: { from, to, lines, v: SCRIPT_V } }, updatedAt: new Date().toISOString() }, { merge: true });
