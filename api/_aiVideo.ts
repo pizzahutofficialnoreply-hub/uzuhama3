@@ -282,7 +282,7 @@ async function videoOnlyQuota(): Promise<boolean> {
 let lastVideoQuota = false;
 async function gen(parts: any[], json: boolean, timeoutMs: number, models = MODELS, extraIn: any = {}) {
   // _nextOnTimeout: 시간 초과면 다음 모델로 (검색할 때 확인처럼 기다리는 사람이 있을 때)
-  const { _nextOnTimeout, ...extra } = extraIn || {};
+  const { _nextOnTimeout, _noCool, ...extra } = extraIn || {};
   const { GoogleGenAI } = await import('@google/genai');
   const ai = new GoogleGenAI({ apiKey: aiKey() });
   let lastErr: any;
@@ -302,6 +302,8 @@ async function gen(parts: any[], json: boolean, timeoutMs: number, models = MODE
       const msg = String(e?.message || e);
       if (isTimeout(msg)) { if (_nextOnTimeout) { modelCool[model] = Date.now() + 10 * 60000; modelWhy[model] = 'busy'; continue; } throw e; } // 시간 초과는 보통 다른 모델로 바꿔도 같음
       if (!/not found|404|unsupported|invalid model/i.test(msg) && !isRate(msg) && !isBusy(msg)) throw e;
+      // 구글 검색 붙인 호출의 한도(검색 한도는 따로)는 모델을 쉬게 하지 않고 바로 돌려줌 → 검색 없이 다시
+      if (_noCool && isRate(msg)) throw e;
       coolModel(model, msg);
     }
   }
@@ -418,6 +420,7 @@ ${SCRIPT_RULE}`;
 const slug = (s: string) => normWord(s).slice(0, 80) || 'x';
 
 /** 게임이 어떤 게임인지: 구글 검색(공식 소개·스토어·다른 유튜버 플레이 영상 반응)으로 */
+let searchOffUntil = 0;
 async function analyzeGame(db: any, name: string, ko: string, link = '') {
   const ref = db.collection('ai_games').doc(slug(name));
   const cur = (await ref.get()).data();
@@ -425,7 +428,18 @@ async function analyzeGame(db: any, name: string, ko: string, link = '') {
   const prompt = `게임 "${name}"${ko ? ` (한국어로 "${ko}")` : ''}이 어떤 게임인지 구글 검색으로 확인해 줘.${link ? ` 방송 기록에 적힌 게임 링크: ${link} (이 페이지의 소개도 참고)` : ''} 공식 소개·스토어 페이지·리뷰, 그리고 이 게임을 플레이한 다른 유튜버·스트리머 영상의 제목과 반응을 참고해.
 아래 JSON 으로만 답해 (한국어). 확인 안 되는 건 비워 둬.
 {"name":"정식 이름","aliases":["한국어 이름·줄임말"],"genre":"장르","about":"어떤 게임인지 2~3문장","tags":["검색 키워드 5~12개: 분위기·소재·특징 (예: 점프스케어, 생존, 퍼즐, 협동, 귀여움)"],"horror":true/false,"players":"혼자/협동/대전 등","reactions":"다른 유튜버 플레이 영상에서 흔히 나오는 반응 한두 문장"}`;
-  const { text, model } = await gen([{ text: prompt }], false, 30000, TEXT_MODELS, { tools: [{ googleSearch: {} }] });
+  let out: { text: string; model: string };
+  if (searchOffUntil > Date.now()) out = await gen([{ text: prompt.replace('구글 검색으로 확인해 줘', '알려 줘') }], false, 30000, TEXT_MODELS);
+  else {
+    try { out = await gen([{ text: prompt }], false, 30000, TEXT_MODELS, { tools: [{ googleSearch: {} }], _noCool: true }); }
+    catch (e: any) {
+      if (!isRate(String(e?.message || e))) throw e;
+      // 검색 한도만 다 씀 (영상 분석은 됨): 오늘은 검색 없이 아는 만큼만
+      searchOffUntil = nextQuotaReset();
+      out = await gen([{ text: prompt.replace('구글 검색으로 확인해 줘', '알려 줘') }], false, 30000, TEXT_MODELS);
+    }
+  }
+  const { text, model } = out;
   const g = parseJson(text);
   const doc = {
     name: String(g.name || name).slice(0, 80), input: name, ko,
@@ -760,7 +774,8 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
         Object.assign(unknown, { genre: info.genre, about: info.about, tags: info.tags, aliases: info.aliases, horror: info.horror, checked: true });
       } catch (e: any) {
         unknown.checked = true;
-        if (isRate(String(e?.message || e))) { await release({ coolUntil: Date.now() + 10 * 60000, lastError: String(e?.message || e).slice(0, 300) }); return { error: 'rate' }; }
+        // 한도면 이 게임은 '확인함'으로 저장하고 넘어감 (예전에는 저장 전에 돌아가서 같은 게임에서 계속 멈춤)
+        if (isRate(String(e?.message || e))) { await ref.set({ games, updatedAt: new Date().toISOString() }, { merge: true }); await release({ coolUntil: Date.now() + 10 * 60000, lastError: String(e?.message || e).slice(0, 300), calls: calls + 1 }); return { error: 'rate', game: unknown.name }; }
       }
       const next = { ...cur, games };
       await ref.set({ games, kw: buildKw(next), updatedAt: new Date().toISOString() }, { merge: true });
@@ -1343,15 +1358,6 @@ export async function aiDiag(db: any, ping = false) {
         pingOut[m] = { status: r.status, body: (await r.text()).slice(0, 2500) };
       } catch (e: any) { pingOut[m] = { error: String(e?.message || e).slice(0, 300) }; }
     }
-    // 실제 분석과 같은 길(SDK)로: 글 · 영상 30초
-    const { GoogleGenAI } = await import('@google/genai');
-    const sdk = new GoogleGenAI({ apiKey: aiKey() });
-    const tryS = async (name: string, parts: any[]) => {
-      try { const r = await sdk.models.generateContent({ model: 'gemini-3.1-flash-lite', contents: [{ role: 'user', parts }], config: { temperature: 0.2, httpOptions: { timeout: 60000 }, mediaResolution: 'MEDIA_RESOLUTION_LOW' as any } }); pingOut[name] = { ok: (r.text || '').slice(0, 80) }; } catch (e: any) { pingOut[name] = { error: String(e?.message || e).slice(0, 600) }; }
-    };
-    await tryS('sdkText', [{ text: '1+1=? 숫자만' }]);
-    await tryS('sdkVideo', [{ fileData: { fileUri: 'https://www.youtube.com/watch?v=uY7u9p4fgZ0' }, videoMetadata: { startOffset: '60s', endOffset: '90s' } }, { text: '한 문장' }]);
-    pingOut.env = { gemini: !!process.env.GEMINI_API_KEY, google: !!process.env.GOOGLE_API_KEY, vite: !!process.env.VITE_GEMINI_API_KEY, vertex: process.env.GOOGLE_GENAI_USE_VERTEXAI || '', same: (process.env.GOOGLE_API_KEY || '') === aiKey() };
   }
   const st = (await db.collection('youtube_cache').doc('ai_state').get()).data() || {};
   let models: string[] = [];
