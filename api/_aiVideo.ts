@@ -339,6 +339,10 @@ const SCRIPT_RULE = `lines 는 이 구간에서 들린 말을 처음부터 끝�
 - 화면에 보이는 채팅창·후원 목록 글자도 받아 적지 마. 이 스크립트는 귀로 들린 소리만 (눈으로 본 글자는 하나도 넣지 말 것). 우주하마가 채팅을 소리 내어 읽으면 그건 우주하마가 한 말.
 - 노래를 부르면 가사는 적지 말고 s 를 "♪ (노래)"로.
 - 말이 없는 구간(게임 소리만)은 줄을 만들지 마.`;
+/** 편집 영상·쇼츠: 말한 내용을 적은 편집 자막이 있으니 받아 적을 때 참고 (생방송은 자막 없음) */
+const subRule = (kind?: string) => kind === 'live' ? '' : `
+- 이 영상은 편집본이라 화면에 '말한 내용을 적은 자막'이 있어. 소리를 들으면서 이 자막을 참고해 말을 정확히 받아 적어 (잘 안 들려도 자막이 있으면 자막대로, 시간은 그 말이 들린 때).
+- 말이 아닌 자막(효과음 글자·설명·드립 자막·게임 이름 소개 등 아무도 소리 내어 말하지 않은 것)은 적지 마.`;
 function cleanLines(a: any, from: number, to: number): { t: number; s: string; w?: string }[] {
   let out: { t: number; s: string; w?: string }[] = (Array.isArray(a) ? a : []).map((x: any) => ({ t: toSec(x?.t), s: String(x?.s || '').replace(/\s+/g, ' ').trim().slice(0, 160), w: String(x?.w || '').trim().replace(/^(후원|게임|우주하마)\S*$/, '$1').slice(0, 20) }))
     .filter((x) => Number.isFinite(x.t) && x.s);
@@ -349,7 +353,7 @@ function cleanLines(a: any, from: number, to: number): { t: number; s: string; w
   return out.slice(0, 600);
 }
 /** 스크립트 저장: ai_script/{id} 의 segs.{시작초} 에 구간별로 (다시 봐도 같은 구간은 덮어씀) */
-const SCRIPT_V = 3; // 2: 화면 채팅창은 받아 적지 않음 · 3: 화면에 뜬 글자(아이템 이름 등)도 안 적음
+const SCRIPT_V = 3; // 2: 화면 채팅창은 받아 적지 않음 · 3: 화면에 뜬 글자(아이템 이름 등)도 안 적음, 편집본은 말 자막 참고
 /** 예전 방식으로 받아 적은 구간 중 후원 줄이 너무 많은 것 (화면 채팅을 후원으로 읽음) */
 function badScriptSeg(g: any): boolean {
   if (Number(g?.v || 1) >= SCRIPT_V) return false;
@@ -381,7 +385,7 @@ export async function transcribeSegment(item: { id: string; title: string; kind?
   const whole = !item.duration || item.duration <= end - start + 30;
   const prompt = `스트리머 "우주하마"의 ${item.kind === 'live' ? '생방송 다시보기(자막 없음, 소리를 듣고 받아 적어야 함)' : '영상'} "${item.title}"${whole ? '' : `의 ${fmt(start)} ~ ${fmt(end)} 구간`}을 듣고 스크립트를 만들어. 아래 JSON 으로만 답해.
 {"lines": [${SCRIPT_LINE}]}
-${SCRIPT_RULE}`;
+${SCRIPT_RULE}${subRule(item.kind)}`;
   const part: any = { fileData: { fileUri: `https://www.youtube.com/watch?v=${item.id}` } };
   if (!whole) part.videoMetadata = { startOffset: `${start}s`, endOffset: `${end}s` };
   const { text, model } = await gen([part, { text: prompt }], true, AI_TIMEOUT, MODELS, { mediaResolution: 'MEDIA_RESOLUTION_LOW' });
@@ -407,7 +411,7 @@ ${item.logDate ? `방송 날짜: ${item.logDate}\n` : ''}${item.games?.length ? 
 }
 k 에는 화면에 실제로 또렷이 나온 것·실제로 들린 것만 넣어. '비명'은 크게 놀라 지르는 소리만 (작은 감탄사·"음~"·웃음·혼잣말은 '비명' 아님). 예: 귀신·괴물이 실제로 화면에 보이면 '귀신', 소리만 나거나 그림자·착각·"귀신인가?" 하는 말뿐이면 '귀신' 대신 '귀신 의심'·'소리'처럼 쓰고 sure 를 false 로. 확실하면 sure 는 true.
 scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'}), 시간 순서로.
-${SCRIPT_RULE}`;
+${SCRIPT_RULE}${subRule(item.kind)}`;
   // mimeType 을 붙이면 유튜브 주소를 느린 방식으로 읽어 시간 초과가 남 → 주소만
   const part: any = { fileData: { fileUri: `https://www.youtube.com/watch?v=${item.id}` } };
   if (!whole) part.videoMetadata = { startOffset: `${start}s`, endOffset: `${end}s` };
