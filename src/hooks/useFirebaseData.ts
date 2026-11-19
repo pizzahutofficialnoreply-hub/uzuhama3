@@ -354,11 +354,15 @@ export function useFirebaseData() {
                 selectedGames = comp.games;
               }
 
+              // 생방 여러 개에 걸친 영상(카페에서 가져온 multi)은 몰아보기가 아님: 보통 영상 + 생방송 고르기
+              // (관리자가 몰아보기로 등록한 것과 웃음참기 시리즈만 몰아보기)
+              const realComp = comp.kind !== 'multi' || /웃음\s*참기/.test(String(comp.title || ''));
               const compLink: LinkItem = {
                 title: comp.title || '몰아보기',
                 url: comp.url,
-                isCompilation: true,
-                compilationId: compId,
+                isCompilation: realComp,
+                compilationId: realComp ? compId : undefined,
+                ...(realComp ? {} : { multiId: compId }),
                 allBroadcastDates: allBroadcastDates.length > 0 ? allBroadcastDates : [targetLog.date],
                 games: selectedGames.length > 0 ? selectedGames : (targetLog.games || []),
                 gameSortOrder: comp.gameSortOrder || 'latest',

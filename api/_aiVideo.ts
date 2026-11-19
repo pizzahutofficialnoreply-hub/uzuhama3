@@ -432,7 +432,7 @@ ${item.logDate ? `방송 날짜: ${item.logDate}\n` : ''}${item.games?.length ? 
  "opanmu": "우주하마가 오늘 입은 팬티 색·무늬를 직접 정확히 말했으면 그 말 그대로 짧게 (예: 파란색, 핑크 땡땡이). 말 안 했거나 애매하면 빈칸"` : ''}
 }
 k 에는 화면에 실제로 또렷이 나온 것·실제로 들린 것만 넣어. '비명'은 크게 놀라 지르는 소리만 (작은 감탄사·"음~"·웃음·혼잣말은 '비명' 아님). 예: 귀신·괴물이 실제로 화면에 보이면 '귀신', 소리만 나거나 그림자·착각·"귀신인가?" 하는 말뿐이면 '귀신' 대신 '귀신 의심'·'소리'처럼 쓰고 sure 를 false 로. 확실하면 sure 는 true.
-scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'}), 시간 순서로. (say_note 는 비워 둬)`;
+scenes 는 눈에 띄는 순간마다 (${whole ? '최대 15개' : '최대 25개'}), 시간 순서로. 방송 끝에 "우주랑 하마를 합치면 우주하마" 노래를 부르며 마무리하는 건 매번 하는 아웃트로라 넣지 마. (say_note 는 비워 둬)`;
   // mimeType 을 붙이면 유튜브 주소를 느린 방식으로 읽어 시간 초과가 남 → 주소만
   const part: any = { fileData: { fileUri: `https://www.youtube.com/watch?v=${item.id}` } };
   if (!whole) part.videoMetadata = { startOffset: `${start}s`, endOffset: `${end}s` };
@@ -540,6 +540,18 @@ let pickedId = '';
  * 영상 길이를 넘는 시간·기록에 없는 하이라이트 빼기
  * (AI가 게임 소개에서 본 내용을 이 영상 일처럼 지어내 시간까지 붙이는 일이 있었음 → 영상 길이 25분인데 40:25 엔딩 등)
  */
+/** 매번 하는 아웃트로("우주랑 하마를 합치면 우주하마" 노래로 마무리)는 요약에서 빼기 */
+const OUTRO = /우주(랑|와)\s*하마(를|가)?\s*합치면|합치면\s*우주하마|아웃트로/;
+export function dropOutro(d: any): any {
+  const sentences = (t: string) => String(t || '').split(/(?<=[.!?요])\s+/).filter((x) => !OUTRO.test(x)).join(' ');
+  return {
+    ...d,
+    summary: sentences(d.summary),
+    chapters: (d.chapters || []).filter((c: any) => !OUTRO.test(`${c.title} ${c.summary}`)),
+    gameStories: (d.gameStories || []).map((g: any) => ({ ...g, story: sentences(g.story), highlights: (g.highlights || []).filter((h: any) => !OUTRO.test(h.d)) })),
+    scenes: (d.scenes || []).filter((x: any) => !OUTRO.test(`${x.d} ${x.q || ''}`)),
+  };
+}
 export function fitTimes<T extends { chapters?: any[]; gameStories?: any[]; scenes?: any[] }>(x: T, duration: number, scenes: { t: number }[] = []): T {
   const dur = Number(duration) || 0;
   const inDur = (t: number) => !dur || t <= dur + 5;
@@ -563,7 +575,7 @@ async function buildStory(title: string, cur: any, games: any[], script: { t: nu
   const talk = sl.filter((_, i) => i % step === 0).map((l) => `${fmt(l.t)} ${l.w ? `(${l.w}) ` : ''}${l.s}`).join('\n');
   const gl = games.map((g: any) => `- ${g.ko && g.ko !== g.name ? `${g.ko} (${g.name})` : g.name}${g.about ? `: ${g.about}` : ''}`).join('\n');
   const prompt = `스트리머 우주하마의 영상 "${title}" 을 AI가 보고 정리한 기록이야. 장면 하나하나가 아니라, 시청자가 한눈에 보게 '이야기·사건 단위'로 묶어 줘.
-규칙: 한국어. ${talk ? '[대사]는 실제로 들린 말을 받아 적은 거라 가장 믿을 만해: 무슨 일이 있었는지·누가 뭘 했는지는 [대사]를 바탕으로 쓰고, [구간별 정리]·[장면 기록]은 화면 쪽 참고로만. [대사]와 다르면 [대사]를 따라. ' : ''}게임 안의 일은 그 게임에서 쓰는 말 그대로 (아무 데나 비유하지 말 것: 책 정리 게임의 '자동 정리'를 '자율주행'이라 부르는 식 금지). 기록에 없는 건 지어내지 말 것 (게임 소개는 무슨 게임인지만 참고하고, 이 영상에서 실제로 나온 일은 [구간별 정리]·[장면 기록]에 있는 것만). 말투: 설명 문장은 모두 '~해요/~했어요' 체로 끝내 (~한다·~합니다·~함 섞지 말 것). 시간은 초(정수), [대사]·[장면 기록]에 있는 시간만. 너무 잘게 나누지 말고 큰 흐름 위주.
+규칙: 한국어. 방송 끝에 "우주랑 하마를 합치면 우주하마" 노래를 부르며 마무리하는 건 매번 하는 아웃트로라 요약·흐름·하이라이트 어디에도 넣지 마. ${talk ? '[대사]는 실제로 들린 말을 받아 적은 거라 가장 믿을 만해: 무슨 일이 있었는지·누가 뭘 했는지는 [대사]를 바탕으로 쓰고, [구간별 정리]·[장면 기록]은 화면 쪽 참고로만. [대사]와 다르면 [대사]를 따라. ' : ''}게임 안의 일은 그 게임에서 쓰는 말 그대로 (아무 데나 비유하지 말 것: 책 정리 게임의 '자동 정리'를 '자율주행'이라 부르는 식 금지). 기록에 없는 건 지어내지 말 것 (게임 소개는 무슨 게임인지만 참고하고, 이 영상에서 실제로 나온 일은 [구간별 정리]·[장면 기록]에 있는 것만). 말투: 설명 문장은 모두 '~해요/~했어요' 체로 끝내 (~한다·~합니다·~함 섞지 말 것). 시간은 초(정수), [대사]·[장면 기록]에 있는 시간만. 너무 잘게 나누지 말고 큰 흐름 위주.
 JSON 으로만:
 {"summary":"영상 전체 3~4문장",
  "chapters":[{"from":초,"to":초,"title":"이 구간 이름 (짧게)","summary":"무슨 일이 있었는지 1~2문장","game":"이때 하던 게임 이름(없으면 빈칸)"}],
@@ -1220,11 +1232,11 @@ export async function aiVideoDetail(db: any, id: string) {
     return { found: true, pending: true, id, title: d.title, kind: d.kind, status: d.status, seg: d.seg, segTotal: d.segTotal, pos: d.pos, duration: d.duration };
   }
   const durD = Number(d.duration || 0) || Math.max(0, ...(d.parts || []).map((p: any) => Number(p.to) || 0));
-  const fit = fitTimes({ chapters: d.chapters || [], gameStories: d.gameStories || [], scenes: d.scenes || [] }, durD, d.scenes || []);
+  const fit = dropOutro({ summary: d.summary || '', ...fitTimes({ chapters: d.chapters || [], gameStories: d.gameStories || [], scenes: d.scenes || [] }, durD, d.scenes || []) });
   return {
     found: true, id, title: d.title, kind: d.kind, status: d.status, seg: d.seg, segTotal: d.segTotal, model: d.model,
     chapters: fit.chapters, gameStories: fit.gameStories, nogari: d.nogari || '', opanmu: d.opanmu || '',
-    summary: d.summary || '', parts: (d.parts || []).map((p: any) => ({ from: p.from, to: p.to, summary: p.summary })),
+    summary: fit.summary, parts: (d.parts || []).map((p: any) => ({ from: p.from, to: p.to, summary: p.summary })),
     scenes: (fit.scenes as Scene[]).map((s: Scene) => ({ t: s.t, d: s.d, ...(s.q ? { q: s.q } : {}), k: s.k, ...(s.u ? { vague: true } : {}) })),
     games: games.map((g: any) => ({ name: g.name, ko: g.ko, genre: g.genre, about: g.about, tags: g.tags, horror: g.horror })),
     keywords: d.keywords || [], mood: d.mood || [],
