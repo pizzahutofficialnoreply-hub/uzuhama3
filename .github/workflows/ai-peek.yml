@@ -1,0 +1,11 @@
+name: ai-peek
+on: workflow_dispatch
+jobs:
+  peek:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for i in $(seq 1 16); do
+            curl -sS --max-time 60 "https://uzuhama.vercel.app/api/videos/search-index?ai=status" | python3 -c "import json,sys; d=json.load(sys.stdin); print('$(date -u +%H:%M)', 'done', d.get('doneCount'), d.get('lastId'), 'calls', d.get('calls'), 'cool', d.get('coolUntil'), str(d.get('lastError'))[:90])" || true
+            sleep 60
+          done
