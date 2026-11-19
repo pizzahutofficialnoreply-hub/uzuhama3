@@ -496,7 +496,9 @@ async function analyzeGame(db: any, name: string, ko: string, link = '') {
 
 /** 한 번 부를 때 한 구간 (또는 마무리 한 단계). 결과를 짧게 돌려줌 */
 /** 스토리 정리 버전: 바뀌면 이미 본 영상도 (영상은 다시 안 보고) 정리만 다시 */
-const SV = 2; // 2: 노가리·오팬무
+const SV = 3; // 3: 스크립트(대사) 바탕으로 다시 정리 · 2: 노가리·오팬무
+/** 스토리 정리를 다시 할 영상: 예전 방식이거나, 스크립트가 다 만들어졌는데 아직 스크립트로 정리 안 한 것 */
+const needStory = (d: any) => d.status === 'done' && Number(d.storyTries || 0) < 3 && (Number(d.sv || 0) < 2 || (Number(d.sv || 0) < SV && Boolean(d.scriptDone)));
 
 /* ── 분석 목록 색인 (youtube_cache/ai_ids 문서 하나) ──
  * ids: 분석을 시작한 영상, done: 요약까지 끝난 영상, fin: 더 볼 게 없는 영상
@@ -506,7 +508,7 @@ export function aiFinished(d: any): boolean {
   if (!d) return false;
   const busySkip = d.status === 'skip' && /high demand|UNAVAILABLE/i.test(d.error || '');
   const redo = d.pv !== PV && d.status !== 'skip';
-  const restory = !redo && d.status === 'done' && d.sv !== SV && Number(d.storyTries || 0) < 3;
+  const restory = !redo && needStory(d);
   if (busySkip || redo || restory) return false;
   return d.status === 'done' || d.status === 'skip' || (d.status === 'error' && Number(d.tries || 0) >= 3);
 }
@@ -550,14 +552,18 @@ export function fitTimes<T extends { chapters?: any[]; gameStories?: any[]; scen
   };
 }
 
-async function buildStory(title: string, cur: any, games: any[]) {
+async function buildStory(title: string, cur: any, games: any[], script: { t: number; s: string; w?: string }[] = []) {
   const parts = (cur?.parts || []).map((p: any) => `[${fmt(p.from)}~${fmt(p.to)}] ${p.summary}`).join('\n').slice(0, 14000);
   const scenes = (cur?.scenes || []).filter((x: Scene) => !x.u).map((x: Scene) => `${fmt(x.t)} ${x.d}${x.q ? ` "${x.q}"` : ''}`).join('\n').slice(0, 16000);
   const nogariRaw = (cur?.parts || []).filter((p: any) => p.nogari).map((p: any) => `[${fmt(p.from)}~${fmt(p.to)}] ${p.nogari}`).join('\n').slice(0, 6000);
   const opanmu = ((cur?.parts || []).find((p: any) => p.opanmu) || {}).opanmu || '';
+  // 대사: 너무 길면 고르게 덜어 냄 (긴 생방송)
+  const sl = script.filter((l) => l.s && !/^♪/.test(l.s));
+  const step = Math.max(1, Math.ceil(sl.map((l) => l.s.length + 10).reduce((a, b) => a + b, 0) / 60000));
+  const talk = sl.filter((_, i) => i % step === 0).map((l) => `${fmt(l.t)} ${l.w ? `(${l.w}) ` : ''}${l.s}`).join('\n');
   const gl = games.map((g: any) => `- ${g.ko && g.ko !== g.name ? `${g.ko} (${g.name})` : g.name}${g.about ? `: ${g.about}` : ''}`).join('\n');
   const prompt = `스트리머 우주하마의 영상 "${title}" 을 AI가 보고 정리한 기록이야. 장면 하나하나가 아니라, 시청자가 한눈에 보게 '이야기·사건 단위'로 묶어 줘.
-규칙: 한국어. 게임 안의 일은 그 게임에서 쓰는 말 그대로 (아무 데나 비유하지 말 것: 책 정리 게임의 '자동 정리'를 '자율주행'이라 부르는 식 금지). 기록에 없는 건 지어내지 말 것 (게임 소개는 무슨 게임인지만 참고하고, 이 영상에서 실제로 나온 일은 [구간별 정리]·[장면 기록]에 있는 것만). 말투: 설명 문장은 모두 '~해요/~했어요' 체로 끝내 (~한다·~합니다·~함 섞지 말 것). 시간은 초(정수), 기록에 있는 시간만. 너무 잘게 나누지 말고 큰 흐름 위주.
+규칙: 한국어. ${talk ? '[대사]는 실제로 들린 말을 받아 적은 거라 가장 믿을 만해: 무슨 일이 있었는지·누가 뭘 했는지는 [대사]를 바탕으로 쓰고, [구간별 정리]·[장면 기록]은 화면 쪽 참고로만. [대사]와 다르면 [대사]를 따라. ' : ''}게임 안의 일은 그 게임에서 쓰는 말 그대로 (아무 데나 비유하지 말 것: 책 정리 게임의 '자동 정리'를 '자율주행'이라 부르는 식 금지). 기록에 없는 건 지어내지 말 것 (게임 소개는 무슨 게임인지만 참고하고, 이 영상에서 실제로 나온 일은 [구간별 정리]·[장면 기록]에 있는 것만). 말투: 설명 문장은 모두 '~해요/~했어요' 체로 끝내 (~한다·~합니다·~함 섞지 말 것). 시간은 초(정수), [대사]·[장면 기록]에 있는 시간만. 너무 잘게 나누지 말고 큰 흐름 위주.
 JSON 으로만:
 {"summary":"영상 전체 3~4문장",
  "chapters":[{"from":초,"to":초,"title":"이 구간 이름 (짧게)","summary":"무슨 일이 있었는지 1~2문장","game":"이때 하던 게임 이름(없으면 빈칸)"}],
@@ -573,7 +579,8 @@ ${parts}
 ${nogariRaw ? `\n[노가리]\n${nogariRaw}\n` : ''}
 
 [장면 기록]
-${scenes}`;
+${scenes}
+${talk ? `\n[대사] (시각 · 들린 말, 이름 없는 줄은 우주하마)\n${talk}\n` : ''}`;
   const { text } = await gen([{ text: prompt }], true, 40000, TEXT_MODELS);
   const j = parseJson(text) || {};
   const num = (v: any) => Math.max(0, Math.round(Number(v) || 0));
@@ -584,8 +591,8 @@ ${scenes}`;
     name: String(g.name || '').slice(0, 80), story: String(g.story || '').slice(0, 700), result: String(g.result || '').slice(0, 80),
     highlights: (Array.isArray(g.highlights) ? g.highlights : []).slice(0, 6).map((h: any) => ({ t: num(h.t), d: String(h.d || '').slice(0, 160) })).filter((h: any) => h.d),
   })).filter((g: any) => g.name && (g.story || g.highlights.length));
-  const fitted = fitTimes({ chapters, gameStories }, Number(cur?.duration || 0) || Math.max(0, ...(cur?.parts || []).map((p: any) => Number(p.to) || 0)), cur?.scenes || []);
-  return { summary: String(j.summary || '').slice(0, 800), chapters: fitted.chapters, gameStories: fitted.gameStories, nogari: String(j.nogari || '').trim().slice(0, 2000) || nogariRaw.replace(/\[[^\]]+\]\s*/g, '').slice(0, 2000), opanmu: String(opanmu).slice(0, 30) };
+  const fitted = fitTimes({ chapters, gameStories }, Number(cur?.duration || 0) || Math.max(0, ...(cur?.parts || []).map((p: any) => Number(p.to) || 0)), [...(cur?.scenes || []), ...sl]);
+  return { fromScript: Boolean(talk), summary: String(j.summary || '').slice(0, 800), chapters: fitted.chapters, gameStories: fitted.gameStories, nogari: String(j.nogari || '').trim().slice(0, 2000) || nogariRaw.replace(/\[[^\]]+\]\s*/g, '').slice(0, 2000), opanmu: String(opanmu).slice(0, 30) };
 }
 
 /** 몰아보기 가볍게 보기: 오프닝 10분 + 설명란으로 주제·구성 */
@@ -684,7 +691,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
         const d = snaps[j].exists ? snaps[j].data() : null;
         const busySkip = d?.status === 'skip' && /high demand|UNAVAILABLE/i.test(d?.error || ''); // 예전 규칙으로 잘못 건너뛴 것
         const redo = d && d.pv !== PV && d.status !== 'skip'; // 예전 방식으로 본 영상 → 처음부터 다시
-        const restory = d && !redo && d.status === 'done' && d.sv !== SV && Number(d.storyTries || 0) < 3; // 스토리 정리만 다시 (영상은 안 봄)
+        const restory = d && !redo && needStory(d); // 스토리 정리만 다시 (영상은 안 봄)
         if (restory) { item = part[j]; cur = { ...d, status: 'finishing' }; break; }
         if (!d || busySkip || redo || (d.status !== 'done' && d.status !== 'skip' && !(d.status === 'error' && (d.tries || 0) >= 3))) { item = part[j]; cur = redo ? null : d; break; }
       }
@@ -715,6 +722,8 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
             // 시간이 앞쪽에만 몰렸으면 절반 길이로 한 번 더 (그것만 저장)
             if (r.squeezed && !whole && to - from > 60) { to = from + 60; r = await transcribeSegment(q, from, to); }
             await saveScript(db, q.id, from, to, r.lines);
+            // 끝까지 다 받아 적었으면: 요약을 스크립트 바탕으로 다시 정리하게 표시
+            if (whole || to >= dur - 5) { try { await col.doc(q.id).set({ scriptDone: true }, { merge: true }); await indexAiDoc(db, q.id); } catch { /* 다음에 */ } }
             await release({ usedSec: usedSec + Math.max(60, to - from), calls: calls + 1, lastError: '', idle: true, model: r.model });
             return { script: q.id, from, to, lines: r.lines.length, model: r.model };
           } catch (e: any) {
@@ -727,6 +736,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
             }
             // 안 되는 영상은 빈 구간으로 채워 넘어감
             await saveScript(db, q.id, from, to, []);
+            if (whole || to >= dur - 5) { try { await col.doc(q.id).set({ scriptDone: true }, { merge: true }); await indexAiDoc(db, q.id); } catch { /* 다음에 */ } }
             await release({ lastError: msg, calls: calls + 1 });
             return { script: q.id, error: msg };
           }
@@ -846,13 +856,15 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
       return { id: item.id, game: unknown.name };
     }
     // 전체를 보고 스토리·사건 단위로 묶기 (장면 하나하나가 아니라) + 게임별 줄거리·하이라이트
-    const story = await buildStory(item.title, cur, games).catch((e: any) => {
+    let scriptLines: any[] = [];
+    try { scriptLines = (await aiScript(db, item.id)).lines || []; } catch { /* 없으면 예전처럼 */ }
+    const story = await buildStory(item.title, cur, games, scriptLines).catch((e: any) => {
       if (isRate(String(e?.message || e))) throw e;
       return null;
     });
     const summary = story?.summary || cur?.parts?.[0]?.summary || '';
     const fin = { ...cur, games, summary, chapters: story?.chapters || [], gameStories: story?.gameStories || [], nogari: story?.nogari || '', opanmu: story?.opanmu || '' };
-    await ref.set({ summary, chapters: fin.chapters, gameStories: fin.gameStories, nogari: fin.nogari, opanmu: fin.opanmu, sv: story ? SV : 0, storyTries: story ? 0 : Number(cur?.storyTries || 0) + 1, kw: buildKw(fin), status: 'done', doneAt: new Date().toISOString() }, { merge: true });
+    await ref.set({ summary, chapters: fin.chapters, gameStories: fin.gameStories, nogari: fin.nogari, opanmu: fin.opanmu, sv: story ? (story.fromScript ? SV : 2) : 0, storyTries: story ? 0 : Number(cur?.storyTries || 0) + 1, kw: buildKw(fin), status: 'done', doneAt: new Date().toISOString() }, { merge: true });
     if ((st.priority || []).includes(item.id)) await stRef.set({ priority: (st.priority || []).filter((x: string) => x !== item!.id) }, { merge: true });
     // 연동 점검: 이 영상과 연결된 생방송·영상·쇼츠 중 AI 분석이 끝난 것과 내용이 맞는지 (글로만 비교, 한도에 걸리면 다음에)
     try { await checkLinks(db, item.id, { ...fin, title: item.title }); } catch (e: any) { if (isRate(String(e?.message || e))) { /* 다음 분석 때 */ } }
