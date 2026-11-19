@@ -306,15 +306,17 @@ function SummaryView({ d, onSeek, onSearch, spoil = false }: { d: any; onSeek: (
             {[...games.map((g) => ({ g, s: storyOf(g) })), ...extraStories.map((s) => ({ g: { name: s.name }, s }))].map(({ g, s }, i) => (
               <div key={`${g.name}-${i}`} className="rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 p-3.5 space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <button type="button" onClick={() => onSearch(g.name || g.ko)} className="text-left min-w-0 cursor-pointer group">
+                  <button type="button" onClick={() => onSearch(g.name || g.ko)} className="flex-1 text-left min-w-0 cursor-pointer group">
                     <p className="text-[13.5px] font-black text-zinc-900 dark:text-white group-hover:text-purple-600 break-keep">{g.ko && g.ko !== g.name ? `${g.ko}` : g.name}</p>
                     {g.ko && g.ko !== g.name && <p className="text-[11px] text-zinc-400 truncate">{g.name}</p>}
                   </button>
                   <div className="flex items-center gap-1 shrink-0">
                     {g.horror && <span className="px-1.5 py-0.5 rounded-md bg-red-500/10 text-red-600 text-[10px] font-black">공포</span>}
-                    {s?.result && <Spoiler on={spoil} inline><span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-black">{s.result}</span></Spoiler>}
+                    {/* 결과: 짧으면 배지, 길면 아래에 한 줄 (길게 옆에 두면 게임 이름이 세로로 찌그러졌음) */}
+                    {s?.result && String(s.result).length <= 10 && <Spoiler on={spoil} inline><span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-black whitespace-nowrap">{s.result}</span></Spoiler>}
                   </div>
                 </div>
+                {s?.result && String(s.result).length > 10 && <Spoiler on={spoil}><p className="text-[11.5px] font-bold text-emerald-700 dark:text-emerald-400 break-keep">결과 · {pk(s.result)}</p></Spoiler>}
                 {s?.story ? <Spoiler on={spoil}><p className="text-[12.5px] text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep">{pk(s.story)}</p></Spoiler> : g.about ? <p className="text-[12.5px] text-zinc-600 dark:text-zinc-300 leading-relaxed break-keep">{pk(g.about)}</p> : null}
                 {(s?.highlights || []).length > 0 && (
                   <Spoiler on={spoil}><ul className="space-y-1">

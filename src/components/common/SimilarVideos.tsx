@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import { VideoCardInfo } from './VideoCardInfo';
 import type { BroadcastLog } from '../../types';
 import { useVideoMeta, formatDuration, formatRelativeTime } from '../../hooks/useVideoDuration';
 
@@ -93,7 +94,7 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts }: { id: s
       {others.length > 0 && (
         <section className="mt-6" aria-label="연결된 영상">
           <h3 className="px-1 mb-2.5 text-[13px] font-black text-white">{others.some((x) => x.kind === 'live') ? '이 영상의 생방송' : '이 방송의 영상'}</h3>
-          <div className="space-y-3">{others.map((c) => <Card key={c.id} c={{ ...c, cats: [] }} onPick={onPick} />)}</div>
+          <div className="space-y-3">{others.map((c) => <Card key={c.id} c={{ ...c, cats: [] }} onPick={onPick} logs={logs} />)}</div>
         </section>
       )}
       {shorts.length > 0 && (
@@ -113,34 +114,39 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts }: { id: s
       {rest.length > 0 && (
         <section className="mt-6" aria-label="추천 영상">
           <h3 className="px-1 mb-2.5 text-[13px] font-black text-white">추천 영상</h3>
-          <div className="space-y-3">{rest.map((c) => <Card key={c.id} c={c} onPick={onPick} />)}</div>
+          <div className="space-y-3">{rest.map((c) => <Card key={c.id} c={c} onPick={onPick} logs={logs} />)}</div>
         </section>
       )}
     </>
   );
 }
 
-/** 사이트 카드 모양 (썸네일 위 · 제목 · 날짜) */
-function Card({ c, onPick }: { c: Cand | (Omit<Cand, 'kind'> & { kind: string }); onPick: (id: string, title: string, el: Element | null) => void }) {
+/** 검색 탭 영상 카드와 같은 모양 (썸네일 · 재생 시간 · 생방일 / 제목 · ⋯ / 업로드일 / 게임 태그 / 유튜브로 보기) */
+function Card({ c, onPick, logs }: { c: Cand | (Omit<Cand, 'kind'> & { kind: string }); onPick: (id: string, title: string, el: Element | null) => void; logs?: Record<string, BroadcastLog> }) {
   const meta = useVideoMeta(c.id);
+  const ref = useRef<HTMLDivElement>(null);
   const generic = !c.title || /^우주하마\s*생방송!?$/.test(c.title);
   const title = generic ? (c.kind === 'live' ? `${c.date} 생방송${c.games.length ? ` · ${c.games.slice(0, 2).join(', ')}` : ''}` : c.games.join(', ') || `${c.date} 방송`) : c.title;
-  const sub = [c.kind === 'live' ? '생방송' : '', c.games.slice(0, 2).join(' · '), meta?.publishedAt ? formatRelativeTime(meta.publishedAt) : c.date].filter(Boolean).join(' · ');
+  const pick = () => onPick(c.id, title, ref.current);
   return (
-    <button type="button" onClick={(e) => onPick(c.id, title, (e.currentTarget.querySelector('[data-thumb]') as Element) || e.currentTarget)}
-      className="w-full text-left rounded-[20px] overflow-hidden bg-zinc-900 border border-zinc-800 shadow-sm active:scale-[0.99] transition-transform cursor-pointer">
-      <span data-thumb data-thumb-radius="20px 20px 0 0" className="relative block aspect-video bg-zinc-800">
-        <img src={`https://i.ytimg.com/vi/${c.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
+    <div className="relative isolate flex flex-col rounded-[24px] overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+      <div ref={ref} data-thumb data-thumb-radius="24px 24px 0 0" className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+        <button type="button" onClick={pick} className="block w-full h-full cursor-pointer" aria-label={`${title} 보기`}>
+          <img src={`https://i.ytimg.com/vi/${c.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
+        </button>
         {typeof meta?.durationSec === 'number' && meta.durationSec > 0 && (
-          <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded-md bg-black/80 text-white text-[11px] font-bold tabular-nums">{formatDuration(meta.durationSec)}</span>
+          <span className="absolute bottom-2 right-2 z-20 bg-black/80 text-white font-bold rounded backdrop-blur-sm shadow-sm select-none tabular-nums pointer-events-none text-xs px-1.5 py-1">{formatDuration(meta.durationSec)}</span>
         )}
-        {c.kind === 'live' && <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10.5px] font-bold">생방송</span>}
-      </span>
-      <span className="block px-3.5 pt-2.5 pb-3">
-        <span className="block text-[14px] font-bold text-white leading-snug line-clamp-2 break-keep">{title}</span>
-        {sub && <span className="block mt-1 text-[12px] text-zinc-400 truncate">{sub}</span>}
-      </span>
-    </button>
+        {c.kind === 'live' ? (
+          <span className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10.5px] font-bold pointer-events-none">생방송</span>
+        ) : c.date ? (
+          <span className="absolute bottom-2 left-2 z-20 bg-black/80 text-white font-normal rounded backdrop-blur-sm shadow-sm select-none whitespace-nowrap text-xs px-2 py-1 pointer-events-none">생방일: {c.date}</span>
+        ) : null}
+      </div>
+      <div className="p-4 flex-1 flex flex-col">
+        <VideoCardInfo id={c.id} title={title} logs={logs} card onTitle={pick} />
+      </div>
+    </div>
   );
 }
 
