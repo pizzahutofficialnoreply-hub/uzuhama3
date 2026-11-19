@@ -1321,7 +1321,7 @@ export async function aiDiag(db: any, ping = false) {
   let pingOut: any = undefined;
   if (ping) {
     pingOut = {};
-    for (const m of ['gemini-3.1-flash-lite', 'gemini-3.5-flash']) {
+    for (const m of [] as string[]) {
       try {
         const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${aiKey()}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: '1+1=? 숫자만' }] }] }) });
         pingOut[m] = { status: r.status, body: (await r.text()).slice(0, 2500) };
@@ -1334,7 +1334,7 @@ export async function aiDiag(db: any, ping = false) {
         pingOut[name] = { status: r.status, body: (await r.text()).slice(0, 2500) };
       } catch (e: any) { pingOut[name] = { error: String(e?.message || e).slice(0, 300) }; }
     };
-    for (const [n, v] of [['live2h', 'EWciq134_24'], ['live4h', 'ko96xm1vOSw'], ['live6h', 'uY7u9p4fgZ0']]) await vid(n, { fileData: { fileUri: `https://www.youtube.com/watch?v=${v}` }, videoMetadata: { startOffset: '60s', endOffset: '90s' } });
+    for (const [n, a, b] of [['seg2m', 600, 720], ['seg5m', 900, 1200]] as const) await vid(n, { fileData: { fileUri: 'https://www.youtube.com/watch?v=uY7u9p4fgZ0' }, videoMetadata: { startOffset: `${a}s`, endOffset: `${b}s` } });
   }
   const st = (await db.collection('youtube_cache').doc('ai_state').get()).data() || {};
   let models: string[] = [];
