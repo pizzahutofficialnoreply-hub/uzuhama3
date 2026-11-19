@@ -4,22 +4,17 @@ jobs:
   peek:
     runs-on: ubuntu-latest
     steps:
-      - run: pip install -q yt-dlp
       - run: |
-          yt-dlp --skip-download --write-auto-subs --write-subs --sub-langs "ko.*,ko" --sub-format json3 -o "v.%(ext)s" "https://www.youtube.com/watch?v=EWciq134_24" 2>&1 | tail -5
-          ls -la
           curl -sS "https://uzuhama.vercel.app/api/videos/search-index?ai=script&id=EWciq134_24&t=$RANDOM" > s.json
           python3 - <<'P'
-          import json,glob
-          f=glob.glob('v*.json3')
-          print('subs files', f)
-          if f:
-            j=json.load(open(f[0])); ev=[e for e in j.get('events',[]) if e.get('segs')]
-            print('caption events', len(ev))
-            for e in ev:
-              t=e['tStartMs']//1000
-              if 4500<=t<=4560 or 600<=t<=640 or 1500<=t<=1530: print('YT', t, ''.join(s.get('utf8','') for s in e['segs']).replace('\n',' '))
-          s=json.load(open('s.json'))['lines']
-          for l in s:
-            if 4500<=l['t']<=4560 or 600<=l['t']<=640 or 1500<=l['t']<=1530: print('AI', l['t'], l.get('w',''), l['s'])
+          import json
+          s=json.load(open('s.json'))
+          L=s['lines']; cov=s['covered']
+          print('lines',len(L),'segs',len(cov))
+          for a,b in cov:
+            ts=[l['t']-a for l in L if a<=l['t']<b]
+            if not ts: print('SEG',a,b,'empty'); continue
+            n=len(ts); ts.sort(); span=b-a
+            q=lambda p: ts[min(n-1,int(p*n))]
+            print('SEG',a,b,'n',n,'per_min',round(n/(span/60),1),'q25',q(.25),'q50',q(.5),'q90',q(.9),'max',ts[-1], 'last%',round(ts[-1]/span*100))
           P
