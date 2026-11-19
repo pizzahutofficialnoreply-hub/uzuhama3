@@ -1334,8 +1334,7 @@ export async function aiDiag(db: any, ping = false) {
         pingOut[name] = { status: r.status, body: (await r.text()).slice(0, 2500) };
       } catch (e: any) { pingOut[name] = { error: String(e?.message || e).slice(0, 300) }; }
     };
-    await vid('short', { fileData: { fileUri: 'https://www.youtube.com/watch?v=O1bYieIerIo' } });
-    await vid('live30s', { fileData: { fileUri: 'https://www.youtube.com/watch?v=TFC5Vuezgj4' }, videoMetadata: { startOffset: '0s', endOffset: '30s' } });
+    for (const [n, v] of [['live2h', 'EWciq134_24'], ['live4h', 'ko96xm1vOSw'], ['live6h', 'uY7u9p4fgZ0']]) await vid(n, { fileData: { fileUri: `https://www.youtube.com/watch?v=${v}` }, videoMetadata: { startOffset: '60s', endOffset: '90s' } });
   }
   const st = (await db.collection('youtube_cache').doc('ai_state').get()).data() || {};
   let models: string[] = [];
