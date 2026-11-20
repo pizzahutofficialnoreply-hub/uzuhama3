@@ -38,6 +38,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
   const related = useMemo(() => applyShortsOverrides(autoRelated, overrides), [autoRelated, overrides]);
 
   const [kind, setKind] = useState<'video' | 'short'>('video');
+  const [autoKey, setAutoKey] = useState(0);
   const [status, setStatus] = useState<'unlinked' | 'linked' | 'hidden'>('unlinked');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
@@ -157,8 +158,8 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
 
   return (
     <div className="space-y-4">
-      <AutoLinkReview data={data} onUpdateLog={onUpdateLog} />
-      <GameCheckPanel />
+      <AutoLinkReview key={autoKey} data={data} onUpdateLog={onUpdateLog} />
+      <GameCheckPanel data={data} onSent={() => setAutoKey((k) => k + 1)} />
       <SheetCheckPanel data={data} />
       <ReportedIssues onFind={(id, k) => { setKind(k === 'short' ? 'short' : 'video'); setStatus('linked'); setQ(id); setPage(1); }} />
       <DeadVideos logs={logs} onUpdateLog={onUpdateLog} />
@@ -440,8 +441,8 @@ function AutoLinkReview({ data, onUpdateLog }: { data: AppData; onUpdateLog: (lo
   };
   return (
     <div className="bg-white dark:bg-zinc-900 border border-amber-300/60 dark:border-amber-700/50 rounded-2xl p-5 shadow-sm space-y-3">
-      <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2"><Link2 className="w-4 h-4 text-amber-500" /> 자동 연결 확인 <span className="text-xs font-bold text-amber-600">{items.length}개</span></h3>
-      <p className="text-[11px] text-zinc-500 break-keep">새 편집 영상을 설명창 게임 이름으로 방송 기록에 자동으로 넣은 것이에요. 이미 사이트에 보이고 있어요. 맞으면 승인, 다른 방송이면 아래 후보를 골라 '바꾸기'.</p>
+      <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2"><Link2 className="w-4 h-4 text-amber-500" /> 연결 확인 (자동 연결 · 대조에서 보낸 것) <span className="text-xs font-bold text-amber-600">{items.length}개</span></h3>
+      <p className="text-[11px] text-zinc-500 break-keep">새 편집 영상을 설명창 게임 이름으로 방송 기록에 자동으로 넣은 것, 그리고 '게임 이름·링크 대조'에서 고르고 보낸 것이에요. 지금 연결은 이미 사이트에 보이고 있어요. 맞으면 승인, 다른 방송이면 아래 후보(설명창 게임을 한 방송, 가까운 날짜 순)를 골라 '바꾸기'. 영상 연결은 맞는데 기록의 게임 이름이 틀린 거면 등록 탭에서 그 기록을 고쳐 주세요.</p>
       <ul className="space-y-3">
         {items.map((it) => {
           const chosen = sel[it.id] ?? (it.logs || []).map((l: any) => l.id);
@@ -481,7 +482,8 @@ function AutoLinkReview({ data, onUpdateLog }: { data: AppData; onUpdateLog: (lo
  * 게임 이름·링크 대조: 편집 영상 설명창의 게임 이름 ↔ 기록의 게임 이름, 그리고 게임 링크 페이지 이름 ↔ 기록의 게임 이름
  * (서버가 영상 40개씩 대조해서 game_check 에 적어 둠 · 워커가 3분마다 이어서)
  */
-function GameCheckPanel() {
+function GameCheckPanel({ data, onSent }: { data: AppData; onSent: () => void }) {
+  const [pick, setPick] = useState<Record<string, boolean>>({});
   const [rows, setRows] = useState<any[] | null>(null);
   const [st, setSt] = useState<any>(null);
   const [f, setF] = useState<'mismatch' | 'link' | 'noinfo' | 'match'>('mismatch');
@@ -509,7 +511,37 @@ function GameCheckPanel() {
       load();
     } finally { setBusy(''); }
   };
-  const list = (rows || []).filter((r) => (f === 'link' ? r.status === 'match' && r.linkIssue : r.status === f || (f === 'noinfo' && r.status === 'gone')));
+  const list = (rows || []).filter((r) => !r.sent && (f === 'link' ? r.status === 'match' && r.linkIssue : r.status === f || (f === 'noinfo' && r.status === 'gone')));
+  const keyOf = (r: any) => `${r.logId}__${r.vid}`;
+  const picked = list.filter((r) => pick[keyOf(r)]);
+  // 고른 것 → 위 '자동 연결 확인'으로 (거기서 맞는 방송을 골라 바꾸기·빼기·그대로 두기)
+  const nm = (x: string) => String(x || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+  const sendToLink = async () => {
+    if (!picked.length) return;
+    setBusy('send');
+    try {
+      const all = Object.values(data.logs).filter((l) => l && !l.isAbsence);
+      for (const r of picked) {
+        const want = (r.names || []).map(nm).filter((x: string) => x.length >= 2);
+        const cands = all.filter((l) => {
+          const names = [...(l.games || []).map((g) => g.name), l.game].filter(Boolean).map((x) => nm(x as string));
+          return names.some((n) => n && want.some((w: string) => n === w || (w.length >= 4 && n.includes(w)) || (n.length >= 4 && w.includes(n))));
+        }).sort((a, b) => Math.abs(Date.parse(a.date) - Date.parse(r.date)) - Math.abs(Date.parse(b.date) - Date.parse(r.date))).slice(0, 12);
+        const cur = data.logs[r.logId];
+        const list2 = [...(cur ? [cur] : []), ...cands.filter((l) => l.id !== r.logId)];
+        await setDoc(doc(db, 'yt_auto', r.vid), {
+          id: r.vid, title: r.title, logs: cur ? [{ id: cur.id, date: cur.date }] : [], status: 'pending', from: 'gamecheck', at: new Date().toISOString(),
+          reason: r.status === 'mismatch' ? `설명창 게임(${(r.names || []).join(', ')})과 기록 게임(${(r.games || []).map((g: any) => g.name).join(', ')})이 달라요` : r.status === 'match' ? '게임 링크 확인 필요' : '설명창에 게임 정보가 없어요',
+          ambiguous: true, names: (r.names || []).slice(0, 6),
+          candidates: list2.map((l) => ({ id: l.id, date: l.date, game: (l.games?.[0]?.name || l.game || '') })),
+        });
+        await setDoc(doc(db, 'game_check', keyOf(r)), { sent: true }, { merge: true });
+      }
+      setRows((x) => (x || []).map((r) => (pick[keyOf(r)] ? { ...r, sent: true } : r)));
+      setPick({});
+      onSent();
+    } finally { setBusy(''); }
+  };
   const cnt = (k: string) => (rows || []).filter((r) => (k === 'link' ? r.status === 'match' && r.linkIssue : r.status === k)).length;
   const LS: Record<string, string> = { ok: '맞음', name_diff: '이름이 다름', broken: '링크가 안 열림', nolink: '링크 없음' };
   return (
@@ -531,8 +563,16 @@ function GameCheckPanel() {
         </div>
         {rows === null ? <p className="text-zinc-500 flex items-center gap-1"><Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…</p> : (
           <ul className="space-y-1.5 max-h-[60vh] overflow-auto">
+            {list.length > 0 && (
+              <li className="sticky top-0 z-10 flex items-center gap-2 py-1.5 bg-white dark:bg-zinc-900">
+                <label className="inline-flex items-center gap-1.5 font-bold cursor-pointer"><input type="checkbox" checked={list.slice(0, 300).every((r) => pick[keyOf(r)])} onChange={(e) => { const on = e.target.checked; setPick((p) => { const n = { ...p }; list.slice(0, 300).forEach((r) => { n[keyOf(r)] = on; }); return n; }); }} /> 모두 고르기</label>
+                <button type="button" disabled={!picked.length || !!busy} onClick={sendToLink} className="ml-auto px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold cursor-pointer disabled:opacity-40">{busy === 'send' ? '보내는 중…' : `고른 ${picked.length}개 연동에서 고치기`}</button>
+              </li>
+            )}
             {list.slice(0, 300).map((r) => (
-              <li key={`${r.logId}${r.vid}`} className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-2.5">
+              <li key={`${r.logId}${r.vid}`} className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-2.5 flex gap-2">
+                <input type="checkbox" className="mt-1 shrink-0" checked={!!pick[keyOf(r)]} onChange={(e) => setPick((p) => ({ ...p, [keyOf(r)]: e.target.checked }))} aria-label="고르기" />
+                <div className="min-w-0 flex-1">
                 <p className="font-bold text-zinc-900 dark:text-white"><span className="text-zinc-500 tabular-nums mr-1.5">{r.date}</span><a href={`https://youtu.be/${r.vid}`} target="_blank" rel="noreferrer" className="hover:underline">{r.title}</a></p>
                 <p className="mt-0.5 text-zinc-600 dark:text-zinc-300">기록: {(r.games || []).map((g: any) => g.name).join(', ') || '없음'}{r.names?.length ? ` · 설명창: ${r.names.join(', ')}` : ''}{r.status === 'gone' ? ' · 유튜브에 없음(비공개·삭제)' : ''}</p>
                 {(r.links || []).map((p: any, i: number) => (
@@ -540,6 +580,7 @@ function GameCheckPanel() {
                     링크 {LS[p.link_status] || p.link_status}{p.link_title ? ` — 페이지 이름 「${p.link_title}」` : ''}{p.why ? ` (${p.why})` : ''}{p.link && <> · <a href={p.link} target="_blank" rel="noreferrer" className="underline">열기</a></>}
                   </p>
                 ))}
+                </div>
               </li>
             ))}
             {list.length > 300 && <li className="text-zinc-500">… {list.length - 300}개 더</li>}
