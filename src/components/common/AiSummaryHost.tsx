@@ -1,3 +1,4 @@
+import { useSheetExtra } from '../../utils/sheetExtra';
 import { openAiCard } from './AiCardExpand';
 import { Skeleton, TextSkeleton } from './Skeleton';
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
@@ -213,7 +214,7 @@ export function useDetailUpdates(id: string | undefined, set: (d: any) => void) 
 }
 const isAdminNow = () => { try { return isAdminUser(auth.currentUser) && adminSessionValid(); } catch { return false; } };
 
-export function SummaryBody(props: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean }) {
+export function SummaryBody(props: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean; date?: string | null }) {
   const [editing, setEditing] = useState(false);
   const admin = isAdminNow();
   if (editing) {
@@ -252,7 +253,10 @@ export function opanmuOf(v: string): { text: string; hex?: string } {
   return { text: t, hex: hit?.[2] };
 }
 
-function SummaryView({ d, onSeek, onSearch, spoil = false }: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean }) {
+function SummaryView({ d, onSeek, onSearch, spoil = false, date }: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean; date?: string | null }) {
+  // 시트(사람이 적은 것)에 있으면 그걸 먼저: 오팬무·오음무·오저무
+  const sheet = useSheetExtra(date);
+  const pan = sheet?.pan || d.opanmu;
   const chapters: any[] = d.chapters || [];
   const stories: any[] = d.gameStories || [];
   const games: any[] = d.games || [];
@@ -266,9 +270,10 @@ function SummaryView({ d, onSeek, onSearch, spoil = false }: { d: any; onSeek: (
     <div className="space-y-5">
       {d.summary && <p className="text-[14px] text-zinc-800 dark:text-zinc-100 leading-relaxed break-keep">{pk(d.summary)}</p>}
 
-      {d.opanmu && (
-        <button type="button" onClick={() => onSearch('오팬무')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer">
-          {(() => { const o = opanmuOf(d.opanmu); return (<>
+      {(pan || sheet?.eum || sheet?.jeo) && <div className="flex flex-wrap gap-1.5">
+      {pan && (
+        <button type="button" onClick={() => onSearch('오팬무')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer" title={sheet?.pan ? '생방송 아카이브 시트에 적힌 것' : 'AI 가 방송에서 들은 것'}>
+          {(() => { const o = opanmuOf(pan); return (<>
             <span className="text-purple-600 dark:text-purple-400">오팬무</span>
             <span className="text-zinc-400 font-semibold">오늘 팬티 무슨 색?</span>
             {o.hex && <span className="w-3 h-3 rounded-full border border-black/10 dark:border-white/20" style={{ background: o.hex }} />}
@@ -276,6 +281,9 @@ function SummaryView({ d, onSeek, onSearch, spoil = false }: { d: any; onSeek: (
           </>); })()}
         </button>
       )}
+      {sheet?.eum && <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100"><span className="text-purple-600 dark:text-purple-400">오음무</span><span className="text-zinc-400 font-semibold">오늘 음료 무엇?</span>{sheet.eum}</span>}
+      {sheet?.jeo && <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100"><span className="text-purple-600 dark:text-purple-400">오저무</span><span className="text-zinc-400 font-semibold">오늘 저녁 무엇?</span>{sheet.jeo}</span>}
+      </div>}
 
       {d.nogari && (
         <Section icon={<MessageCircle className="w-3.5 h-3.5" />} title="노가리">

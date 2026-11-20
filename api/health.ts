@@ -454,6 +454,10 @@ export default async function handler(req: any, res: any) {
       const { loadSiteLogs } = await import('./_siteLogs.js');
       const rows = readXlsx(buf);
       const out = compareSheet(rows, (await loadSiteLogs(db, { maxAgeMs: 0 })).logs);
+      // 그날 오팬무·오음무·오저무 (AI 요약보다 먼저 보여 줌)
+      const byDate: Record<string, any> = {};
+      for (const x of rows) { const e: any = {}; if (x.pan) e.pan = x.pan; if (x.eum) e.eum = x.eum; if (x.jeo) e.jeo = x.jeo; if (Object.keys(e).length) byDate[x.date] = { ...(byDate[x.date] || {}), ...e }; }
+      await db.collection('config').doc('sheetExtra').set({ at: new Date().toISOString(), byDate });
       await ref.set({ hash, at: new Date().toISOString(), total: out.total, same: out.same, range: out.range, count: out.count, diffs: out.diffs.filter((d) => d.kind !== 'moved').slice(0, 600) });
       return res.status(200).json({ ok: true, total: out.total, same: out.same, count: out.count });
     } catch (e: any) { return res.status(200).json({ ok: false, reason: String(e?.message || e).slice(0, 200) }); }

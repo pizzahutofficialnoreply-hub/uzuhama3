@@ -11,7 +11,7 @@ import { recommendShorts } from '../../utils/relatedShorts';
 import { ScriptView, loadScript, lineAt, type Script } from './ScriptView';
 import { GlassPlayButton } from './MediaIcons';
 import { Skeleton } from './Skeleton';
-import { VideoCardInfo } from './VideoCardInfo';
+import { VideoCardInfo, findVideo } from './VideoCardInfo';
 import { CardFind } from './CardFind';
 
 /**
@@ -398,7 +398,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                               <Skeleton className="mt-3 h-16 w-full rounded-2xl" />
                             </div>
                           ) : ready ? (
-                            <SummaryBody d={data} spoil={spoil} onSeek={(s) => seek(s)} onSearch={(q) => { close(); goSearch(q); }} />
+                            <SummaryBody d={data} date={findVideo(t.id, logs)?.log?.date} spoil={spoil} onSeek={(s) => seek(s)} onSearch={(q) => { close(); goSearch(q); }} />
                           ) : compHas ? (
                             <CompilationSummary data={data} spoil={spoil} onSeek={(s, id) => seek(s, id)} onSearch={(q) => { close(); goSearch(q); }} />
                           ) : null}

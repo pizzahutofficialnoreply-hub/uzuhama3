@@ -479,7 +479,7 @@ function AutoLinkReview({ data, onUpdateLog }: { data: AppData; onUpdateLog: (lo
 
 /**
  * 게임 이름·링크 대조: 편집 영상 설명창의 게임 이름 ↔ 기록의 게임 이름, 그리고 게임 링크 페이지 이름 ↔ 기록의 게임 이름
- * (서버가 영상 40개씩 대조해서 game_check 에 적어 둠 · 워커가 10분마다 이어서)
+ * (서버가 영상 40개씩 대조해서 game_check 에 적어 둠 · 워커가 3분마다 이어서)
  */
 function GameCheckPanel() {
   const [rows, setRows] = useState<any[] | null>(null);
@@ -543,7 +543,7 @@ function GameCheckPanel() {
 /**
  * 스프레드시트 대조: '우주하마 생방송 아카이브(V3)' 시트 ↔ 사이트 기록
  * - 구글 시트 주소를 저장해 두면 워커가 하루 한 번 받아서 (시트가 바뀌었을 때만) 비교 → 결과가 여기 쌓임
- * - 엑셀 파일을 직접 올려서 바로 비교할 수도 있음 (이 기기에서만, 저장 안 함)
+ * - 엑셀 파일을 직접 올려서 바로 비교할 수도 있음 (대조 결과는 저장 안 함 · 오팬무·오음무·오저무는 저장해서 AI 요약에 씀)
  */
 function SheetCheckPanel({ data }: { data: AppData }) {
   const [open, setOpen] = useState(false);
@@ -570,6 +570,10 @@ function SheetCheckPanel({ data }: { data: AppData }) {
       const rows = readXlsx(new Uint8Array(await file.arrayBuffer()));
       const out = compareSheet(rows, Object.values(data.logs));
       setRes({ ...out, diffs: out.diffs.filter((d) => d.kind !== 'moved'), at: new Date().toISOString(), from: 'file' });
+      // 그날 오팬무·오음무·오저무도 같이 저장 (AI 요약보다 먼저 보여 줌)
+      const byDate: Record<string, any> = {};
+      for (const x of rows) { const e: any = {}; if (x.pan) e.pan = x.pan; if (x.eum) e.eum = x.eum; if (x.jeo) e.jeo = x.jeo; if (Object.keys(e).length) byDate[x.date] = { ...(byDate[x.date] || {}), ...e }; }
+      if (Object.keys(byDate).length) await setDoc(doc(db, 'config', 'sheetExtra'), { at: new Date().toISOString(), byDate });
     } catch (e: any) { setMsg('파일을 못 읽었어요: ' + (e?.message || e)); } finally { setBusy(''); }
   };
   const order: SheetDiff['kind'][] = ['live', 'video', 'game', 'nolog', 'siteOnly', 'gameLang', 'moved'];
