@@ -12,7 +12,20 @@ import { gameNamesFrom, seriesOf, normG } from './_ytSync.js';
 const ytId = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
 const sha = async (s: string) => { const { createHash } = await import('node:crypto'); return createHash('sha1').update(s).digest('hex').slice(0, 24); };
 
-/** 글자 몇 개만 다른 것(오타·띄어쓰기·& ↔ and 등)은 같은 게임으로 */
+/** 비교용 정리: 대소문자·악센트(Ö→o)·기호 무시, 한글·영문·일본어·중국어·숫자만 남김 */
+const nz = (x: string) => String(x || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+/** 이름 하나 → 비교할 조각들: 전체 / 괄호·|·/ 로 나눈 것 / 영문 쪽·나머지 쪽 ('파놉티콘 Panopticon' ↔ 'Panopticon (파놉티콘)') */
+function parts(name: string): string[] {
+  const clean = String(name || '').replace(/[(（\[]\s*(데모|demo|체험판|prologue|프롤로그|플래시게임|하다가 때려침)\s*[)）\]]/gi, ' ').replace(/\b(demo|prologue)\b|데모|체험판/gi, ' ');
+  const out = [clean, ...clean.split(/[()（）\[\]|/,·]|\s[-–:]\s|:\s/)];
+  for (const p of [...out]) {
+    const en = (p.match(/[A-Za-zÀ-ɏ0-9][A-Za-zÀ-ɏ0-9 .!?'&+-]*[A-Za-zÀ-ɏ0-9!?]/g) || []).join(' ');
+    const rest = p.replace(/[A-Za-zÀ-ɏ][A-Za-zÀ-ɏ0-9 .!?'&+-]*/g, ' ');
+    out.push(en, rest);
+  }
+  return [...new Set(out.map((x) => nz(x.replace(/&/g, 'and'))).filter((x) => x.length >= 2))];
+}
+/** 글자 몇 개만 다른 것(오타·띄어쓰기 등)은 같은 게임으로 */
 function close(x: string, y: string): boolean {
   const a = [...x], b = [...y];
   if (Math.min(a.length, b.length) < 4 || Math.abs(a.length - b.length) > 3) return false;
@@ -22,14 +35,18 @@ function close(x: string, y: string): boolean {
     for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
     prev = cur;
   }
-  const d = prev[b.length];
-  return d <= 2 || d / Math.max(a.length, b.length) <= 0.15;
+  const d = prev[b.length], L = Math.max(a.length, b.length);
+  return d <= (L >= 10 ? 3 : L >= 6 ? 2 : 1) && d / L <= 0.3;
 }
-function nameMatch(a: string, b: string): boolean {
-  const x = normG(a.replace(/&/g, 'and').replace(/\b(demo|데모|체험판|prologue|프롤로그)\b/gi, '')), y = normG(b.replace(/&/g, 'and').replace(/\b(demo|데모|체험판|prologue|프롤로그)\b/gi, ''));
-  if (!x || !y) return false;
-  if (close(x, y)) return true;
-  if (x === y || (x.length >= 4 && y.includes(x)) || (y.length >= 4 && x.includes(y))) return true;
+export function nameMatch(a: string, b: string): boolean {
+  const pa = parts(a), pb = parts(b);
+  for (const x of pa) for (const y of pb) {
+    if (x === y && x.length >= 3) return true;
+    // 일본어·한자는 글자 수가 짧아서 3글자부터 ('たんぼ')
+    const min = (z: string) => (/[\u3040-\u30ff\u4e00-\u9fff]/.test(z) ? 3 : 4);
+    if ((x.length >= min(x) && y.includes(x)) || (y.length >= min(y) && x.includes(y))) return true;
+    if (close(x, y)) return true;
+  }
   const sa = seriesOf(a), sb = seriesOf(b);
   return sa.base === sb.base && sa.n === sb.n && sa.base.length >= 3;
 }
@@ -68,11 +85,11 @@ export async function gameCheckRun(db: any, opts: { reset?: boolean } = {}) {
   const st = opts.reset ? {} : ((await stRef.get()).data() || {});
   if (st.running && Date.now() - Number(st.running) < 4 * 60000) return { ok: true, skipped: '다른 대조가 도는 중' };
   // 다 했으면 (새 영상은 일주일에 한 번 처음부터 다시) 바로 끝
-  if (st.v === 2 && st.done && Date.now() - Date.parse(st.at || '0') < 7 * 86400000) return { ok: true, done: true, total: st.total };
+  if (st.v === 3 && st.done && Date.now() - Date.parse(st.at || '0') < 7 * 86400000) return { ok: true, done: true, total: st.total };
   if (st.done) { st.cursor = 0; }
   // 비교 방식이 바뀌면(글자 몇 개 차이 = 같은 게임) 처음부터 다시
-  if (st.v !== 2) { st.cursor = 0; st.done = false; }
-  await stRef.set({ running: Date.now(), v: 2 }, { merge: true });
+  if (st.v !== 3) { st.cursor = 0; st.done = false; }
+  await stRef.set({ running: Date.now(), v: 3 }, { merge: true });
   try {
     const { loadSiteLogs } = await import('./_siteLogs.js');
     const logs = ((await loadSiteLogs(db)).logs as any[]).filter((l) => l && !l.isAbsence && (l.edited || []).length);
@@ -97,12 +114,14 @@ export async function gameCheckRun(db: any, opts: { reset?: boolean } = {}) {
         const s = sn.get(b.vid);
         const games = ((b.l.games || []).length ? b.l.games : b.l.game ? [{ name: b.l.game, link: '' }] : []).filter((g: any) => g?.name);
         const names = s ? gameNamesFrom(s.title || '', s.description || '') : [];
+        // 설명창 맨 위 '게임 이름 / 우주하마' 줄이 있을 때만 불일치로 봄 · 해시태그(#공포게임 #협동게임 …)뿐이면 '정보 없음'
+        const main = s ? gameNamesFrom('', String(s.description || '').replace(/#[^\s#]+/g, '')) : [];
         const hit = games.filter((g: any) => names.some((n) => nameMatch(n, g.name)));
-        const status: 'match' | 'mismatch' | 'noinfo' | 'gone' = !s ? 'gone' : !names.length ? 'noinfo' : hit.length ? 'match' : 'mismatch';
-        return { b, s, games, names, hit, status };
+        let status: 'match' | 'mismatch' | 'noinfo' | 'gone' = !s ? 'gone' : hit.length ? 'match' : main.length ? 'mismatch' : 'noinfo';
+        return { b, s, games, names, main, hit, status, via: '' };
       });
-      // 2) 일치한 게임의 링크: 저장해 둔 것 먼저, 처음 보는 링크는 8개씩 동시에 열어 봄
-      const links = [...new Set(work.flatMap((w) => w.hit.map((g: any) => g.link).filter(Boolean)))] as string[];
+      // 2) 링크: 일치한 게임 + 불일치한 영상의 모든 게임 (다른 나라 이름이라 다른 것처럼 보이는지 링크 페이지 이름으로 확인)
+      const links = [...new Set(work.flatMap((w) => (w.status === 'mismatch' ? w.games : w.hit).map((g: any) => g.link).filter(Boolean)))] as string[];
       const ids = await Promise.all(links.map((l) => sha(l)));
       const cached = links.length ? await db.getAll(...ids.map((id) => linkCache.doc(id))) : [];
       const info: Record<string, any> = {};
@@ -115,6 +134,12 @@ export async function gameCheckRun(db: any, opts: { reset?: boolean } = {}) {
           await linkCache.doc(ids[i]).set(info[links[i]]);
         }));
       }
+      // 불일치인데 게임 링크 페이지 이름이 설명창 이름과 같으면 → 일치 (예: 恶意 ↔ Dread Neighbor)
+      for (const w of work) {
+        if (w.status !== 'mismatch') continue;
+        const g = w.games.find((g: any) => { const c = g.link && info[g.link]; return c?.ok && c.title && w.main.some((n) => nameMatch(n, c.title)); });
+        if (g) { w.status = 'match'; w.hit = [g]; w.via = 'link'; }
+      }
       // 3) 결과 저장
       const wb = db.batch();
       for (const w of work) {
@@ -126,7 +151,7 @@ export async function gameCheckRun(db: any, opts: { reset?: boolean } = {}) {
         });
         counts[w.status]++;
         wb.set(db.collection('game_check').doc(`${w.b.l.id}__${w.b.vid}`), {
-          logId: w.b.l.id, date: w.b.l.date, vid: w.b.vid, title: w.s?.title || w.b.title, status: w.status, names: w.names.slice(0, 6),
+          logId: w.b.l.id, date: w.b.l.date, vid: w.b.vid, title: w.s?.title || w.b.title, status: w.status, via: w.via, names: w.names.slice(0, 6),
           games: w.games.map((g: any) => ({ name: g.name, link: g.link || '' })), links: per,
           linkIssue: per.some((p: any) => p.link_status !== 'ok'), at: new Date().toISOString(),
         }, { merge: true });

@@ -560,7 +560,7 @@ function GameCheckPanel({ data, onSent }: { data: AppData; onSent: () => void })
     <details open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
       <summary className="text-base font-bold text-zinc-900 dark:text-white cursor-pointer">게임 이름·링크 대조</summary>
       <div className="mt-3 space-y-3 text-xs">
-        <p className="text-zinc-500 break-keep">편집 영상 설명창(맨 위 게임 이름 줄·해시태그)의 게임 이름과 기록의 게임 이름을 비교하고, 일치한 게임은 스팀·앱스토어·구글 플레이·웹 링크를 열어 그 페이지 이름과 다시 맞춰 봐요. 예전 영상은 설명창에 게임 이름이 없어서 '정보 없음'으로 보류돼요.</p>
+        <p className="text-zinc-500 break-keep">편집 영상 설명창(맨 위 게임 이름 줄·해시태그)의 게임 이름과 기록의 게임 이름을 비교하고, 일치한 게임은 스팀·앱스토어·구글 플레이·웹 링크를 열어 그 페이지 이름과 다시 맞춰 봐요. 예전 영상처럼 설명창에 '게임 이름 / 우주하마' 줄 없이 해시태그(#공포게임 등)만 있으면 '정보 없음'으로 보류돼요. 한글·영문·일본어 표기 차이나 글자 몇 개 차이는 일치로 보고, 이름이 아예 달라도 게임 링크 페이지 이름이 설명창과 같으면 일치로 봐요.</p>
         <div className="flex items-center gap-2">
           <p className="text-zinc-500">{st ? `${st.cursor || 0} / ${st.total || '?'}개 대조${st.done ? ' (다 함)' : ` · ${st.running ? '지금 대조 중… ' : ''}워커가 3분마다 이어서 해요 (마지막 ${st.at ? new Date(st.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-'})`}${st.lastError ? ` · 오류: ${st.lastError}` : ''}` : '아직 시작 안 함'}</p>
           <button type="button" onClick={load} className="ml-auto px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer">목록 새로고침</button>
@@ -587,7 +587,7 @@ function GameCheckPanel({ data, onSent }: { data: AppData; onSent: () => void })
                 <input type="checkbox" className="mt-1 shrink-0" checked={!!pick[keyOf(r)]} onChange={(e) => setPick((p) => ({ ...p, [keyOf(r)]: e.target.checked }))} aria-label="고르기" />
                 <div className="min-w-0 flex-1">
                 <p className="font-bold text-zinc-900 dark:text-white"><span className="text-zinc-500 tabular-nums mr-1.5">{r.date}</span><a href={`https://youtu.be/${r.vid}`} target="_blank" rel="noreferrer" className="hover:underline">{r.title}</a></p>
-                <p className="mt-0.5 text-zinc-600 dark:text-zinc-300">기록: {(r.games || []).map((g: any) => g.name).join(', ') || '없음'}{r.names?.length ? ` · 설명창: ${r.names.join(', ')}` : ''}{r.status === 'gone' ? ' · 유튜브에 없음(비공개·삭제)' : ''}</p>
+                <p className="mt-0.5 text-zinc-600 dark:text-zinc-300">기록: {(r.games || []).map((g: any) => g.name).join(', ') || '없음'}{r.names?.length ? ` · 설명창: ${r.names.join(', ')}` : ''}{r.status === 'gone' ? ' · 유튜브에 없음(비공개·삭제)' : ''}{r.via === 'link' ? ' · 이름은 달라도 게임 링크 페이지 이름이 설명창과 같아서 일치' : ''}</p>
                 {(r.links || []).map((p: any, i: number) => (
                   <p key={i} className={cn('mt-0.5', p.link_status === 'ok' ? 'text-emerald-600' : 'text-amber-600')}>
                     링크 {LS[p.link_status] || p.link_status}{p.link_title ? ` — 페이지 이름 「${p.link_title}」` : ''}{p.why ? ` (${p.why})` : ''}{p.link && <> · <a href={p.link} target="_blank" rel="noreferrer" className="underline">열기</a></>}
