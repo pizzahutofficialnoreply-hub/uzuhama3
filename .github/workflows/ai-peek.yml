@@ -1,0 +1,8 @@
+name: ai-peek
+on: workflow_dispatch
+jobs:
+  peek:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .github/peek/an.py
