@@ -53,7 +53,7 @@ for o in order:
 holders=[l['id'] for l in L if 'c-ToCiLeHas' in urls(l,'edited')+urls(l,'shorts')]
 print('ORDERIDS', json.dumps(order_ids)); print('HOLDERS', json.dumps(holders))
 for l in L:
-  if l['date']=='2024-09-19': print('PIZZA', l['id'], json.dumps(l.get('vods')), json.dumps([e.get('url') for e in l.get('edited',[])]))
+  if l.get('date')=='2024-09-19': print('PIZZA', l['id'], json.dumps(l.get('vods')), json.dumps([e.get('url') for e in l.get('edited',[])]))
 for p in pairs:
   ls=[l for l in L if p['live'] in urls(l,'vods')]
   if len(ls)>1: print('DUP', p['date'], [x['id'] for x in ls])
