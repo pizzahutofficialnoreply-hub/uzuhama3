@@ -13,6 +13,7 @@ import { cn, formatTo12Hour } from '../../../utils';
 import { applyShortsOverrides, setIgnored, setShortsLink, useLinkOverrides } from '../../../utils/linkOverrides';
 import { cleanShortsTitle } from '../../../utils/videoSearch';
 import { confirmSheet } from '../../../utils/ui';
+import { readXlsx, compareSheet, SHEET_DIFF_LABEL, type SheetDiff } from '../../../utils/sheetCompare';
 
 /**
  * 관리자 > 연동: 유튜브 채널 영상·쇼츠가 어느 방송 기록·어느 영상과 이어져 있는지 보고 고치기
@@ -158,6 +159,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
     <div className="space-y-4">
       <AutoLinkReview data={data} onUpdateLog={onUpdateLog} />
       <GameCheckPanel />
+      <SheetCheckPanel data={data} />
       <ReportedIssues onFind={(id, k) => { setKind(k === 'short' ? 'short' : 'video'); setStatus('linked'); setQ(id); setPage(1); }} />
       <DeadVideos logs={logs} onUpdateLog={onUpdateLog} />
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3">
@@ -532,6 +534,73 @@ function GameCheckPanel() {
             ))}
             {list.length > 300 && <li className="text-zinc-500">… {list.length - 300}개 더</li>}
           </ul>
+        )}
+      </div>
+    </details>
+  );
+}
+
+/**
+ * 스프레드시트 대조: '우주하마 생방송 아카이브(V3)' 시트 ↔ 사이트 기록
+ * - 구글 시트 주소를 저장해 두면 워커가 하루 한 번 받아서 (시트가 바뀌었을 때만) 비교 → 결과가 여기 쌓임
+ * - 엑셀 파일을 직접 올려서 바로 비교할 수도 있음 (이 기기에서만, 저장 안 함)
+ */
+function SheetCheckPanel({ data }: { data: AppData }) {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState('');
+  const [saved, setSaved] = useState('');
+  const [res, setRes] = useState<any>(null);
+  const [f, setF] = useState<SheetDiff['kind'] | 'all'>('all');
+  const [busy, setBusy] = useState('');
+  const [msg, setMsg] = useState('');
+  const load = () => {
+    getDoc(doc(db, 'config', 'system')).then((d) => { const u = d.data()?.archiveSheetUrl || ''; setUrl(u); setSaved(u); }).catch(() => {});
+    getDoc(doc(db, 'youtube_cache', 'sheet_check')).then((d) => { noteReads('sheet_check(관리자)', 1); if (d.exists()) setRes({ ...d.data(), from: 'auto' }); }).catch(() => {});
+  };
+  useEffect(() => { if (open && !res) load(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const base = /vercel\.app$|localhost/.test(window.location.hostname) ? '' : 'https://uzuhama.vercel.app';
+  const saveUrl = async () => { setBusy('save'); try { await setDoc(doc(db, 'config', 'system'), { archiveSheetUrl: url.trim() }, { merge: true }); setSaved(url.trim()); setMsg('저장했어요. 워커가 하루 한 번 대조해요.'); } finally { setBusy(''); } };
+  const runNow = async () => {
+    setBusy('run'); setMsg('');
+    try { const j = await (await fetch(`${base}/api/health?sheetcheck=1&force=1`)).json(); if (!j.ok) setMsg(j.reason || '못 했어요'); load(); } finally { setBusy(''); }
+  };
+  const onFile = async (file: File) => {
+    setBusy('file'); setMsg('');
+    try {
+      const rows = readXlsx(new Uint8Array(await file.arrayBuffer()));
+      const out = compareSheet(rows, Object.values(data.logs));
+      setRes({ ...out, diffs: out.diffs.filter((d) => d.kind !== 'moved'), at: new Date().toISOString(), from: 'file' });
+    } catch (e: any) { setMsg('파일을 못 읽었어요: ' + (e?.message || e)); } finally { setBusy(''); }
+  };
+  const order: SheetDiff['kind'][] = ['live', 'video', 'game', 'nolog', 'siteOnly', 'gameLang', 'moved'];
+  const list = (res?.diffs || []).filter((d: SheetDiff) => f === 'all' || d.kind === f);
+  return (
+    <details open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+      <summary className="text-base font-bold text-zinc-900 dark:text-white cursor-pointer">스프레드시트 대조 (생방송 아카이브 V3)</summary>
+      <div className="mt-3 space-y-3 text-xs">
+        <p className="text-zinc-500 break-keep">시트의 방송일·생방 링크·유튜브 업로드 링크·게임 이름을 사이트 기록과 비교해요. 구글 시트 주소(공유: 링크가 있는 모든 사용자 보기)를 저장하면 워커가 하루 한 번, 시트가 바뀌었을 때만 다시 대조해요. 유튜브 시작 시각 기준으로 날짜를 옮긴 기록은 정상이라 따로 세기만 해요.</p>
+        <div className="flex gap-1.5">
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" />
+          <button type="button" disabled={!!busy || url.trim() === saved} onClick={saveUrl} className="px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer disabled:opacity-40">저장</button>
+          <button type="button" disabled={!!busy || !saved} onClick={runNow} className="px-3 py-2 rounded-xl bg-purple-600 text-white font-bold cursor-pointer disabled:opacity-40">{busy === 'run' ? '대조 중…' : '지금 대조'}</button>
+        </div>
+        <label className="inline-flex items-center gap-2 cursor-pointer text-zinc-600 dark:text-zinc-300"><input type="file" accept=".xlsx" className="hidden" onChange={(e) => { const x = e.target.files?.[0]; if (x) void onFile(x); e.currentTarget.value = ''; }} /><span className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 font-bold">{busy === 'file' ? '읽는 중…' : '엑셀 파일로 바로 대조'}</span></label>
+        {msg && <p className="text-amber-600">{msg}</p>}
+        {res && (
+          <>
+            <p className="text-zinc-600 dark:text-zinc-300">{res.from === 'file' ? '올린 파일' : '자동 대조'} · {new Date(res.at).toLocaleString('ko-KR')} · 시트 {res.total}줄 ({res.range?.[0]} ~ {res.range?.[1]}) 중 <b>{res.same}줄 같음</b></p>
+            <div className="flex flex-wrap gap-1.5">
+              <button type="button" onClick={() => setF('all')} className={cn('px-2.5 py-1 rounded-full font-bold cursor-pointer', f === 'all' ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800')}>전체 {(res.diffs || []).length}</button>
+              {order.filter((k) => res.count?.[k]).map((k) => (
+                <button key={k} type="button" onClick={() => setF(k)} className={cn('px-2.5 py-1 rounded-full font-bold cursor-pointer', f === k ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800')}>{SHEET_DIFF_LABEL[k]} {res.count[k]}</button>
+              ))}
+            </div>
+            <ul className="space-y-1 max-h-[60vh] overflow-auto">
+              {list.slice(0, 400).map((d: SheetDiff, i: number) => (
+                <li key={i} className="rounded-lg border border-zinc-200 dark:border-zinc-800 px-2.5 py-1.5"><span className="font-bold tabular-nums mr-1.5">{d.date}</span><span className="text-zinc-500 mr-1.5">{SHEET_DIFF_LABEL[d.kind]}{d.row ? ` · 시트 ${d.row}행` : ''}</span>{d.text}</li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
     </details>

@@ -432,6 +432,32 @@ export default async function handler(req: any, res: any) {
     const { ytSync } = await import('./_ytSync.js');
     return res.status(200).json(await ytSync(db));
   }
+  if (req.query?.sheetcheck) {
+    // 스프레드시트(생방송 아카이브 V3) ↔ 사이트 기록 대조: 관리자가 저장한 구글 시트 주소(링크 있는 사람 보기)에서 xlsx 를 받아 비교
+    // 워커가 하루 한 번 부름 (시트가 바뀌었을 때만 다시 비교) · 결과는 관리자 › 연동 › 스프레드시트 대조
+    res.setHeader('Cache-Control', 'no-store');
+    const { db, hasAdminCredentials } = await import('./_firebase.js');
+    if (!hasAdminCredentials) return res.status(500).json({ error: 'no admin credentials' });
+    const sys = (await db.collection('config').doc('system').get()).data() || {};
+    const id = (String(sys.archiveSheetUrl || '').match(/\/spreadsheets\/d\/([\w-]{20,})/) || [])[1];
+    if (!id) return res.status(200).json({ ok: false, reason: '시트 주소가 없어요 (관리자 › 연동 › 스프레드시트 대조)' });
+    try {
+      const r = await fetch(`https://docs.google.com/spreadsheets/d/${id}/export?format=xlsx`, { signal: AbortSignal.timeout(30000), redirect: 'follow' });
+      if (!r.ok) return res.status(200).json({ ok: false, reason: `시트를 못 받았어요 (${r.status}) · 공유를 '링크가 있는 모든 사용자'로 해 주세요` });
+      const buf = new Uint8Array(await r.arrayBuffer());
+      const { createHash } = await import('node:crypto');
+      const hash = createHash('sha1').update(buf).digest('hex');
+      const ref = db.collection('youtube_cache').doc('sheet_check');
+      const prev = (await ref.get()).data() || {};
+      if (prev.hash === hash && req.query?.force !== '1') return res.status(200).json({ ok: true, same: true, at: prev.at });
+      const { readXlsx, compareSheet } = await import('../src/utils/sheetCompare.js');
+      const { loadSiteLogs } = await import('./_siteLogs.js');
+      const rows = readXlsx(buf);
+      const out = compareSheet(rows, (await loadSiteLogs(db, { maxAgeMs: 0 })).logs);
+      await ref.set({ hash, at: new Date().toISOString(), total: out.total, same: out.same, range: out.range, count: out.count, diffs: out.diffs.filter((d) => d.kind !== 'moved').slice(0, 600) });
+      return res.status(200).json({ ok: true, total: out.total, same: out.same, count: out.count });
+    } catch (e: any) { return res.status(200).json({ ok: false, reason: String(e?.message || e).slice(0, 200) }); }
+  }
   if (req.query?.gamecheck) {
     // 게임 이름·링크 대조 한 묶음 (워커가 10분마다, 관리자가 '처음부터'는 reset=1 — 관리자만)
     res.setHeader('Cache-Control', 'no-store');
