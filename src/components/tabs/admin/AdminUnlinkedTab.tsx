@@ -494,6 +494,12 @@ function GameCheckPanel() {
       .catch(() => setRows([]));
   };
   useEffect(() => { if (open && rows === null) load(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 열어 둔 동안 진행 숫자만 30초마다 새로 (문서 1개) · 목록은 '새로고침'을 눌렀을 때만
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setInterval(() => { getDoc(doc(db, 'youtube_cache', 'game_check_state')).then((d) => setSt(d.data() || null)).catch(() => {}); }, 30000);
+    return () => window.clearInterval(t);
+  }, [open]);
   const run = async (reset: boolean) => {
     setBusy(reset ? 'reset' : 'run');
     try {
@@ -511,7 +517,11 @@ function GameCheckPanel() {
       <summary className="text-base font-bold text-zinc-900 dark:text-white cursor-pointer">게임 이름·링크 대조</summary>
       <div className="mt-3 space-y-3 text-xs">
         <p className="text-zinc-500 break-keep">편집 영상 설명창(맨 위 게임 이름 줄·해시태그)의 게임 이름과 기록의 게임 이름을 비교하고, 일치한 게임은 스팀·앱스토어·구글 플레이·웹 링크를 열어 그 페이지 이름과 다시 맞춰 봐요. 예전 영상은 설명창에 게임 이름이 없어서 '정보 없음'으로 보류돼요.</p>
-        <p className="text-zinc-500">{st ? `${st.cursor || 0} / ${st.total || '?'}개 대조${st.done ? ' (다 함)' : ''}${st.lastError ? ` · 오류: ${st.lastError}` : ''}` : '아직 시작 안 함'}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-zinc-500">{st ? `${st.cursor || 0} / ${st.total || '?'}개 대조${st.done ? ' (다 함)' : ` · 워커가 3분마다 이어서 해요 (마지막 ${st.at ? new Date(st.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-'})`}${st.lastError ? ` · 오류: ${st.lastError}` : ''}` : '아직 시작 안 함'}</p>
+          <button type="button" onClick={load} className="ml-auto px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer">목록 새로고침</button>
+        </div>
+        {st && !st.done && st.total ? <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden"><div className="h-full bg-purple-500 transition-all" style={{ width: `${Math.min(100, ((st.cursor || 0) / st.total) * 100)}%` }} /></div> : null}
         <div className="flex flex-wrap gap-1.5">
           {([['mismatch', '불일치'], ['link', '링크 확인 필요'], ['noinfo', '설명창 정보 없음'], ['match', '일치']] as const).map(([k, l]) => (
             <button key={k} type="button" onClick={() => setF(k)} className={cn('px-2.5 py-1 rounded-full font-bold cursor-pointer', f === k ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300')}>{l} {rows ? cnt(k) : ''}</button>
