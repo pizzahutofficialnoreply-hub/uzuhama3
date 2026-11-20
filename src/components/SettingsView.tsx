@@ -1,4 +1,5 @@
 import { confirmSheet } from '../utils/ui';
+import { isAdminEmail } from '../utils/adminAuth';
 import { FlaskConical, Stethoscope } from 'lucide-react';
 import { makeMatcher } from '../utils/textMatch';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
@@ -364,7 +365,7 @@ export function SettingsView({
               <ExternalLink className="w-4 h-4 text-purple-500 shrink-0" />
             </a>
 
-            {user?.email?.toLowerCase() === 'saramoriyo@gmail.com' && (
+            {isAdminEmail(user?.email) && (
               <button 
                 type="button"
                 onClick={onLogout}
@@ -559,7 +560,7 @@ export function SettingsView({
                     )}
 
                     {/* 관리자 전용: 새 제보 알림 받기 */}
-                    {user?.email === 'saramoriyo@gmail.com' && (
+                    {isAdminEmail(user?.email) && (
                       <div className="flex items-center justify-between py-1.5 border-t border-purple-200/40 dark:border-purple-800/40 pt-2.5">
                         <div className="pr-2">
                           <p className="text-sm font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">

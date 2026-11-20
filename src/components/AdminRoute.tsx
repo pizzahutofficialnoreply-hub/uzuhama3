@@ -6,7 +6,7 @@ import { AdminTab } from './tabs/AdminTab';
 import { useFirebaseData } from '../hooks/useFirebaseData';
 import { Tv, LogOut, ShieldCheck, Lock, AlertTriangle } from 'lucide-react';
 import { AdminVerificationModal } from './AdminVerificationModal';
-import { isAdminUser, adminSessionValid, clearAdminSession } from '../utils/adminAuth';
+import { isAdminUser, adminSessionValid, clearAdminSession, adminSeenHere, markAdminSeen } from '../utils/adminAuth';
 import { AdminMfaGate, adminLogoutAll } from './AdminMfaGate';
 
 /** /admin 에서 '홈 화면에 추가'하면 관리자 앱이 따로 생기게 (열면 바로 /admin) */
@@ -34,6 +34,8 @@ export function AdminRoute() {
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [taps, setTaps] = useState(0);
+  const [knock, setKnock] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { data, addLog, updateLog, deleteLog, deleteAllLogs, updateGuide, updateSystemConfig } = useFirebaseData();
@@ -76,6 +78,17 @@ export function AdminRoute() {
   // 관리자 검증이 완료되지 않은 경우 (직접 진입 시에도 리캡챠 및 재인증 요구)
   // 실제 관리자 계정으로 로그인 + 최근 12시간 안에 다시 확인한 경우만
   const hasAdminAccess = isAdminUser(user) && isVerified;
+  // 관리자로 들어온 적 없는 기기에는 '없는 페이지'처럼 보임 (로그인 화면도 안 보여 줌 · 404 를 다섯 번 누르면 나타남)
+  // 진짜 보안은 서버: 관리자 구글 계정 + 2단계 인증 + 서버가 매번 토큰 확인 (화면 코드를 바꿔도 쓰기는 안 됨)
+  if (!hasAdminAccess && !isAdminUser(user) && !adminSeenHere() && !knock) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-black flex flex-col items-center justify-center p-6 text-center">
+        <button type="button" onClick={() => { const n = taps + 1; setTaps(n); if (n >= 5) setKnock(true); }} className="text-6xl font-black text-zinc-300 dark:text-zinc-700 select-none cursor-default" aria-label="404">404</button>
+        <p className="mt-3 text-sm font-bold text-zinc-700 dark:text-zinc-300">페이지를 찾을 수 없어요</p>
+        <button type="button" onClick={() => navigate('/')} className="mt-6 px-5 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-200 cursor-pointer">메인으로</button>
+      </div>
+    );
+  }
   if (!hasAdminAccess) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-black flex flex-col items-center justify-center p-6 selection:bg-purple-500/30">
@@ -113,6 +126,7 @@ export function AdminRoute() {
           <AdminVerificationModal
             onClose={() => setShowVerificationModal(false)}
             onSuccess={() => {
+              markAdminSeen();
               setIsVerified(true);
               setShowVerificationModal(false);
             }}

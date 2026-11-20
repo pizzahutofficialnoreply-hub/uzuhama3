@@ -176,8 +176,9 @@ export function cafeCollector() {
     });
   }
   async function listMode() {
-    const pick = (window.prompt('무엇을 모을까요? 번호를 적어 주세요\n1: 생방쏭 글만 (방송 알림·다시보기 링크)\n2: 이츠하마타임 글만 (영상·쇼츠 생방링크)\n3: 이 화면의 글 전부\n(다른 이름을 적으면 그 작성자 글만)', '1') || '').trim();
+    const pick = (window.prompt('무엇을 모을까요? 번호를 적어 주세요\n1: 생방쏭 글만 (방송 알림·다시보기 링크)\n2: 이츠하마타임 글만 (영상·쇼츠 생방링크)\n3: 이 화면의 글 전부\n4: 사이트에 있는 영상 제목으로 카페를 검색해서 모으기 (확인 필요한 것부터)\n(다른 이름을 적으면 그 작성자 글만)', '1') || '').trim();
     if (!pick) return;
+    if (pick === '4') { await titleMode(); return; }
     const who = pick === '2' ? '이츠하마타임' : pick === '1' || pick === '3' ? '' : pick;
     const needTitle = pick === '1' ? '생방쏭' : '';
     const auto = window.confirm('다음 페이지들도 자동으로 넘기며 모을까요? (취소: 이 화면만)');
@@ -241,6 +242,52 @@ export function cafeCollector() {
     const all = Object.values(acc).join('\n\n');
     st(`새로 ${ok}개 읽음${skip ? ` · 이미 모은 ${skip}개` : ''}${fail ? ` · 못 읽음 ${fail}개` : ''} · 지금까지 모은 글 ${Object.keys(acc).length}개${auto ? '' : ' (다음 페이지로 가서 또 누르면 이어서 쌓여요)'}`);
     showCopy(all, '<button id="uzu-clr" style="margin-top:8px;background:#3f3f46;color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer">모은 것 비우기</button>');
+    ($('uzu-clr') as HTMLButtonElement).onclick = () => { saveAcc({}); st('비웠어요'); };
+  }
+
+  // ── 4: 사이트 영상 제목으로 카페 검색 → 이츠하마타임 글을 읽어 쌓음 (같은 글은 한 번만)
+  async function titleMode() {
+    let list: { t: string; d: string; need: number }[] = [];
+    try { list = (await (await fetch('https://uzuhama.vercel.app/api/health?titles=1')).json()).titles || []; } catch { /* */ }
+    if (!list.length) { st('사이트에서 영상 제목을 못 받았어요'); return; }
+    const needN = list.filter((x) => x.need).length;
+    const howMany = Number(window.prompt(`사이트 영상 제목 ${list.length}개 (확인 필요 ${needN}개). 몇 개를 검색할까요? (확인 필요한 것부터, 한 개에 2~3초)`, String(Math.min(needN || 50, 200))) || 0);
+    if (!howMany) return;
+    const club = /^\d+$/.test(clubId) ? clubId : '30027092';
+    const acc = loadAcc();
+    let ok = 0; let none = 0; let n = 0;
+    const clean = (t: string) => t.replace(/\[[^\]]*\]|\([^)]*\)|#\S+/g, ' ').replace(/[^0-9A-Za-z가-힣\s]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 30);
+    // 응답 모양이 바뀌어도: articleId 가 있는 것을 다 찾음
+    const pickArts = (o: any, out: any[] = []): any[] => { if (!o || typeof o !== 'object') return out; if (o.articleId && (o.subject || o.title)) out.push(o); for (const v of Object.values(o)) pickArts(v, out); return out; };
+    for (const x of list.slice(0, howMany)) {
+      if (stop) break;
+      n++;
+      const q = clean(x.t);
+      if (q.length < 2) continue;
+      st(`${n}/${howMany} 「${q}」 검색 중… 새로 읽음 ${ok}개 · 못 찾음 ${none}개`);
+      let arts: any[] = [];
+      try {
+        const r = await fetch(`https://apis.naver.com/cafe-web/cafe-mobile/CafeMobileWebArticleSearchListV4?cafeId=${club}&query=${encodeURIComponent(q)}&searchBy=0&sortBy=date&page=1&perPage=15&adUnit=MW_CAFE_BOARD&ad=false`, { credentials: 'include' });
+        arts = pickArts(await r.json());
+      } catch { /* */ }
+      const mine = arts.filter((a) => String(a.writerNickname || a.nickname || a.writer?.nick || '').includes('이츠하마타임'));
+      const use = (mine.length ? mine : arts).slice(0, 3);
+      if (!use.length) { none++; log(`· 못 찾음 ${q}`); await sleep(500); continue; }
+      for (const a of use) {
+        const aid = String(a.articleId);
+        if (acc[aid]) continue;
+        const art = await readArticle(club, aid);
+        if (!art) continue;
+        ok++;
+        log(`✓ ${art.title} ← ${q}`);
+        acc[aid] = `===== ${art.title}${art.at || art.writer ? ` ⟪${[art.at, art.writer].filter(Boolean).join(' · ')}⟫` : ''}\n${toText(art.html).text}`;
+        saveAcc(acc);
+        await sleep(400);
+      }
+      await sleep(500);
+    }
+    st(`영상 제목 ${n}개 검색 · 새로 읽음 ${ok}개 · 못 찾음 ${none}개 · 지금까지 모은 글 ${Object.keys(acc).length}개`);
+    showCopy(Object.values(acc).join('\n\n'), '<button id="uzu-clr" style="margin-top:8px;background:#3f3f46;color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer">모은 것 비우기</button>');
     ($('uzu-clr') as HTMLButtonElement).onclick = () => { saveAcc({}); st('비웠어요'); };
   }
 

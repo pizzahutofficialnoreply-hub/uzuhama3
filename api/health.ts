@@ -329,6 +329,30 @@ export default async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   // naver.me 짧은 주소 → 원래 주소 (카페 글 모으기 북마클릿이 카페 화면에서 부름 · DB 안 읽음 · 주소만 풀어 줌)
+  if (req.query?.titles) {
+    // 카페 모으기(북마클릿) '4: 사이트 영상 제목으로 찾기': 방송 기록에 있는 편집 영상 제목 목록 (공개 정보만)
+    //  need=1: 생방 링크가 없는 기록·자동 연결로 들어간 것·제목만 있는 칸 먼저
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=86400');
+    const { db, hasAdminCredentials } = await import('./_firebase.js');
+    if (!hasAdminCredentials) return res.status(500).json({ error: 'no admin credentials' });
+    const { loadSiteLogs } = await import('./_siteLogs.js');
+    const logs = (await loadSiteLogs(db)).logs as any[];
+    const seen = new Set<string>();
+    const out: any[] = [];
+    for (const l of logs) {
+      if (!l || l.isAbsence) continue;
+      const noVod = !(l.vods || []).some((v: any) => /youtu/.test(String(v?.url || v || '')));
+      for (const e of l.edited || []) {
+        const t = String(e?.title || '').trim();
+        if (!t || e?.isCompilation || seen.has(t)) continue;
+        seen.add(t);
+        out.push({ t, d: l.date, need: noVod || Boolean(e?.autoLinked) || !e?.url ? 1 : 0 });
+      }
+    }
+    out.sort((a, b) => b.need - a.need || String(b.d).localeCompare(String(a.d)));
+    return res.status(200).json({ titles: out.slice(0, 3000) });
+  }
   if (req.query?.unshort) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     const u = String(req.query.unshort);
@@ -407,6 +431,16 @@ export default async function handler(req: any, res: any) {
     if (!hasAdminCredentials) return res.status(500).json({ error: 'no admin credentials' });
     const { ytSync } = await import('./_ytSync.js');
     return res.status(200).json(await ytSync(db));
+  }
+  if (req.query?.gamecheck) {
+    // 게임 이름·링크 대조 한 묶음 (워커가 10분마다, 관리자가 '처음부터'는 reset=1 — 관리자만)
+    res.setHeader('Cache-Control', 'no-store');
+    const { db, hasAdminCredentials, verifyAdmin } = await import('./_firebase.js');
+    if (!hasAdminCredentials) return res.status(500).json({ error: 'no admin credentials' });
+    let reset = false;
+    if (req.query?.reset === '1') { try { await verifyAdmin(req); reset = true; } catch (e: any) { return res.status(e?.status || 401).json({ error: '관리자만' }); } }
+    const { gameCheckRun } = await import('./_gameCheck.js');
+    return res.status(200).json(await gameCheckRun(db, { reset }));
   }
   if (req.query?.cf === 'status') {
     // GitHub 예약 실행이 '워커가 살아 있으면 건너뛰기' 할 때 봄: 워커가 5분 안에 알림 점검을 불렀는지

@@ -1,7 +1,7 @@
 import { noteReads } from '../../../utils/readStats';
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, doc, getDoc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { db, auth } from '../../../lib/firebase';
 import { Flag } from 'lucide-react';
 import { Check, EyeOff, Eye, Link2, Loader2, Search, Unlink, Undo2, Film, Clapperboard, CalendarDays } from 'lucide-react';
 import type { AppData, BroadcastLog } from '../../../types';
@@ -156,6 +156,8 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
 
   return (
     <div className="space-y-4">
+      <AutoLinkReview data={data} onUpdateLog={onUpdateLog} />
+      <GameCheckPanel />
       <ReportedIssues onFind={(id, k) => { setKind(k === 'short' ? 'short' : 'video'); setStatus('linked'); setQ(id); setPage(1); }} />
       <DeadVideos logs={logs} onUpdateLog={onUpdateLog} />
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3">
@@ -389,5 +391,149 @@ function DeadVideos({ logs, onUpdateLog }: { logs: BroadcastLog[]; onUpdateLog: 
         </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * 자동 연결 확인: 서버가 새 편집 영상을 방송 기록에 자동으로 넣은 것 (넣은 즉시 사이트에 보임)
+ * - 승인: 그대로 둠 · 바꾸기: 후보 방송을 골라 그 방송들로 옮김 · 빼기: 기록에서 뺌
+ */
+function AutoLinkReview({ data, onUpdateLog }: { data: AppData; onUpdateLog: (log: BroadcastLog) => Promise<void> }) {
+  const [items, setItems] = useState<any[] | null>(null);
+  const [sel, setSel] = useState<Record<string, string[]>>({});
+  const [busy, setBusy] = useState('');
+  const load = () => getDocs(query(collection(db, 'yt_auto'), where('status', '==', 'pending'), limit(100)))
+    .then((s) => { noteReads('yt_auto(관리자)', Math.max(1, s.size)); setItems(s.docs.map((d) => d.data()).sort((a: any, b: any) => String(b.at).localeCompare(String(a.at)))); })
+    .catch(() => setItems([]));
+  useEffect(() => { load(); }, []);
+  if (!items || !items.length) return null;
+  const vid = (u: string) => extractYoutubeId(u || '') || '';
+  const strip = async (it: any, keep: string[] = []) => {
+    for (const l of Object.values(data.logs)) {
+      if (!l || keep.includes(l.id)) continue;
+      if ((l.edited || []).some((e: any) => vid(e?.url) === it.id)) await onUpdateLog({ ...l, edited: (l.edited || []).filter((e: any) => vid(e?.url) !== it.id) });
+    }
+  };
+  const act = async (it: any, what: 'ok' | 'move' | 'drop') => {
+    setBusy(it.id);
+    try {
+      if (what === 'drop') {
+        if (!await confirmSheet(`「${it.title}」을 방송 기록에서 뺄까요?`)) return;
+        await strip(it);
+      }
+      if (what === 'move') {
+        const ids = sel[it.id] || [];
+        if (!ids.length) return;
+        const logs = ids.map((id) => data.logs[id]).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
+        const dates = logs.map((l) => l.date);
+        await strip(it, ids);
+        for (const l of logs) {
+          const rest = (l.edited || []).filter((e: any) => vid(e?.url) !== it.id);
+          await onUpdateLog({ ...l, edited: [...rest, { title: it.title, url: `https://www.youtube.com/watch?v=${it.id}`, ...(dates.length > 1 ? { allBroadcastDates: dates } : {}) } as any] });
+        }
+      }
+      await setDoc(doc(db, 'yt_auto', it.id), { status: what === 'drop' ? 'dropped' : 'approved', doneAt: new Date().toISOString() }, { merge: true });
+      setItems((x) => (x || []).filter((y) => y.id !== it.id));
+    } catch (e: any) { alert('못 했어요: ' + (e?.message || e)); } finally { setBusy(''); }
+  };
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-amber-300/60 dark:border-amber-700/50 rounded-2xl p-5 shadow-sm space-y-3">
+      <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2"><Link2 className="w-4 h-4 text-amber-500" /> 자동 연결 확인 <span className="text-xs font-bold text-amber-600">{items.length}개</span></h3>
+      <p className="text-[11px] text-zinc-500 break-keep">새 편집 영상을 설명창 게임 이름으로 방송 기록에 자동으로 넣은 것이에요. 이미 사이트에 보이고 있어요. 맞으면 승인, 다른 방송이면 아래 후보를 골라 '바꾸기'.</p>
+      <ul className="space-y-3">
+        {items.map((it) => {
+          const chosen = sel[it.id] ?? (it.logs || []).map((l: any) => l.id);
+          return (
+            <li key={it.id} className={cn('rounded-xl border p-3 text-xs space-y-2', it.ambiguous ? 'border-amber-400/60 bg-amber-50/50 dark:bg-amber-950/20' : 'border-zinc-200 dark:border-zinc-800')}>
+              <div className="flex gap-3">
+                <img src={`https://i.ytimg.com/vi/${it.id}/mqdefault.jpg`} alt="" className="w-28 aspect-video rounded-lg object-cover shrink-0 bg-zinc-200 dark:bg-zinc-800" />
+                <div className="min-w-0">
+                  <a href={`https://youtu.be/${it.id}`} target="_blank" rel="noreferrer" className="font-bold text-zinc-900 dark:text-white hover:underline line-clamp-2">{it.title}</a>
+                  <p className="mt-0.5 text-zinc-500">{it.ambiguous && <b className="text-amber-600">확인 필요 · </b>}{it.reason}</p>
+                  {it.names?.length > 0 && <p className="text-zinc-500">설명창 게임: {it.names.join(' · ')}</p>}
+                  <p className="text-zinc-600 dark:text-zinc-300">넣은 방송: {(it.logs || []).map((l: any) => l.date).join(', ')}</p>
+                </div>
+              </div>
+              {it.candidates?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {it.candidates.map((c: any) => {
+                    const on = chosen.includes(c.id);
+                    return <button key={c.id} type="button" onClick={() => setSel((s) => ({ ...s, [it.id]: on ? chosen.filter((x: string) => x !== c.id) : [...chosen, c.id] }))} className={cn('px-2 py-1 rounded-lg font-bold cursor-pointer', on ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300')}>{c.date}{c.game ? ` ${c.game.slice(0, 14)}` : ''}</button>;
+                  })}
+                </div>
+              )}
+              <div className="flex gap-1.5">
+                <button type="button" disabled={!!busy} onClick={() => act(it, 'ok')} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold cursor-pointer disabled:opacity-50 inline-flex items-center gap-1">{busy === it.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} 승인</button>
+                <button type="button" disabled={!!busy || !sel[it.id]} onClick={() => act(it, 'move')} className="px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold cursor-pointer disabled:opacity-40">고른 방송으로 바꾸기</button>
+                <button type="button" disabled={!!busy} onClick={() => act(it, 'drop')} className="px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer inline-flex items-center gap-1"><Unlink className="w-3.5 h-3.5" /> 빼기</button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * 게임 이름·링크 대조: 편집 영상 설명창의 게임 이름 ↔ 기록의 게임 이름, 그리고 게임 링크 페이지 이름 ↔ 기록의 게임 이름
+ * (서버가 영상 40개씩 대조해서 game_check 에 적어 둠 · 워커가 10분마다 이어서)
+ */
+function GameCheckPanel() {
+  const [rows, setRows] = useState<any[] | null>(null);
+  const [st, setSt] = useState<any>(null);
+  const [f, setF] = useState<'mismatch' | 'link' | 'noinfo' | 'match'>('mismatch');
+  const [busy, setBusy] = useState('');
+  const [open, setOpen] = useState(false);
+  const load = () => {
+    getDoc(doc(db, 'youtube_cache', 'game_check_state')).then((d) => setSt(d.data() || null)).catch(() => {});
+    getDocs(query(collection(db, 'game_check'), limit(3000)))
+      .then((s) => { noteReads('game_check(관리자)', Math.max(1, s.size)); setRows(s.docs.map((d) => d.data()).sort((a: any, b: any) => String(b.date).localeCompare(String(a.date)))); })
+      .catch(() => setRows([]));
+  };
+  useEffect(() => { if (open && rows === null) load(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const run = async (reset: boolean) => {
+    setBusy(reset ? 'reset' : 'run');
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const base = /vercel\.app$|localhost/.test(window.location.hostname) ? '' : 'https://uzuhama.vercel.app';
+      await fetch(`${base}/api/health?gamecheck=1${reset ? '&reset=1' : ''}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      load();
+    } finally { setBusy(''); }
+  };
+  const list = (rows || []).filter((r) => (f === 'link' ? r.status === 'match' && r.linkIssue : r.status === f || (f === 'noinfo' && r.status === 'gone')));
+  const cnt = (k: string) => (rows || []).filter((r) => (k === 'link' ? r.status === 'match' && r.linkIssue : r.status === k)).length;
+  const LS: Record<string, string> = { ok: '맞음', name_diff: '이름이 다름', broken: '링크가 안 열림', nolink: '링크 없음' };
+  return (
+    <details open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+      <summary className="text-base font-bold text-zinc-900 dark:text-white cursor-pointer">게임 이름·링크 대조</summary>
+      <div className="mt-3 space-y-3 text-xs">
+        <p className="text-zinc-500 break-keep">편집 영상 설명창(맨 위 게임 이름 줄·해시태그)의 게임 이름과 기록의 게임 이름을 비교하고, 일치한 게임은 스팀·앱스토어·구글 플레이·웹 링크를 열어 그 페이지 이름과 다시 맞춰 봐요. 예전 영상은 설명창에 게임 이름이 없어서 '정보 없음'으로 보류돼요.</p>
+        <p className="text-zinc-500">{st ? `${st.cursor || 0} / ${st.total || '?'}개 대조${st.done ? ' (다 함)' : ''}${st.lastError ? ` · 오류: ${st.lastError}` : ''}` : '아직 시작 안 함'}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {([['mismatch', '불일치'], ['link', '링크 확인 필요'], ['noinfo', '설명창 정보 없음'], ['match', '일치']] as const).map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setF(k)} className={cn('px-2.5 py-1 rounded-full font-bold cursor-pointer', f === k ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300')}>{l} {rows ? cnt(k) : ''}</button>
+          ))}
+          <button type="button" disabled={!!busy} onClick={() => run(false)} className="ml-auto px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer disabled:opacity-50">{busy === 'run' ? '대조 중…' : '지금 더 대조'}</button>
+          <button type="button" disabled={!!busy} onClick={() => run(true)} className="px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer disabled:opacity-50">{busy === 'reset' ? '…' : '처음부터 다시'}</button>
+        </div>
+        {rows === null ? <p className="text-zinc-500 flex items-center gap-1"><Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중…</p> : (
+          <ul className="space-y-1.5 max-h-[60vh] overflow-auto">
+            {list.slice(0, 300).map((r) => (
+              <li key={`${r.logId}${r.vid}`} className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-2.5">
+                <p className="font-bold text-zinc-900 dark:text-white"><span className="text-zinc-500 tabular-nums mr-1.5">{r.date}</span><a href={`https://youtu.be/${r.vid}`} target="_blank" rel="noreferrer" className="hover:underline">{r.title}</a></p>
+                <p className="mt-0.5 text-zinc-600 dark:text-zinc-300">기록: {(r.games || []).map((g: any) => g.name).join(', ') || '없음'}{r.names?.length ? ` · 설명창: ${r.names.join(', ')}` : ''}{r.status === 'gone' ? ' · 유튜브에 없음(비공개·삭제)' : ''}</p>
+                {(r.links || []).map((p: any, i: number) => (
+                  <p key={i} className={cn('mt-0.5', p.link_status === 'ok' ? 'text-emerald-600' : 'text-amber-600')}>
+                    링크 {LS[p.link_status] || p.link_status}{p.link_title ? ` — 페이지 이름 「${p.link_title}」` : ''}{p.why ? ` (${p.why})` : ''}{p.link && <> · <a href={p.link} target="_blank" rel="noreferrer" className="underline">열기</a></>}
+                  </p>
+                ))}
+              </li>
+            ))}
+            {list.length > 300 && <li className="text-zinc-500">… {list.length - 300}개 더</li>}
+          </ul>
+        )}
+      </div>
+    </details>
   );
 }

@@ -1,4 +1,5 @@
 import { Skeleton, TextSkeleton } from './common/Skeleton';
+import { isAdminEmail } from '../utils/adminAuth';
 import { makeMatcher } from '../utils/textMatch';
 import { usePrefs } from '../utils/userPrefs';
 import React, { useState, useEffect, useMemo } from 'react';
@@ -165,7 +166,7 @@ export function PatchNotesPage({ version: propVersion }: { version?: string } = 
   const navigate = useNavigate();
   const { patchNotes, loading } = usePatchNotes();
   const { user } = useAuth();
-  const isAdmin = user?.email === 'saramoriyo@gmail.com';
+  const isAdmin = isAdminEmail(user?.email);
 
   const [selectedCategory, setSelectedCategory] = useState<PatchCategory | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
