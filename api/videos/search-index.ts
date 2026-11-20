@@ -168,6 +168,11 @@ export default async function handler(req: any, res: any) {
     const aiMode = String(req.query?.ai || '');
     if (aiMode) {
       const ai = await import('../_aiVideo.js');
+      if (aiMode === 'find') {
+        const out = await ai.aiFind(db, String(req.query?.q || '').slice(0, 200));
+        res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=86400');
+        return res.status(200).json(out);
+      }
       if (aiMode === 'search') {
         const q = String(req.query?.q || '').slice(0, 80);
         const out = await ai.aiSearch(db, q);

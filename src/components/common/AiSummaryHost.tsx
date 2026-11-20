@@ -1,3 +1,4 @@
+import { openAiCard } from './AiCardExpand';
 import { Skeleton, TextSkeleton } from './Skeleton';
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { auth } from '../../lib/firebase';
@@ -24,7 +25,8 @@ import { politeKo as pk } from '../../utils/politeKo';
 export const AI_SUMMARY_EVENT = 'uzuhama-ai-summary';
 export const GO_SEARCH_EVENT = 'uzuhama-go-search';
 type Target = { id: string; title: string; kind?: string; t?: number };
-export const openAiSummary = (t: Target) => window.dispatchEvent(new CustomEvent(AI_SUMMARY_EVENT, { detail: t }));
+/** 예전 'AI 영상 요약' 창 대신 카드 펼친 화면으로 (찾은 장면이 있으면 그 시간부터) */
+export const openAiSummary = (t: Target) => openAiCard(t.id, t.title || '', null, undefined, typeof t.t === 'number' ? { start: t.t } : {});
 export const goSearch = (q: string) => window.dispatchEvent(new CustomEvent(GO_SEARCH_EVENT, { detail: { q } }));
 
 const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||

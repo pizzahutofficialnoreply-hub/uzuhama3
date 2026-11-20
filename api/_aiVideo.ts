@@ -357,6 +357,77 @@ export function dropChatLines(lines: any[]): any[] {
   // 후원은 스크립트에 넣지 않음
   return lines.filter((l) => l?.w !== '후원' && !(l?.w === '게임' && busyG(l.t)));
 }
+/**
+ * 생방송 스크립트를 같은 방송의 편집 영상 스크립트로 바로잡기 (편집본은 말 자막을 보고 받아 적어서 글자가 더 정확)
+ * 확실할 때만: 거의 같은 말(글자 75% 이상 겹침)이고, 근처의 다른 두 줄 이상이 같은 시간 차이로 맞을 때만 그 줄의 글자를 바꿈
+ * (시간은 생방송 그대로, 줄을 새로 넣거나 빼지 않음)
+ */
+const nrm = (x: string) => String(x || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+/** 글자(음절) 단위 비슷함: 1 - 고칠 글자 수 / 긴 쪽 길이 */
+export function textSim(a: string, b: string): number {
+  const x = [...nrm(a)], y = [...nrm(b)];
+  if (!x.length || !y.length) return 0;
+  if (x.join('') === y.join('')) return 1;
+  if (Math.abs(x.length - y.length) / Math.max(x.length, y.length) > 0.4) return 0;
+  let prev = Array.from({ length: y.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= x.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= y.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (x[i - 1] === y[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return 1 - prev[y.length] / Math.max(x.length, y.length);
+}
+export function alignFromEdit(live: { t: number; s: string; w?: string }[], edit: { t: number; s: string; w?: string }[]) {
+  const pairs: { li: number; ei: number; off: number; sim: number }[] = [];
+  edit.forEach((e, ei) => {
+    if (nrm(e.s).length < 6 || e.w === '게임') return;
+    let best = -1, bs = 0;
+    live.forEach((l, li) => { if (l.w === '게임') return; const v = textSim(l.s, e.s); if (v > bs) { bs = v; best = li; } });
+    if (best >= 0 && bs >= 0.75) pairs.push({ li: best, ei, off: live[best].t - e.t, sim: bs });
+  });
+  const ok = pairs.filter((p) => pairs.filter((q) => q !== p && Math.abs(q.off - p.off) <= 4 && Math.abs(edit[q.ei].t - edit[p.ei].t) <= 90).length >= 2);
+  const out = live.map((l) => ({ ...l }));
+  let changed = 0;
+  const used = new Set<number>();
+  for (const p of ok.sort((a, b) => b.sim - a.sim)) {
+    if (used.has(p.li)) continue;
+    used.add(p.li);
+    const e = edit[p.ei];
+    if (out[p.li].s !== e.s) { (out[p.li] as any).o = out[p.li].s; out[p.li].s = e.s; (out[p.li] as any).fx = 1; changed++; }
+  }
+  return { lines: out, changed, matched: used.size };
+}
+/** 방금 스크립트를 다 받아 적은 영상과 같은 방송의 생방송↔편집 영상 짝을 찾아 바로잡기 */
+async function fixLivesFromEdits(db: any, id: string) {
+  const { loadSiteLogs } = await import('./_siteLogs.js');
+  const logs = (await loadSiteLogs(db)).logs;
+  const yid = (v: any) => ytIdOf(typeof v === 'string' ? v : v?.url);
+  for (const l of logs) {
+    const lives = (l.vods || []).map(yid).filter(Boolean);
+    const edits = (l.edited || []).filter((e: any) => !(e?.isCompilation || e?.compilationId || e?.multiId)).map(yid).filter(Boolean);
+    if (!lives.length || !edits.length || !(lives.includes(id) || edits.includes(id))) continue;
+    const ids = [...lives, ...edits].slice(0, 10);
+    const docs = await db.getAll(...ids.map((x: string) => db.collection('ai_script').doc(x)));
+    const map: Record<string, any> = {};
+    docs.forEach((d: any, i: number) => { if (d.exists) map[ids[i]] = d.data(); });
+    const linesOf = (d: any) => Object.values(d?.segs || {}).filter((x: any) => Number(x.v || 1) >= SCRIPT_V).flatMap((x: any) => x.lines || []);
+    const editLines = edits.flatMap((e: string) => linesOf(map[e])).filter((x: any) => x.w !== '후원');
+    if (editLines.length < 5) continue;
+    for (const lv of lives) {
+      const d = map[lv];
+      if (!d?.segs) continue;
+      const segs = Object.values(d.segs as Record<string, any>).filter((x: any) => Number(x.v || 1) >= SCRIPT_V);
+      let total = 0;
+      const next: Record<string, any> = {};
+      // 구간마다 따로 맞춤 (그 구간 줄만 바뀜)
+      for (const g of segs as any[]) {
+        const r = alignFromEdit(g.lines || [], editLines);
+        if (r.changed) { next[String(g.from)] = { ...g, lines: r.lines }; total += r.changed; }
+      }
+      if (total) await db.collection('ai_script').doc(lv).set({ segs: next, fixedAt: new Date().toISOString() }, { merge: true });
+    }
+  }
+}
 async function saveScript(db: any, id: string, from: number, to: number, lines: any[]) {
   await db.collection('ai_script').doc(id).set({ id, segs: { [String(from)]: { from, to, lines, v: SCRIPT_V } }, updatedAt: new Date().toISOString() }, { merge: true });
 }
@@ -580,8 +651,9 @@ JSON 으로만:
 {"summary":"영상 전체 3~4문장",
  "chapters":[{"from":초,"to":초,"title":"이 구간 이름 (짧게)","summary":"무슨 일이 있었는지 1~2문장","game":"이때 하던 게임 이름(없으면 빈칸)"}],
  "gameStories":[{"name":"게임 이름 (아래 목록 그대로)","story":"이 영상에서 이 게임의 줄거리·진행 2~4문장 (스포일러 포함 가능)","result":"이 영상에서의 결과를 아주 짧게 (클리어 / 엔딩 / 포기 / 진행 중 / 1챕터까지 처럼 10자 안팎, 모르면 빈칸)","highlights":[{"t":초,"d":"하이라이트 한 줄"}]}],
- "nogari":"아래 [노가리] 가 있으면 하나로 이어서: 앞뒤 자르지 말고 흐름 그대로, 웃긴 말·드립·리액션을 살려 시청자가 친구한테 얘기하듯 편하게 (보고서 말투 금지, 너무 길지만 않게 4~10문장). 없으면 빈칸"}
-chapters 는 영상 길이에 따라 3~12개, highlights 는 게임마다 최대 5개.
+ "nogari":"아래 [노가리] 가 있으면 하나로 이어서: 앞뒤 자르지 말고 흐름 그대로, 웃긴 말·드립·리액션을 살려 시청자가 친구한테 얘기하듯 편하게 (보고서 말투 금지, 너무 길지만 않게 4~10문장). 없으면 빈칸",
+ "moments":[{"t":초,"d":"검색용 상황 기록 한 문장: 어떤 게임·맵·장소에서, 우주하마가 어떤 캐릭터·옷·무기로, 무엇을 했고(누구한테 밀림·떨어짐·잡힘 등), 결과가 어땠는지(1등·탈락·클리어 등)를 기록에 있는 그대로 구체적으로"}]}
+chapters 는 영상 길이에 따라 3~12개, highlights 는 게임마다 최대 5개, moments 는 기억에 남을 만한 순간마다 최대 40개 (기록·대사에 있는 것만, 없는 디테일은 쓰지 말 것).
 
 [나온 게임]
 ${gl || '(없음)'}
@@ -604,7 +676,9 @@ ${talk ? `\n[대사] (시각 · 들린 말, 이름 없는 줄은 우주하마)\n
     highlights: (Array.isArray(g.highlights) ? g.highlights : []).slice(0, 6).map((h: any) => ({ t: num(h.t), d: String(h.d || '').slice(0, 160) })).filter((h: any) => h.d),
   })).filter((g: any) => g.name && (g.story || g.highlights.length));
   const fitted = fitTimes({ chapters, gameStories }, Number(cur?.duration || 0) || Math.max(0, ...(cur?.parts || []).map((p: any) => Number(p.to) || 0)), [...(cur?.scenes || []), ...sl]);
-  return { fromScript: Boolean(talk), summary: String(j.summary || '').slice(0, 800), chapters: fitted.chapters, gameStories: fitted.gameStories, nogari: String(j.nogari || '').trim().slice(0, 2000) || nogariRaw.replace(/\[[^\]]+\]\s*/g, '').slice(0, 2000), opanmu: String(opanmu).slice(0, 30) };
+  const moments = (Array.isArray(j.moments) ? j.moments : []).slice(0, 40).map((m: any) => ({ t: num(m.t), d: String(m?.d || '').trim().slice(0, 240) })).filter((m: any) => m.d && !OUTRO.test(m.d));
+  const durS = Number(cur?.duration || 0);
+  return { moments: durS ? moments.filter((m: any) => m.t <= durS + 5) : moments, fromScript: Boolean(talk), summary: String(j.summary || '').slice(0, 800), chapters: fitted.chapters, gameStories: fitted.gameStories, nogari: String(j.nogari || '').trim().slice(0, 2000) || nogariRaw.replace(/\[[^\]]+\]\s*/g, '').slice(0, 2000), opanmu: String(opanmu).slice(0, 30) };
 }
 
 /** 몰아보기 가볍게 보기: 오프닝 10분 + 설명란으로 주제·구성 */
@@ -735,7 +809,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
             if (r.squeezed && !whole && to - from > 60) { to = from + 60; r = await transcribeSegment(q, from, to); }
             await saveScript(db, q.id, from, to, r.lines);
             // 끝까지 다 받아 적었으면: 요약을 스크립트 바탕으로 다시 정리하게 표시
-            if (whole || to >= dur - 5) { try { await col.doc(q.id).set({ scriptDone: true }, { merge: true }); await indexAiDoc(db, q.id); } catch { /* 다음에 */ } }
+            if (whole || to >= dur - 5) { try { await col.doc(q.id).set({ scriptDone: true }, { merge: true }); await indexAiDoc(db, q.id); await fixLivesFromEdits(db, q.id); } catch { /* 다음에 */ } }
             await release({ usedSec: usedSec + Math.max(60, to - from), calls: calls + 1, lastError: '', idle: true, model: r.model });
             return { script: q.id, from, to, lines: r.lines.length, model: r.model };
           } catch (e: any) {
@@ -748,7 +822,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
             }
             // 안 되는 영상은 빈 구간으로 채워 넘어감
             await saveScript(db, q.id, from, to, []);
-            if (whole || to >= dur - 5) { try { await col.doc(q.id).set({ scriptDone: true }, { merge: true }); await indexAiDoc(db, q.id); } catch { /* 다음에 */ } }
+            if (whole || to >= dur - 5) { try { await col.doc(q.id).set({ scriptDone: true }, { merge: true }); await indexAiDoc(db, q.id); await fixLivesFromEdits(db, q.id); } catch { /* 다음에 */ } }
             await release({ lastError: msg, calls: calls + 1 });
             return { script: q.id, error: msg };
           }
@@ -876,7 +950,11 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
     });
     const summary = story?.summary || cur?.parts?.[0]?.summary || '';
     const fin = { ...cur, games, summary, chapters: story?.chapters || [], gameStories: story?.gameStories || [], nogari: story?.nogari || '', opanmu: story?.opanmu || '' };
-    await ref.set({ summary, chapters: fin.chapters, gameStories: fin.gameStories, nogari: fin.nogari, opanmu: fin.opanmu, sv: story ? (story.fromScript ? SV : 2) : 0, storyTries: story ? 0 : Number(cur?.storyTries || 0) + 1, kw: buildKw(fin), status: 'done', doneAt: new Date().toISOString() }, { merge: true });
+    // 상황 기록(검색용)은 따로 저장: 화면에는 안 불러오고 검색할 때만 읽음 · 낱말은 찾기 목록(kw)에
+    const moments = story?.moments || [];
+    if (moments.length) { try { await db.collection('ai_moments').doc(item.id).set({ id: item.id, moments, at: new Date().toISOString() }); } catch { /* */ } }
+    const kw = buildKw({ ...fin, nogari: `${fin.nogari} ${moments.map((m: any) => m.d).join(' ')}` }).slice(0, 1500);
+    await ref.set({ summary, chapters: fin.chapters, gameStories: fin.gameStories, nogari: fin.nogari, opanmu: fin.opanmu, sv: story ? (story.fromScript ? SV : 2) : 0, storyTries: story ? 0 : Number(cur?.storyTries || 0) + 1, kw, hasMoments: moments.length > 0, status: 'done', doneAt: new Date().toISOString() }, { merge: true });
     if ((st.priority || []).includes(item.id)) await stRef.set({ priority: (st.priority || []).filter((x: string) => x !== item!.id) }, { merge: true });
     // 연동 점검: 이 영상과 연결된 생방송·영상·쇼츠 중 AI 분석이 끝난 것과 내용이 맞는지 (글로만 비교, 한도에 걸리면 다음에)
     try { await checkLinks(db, item.id, { ...fin, title: item.title }); } catch (e: any) { if (isRate(String(e?.message || e))) { /* 다음 분석 때 */ } }
@@ -1412,6 +1490,48 @@ export async function runAiVideoLoop(db: any, budgetMs = 150000, opts: { kind?: 
  */
 const VERIFY_DAILY = Number(process.env.AI_VERIFY_DAILY || 80);
 const CLIP_HALF = 60;
+
+/**
+ * 상황으로 찾기: '브로폴즈에서 왕관 먹는 맵, 밀렸는데 바나나 캐릭터로 1등' 같은 말
+ * 낱말로 후보 영상을 고르고(aiSearch) → 그 영상들의 상황 기록(ai_moments)만 읽어서 → AI 가 글로만 맞는 순간을 고름 (영상은 안 봄)
+ * 같은 검색어는 저장해 두고 다시 씀 · 하루 한도
+ */
+const FIND_DAILY = 300;
+export async function aiFind(db: any, q: string) {
+  const key = normWord(q).slice(0, 80);
+  if (key.length < 4) return { picks: [] };
+  const ref = db.collection('ai_find').doc(key);
+  const old = (await ref.get()).data();
+  if (old && Date.now() - Date.parse(old.at || '0') < 3 * 86400000) return { picks: old.picks || [], cached: true };
+  const { results } = await aiSearch(db, q, 3);
+  const cands = results.slice(0, 6);
+  if (!cands.length) return { picks: [] };
+  const snaps = await db.getAll(...cands.map((c: any) => db.collection('ai_moments').doc(c.id)));
+  const withM = cands.map((c: any, i: number) => ({ c, m: snaps[i].exists ? (snaps[i].data().moments || []) : [] })).filter((x: any) => x.m.length || x.c.scenes.length);
+  if (!withM.length) return { picks: [] };
+  const day = kstDay();
+  const cntRef = db.collection('youtube_cache').doc('ai_find_count');
+  const cnt = (await cntRef.get()).data() || {};
+  const used = cnt.day === day ? Number(cnt.n || 0) : 0;
+  if (used >= FIND_DAILY || !aiKey()) return { picks: [], limited: true };
+  await cntRef.set({ day, n: used + 1 }, { merge: true });
+  const list = withM.map((x: any, i: number) => `#${i + 1} "${x.c.title}" (게임: ${x.c.games.join(', ')})\n` + [...x.m, ...x.c.scenes].map((m: any) => `  ${fmt(m.t)} ${m.d}`).join('\n')).join('\n');
+  const prompt = `시청자가 스트리머 우주하마의 영상에서 이 장면을 찾고 있어: "${q}"
+아래는 AI가 영상들을 보고 적어 둔 상황 기록이야. 찾는 장면과 분명히 맞는 순간만 골라 (게임·장소·캐릭터·결과 같은 말한 조건이 기록과 맞아야 함, 일부만 맞으면 why 에 어디가 맞는지).
+없으면 빈 배열. JSON 으로만: {"picks":[{"n":영상 번호,"t":"M:SS 또는 H:MM:SS","why":"맞는 이유 한 문장","sure":true 또는 false}]}
+
+${list}`;
+  const st = (await db.collection('youtube_cache').doc('ai_state').get()).data() || {};
+  modelCool = Object.fromEntries(Object.entries(st.modelCool || {}).filter(([, v]) => Number(v) > Date.now())) as Record<string, number>;
+  const { text } = await gen([{ text: prompt }], true, 30000, TEXT_MODELS);
+  const picks = ((parseJson(text).picks || []) as any[]).map((p) => {
+    const x = withM[Number(p?.n) - 1];
+    const t = toSec(p?.t);
+    return x && Number.isFinite(t) ? { id: x.c.id, title: x.c.title, kind: x.c.kind, t: Math.round(t), why: String(p?.why || '').slice(0, 160), sure: p?.sure !== false } : null;
+  }).filter(Boolean).slice(0, 5);
+  await ref.set({ q: q.slice(0, 120), picks, at: new Date().toISOString() });
+  return { picks };
+}
 
 export async function aiVerify(db: any, q: string) {
   // 기본은 끔: 정확도 차이가 크지 않아 무료 한도를 영상 분석에 씀 (AI_VERIFY=1 이면 켬)

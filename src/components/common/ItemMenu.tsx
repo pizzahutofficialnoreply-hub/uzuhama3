@@ -1,11 +1,10 @@
 import { hideVideo } from '../../utils/hiddenVideos';
-import { EyeOff, ScrollText } from 'lucide-react';
+import { EyeOff } from 'lucide-react';
 import { usePrefs } from '../../utils/userPrefs';
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bookmark, Flag, Link2, MoreVertical } from 'lucide-react';
-import { openAiSummary, useAiStarted } from './AiSummaryHost';
 import { cn } from '../../utils';
 import { requestSave, useMyPlaylists, type MyItemKind } from '../../utils/myPlaylists';
 import { shareTextOrClipboard } from '../../utils/shareUtils';
@@ -43,8 +42,6 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
   const { lists } = useMyPlaylists();
   const saved = Boolean(id) && lists.some((l) => l.items.some((x) => x.id === id));
   const [open, setOpen] = useState(false);
-  const labAi = usePrefs().labAiSummary; // 설정 › 실험실에서 끌 수 있음
-  const aiStarted = useAiStarted(id, open && labAi); // AI가 보기 시작한 영상만 'AI 영상 요약'
   const btn = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; up: boolean }>({ top: 0, left: 0, up: false });
@@ -104,12 +101,7 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
                     {x.icon}{x.label}
                   </button>
                 ))}
-                {/^[\w-]{11}$/.test(id) && labAi && aiStarted && (
-                  <button type="button" role="menuitem" className={cn(item, extraItems.length > 0 && 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); openAiSummary({ id, title, kind }); }}>
-                    <ScrollText className="w-4 h-4 text-purple-500" />
-                    AI 영상 요약
-                  </button>
-                )}
+                {/* 'AI 영상 요약'은 카드 펼친 화면으로 합침 (영상을 누르면 펼쳐짐) */}
                 <button type="button" role="menuitem" className={cn(item, (extraItems.length > 0 || /^[\w-]{11}$/.test(id)) && 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); onSave?.(); requestSave({ id, kind, title }); }}>
                   <Bookmark className={cn('w-4 h-4', saved ? 'text-purple-600' : 'text-zinc-500')} fill={saved ? 'currentColor' : 'none'} />
                   {saved ? '저장됨 · 바꾸기' : '저장'}

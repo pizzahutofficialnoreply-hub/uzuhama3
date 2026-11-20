@@ -12,6 +12,7 @@ import { ScriptView, loadScript, lineAt, type Script } from './ScriptView';
 import { GlassPlayButton } from './MediaIcons';
 import { Skeleton } from './Skeleton';
 import { VideoCardInfo } from './VideoCardInfo';
+import { CardFind } from './CardFind';
 
 /**
  * 실험실 · 카드 펼쳐 요약과 함께 보기
@@ -32,6 +33,8 @@ export type CardOpts = {
   /** 맨 위 플레이어 주소 (재생목록 등) */
   embed?: string;
   thumb?: string;
+  /** 이 시간(초)부터 재생 (검색에서 찾은 장면) */
+  start?: number;
 };
 type Target = { id: string; title: string; sub?: string; from: Rect; src?: HTMLElement | null } & CardOpts;
 
@@ -150,7 +153,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
       // 썸네일 자리에서 재생 중이던 같은 영상을 다시 펼치면 재생은 그대로
       const same = dockRef.current && dockRef.current.id === e.detail?.id;
       setTo(finalRect()); setSafeTop(safeInsets().top); dragY.set(0); setT(e.detail); setClosing(false); setData(null); setOpen(true); setSettled(false); back.current = null;
-      if (!same) setPlay(null);
+      if (!same) setPlay(typeof e.detail?.start === 'number' ? { t: e.detail.start } : null);
       setDock(null); keepPlay.current = false;
       // 원래 카드는 들려 올라간 것처럼 자리만 남김
       try { if (e.detail?.src) e.detail.src.style.visibility = 'hidden'; } catch { /* */ }
@@ -271,12 +274,12 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
     } else setPlay({ t: s });
   };
   /** 비슷한 영상 누름: 펼친 채로 그 영상으로 바꿔 바로 재생 */
-  const switchTo = (id: string, title: string) => {
+  const switchTo = (id: string, title: string, start = 0) => {
     if (!t) return;
     try { if (t.src) t.src.style.visibility = ''; } catch { /* */ }
     const el = document.querySelector(`[data-ai-card="${id}"]`) as HTMLElement | null;
     setT({ id, title, from: t.from, src: el && el.getBoundingClientRect().width ? el : null });
-    setData(null); setOpen(true); setPlay({ t: 0 });
+    setData(null); setOpen(true); setPlay({ t: start });
     scrollEl.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const toggleSpoil = () => setSpoil((v) => { try { localStorage.setItem(SPOIL_KEY, v ? '0' : '1'); } catch { /* */ } return !v; });
@@ -356,6 +359,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                   <h2 className="text-[16px] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
                   {t.sub && <p className="mt-1 text-[12px] text-zinc-500 tabular-nums">{t.sub}</p>}
                 </>) : <VideoCardInfo key={t.id} id={t.id} title={data?.title || t.title} sub={t.sub} logs={logs} />}
+                {!t.embed && <CardFind key={`f-${t.id}`} id={t.id} onSeek={(x) => seek(x)} onOpen={(id, title, x) => switchTo(id, title, x)} />}
 
                 {(showSummary || hasScript) && <div className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
                   <div className="flex items-center gap-2 px-4 py-3">
