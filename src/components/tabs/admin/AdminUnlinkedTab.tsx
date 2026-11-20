@@ -541,6 +541,19 @@ function GameCheckPanel({ data, onSent }: { data: AppData; onSent: () => void })
       onSent();
     } finally { setBusy(''); }
   };
+  // 고른 것 → 글로 복사 (날짜 · 제목 · 링크 / 기록 게임 · 설명창 게임 / 게임 링크 상태)
+  const [copied, setCopied] = useState(false);
+  const copyPicked = async () => {
+    const txt = picked.map((r) => [
+      `${r.date} ${r.title} https://youtu.be/${r.vid}`,
+      `  기록: ${(r.games || []).map((g: any) => g.name).join(', ') || '없음'}${r.names?.length ? ` / 설명창: ${r.names.join(', ')}` : ''}${r.status === 'gone' ? ' / 유튜브에 없음' : ''}`,
+      ...(r.links || []).map((p: any) => `  링크 ${LS[p.link_status] || p.link_status}${p.link_title ? ` — 페이지 이름 「${p.link_title}」` : ''}${p.why ? ` (${p.why})` : ''}${p.link ? ` ${p.link}` : ''}`),
+    ].join('\n')).join('\n\n');
+    try { await navigator.clipboard.writeText(txt); } catch {
+      const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    setCopied(true); window.setTimeout(() => setCopied(false), 1500);
+  };
   const cnt = (k: string) => (rows || []).filter((r) => (k === 'link' ? r.status === 'match' && r.linkIssue : r.status === k)).length;
   const LS: Record<string, string> = { ok: '맞음', name_diff: '이름이 다름', broken: '링크가 안 열림', nolink: '링크 없음' };
   return (
@@ -565,7 +578,8 @@ function GameCheckPanel({ data, onSent }: { data: AppData; onSent: () => void })
             {list.length > 0 && (
               <li className="sticky top-0 z-10 flex items-center gap-2 py-1.5 bg-white dark:bg-zinc-900">
                 <label className="inline-flex items-center gap-1.5 font-bold cursor-pointer"><input type="checkbox" checked={list.slice(0, 300).every((r) => pick[keyOf(r)])} onChange={(e) => { const on = e.target.checked; setPick((p) => { const n = { ...p }; list.slice(0, 300).forEach((r) => { n[keyOf(r)] = on; }); return n; }); }} /> 모두 고르기</label>
-                <button type="button" disabled={!picked.length || !!busy} onClick={sendToLink} className="ml-auto px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold cursor-pointer disabled:opacity-40">{busy === 'send' ? '보내는 중…' : `고른 ${picked.length}개 연동에서 고치기`}</button>
+                <button type="button" disabled={!picked.length} onClick={copyPicked} className="ml-auto px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 font-bold cursor-pointer disabled:opacity-40">{copied ? '복사했어요' : `고른 ${picked.length}개 복사`}</button>
+                <button type="button" disabled={!picked.length || !!busy} onClick={sendToLink} className="px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold cursor-pointer disabled:opacity-40">{busy === 'send' ? '보내는 중…' : `고른 ${picked.length}개 연동에서 고치기`}</button>
               </li>
             )}
             {list.slice(0, 300).map((r) => (
