@@ -3,6 +3,7 @@ name: AI 영상 분석 (계속 돌리기)
 # GitHub 예약 실행은 몇 시간씩 밀려서, 한 번 켜지면 약 5시간 50분 동안 스스로 반복해서 분석을 부름
 # - 한도 때문에 쉬라고 하면 그 시각까지 기다림 (최대 20분씩 나눠서)
 # - 한 번에 하나만 (다음 예약은 앞의 것이 끝날 때까지 대기)
+# ※ 지금은 Cloudflare 워커가 2분마다 분석을 부름 → 워커가 살아 있으면 예약 실행은 바로 끝남 (손으로 돌리면 그대로 돎)
 on:
   schedule:
     - cron: '17 */3 * * *'
@@ -17,10 +18,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 355
     steps:
+      - name: Cloudflare 워커가 돌고 있으면 건너뜀
+        id: cf
+        run: |
+          a=$(curl -sS --max-time 20 "https://uzuhama.vercel.app/api/health?cf=status" | grep -o '"alive":true' || true)
+          if [ -n "$a" ] && [ "${{ github.event_name }}" = "schedule" ]; then echo "skip=1" >> $GITHUB_OUTPUT; echo "워커가 대신 하고 있어서 건너뜀"; fi
       - name: Analyze videos repeatedly
+        if: steps.cf.outputs.skip != '1'
         run: |
           end=$(( $(date +%s) + 350*60 ))
           while [ $(date +%s) -lt $end ]; do
+            if [ "${{ github.event_name }}" = "schedule" ] && curl -sS --max-time 20 "https://uzuhama.vercel.app/api/health?cf=status" | grep -q '"alive":true'; then echo "워커가 돌아와서 그만"; break; fi
             r=$(curl -sS --max-time 295 "https://uzuhama.vercel.app/api/videos/search-index?ai=run" | head -c 800 || true)
             echo "$(date -u +%H:%M) $r"
             wait=60

@@ -1,7 +1,7 @@
 name: Notification Tick
 
 # 방송 시작·유력 시간 자동 알림 점검 (Vercel /api/notifications/tick 호출)
-# GitHub 예약 실행은 지연이 커서 보조 수단으로만 사용합니다.
+# GitHub 예약 실행은 지연이 커서 보조 수단으로만 사용합니다. (지금은 Cloudflare 워커가 1분마다 부르고, 워커가 살아 있으면 여기는 건너뜀)
 # 주 트리거는 cron-job.org 등 외부 크론(1~5분 간격)과 앱 접속자 핑입니다.
 on:
   schedule:
@@ -13,7 +13,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
+      - name: Cloudflare 워커가 돌고 있으면 건너뜀
+        id: cf
+        run: |
+          a=$(curl -sS --max-time 20 "https://uzuhama.vercel.app/api/health?cf=status" | grep -o '"alive":true' || true)
+          if [ -n "$a" ] && [ "${{ github.event_name }}" = "schedule" ]; then echo "skip=1" >> $GITHUB_OUTPUT; echo "워커가 대신 하고 있어서 건너뜀"; fi
       - name: Call notification tick
+        if: steps.cf.outputs.skip != '1'
         run: curl -fsS --max-time 60 "https://uzuhama.vercel.app/api/notifications/tick?src=github" || true
 
   # 방송 기록 데이터 검증 (서버가 하루 한 번만 실제로 함): 방송 시간·게임 이름·게임 링크
@@ -21,5 +27,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
+      - name: Cloudflare 워커가 돌고 있으면 건너뜀
+        id: cf
+        run: |
+          a=$(curl -sS --max-time 20 "https://uzuhama.vercel.app/api/health?cf=status" | grep -o '"alive":true' || true)
+          if [ -n "$a" ] && [ "${{ github.event_name }}" = "schedule" ]; then echo "skip=1" >> $GITHUB_OUTPUT; echo "워커가 대신 하고 있어서 건너뜀"; fi
       - name: Check broadcast data
+        if: steps.cf.outputs.skip != '1'
         run: curl -sS --max-time 295 "https://uzuhama.vercel.app/api/videos/search-index?ai=check" | head -c 600 || true

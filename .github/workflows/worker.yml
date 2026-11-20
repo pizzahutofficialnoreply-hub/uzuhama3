@@ -6,6 +6,7 @@ name: Background Worker
 #  - AI 영상 분석: 4분마다 (분석 쪽 잠금으로 한 번에 하나만, 한도로 쉬는 중이면 바로 끝남)
 #  - 클라우드 점검: 2분마다 줄 선 점검이 있는지 보고, 있으면 아이폰 크기 브라우저로 돌림 (뒤에서, 한 번에 하나)
 # 다음 예약 실행은 앞의 것이 끝날 때까지 기다림 (겹치지 않음)
+# ※ 지금은 Cloudflare 워커(chzzk-checker)가 1분마다 이 일을 대신 함 → 워커가 살아 있으면 예약 실행은 바로 끝남 (워커가 멈췄을 때만 대신)
 on:
   schedule:
     - cron: '7 * * * *'
@@ -20,18 +21,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 355
     steps:
+      - name: Cloudflare 워커가 돌고 있으면 건너뜀
+        id: cf
+        run: |
+          a=$(curl -sS --max-time 20 "https://uzuhama.vercel.app/api/health?cf=status" | grep -o '"alive":true' || true)
+          if [ -n "$a" ] && [ "${{ github.event_name }}" = "schedule" ]; then echo "skip=1" >> $GITHUB_OUTPUT; echo "워커가 대신 하고 있어서 건너뜀"; fi
       - uses: actions/checkout@v4
+        if: steps.cf.outputs.skip != '1'
       - uses: actions/setup-node@v4
+        if: steps.cf.outputs.skip != '1'
         with: { node-version: 22 }
       - name: Install (클라우드 점검용)
+        if: steps.cf.outputs.skip != '1'
         run: |
           npm ci --no-audit --no-fund >/dev/null 2>&1 || true
           timeout 300 npx playwright install chromium >/dev/null 2>&1 || true
       - name: Keep calling tick, AI analysis, cloud self-check
+        if: steps.cf.outputs.skip != '1'
         run: |
           end=$(( $(date +%s) + 340*60 ))
           n=0
           while [ $(date +%s) -lt $end ]; do
+            # 워커가 다시 살아나면 여기서 그만 (둘이 같이 부르지 않게)
+            if [ "${{ github.event_name }}" = "schedule" ] && curl -sS --max-time 20 "https://uzuhama.vercel.app/api/health?cf=status" | grep -q '"alive":true'; then echo "워커가 돌아와서 그만"; break; fi
             curl -sS --max-time 60 "https://uzuhama.vercel.app/api/notifications/tick?src=worker" -o /dev/null || true
             # 클라우드 점검: 돌고 있지 않으면 줄 선 것 확인 (뒤에서 실행 → 알림·분석 호출은 계속)
             if [ ! -f st.pid ] || ! kill -0 $(cat st.pid) 2>/dev/null; then

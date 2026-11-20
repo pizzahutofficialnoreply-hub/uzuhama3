@@ -60,12 +60,15 @@ export function AutomationSubTab() {
       getDoc(doc(db, 'youtube_cache', 'playlists')).then((s) => s.data()).catch(() => null),
     ]);
     setTick(t);
-    getDoc(doc(db, 'config', 'system')).then((s) => setAutoLogOn(s.data()?.autoLogEnabled !== false)).catch(() => setAutoLogOn(null));
+    getDoc(doc(db, 'config', 'system')).then((s) => { setAutoLogOn(s.data()?.autoLogEnabled !== false); setYtSyncOn(s.data()?.autoYtSyncEnabled !== false); }).catch(() => { setAutoLogOn(null); setYtSyncOn(null); });
+    getDoc(doc(db, 'youtube_cache', 'yt_sync_state')).then((s) => setYtSync(s.data() || null)).catch(() => setYtSync(null));
     setCaches({ uploads: up, shorts: sh, playlists: pl });
     fetch(`${API_BASE}/api/videos/search-index?status=1`).then((r) => r.json()).then(setIndex).catch(() => setIndex(null));
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const [ytSyncOn, setYtSyncOn] = useState<boolean | null>(null);
+  const [ytSync, setYtSync] = useState<any>(null);
   const run = async (key: string, url: string, admin = false) => {
     setBusy(key);
     try {
@@ -145,6 +148,33 @@ export function AutomationSubTab() {
           {autoLogOn ? '끄기' : '켜기'}
         </button>
         {out.autolog && <p className="text-[11px] text-red-500">{out.autolog}</p>}
+      </Card>
+
+      <Card title="예약 실행 (Cloudflare 워커)" ok={tick?.lastBySource?.cf ? Date.now() - Number(tick.lastBySource.cf) < 5 * 60000 : null}>
+        <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+          Cloudflare 워커(chzzk-checker)가 1분마다 깨어나서 알림 점검·AI 분석·편집본 자동 연결·방송 기록 검사·클라우드/주간 점검 깨우기를 제때 불러요. 워커가 살아 있으면 GitHub 예약 실행은 건너뛰고, 워커가 멈추면 GitHub 쪽이 대신 해요.
+        </p>
+        <p className="text-[11px] text-zinc-500">워커가 마지막으로 부른 때: {tick?.lastBySource?.cf ? ago(new Date(Number(tick.lastBySource.cf)).toISOString()) : '아직 없음'}</p>
+      </Card>
+
+      <Card title="새 편집 영상 → 방송 기록 편집본 자동 연결" ok={ytSyncOn === null ? null : ytSyncOn}>
+        <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+          유튜브에 새 영상이 올라오면, 올린 날 전 14일 안의 방송 기록 중 영상 제목·설명에 그 방송 게임 이름이 들어 있는 가장 가까운 기록의 '편집본'에 넣어요. 게임 이름이 안 맞거나 같은 날 기록이 여러 개면 넣지 않아요 (확실할 때만). 넣은 것은 이력에서 되돌릴 수 있어요.
+        </p>
+        {ytSync?.last && <p className="text-[11px] text-zinc-500">마지막: {ago(ytSync.last.at)} · 연결 {ytSync.last.linked}개 · 건너뜀 {ytSync.last.skipped}개</p>}
+        <button
+          type="button"
+          disabled={ytSyncOn === null || busy === 'ytsync'}
+          onClick={async () => {
+            setBusy('ytsync');
+            try { await setDoc(doc(db, 'config', 'system'), { autoYtSyncEnabled: !ytSyncOn }, { merge: true }); setYtSyncOn(!ytSyncOn); } catch (e: any) { setOut((o) => ({ ...o, ytsync: `실패: ${e?.message || e}` })); }
+            setBusy(null);
+          }}
+          className={`${btn} ${ytSyncOn ? 'bg-zinc-100 dark:bg-zinc-800' : 'bg-purple-600 text-white'}`}
+        >
+          {ytSyncOn ? '끄기' : '켜기'}
+        </button>
+        {out.ytsync && <p className="text-[11px] text-red-500">{out.ytsync}</p>}
       </Card>
 
       <Card title="검색 색인 (태그·썸네일 글자·게임 키워드)" ok={index ? !index.lastError || Boolean(index.count) : null}>

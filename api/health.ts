@@ -198,6 +198,11 @@ async function cloudSelftest(op: string, req: any, res: any) {
     }
     return res.status(200).json(pub(id, d));
   }
+  if (op === 'pending') {
+    // 워커가 2분마다: 줄 선 점검이 있으면 GitHub 의 점검 작업(selftest.yml)을 바로 깨움
+    const q = await col.where('status', '==', 'queued').limit(5).get();
+    return res.status(200).json({ queued: q.size });
+  }
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST' });
   if (op === 'cancel') {
     const id = String(req.query?.id || body.id || '');
@@ -215,7 +220,7 @@ async function cloudSelftest(op: string, req: any, res: any) {
     if (!/^\d{5,20}$/.test(runId)) return res.status(400).json({ error: 'run' });
     const gr = await fetch(`https://api.github.com/repos/${REPO}/actions/runs/${runId}`, { headers: { 'User-Agent': 'uzuhama-worker', Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(8000) }).catch(() => null);
     const run: any = gr && gr.ok ? await gr.json() : null;
-    if (!run || !/worker\.yml$/.test(run.path || '') || run.status === 'completed') return res.status(403).json({ error: 'not a worker run' });
+    if (!run || !/(worker|selftest)\.yml$/.test(run.path || '') || run.status === 'completed') return res.status(403).json({ error: 'not a worker run' });
     const first = q.docs.sort((a: any, b: any) => String(a.data().queuedAt).localeCompare(String(b.data().queuedAt)))[0];
     const took = await db.runTransaction(async (tx: any) => {
       const d = (await tx.get(first.ref)).data();
@@ -394,6 +399,24 @@ export default async function handler(req: any, res: any) {
   if (img) return imageHandler(img, req, res);
   const st = String(req.query?.selftest || '');
   if (st) return cloudSelftest(st, req, res);
+  // ── Cloudflare 워커(예약 실행)가 부르는 것들 ──
+  if (req.query?.yt === 'sync') {
+    // 새 편집 영상을 방송 기록 '편집본'에 자동 연결 (10분에 한 번만 실제로)
+    res.setHeader('Cache-Control', 'no-store');
+    const { db, hasAdminCredentials } = await import('./_firebase.js');
+    if (!hasAdminCredentials) return res.status(500).json({ error: 'no admin credentials' });
+    const { ytSync } = await import('./_ytSync.js');
+    return res.status(200).json(await ytSync(db));
+  }
+  if (req.query?.cf === 'status') {
+    // GitHub 예약 실행이 '워커가 살아 있으면 건너뛰기' 할 때 봄: 워커가 5분 안에 알림 점검을 불렀는지
+    res.setHeader('Cache-Control', 'no-store');
+    const { db, hasAdminCredentials } = await import('./_firebase.js');
+    if (!hasAdminCredentials) return res.status(200).json({ alive: false });
+    const d = (await db.collection('notification_state').doc('main').get()).data() || {};
+    const at = Number(d.lastBySource?.cf || 0);
+    return res.status(200).json({ alive: Date.now() - at < 5 * 60000, at: at ? new Date(at).toISOString() : null });
+  }
   // DB 읽기 출처: 기기가 보낸 숫자 더하기 (POST) / 관리자 화면에서 보기 (GET)
   if (req.query?.snapshot === 'logs') {
     // 방송 기록 묶음: 달마다 문서(logs_by_month) + 몰아보기(compilations)를 한 번에 → CDN 에 30분 보관

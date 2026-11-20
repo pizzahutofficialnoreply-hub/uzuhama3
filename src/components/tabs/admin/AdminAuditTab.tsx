@@ -10,7 +10,7 @@ import { confirmSheet } from '../../../utils/ui';
  * 관리자 > 이력: 누가 언제 방송 기록·시스템 설정을 바꿨는지, 그리고 되돌리기
  * (서버가 저장할 때마다 바뀌기 전 모습을 admin_audit 에 남김)
  */
-const LABEL: Record<string, string> = { addLog: '기록 추가', updateLog: '기록 수정', deleteLog: '기록 삭제', updateSystemConfig: '설정 변경', note: '알림', site: '사이트 수정', restoreBefore: '시점 복원', data_fix: '데이터 고침', uploadImage: '그림 올림', backupImport: '백업 복원' };
+const LABEL: Record<string, string> = { addLog: '기록 추가', updateLog: '기록 수정', deleteLog: '기록 삭제', updateSystemConfig: '설정 변경', note: '알림', site: '사이트 수정', restoreBefore: '시점 복원', data_fix: '데이터 고침', uploadImage: '그림 올림', backupImport: '백업 복원', ytSync: '편집본 자동 연결' };
 
 /** 사이트 코드가 바뀐 기록 (공개 저장소의 커밋, 임시 확인용은 뺌) */
 async function loadSiteChanges(): Promise<any[]> {

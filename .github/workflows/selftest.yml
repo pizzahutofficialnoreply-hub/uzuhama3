@@ -1,0 +1,29 @@
+name: 클라우드 점검 (워커가 깨움)
+
+# 관리자·방문자가 '클라우드 점검'을 줄 세우면 Cloudflare 워커가 2분 안에 이 작업을 바로 깨움
+# (예약 실행은 몇 시간씩 밀려서 워커가 workflow_dispatch 로 직접 부름)
+# 줄 선 점검을 하나씩 다 처리하고 끝남
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: cloud-selftest
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: 줄 선 점검 처리 (최대 5개)
+        run: |
+          for i in 1 2 3 4 5; do
+            q=$(curl -sS --max-time 20 "https://uzuhama.vercel.app/api/health?selftest=pending" | grep -oE '"queued":[0-9]+' | grep -oE '[0-9]+' || echo 0)
+            [ "${q:-0}" -gt 0 ] || break
+            node scripts/cloud-selftest.mjs || true
+          done
