@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { SheetHandle } from './common/SheetHandle';
 import { 
   X, Loader2, Image as ImageIcon, 
   Save, Download, Check, Plus, Trash2, 
@@ -465,14 +466,8 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
           isExpanded ? "h-[100dvh] rounded-t-none" : "h-[85dvh] max-h-[92dvh] rounded-t-[28px]"
         )}
       >
-        {/* Top Drag Handle Line (당기면 화면 채우고, 내리면 닫기) */}
-        <div 
-          className="w-full flex items-center justify-center pt-2.5 pb-1 cursor-grab active:cursor-grabbing touch-none select-none shrink-0"
-          onClick={() => setIsExpanded(prev => !prev)}
-          title={isExpanded ? "축소하기" : "전체화면으로 확장하기"}
-        >
-          <div className="w-12 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-700 hover:bg-zinc-400 dark:hover:bg-zinc-600 transition-colors" />
-        </div>
+        {/* 손잡이: 위로 끌면 화면 채우기, 아래로 끌면 닫기 (다른 시트와 같은 모양) */}
+        <SheetHandle onClose={onClose} onUp={() => setIsExpanded(true)} className="pt-2.5 pb-1 mt-0 !flex" />
 
         {/* Modal Header */}
         <div className="flex items-center justify-between gap-2 px-5 sm:px-6 pb-2.5 shrink-0">

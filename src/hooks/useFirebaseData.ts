@@ -1,3 +1,4 @@
+import { undoToast } from '../utils/ui';
 import { noteReads } from '../utils/readStats';
 import { setHeldVideos } from '../utils/held';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -22,6 +23,10 @@ import { overlayMonthDocs } from '../utils/archiveOverlay';
 import { kvGet, kvSet } from '../utils/kv';
 import { BroadcastLog, DailyStat, TimeStat, DurationStat, MonthlyStat, AppData, PatternGuide, SystemConfig, GameItem, LinkItem } from '../types';
 import { dailyStats as defaultDaily, timeStats as defaultTime, durationStats as defaultDuration, monthlyStats as defaultMonthly, patternGuides as defaultGuides } from '../data';
+
+// 되돌리기 실행 중에는 또 '되돌리기' 알림을 띄우지 않음
+let undoing = false;
+async function runUndo(fn: () => Promise<unknown>) { undoing = true; try { await fn(); } finally { undoing = false; } }
 
 // Vercel 서버 API를 통한 관리자 Firestore 데이터 편집 (보안 및 무결성 강화)
 async function executeAdminMutation(action: string, payload: any): Promise<boolean> {
@@ -665,6 +670,8 @@ export function useFirebaseData() {
           logs: newLogs
         };
       });
+      const prevLog = data.logs[log.id];
+      if (!undoing) undoToast(`${log.date} 기록을 ${prevLog ? '바꿨어요' : '추가했어요'}`, () => runUndo(() => (prevLog ? updateLog(prevLog) : deleteLog(log.id))));
     } catch (e) {
       console.error('addLog error:', e);
       throw e;
@@ -709,6 +716,8 @@ export function useFirebaseData() {
           logs: newLogs
         };
       });
+      const prevLog = data.logs[log.id];
+      if (!undoing && prevLog) undoToast(`${log.date} 기록을 고쳤어요`, () => runUndo(() => updateLog(prevLog)));
     } catch (e) {
       console.error('updateLog error:', e);
       throw e;
@@ -745,6 +754,7 @@ export function useFirebaseData() {
           logs: newLogs
         };
       });
+      if (!undoing && targetLog) undoToast(`${targetLog.date} 기록을 지웠어요`, () => runUndo(() => addLog(targetLog)));
     } catch (e) {
       console.error('deleteLog error:', e);
     }
@@ -816,6 +826,8 @@ export function useFirebaseData() {
   };
 
   const updateSystemConfig = async (sys: Partial<SystemConfig>) => {
+    const beforeSys: Record<string, any> = {};
+    try { for (const k of Object.keys(sys)) beforeSys[k] = (data?.system as any)?.[k] ?? null; } catch { /* */ }
     try {
       const sanitized = cleanFirestoreData(sys);
       const serverHandled = await executeAdminMutation('updateSystemConfig', { config: sanitized });
@@ -837,6 +849,7 @@ export function useFirebaseData() {
           system: newSystem as SystemConfig
         };
       });
+      if (!undoing) undoToast('설정을 바꿨어요', () => runUndo(() => updateSystemConfig(beforeSys as any)));
     } catch (e) {
       console.error('updateSystemConfig error:', e);
       throw e;

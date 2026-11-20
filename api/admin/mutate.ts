@@ -66,6 +66,12 @@ export default async function handler(req: any, res: any) {
     };
 
     switch (action) {
+      case 'note': {
+        // 관리자 화면에 뜬 알림(토스트)을 이력에 남김
+        const text = String(payload.text || '').slice(0, 300);
+        if (text) await audit({ action: 'note', text });
+        return res.status(200).json({ success: true });
+      }
       case 'uploadImage': {
         // 헤더 장식 그림·GIF: 그림 저장소(images)에 바이너리로 → 주소
         const { saveImage } = await import('../health.js');

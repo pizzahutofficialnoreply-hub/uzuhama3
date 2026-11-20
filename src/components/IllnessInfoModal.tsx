@@ -1,4 +1,5 @@
 import React from 'react';
+import { SheetHandle } from './common/SheetHandle';
 import { X, ExternalLink, Activity, BookOpen, ShieldAlert, CheckCircle2, Stethoscope } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useBodyScrollLock } from '../utils';
@@ -149,6 +150,7 @@ export function IllnessInfoModal({
         transition={{ type: 'spring', damping: 28, stiffness: 380 }}
         className="sheet-fill w-full sm:max-w-xl h-[92vh] sm:h-auto sm:max-h-[85vh] bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-[28px] sm:rounded-[28px] shadow-2xl flex flex-col overflow-hidden text-left relative"
       >
+        <SheetHandle onClose={onClose} className="pt-2.5 pb-0 mt-0" />
         {/* 새 창 헤더 (상단 고정, 스크롤해도 닫기 X 버튼이 절대 사라지지 않음) */}
         <header className="sticky top-0 z-30 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-5 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+12px)] pb-3.5 sm:py-4 border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0 pr-2 text-left">

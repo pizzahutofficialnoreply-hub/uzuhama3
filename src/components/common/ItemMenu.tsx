@@ -19,7 +19,7 @@ export type SearchInfo = { query: string; concepts: string[]; understood: string
 export const SearchContext = createContext<SearchInfo>({ query: '', concepts: [], understood: '' });
 
 export const REPORT_EVENT = 'uzuhama-open-report';
-export type ReportTarget = { id: string; kind: MyItemKind; title: string; search: SearchInfo; aiSummary?: boolean; reason?: string; /** 연말 결산 신고: 어느 해·어느 장 */ recap?: string };
+export type ReportTarget = { id: string; kind: MyItemKind; title: string; search: SearchInfo; aiSummary?: boolean; reason?: string; /** 연말 결산 신고: 어느 해·어느 장 */ recap?: string; /** 분석 탭 그래프·표 신고: 어느 칸 */ widget?: string };
 /** 짧은 알림 (저장 알림과 같은 자리) */
 export const TOAST_EVENT = 'uzuhama-toast';
 export const toast = (text: string) => window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: text }));

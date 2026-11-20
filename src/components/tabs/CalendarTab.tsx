@@ -30,6 +30,7 @@ import { isKoreanHoliday } from '../../utils/koreanHolidays';
 import { exportToDeviceCalendar, exportMultipleToDeviceCalendar, getGoogleCalendarUrl } from '../../utils/calendarExport';
 import { triggerHaptic } from '../../utils/haptics';
 import { CalendarSubscribeModal } from '../CalendarSubscribeModal';
+import { openAiCard } from '../common/AiCardExpand';
 import { SelectiveCalendarModal } from '../modals/SelectiveCalendarModal';
 import { GameTitle } from '../common/GameTitle';
 import { GlassPlayButton } from '../common/MediaIcons';
@@ -411,11 +412,12 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
         setCurrentDate(parsed);
         setSelectedDate(parsed);
         
-        // 방송 기록 표: 해당 날짜만 즉시 단독 조회 (강조 표시가 아닌 해당 날짜만 조회)
-        setInputStartDate(selectedDateStr);
-        setInputEndDate(selectedDateStr);
-        setAppliedStartDate(selectedDateStr);
-        setAppliedEndDate(selectedDateStr);
+        // 방송 기록 표: 그 날짜가 들어 있는 해 전체를 보여 주고 그 줄로 스크롤 (한 날짜만 거르지 않음)
+        const y = selectedDateStr.slice(0, 4);
+        setInputStartDate(`${y}-01-01`);
+        setInputEndDate(`${y}-12-31`);
+        setAppliedStartDate(`${y}-01-01`);
+        setAppliedEndDate(`${y}-12-31`);
         setHasCustomFilter(true);
 
         // 해당 날짜의 테이블 또는 달력으로 부드럽게 스크롤
@@ -887,16 +889,12 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
       });
     }
 
-    // 날짜를 직접 클릭하여 선택한 경우, 해당 날짜의 방송 기록만 조회
-    if (selectedDate) {
-      const targetDateStr = format(selectedDate, 'yyyy-MM-dd');
-      return logsArray.filter(log => log.date === targetDateStr);
-    }
+    // 날짜를 눌러도 표는 그대로 (위 달력 칸에서 그날 기록을 보여 줌)
 
     return logsArray.filter(log => {
       return log.date >= appliedStartDate && log.date <= appliedEndDate;
     });
-  }, [logsArray, appliedStartDate, appliedEndDate, searchTerm, selectedDate, searchPrefs]);
+  }, [logsArray, appliedStartDate, appliedEndDate, searchTerm, searchPrefs]);
 
   // 검색 결과가 1건으로 좁혀졌을 때 자동으로 해당 날짜 선택 및 달력 이동
   useEffect(() => {
@@ -1386,7 +1384,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                               </div>
                             ) : ytId ? (
                               <div
-                                onClick={() => setPlayingVideoUrl(video.url || null)}
+                                onClick={(e) => (!isVertical && ytId ? openAiCard(ytId, title, e.currentTarget) : setPlayingVideoUrl(video.url || null))}
                                 className={cn(
                                   "relative w-full overflow-hidden bg-zinc-950 border-b border-black/10 dark:border-white/10 cursor-pointer select-none group/thumb",
                                   isVertical ? "aspect-[9/16]" : "aspect-video"
@@ -1608,6 +1606,18 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
               <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
                 {tableLogs.length}건
               </span>
+              {/* 캘린더 구독: 작게 (한 방송만 등록은 위 달력에서 날짜를 눌러서) */}
+              <button
+                type="button"
+                id="btn-calendar-subscribe-table"
+                data-tour="calendar-export"
+                onClick={() => { triggerHaptic(12); setIsSubscribeModalOpen(true); }}
+                className="ml-auto sm:ml-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                title="스마트폰 캘린더에 방송 일정 자동 동기화"
+              >
+                <Bell className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                캘린더 구독
+              </button>
             </div>
             {isSelectMode && (
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
@@ -1616,43 +1626,6 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
             )}
           </div>
           
-          {/* [1:1 길이 캘린더 선택 등록 버튼 및 구독 버튼] - 검색창 바로 위에 각각 1:1 너비 배치 */}
-          <div data-tour="calendar-export" className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full">
-            {/* 1. 캘린더 선택 등록 버튼 */}
-            <button 
-              type="button"
-              onClick={() => {
-                triggerHaptic(12);
-                setIsSelectMode(prev => !prev);
-              }}
-              className={cn(
-                "w-full py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs border active:scale-[0.99]",
-                isSelectMode
-                  ? "bg-purple-600 text-white border-purple-600 shadow-purple-500/20"
-                  : "bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/80"
-              )}
-              title="달력 및 목록에서 원하는 방송 일정을 체크하여 기기 캘린더에 일괄 등록"
-            >
-              <CalendarCheck className="w-4 h-4 shrink-0" />
-              <span>{isSelectMode ? `선택 등록 종료 (${selectedDates.size})` : '캘린더 선택 등록'}</span>
-            </button>
-
-            {/* 2. 구독 버튼 */}
-            <button 
-              type="button"
-              id="btn-calendar-subscribe-table"
-              onClick={() => {
-                triggerHaptic(12);
-                setIsSubscribeModalOpen(true);
-              }}
-              className="w-full py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs border bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 active:scale-[0.99]"
-              title="스마트폰 캘린더에 방송 일정 자동 동기화"
-            >
-              <Bell className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
-              <span>캘린더 구독</span>
-            </button>
-          </div>
-
           {/* 선택 모드 활성화 시 전체 선택/해제 및 기기 등록 체크 버튼 툴바 */}
           {isSelectMode && (
             <div className="flex flex-wrap items-center justify-between gap-2.5 p-3.5 bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200/80 dark:border-purple-800/60 rounded-2xl animate-in fade-in duration-200">
@@ -1805,24 +1778,6 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
           </div>
         </div>
         
-        {(selectedDate || selectedDateStr) && (
-          <div className="flex items-center justify-between px-5 lg:px-7 py-3 bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 text-xs sm:text-sm">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-purple-600 shrink-0" />
-              <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                선택된 날짜({selectedDate ? format(selectedDate, 'yyyy-MM-dd') : selectedDateStr})의 방송 기록만 조회 중이에요.
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={handleClearDateFilter}
-              className="px-3 py-1.5 rounded-lg bg-white hover:bg-zinc-100 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-600 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
-            >
-              전체 방송 기록 보기
-            </button>
-          </div>
-        )}
-
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full min-w-[500px] sm:min-w-[760px] text-left text-xs sm:text-sm table-fixed lg:table-auto">
             <thead className="bg-zinc-50 dark:bg-black/40 text-zinc-500 dark:text-zinc-400 font-semibold whitespace-nowrap">
@@ -1968,7 +1923,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                               {ytId ? (
                                 <button
                                   type="button"
-                                  onClick={() => setPlayingModalVideo({ url: v.url, title: v.title || '생방송 다시보기' })}
+                                  onClick={(e) => { const id = extractYoutubeId(v.url); if (id) openAiCard(id, v.title || '생방송 다시보기', e.currentTarget); }}
                                   className="inline-flex items-center gap-1.5 text-left hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer group/btn"
                                   title="브라우저에서 바로 재생"
                                 >
@@ -2026,7 +1981,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                 {ytId ? (
                                   <button
                                     type="button"
-                                    onClick={() => setPlayingModalVideo({ url: v.url, title: v.title || '유튜브 편집본' })}
+                                    onClick={(e) => { const id = extractYoutubeId(v.url); if (id) openAiCard(id, v.title || '유튜브 편집본', e.currentTarget); }}
                                     className="inline-flex items-center gap-1.5 text-left text-red-600 dark:text-red-400 font-semibold hover:underline cursor-pointer group/btn"
                                     title="브라우저에서 바로 재생"
                                   >
@@ -2135,15 +2090,6 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                 <tr>
                   <td colSpan={5} className="px-6 py-14 text-center text-zinc-500">
                     <p className="text-sm font-medium">해당 조건에 일치하는 방송 기록이 없어요.</p>
-                    {(selectedDate || selectedDateStr) && (
-                      <button
-                        type="button"
-                        onClick={handleClearDateFilter}
-                        className="mt-3 px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold transition-colors cursor-pointer shadow-2xs inline-flex items-center gap-1"
-                      >
-                        전체 방송 기록 보기
-                      </button>
-                    )}
                   </td>
                 </tr>
             )}

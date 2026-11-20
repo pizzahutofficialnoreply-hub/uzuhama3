@@ -279,41 +279,14 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
       await waitFor(() => /총\s*\d+\s*개/.test(D().body.innerText), 10000, '검색 결과');
       uiCheck('검색');
     });
-    await step('검색', '⋮ 메뉴 → AI 영상 요약이 열리고 닫혀요', async () => {
+    await step('검색', '⋮ 메뉴에 AI 영상 요약이 없어요 (카드 펼친 화면으로 합침)', async () => {
       ($('input[name="search_query"]') as HTMLInputElement)?.blur();
-      // AI가 보기 시작한 영상에만 메뉴가 있음 → 그 목록으로 해당 카드의 ⋮ 만 바로 엶 (하나씩 열어 보면 30초 넘게 걸림)
       await waitFor(() => $('button[aria-label="더 보기"]'), 6000, '⋮ 버튼');
-      let started = new Set<string>();
-      try {
-        const base = W().location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app';
-        const j = await Promise.race([fetch(`${base}/api/videos/search-index?ai=ids`).then((r) => r.json()), sleep(5000).then(() => null)]);
-        started = new Set<string>(Array.isArray(j?.ids) ? j.ids : []);
-      } catch { /* */ }
-      const idNear = (btn: HTMLElement) => {
-        let el: HTMLElement | null = btn;
-        for (let i = 0; i < 8 && el; i++, el = el.parentElement) {
-          const m = (el.innerHTML.match(/(?:vi\/|v=|youtu\.be\/|\/live\/|\/shorts\/)([\w-]{11})/) || [])[1];
-          if (m) return m;
-        }
-        return '';
-      };
-      const mores = $$('button[aria-label="더 보기"]');
-      const pick = mores.filter((b) => started.has(idNear(b)));
-      let item: HTMLElement | null = null;
-      for (const more of (pick.length ? pick : mores).slice(0, pick.length ? 3 : 2)) {
-        more.click();
-        await waitFor(() => $('[role="menuitem"]'), 2000, '메뉴').catch(() => null);
-        item = await waitFor(() => byText('[role="menuitem"]', 'AI 영상 요약'), 1200, 'AI 메뉴').catch(() => null);
-        if (item) break;
-        D().dispatchEvent(new (W() as any).MouseEvent('mousedown', { bubbles: true }));
-        await sleep(200);
-      }
-      if (!item) throw Object.assign(new Error('보이는 영상 중 AI가 본 영상이 없어서 건너뜀 (정상)'), { warn: true });
-      item.click();
-      await waitFor(() => $('[role="dialog"][aria-label="AI 영상 요약"]'), 5000, 'AI 요약 창');
-      await waitFor(() => !/불러오는 중/.test($('[role="dialog"][aria-label="AI 영상 요약"]')!.innerText), 12000, 'AI 요약 내용');
-      $('[role="dialog"][aria-label="AI 영상 요약"] button[aria-label="닫기"]')?.click();
-      await waitFor(() => !$('[role="dialog"][aria-label="AI 영상 요약"]'), 4000, '닫힘');
+      $('button[aria-label="더 보기"]')!.click();
+      await waitFor(() => $('[role="menuitem"]'), 2000, '메뉴');
+      if (byText('[role="menuitem"]', 'AI 영상 요약')) throw new Error("⋮ 메뉴에 'AI 영상 요약'이 남아 있어요");
+      D().dispatchEvent(new (W() as any).MouseEvent('mousedown', { bubbles: true }));
+      await sleep(200);
     });
     await step('검색', '⋮ 메뉴 → 저장 창이 열려요 (저장은 안 함)', async () => {
       $('button[aria-label="더 보기"]')!.click();

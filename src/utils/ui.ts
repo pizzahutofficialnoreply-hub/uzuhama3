@@ -9,8 +9,10 @@ import { TOAST_EVENT } from '../components/common/ItemMenu';
 export const CONFIRM_EVENT = 'uzuhama-confirm';
 export type ConfirmOpts = { title?: string; message?: string; confirmText?: string; cancelText?: string; danger?: boolean };
 
-export const toast = (text: string, kind?: 'info' | 'success' | 'error') =>
-  window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: kind ? { text, kind } : text }));
+export const toast = (text: string, kind?: 'info' | 'success' | 'error', opts: { undo?: () => unknown } = {}) =>
+  window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: kind || opts.undo ? { text, kind, ...opts } : text }));
+/** 실행한 일 알림 + 옆에 '되돌리기' (누르면 undo 실행) */
+export const undoToast = (text: string, undo: () => unknown) => toast(text, 'success', { undo });
 
 const DANGER = /삭제|지울|지워|초기화|비울|되돌릴 수 없|영구|탈퇴|해제할까|끊을까|로그아웃/;
 

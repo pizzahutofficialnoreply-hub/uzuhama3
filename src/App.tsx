@@ -76,7 +76,7 @@ import { MaintenancePager } from './components/MaintenancePager';
 import { SELFTEST_FLAG } from './selftest/flag';
 const SelfTestPage = lazy(() => import('./components/SelfTestPage').then((m) => ({ default: m.SelfTestPage })));
 import { AiSummaryHost, GO_SEARCH_EVENT } from './components/common/AiSummaryHost';
-import { AiCardExpandHost } from './components/common/AiCardExpand';
+import { AiCardExpandHost, openAiCard } from './components/common/AiCardExpand';
 import PullToRefresh from './components/common/PullToRefresh';
 import { activeDdays } from './utils/dday';
 import { confirmSheet } from './utils/ui';
@@ -346,6 +346,16 @@ function MainApp() {
         window.history.replaceState(window.history.state, '', window.location.pathname);
       }
       if (v && /^[\w-]{11}$/.test(v)) handleNavigateToRecommend(undefined, params.get('kind') === 'short' ? v : undefined, params.get('kind') === 'short' ? undefined : v);
+      // 영상 링크: 검색 탭 위에 그 영상을 펼친 화면으로 바로 (쇼츠는 그대로)
+      if (v && /^[\w-]{11}$/.test(v) && params.get('kind') !== 'short') {
+        let title = '';
+        for (const l of Object.values(data?.logs || {}) as any[]) {
+          const it = [...(l?.vods || []), ...(l?.edited || [])].find((x: any) => String(x?.url || '').includes(v));
+          if (it) { title = it.title || ''; break; }
+        }
+        const t = Number(params.get('t') || 0);
+        window.setTimeout(() => openAiCard(v, title, null, undefined, t > 0 ? { start: t } : {}), 400);
+      }
       else if (q && q.trim()) handleNavigateToRecommend(undefined, q.trim().slice(0, 60));
       if (v || q) window.history.replaceState(window.history.state, '', window.location.pathname);
     } catch { /* 무시 */ }

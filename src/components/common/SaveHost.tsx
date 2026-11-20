@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { SheetHandle } from './SheetHandle';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Check, Flag, ListPlus, Plus, X } from 'lucide-react';
@@ -22,7 +23,11 @@ import { hasAiSummary } from './AiSummaryHost';
  */
 type Item = Omit<MyItem, 'addedAt'>;
 
-const REASONS = (t: ReportTarget, hasAi: boolean) => t.recap ? [
+const REASONS = (t: ReportTarget, hasAi: boolean) => t.widget ? [
+  { key: 'wrong_widget', label: '숫자·그래프가 이상해요' },
+  { key: 'wrong_date', label: '방송 기록이 빠졌거나 틀려요' },
+  { key: 'other', label: '기타' },
+] : t.recap ? [
   { key: 'wrong_recap', label: '결산 숫자·내용이 틀려요' },
   { key: 'wrong_game_name', label: '게임 이름이 달라요' },
   { key: 'wrong_date', label: '방송 날짜가 달라요' },
@@ -65,15 +70,15 @@ function ReportSheet({ target, onClose }: { target: ReportTarget; onClose: () =>
         vid: visitorId(),
         reason,
         // 연결·게임·날짜 문제는 관리자 '연동' 탭으로
-        route: target.recap ? null : reason === 'wrong_ai_summary' ? 'ai' : reason.startsWith('wrong_') ? (reason === 'wrong_game_name' || reason === 'wrong_game_link' ? 'game' : 'link') : null,
+        route: target.recap || target.widget ? null : reason === 'wrong_ai_summary' ? 'ai' : reason.startsWith('wrong_') ? (reason === 'wrong_game_name' || reason === 'wrong_game_link' ? 'game' : 'link') : null,
         videoId: target.id,
         kind: target.kind,
         query: target.search.query || null,
         concepts: target.search.concepts,
         understood: target.search.understood || null,
         note: note.trim() || null,
-        title: target.recap ? `[결산 신고] ${target.recap} · ${label}`.slice(0, 120) : reason === 'wrong_ai_summary' ? `[AI 요약 신고] ${target.title}`.slice(0, 120) : `[검색 신고] ${label}`,
-        content: [target.recap ? `결산: ${target.recap}` : `영상: ${target.title}`, target.recap ? '' : `https://youtu.be/${target.id}`, target.search.query ? `검색어: ${target.search.query}` : '', target.search.understood ? `해석: ${target.search.understood}` : '', note.trim() ? `의견: ${note.trim()}` : ''].filter(Boolean).join('\n'),
+        title: target.widget ? `[분석 신고] ${target.widget} · ${label}`.slice(0, 120) : target.recap ? `[결산 신고] ${target.recap} · ${label}`.slice(0, 120) : reason === 'wrong_ai_summary' ? `[AI 요약 신고] ${target.title}`.slice(0, 120) : `[검색 신고] ${label}`,
+        content: [target.widget ? `분석: ${target.widget}` : target.recap ? `결산: ${target.recap}` : `영상: ${target.title}`, target.recap || target.widget ? '' : `https://youtu.be/${target.id}`, target.search.query ? `검색어: ${target.search.query}` : '', target.search.understood ? `해석: ${target.search.understood}` : '', note.trim() ? `의견: ${note.trim()}` : ''].filter(Boolean).join('\n'),
         createdAt: serverTimestamp(),
       });
       noteSubmit('report', guardKey);
@@ -90,6 +95,7 @@ function ReportSheet({ target, onClose }: { target: ReportTarget; onClose: () =>
       <motion.div role="dialog" aria-modal="true" aria-label="신고하기"
         initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 34 }}
         className="sheet-fill relative w-full sm:max-w-sm bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] border border-zinc-200 dark:border-zinc-800 shadow-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <SheetHandle onClose={onClose} />
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-base font-black text-zinc-900 dark:text-white flex items-center gap-1.5"><Flag className="w-4 h-4 text-red-500" /> 무엇이 문제인가요?</h3>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
@@ -246,6 +252,7 @@ function SaveSheetHost() {
               transition={{ type: 'spring', stiffness: 380, damping: 34 }}
               className="sheet-fill relative w-full sm:max-w-sm bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] border border-zinc-200 dark:border-zinc-800 shadow-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             >
+              <SheetHandle onClose={close} />
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-base font-black text-zinc-900 dark:text-white">어디에 저장할까요?</h3>
                 <button type="button" onClick={close} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>

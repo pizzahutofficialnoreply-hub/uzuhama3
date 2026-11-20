@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { SheetHandle } from './SheetHandle';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
@@ -12,7 +13,20 @@ import { cn } from '../../utils';
  *  - 토스트: 안내만 하는 알림 (예전 alert 창 대신). 화면 아래에 잠깐 떴다 사라짐, 눌러서 닫기
  *  - 확인 시트: 고르거나 지우는 것처럼 선택이 필요한 확인 (예전 confirm 창 대신). 밑에서 올라옴
  */
-type ToastItem = { id: number; text: string; kind: 'info' | 'success' | 'error'; out?: boolean };
+type ToastItem = { id: number; text: string; kind: 'info' | 'success' | 'error'; out?: boolean; undo?: () => unknown };
+
+/** 관리자 화면에서 뜬 알림은 관리자 › 이력에 남김 (서버가 이력에 적음) */
+async function noteAdmin(text: string) {
+  try {
+    if (typeof window === 'undefined' || !window.location.pathname.startsWith('/admin')) return;
+    const { auth } = await import('../../lib/firebase');
+    const { isAdminUser, adminSessionValid } = await import('../../utils/adminAuth');
+    if (!isAdminUser(auth.currentUser) || !adminSessionValid()) return;
+    const token = await auth.currentUser!.getIdToken();
+    const base = /vercel\.app$|localhost|127\.0\.0\.1/.test(window.location.hostname) ? '' : 'https://uzuhama.vercel.app';
+    await fetch(`${base}/api/admin/mutate`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'note', text }) });
+  } catch { /* 이력은 못 남겨도 됨 */ }
+}
 let seq = 0;
 
 const kindOf = (t: string): ToastItem['kind'] =>
@@ -35,8 +49,11 @@ export function UiHost() {
       if (!text) return;
       const kind: ToastItem['kind'] = (typeof d === 'object' && d?.kind) || kindOf(text);
       const id = ++seq;
-      setToasts((list) => [...list.filter((x) => x.text !== text), { id, text, kind }].slice(-3));
-      window.setTimeout(() => dismissToast(id), Math.min(7000, 2400 + text.length * 55));
+      const undo = typeof d === 'object' && typeof d?.undo === 'function' ? d.undo : undefined;
+      setToasts((list) => [...list.filter((x) => x.text !== text), { id, text, kind, undo }].slice(-3));
+      // 되돌리기가 있으면 누를 시간을 넉넉히
+      window.setTimeout(() => dismissToast(id), undo ? 8000 : Math.min(7000, 2400 + text.length * 55));
+      void noteAdmin(text);
     };
     window.addEventListener(TOAST_EVENT, on);
     return () => window.removeEventListener(TOAST_EVENT, on);
@@ -79,15 +96,30 @@ export function UiHost() {
         {toasts.map((t) => {
           const I = Icon[t.kind];
           return (
-            <button
+            <div
               key={t.id}
-              type="button"
+              role="status"
               onClick={() => dismissToast(t.id)}
-              className={cn('ui-toast pointer-events-auto max-w-[min(92vw,480px)] flex items-start gap-2.5 pl-3.5 pr-4 py-2.5 rounded-2xl bg-zinc-900 dark:bg-zinc-800 text-white text-sm text-left cursor-pointer', t.out && 'ui-toast-out')}
+              className={cn('ui-toast pointer-events-auto max-w-[min(92vw,480px)] flex items-center gap-2.5 pl-3.5 pr-2 py-2 rounded-2xl bg-zinc-900 dark:bg-zinc-800 text-white text-sm text-left cursor-pointer', !t.undo && 'pr-4 py-2.5', t.out && 'ui-toast-out')}
             >
-              <I className={cn('w-4 h-4 mt-0.5 shrink-0', t.kind === 'error' ? 'text-red-400' : t.kind === 'success' ? 'text-emerald-400' : 'text-purple-300')} />
+              <I className={cn('w-4 h-4 shrink-0', t.kind === 'error' ? 'text-red-400' : t.kind === 'success' ? 'text-emerald-400' : 'text-purple-300')} />
               <span className="font-semibold whitespace-pre-line break-keep leading-snug">{t.text}</span>
-            </button>
+              {t.undo && (
+                <button
+                  type="button"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const fn = t.undo!;
+                    dismissToast(t.id);
+                    try { await fn(); window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: { text: '되돌렸어요', kind: 'success' } })); }
+                    catch (err: any) { window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: { text: `되돌리지 못했어요: ${err?.message || err}`, kind: 'error' } })); }
+                  }}
+                  className="ml-1 shrink-0 px-2.5 py-1 rounded-xl bg-white/15 hover:bg-white/25 text-[12.5px] font-black text-purple-200 cursor-pointer"
+                >
+                  되돌리기
+                </button>
+              )}
+            </div>
           );
         })}
       </div>
@@ -101,7 +133,7 @@ export function UiHost() {
               transition={{ type: 'spring', stiffness: 380, damping: 34 }}
               className="sheet-fill relative w-full sm:max-w-sm bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] p-5 pb-[calc(20px+env(safe-area-inset-bottom))] sm:pb-5 shadow-2xl"
             >
-              <div className="sm:hidden mx-auto mb-4 h-1.5 w-10 rounded-full bg-zinc-300 dark:bg-zinc-700" aria-hidden="true" />
+              <SheetHandle onClose={() => answer(false)} />
               <div className="flex items-start gap-3">
                 {confirm.danger && <span className="w-9 h-9 rounded-full bg-red-50 dark:bg-red-950/40 flex items-center justify-center shrink-0"><AlertTriangle className="w-4.5 h-4.5 text-red-500" /></span>}
                 <div className="min-w-0">
@@ -127,7 +159,7 @@ export function UiHost() {
               transition={{ type: 'spring', stiffness: 380, damping: 34 }}
               className="sheet-fill relative w-full sm:max-w-sm bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] p-4 pb-[calc(16px+env(safe-area-inset-bottom))] sm:pb-4 shadow-2xl"
             >
-              <div className="sm:hidden mx-auto mb-3 h-1.5 w-10 rounded-full bg-zinc-300 dark:bg-zinc-700" aria-hidden="true" />
+              <SheetHandle onClose={() => pick(null)} />
               {choose.title && <p className="px-1 text-[15px] font-bold text-zinc-900 dark:text-white line-clamp-2 break-keep">{choose.title}</p>}
               {choose.message && <p className="px-1 mt-0.5 text-xs text-zinc-500 break-keep">{choose.message}</p>}
               <div className="mt-3 space-y-1.5">

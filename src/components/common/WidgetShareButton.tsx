@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { Loader2, MoreVertical, Flag } from 'lucide-react';
+import { requestReport } from './ItemMenu';
+import { POPOVER_CLS } from './LinkMenu';
 import { shareElementAsImage } from '../../utils/shareUtils';
 import { cn } from '../../utils';
 import { ShareBoxArrowIcon } from './ShareIcon';
@@ -59,25 +62,62 @@ export const WidgetShareButton: React.FC<WidgetShareButtonProps> = ({
     }
   };
 
-  return (
-    <button
-      type="button"
-      data-no-share="true"
-      onClick={handleShare}
-      disabled={isSharing}
-      className={cn(
-        "p-1.5 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all duration-150 cursor-pointer active:scale-90 outline-none focus:outline-none focus:ring-0 select-none",
-        isSharing && "opacity-60 cursor-wait",
-        className
-      )}
-      title={`${title} 이미지 공유`}
-      aria-label={`${title} 이미지 공유`}
-    >
-      {isSharing ? (
-        <Loader2 className={cn("w-4 h-4 animate-spin text-purple-600 dark:text-purple-400", iconClassName)} />
-      ) : (
-        <ShareBoxArrowIcon className={cn("w-4 h-4", iconClassName)} />
-      )}
-    </button>
-  );
+  return <WidgetMenu title={title} sharing={isSharing} onShare={handleShare} className={className} iconClassName={iconClassName} />;
 };
+
+/** 분석 그래프·표의 ⋯ 메뉴: 공유(이미지) · 신고 — 검색 탭 카드 메뉴와 같은 모양 */
+function WidgetMenu({ title, sharing, onShare, className, iconClassName }: { title: string; sharing: boolean; onShare: (e: React.MouseEvent) => void; className?: string; iconClassName?: string }) {
+  const [open, setOpen] = useState(false);
+  const btn = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number }>({ left: 0 });
+  useEffect(() => {
+    if (!open || !btn.current) return;
+    const r = btn.current.getBoundingClientRect();
+    const up = r.bottom + 120 > window.innerHeight - 80;
+    const left = Math.max(8, Math.min(window.innerWidth - 168, r.right - 160));
+    setPos(up ? { bottom: window.innerHeight - r.top + 6, left } : { top: r.bottom + 6, left });
+    const close = (e: Event) => { if (!menu.current?.contains(e.target as Node) && !btn.current?.contains(e.target as Node)) setOpen(false); };
+    const onScroll = () => setOpen(false);
+    document.addEventListener('mousedown', close);
+    document.addEventListener('touchstart', close, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('touchstart', close); window.removeEventListener('scroll', onScroll); };
+  }, [open]);
+  const item = 'w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-semibold text-left cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700/60';
+  return (
+    <>
+      <button
+        ref={btn}
+        type="button"
+        data-no-share="true"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        disabled={sharing}
+        className={cn(
+          "p-1.5 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all duration-150 cursor-pointer active:scale-90 outline-none focus:outline-none focus:ring-0 select-none",
+          sharing && "opacity-60 cursor-wait",
+          className
+        )}
+        title="더 보기 (공유·신고)"
+        aria-label={`${title} 더 보기`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        {sharing ? <Loader2 className={cn("w-4 h-4 animate-spin text-purple-600 dark:text-purple-400", iconClassName)} /> : <MoreVertical className={cn("w-4 h-4", iconClassName)} />}
+      </button>
+      {open && createPortal(
+        <div ref={menu} role="menu" data-no-share="true" style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }} className={cn('z-[380] w-[160px]', POPOVER_CLS)}>
+          <button type="button" role="menuitem" className={item} onClick={(e) => { setOpen(false); onShare(e); }}>
+            <ShareBoxArrowIcon className="w-4 h-4 text-zinc-500" />
+            이미지로 공유
+          </button>
+          <button type="button" role="menuitem" className={cn(item, 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); requestReport({ id: `widget-${title}`, kind: 'video', title, widget: title, search: { query: '', concepts: [], understood: '' } }); }}>
+            <Flag className="w-4 h-4 text-zinc-500" />
+            신고
+          </button>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}

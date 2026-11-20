@@ -135,7 +135,7 @@ const STEPS: Step[] = [
   {
     id: 'calendar-export',
     title: '내 캘린더에 넣기',
-    body: "'캘린더 구독'을 하면 새 방송이 기록될 때마다 아이폰·구글 캘린더에 자동으로 들어와요. '선택 등록'은 원하는 날만 골라 한 번에 추가해요.",
+    body: "'캘린더 구독'을 하면 새 방송이 기록될 때마다 아이폰·구글 캘린더에 자동으로 들어와요. 한 방송만 넣고 싶으면 위 달력에서 그 날짜를 눌러 등록해요.",
     target: { mobile: '[data-tour="calendar-export"]', desktop: '[data-tour="calendar-export"]' },
     tab: 'calendar',
   },
