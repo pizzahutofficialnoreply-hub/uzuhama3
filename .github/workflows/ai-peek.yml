@@ -1,0 +1,7 @@
+name: ai-peek
+on: workflow_dispatch
+jobs:
+  peek:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "GC $(curl -sS --max-time 70 'https://uzuhama.vercel.app/api/health?gamecheck=1' | head -c 800)"
