@@ -1,0 +1,9 @@
+name: ai-peek
+on: workflow_dispatch
+jobs:
+  peek:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for i in $(seq 1 12); do r=$(curl -sS "https://uzuhama.vercel.app/api/health?cf=status"); echo "$(date -u +%H:%M:%S) $r"; echo "$r" | grep -q '"alive":true' && break; sleep 20; done
+          echo "YT $(curl -sS --max-time 60 'https://uzuhama.vercel.app/api/health?yt=sync' | head -c 600)"
