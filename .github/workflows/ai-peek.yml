@@ -1,0 +1,10 @@
+name: ai-peek
+on: workflow_dispatch
+jobs:
+  peek:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for i in $(seq 1 20); do r=$(curl -sS "https://uzuhama.vercel.app/api/health?selftest=pending"); echo "$r" | grep -q queued && break; sleep 20; done
+          echo "PEND $r"
+          echo "CF $(curl -sS "https://uzuhama.vercel.app/api/health?cf=status")"
