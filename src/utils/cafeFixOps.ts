@@ -17,6 +17,8 @@ export type Op = Base & (
   | { t: 'addVod'; log: string; id: string; title?: string }
   | { t: 'setGame'; log: string; name: string; fromLink: string; link: string; newName?: string }
   | { t: 'compOrder'; id: string; title: string; logs: string[] }
+  /** 영상·쇼츠 하나를 정확히 이 방송들에만, 이 순서로 (카페 글 순서) · 다른 기록에 있는 건 빼고, 잘못된 칸(편집본↔쇼츠)도 바로잡음 */
+  | { t: 'linkSet'; kind: 'edited' | 'shorts'; id: string; title: string; logs: string[]; drop: string[] }
 );
 
 export const GROUPS: Record<string, { name: string; on: boolean; note?: string }> = {
@@ -34,6 +36,7 @@ export const GROUPS: Record<string, { name: string; on: boolean; note?: string }
   gameName: { name: '게임 이름을 스팀 이름으로 (조금 다른 것)', on: false, note: '대소문자·기호·띄어쓰기 정도만 다른 것' },
   gameWrong: { name: '게임 링크가 다른 게임으로 보이는 것', on: false, note: '스팀에서 이름으로 찾은 게임으로 바꾸기 (직접 확인)' },
   playlist: { name: '생방송 재생목록에 있는데 기록에 없던 생방송 넣기', on: true },
+  linkSet: { name: '여러 생방에 걸친 영상·쇼츠를 카페 글의 방송·순서 그대로', on: true },
   compOrder: { name: '몰아보기 영상 안 생방 순서를 카페 생방정리 글 순서로', on: true, note: '영상에 나오는 순서 · 날짜가 예전 것으로 남은 칸도 기록 날짜로' },
   err: { name: '30분 안에 끊기고 바로 다시 켠 생방을 방송 오류로', on: true, note: '관리자 › 끊긴 생방에서 풀 수 있음' },
 };
@@ -48,6 +51,7 @@ const has = (l: any, k: string, id: string) => (l?.[k] || []).some((x: any) => y
 export const logIds = (o: Op): string[] => {
   if (o.t === 'shorts') return [...o.add, ...o.remove];
   if (o.t === 'multi' || o.t === 'compOrder') return o.logs;
+  if (o.t === 'linkSet') return [...o.logs, ...o.drop];
   if (o.t === 'add') return [o.to];
   if (o.t === 'move') return [...o.from, o.to];
   return [(o as any).log];
@@ -69,6 +73,12 @@ export function isDone(o: Op, logs: Record<string, any>, comps?: Set<string>, co
   if (o.t === 'fillUrl') return has(L(o.log), o.kind, o.id) && !(L(o.log)[o.kind] || []).some((x: any) => !x?.url && x?.title === o.title);
   if (o.t === 'dropBlank') return !(L(o.log)[o.kind] || []).some((x: any) => !x?.url && x?.title === o.title);
   if (o.t === 'addVod') return has(L(o.log), 'vods', o.id);
+  if (o.t === 'linkSet') {
+    const dates = o.logs.map((id) => L(id).date);
+    const other = o.kind === 'shorts' ? 'edited' : 'shorts';
+    return o.logs.every((id) => (L(id)[o.kind] || []).some((x: any) => yid(x) === o.id && JSON.stringify(x.allBroadcastDates || [L(id).date]) === JSON.stringify(dates)) && !(L(id)[other] || []).some((x: any) => yid(x) === o.id))
+      && o.drop.every((id) => !['edited', 'shorts'].some((k) => (L(id)[k] || []).some((x: any) => yid(x) === o.id)));
+  }
   if (o.t === 'setGame') return (L(o.log).games || []).some((g: any) => g?.name === (o.newName || o.name) && (g?.link || '') === o.link);
   if (o.t === 'errorStop') return o.main ? L(o.log).errorStopOf === o.main : (L(o.log).vods || []).some((v: any) => yid(v) === o.vod && v.errorStop);
   if (o.t === 'move') return has(L(o.to), o.kind, o.id) && o.from.every((id) => !(L(id)[o.kind === 'shorts' ? 'edited' : 'shorts'] || []).some((x: any) => yid(x) === o.id && !isLinked(x)) && (id === o.to || !(L(id)[o.kind] || []).some((x: any) => yid(x) === o.id && !isLinked(x))));
@@ -92,6 +102,7 @@ export function describe(o: Op, logs: Record<string, any>): string {
   if (o.t === 'dropBlank') return `${d(o.log)} 「${short(o.title)}」 빈 칸 빼기 — ${o.why}`;
   if (o.t === 'errorStop') return `${o.why}`;
   if (o.t === 'addVod') return `${d(o.log)} 기록에 생방송 링크 넣기 — ${o.why}`;
+  if (o.t === 'linkSet') return `${o.kind === 'shorts' ? '쇼츠' : '영상'} 「${short(o.title)}」 생방 ${o.logs.map(d).join(' → ')}${o.drop.length ? ` (빼기: ${o.drop.map(d).join(', ')})` : ''} — ${o.why}`;
   if (o.t === 'setGame') return `${d(o.log)} 「${o.name}」${o.newName && o.newName !== o.name ? ` → 「${o.newName}」` : ''} ${o.link ? `링크 ${o.link.replace(/^https?:\/\//, '').slice(0, 45)}` : ''} — ${o.why}`;
   if (o.t === 'compOrder') return `몰아보기 「${short(o.title)}」 순서 ${o.logs.map(d).join(' → ')}`;
   return `「${o.title}」 영상 넣고 생방 ${o.logs.map(d).join(', ')}에 '여러 날 생방'으로 연결`;
@@ -156,6 +167,12 @@ export function applyOne(o: Op, work: Record<string, any>, cur: (id: string) => 
     const l = cur(o.log);
     const already = has(l, o.kind, o.id);
     l[o.kind] = (l[o.kind] || []).flatMap((x: any) => (!x?.url && x?.title === o.title ? (already ? [] : [{ ...x, title: o.newTitle || x.title, url: `https://youtu.be/${o.id}` }]) : [x]));
+  } else if (o.t === 'linkSet') {
+    const dates = o.logs.map((id) => work[id]?.date).filter(Boolean);
+    const strip = (l: any) => { for (const k of ['edited', 'shorts']) l[k] = (l[k] || []).filter((x: any) => yid(x) !== o.id); };
+    const url = o.kind === 'shorts' ? `https://youtube.com/shorts/${o.id}` : `https://www.youtube.com/watch?v=${o.id}`;
+    for (const id of o.logs) { const l = cur(id); strip(l); l[o.kind] = [...(l[o.kind] || []), { title: o.title, url, ...(dates.length > 1 ? { allBroadcastDates: dates } : {}) }]; }
+    for (const id of o.drop) strip(cur(id));
   } else if (o.t === 'addVod') {
     const l = cur(o.log);
     if (!has(l, 'vods', o.id)) l.vods = [...(l.vods || []), { title: o.title || '우주하마 생방송!', url: `https://youtu.be/${o.id}` }];

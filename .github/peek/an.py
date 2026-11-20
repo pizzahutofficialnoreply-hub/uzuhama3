@@ -45,3 +45,15 @@ for l in L:
   for v in l.get('shorts') or []:
     t=(v.get('title') if isinstance(v,dict) else '') or ''
     if '엉덩이' in t: print('SHORT',l['date'],t,v.get('url'),v.get('allBroadcastDates'))
+print('==== IDS')
+order_ids=[]
+for o in order:
+  ls=[l for l in L if o in urls(l,'vods')]
+  order_ids.append(ls[0]['id'] if ls else None)
+holders=[l['id'] for l in L if 'c-ToCiLeHas' in urls(l,'edited')+urls(l,'shorts')]
+print('ORDERIDS', json.dumps(order_ids)); print('HOLDERS', json.dumps(holders))
+for l in L:
+  if l['date']=='2024-09-19': print('PIZZA', l['id'], json.dumps(l.get('vods')), json.dumps([e.get('url') for e in l.get('edited',[])]))
+for p in pairs:
+  ls=[l for l in L if p['live'] in urls(l,'vods')]
+  if len(ls)>1: print('DUP', p['date'], [x['id'] for x in ls])
