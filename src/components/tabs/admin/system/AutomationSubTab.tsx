@@ -7,6 +7,7 @@ import { AdminSecurityCard } from './AdminSecurityCard';
 import { SelfTestCard } from './SelfTestCard';
 import { SearchTuningCard } from './SearchTuningCard';
 import { ClientErrorsCard } from './ClientErrorsCard';
+import { TestModeCard } from './TestModeCard';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Activity, AlertTriangle, CheckCircle2, Loader2, Play, RefreshCw } from 'lucide-react';
 import { auth, db } from '../../../../lib/firebase';
@@ -179,6 +180,8 @@ export function AutomationSubTab() {
         </button>
         {out.ytsync && <p className="text-[11px] text-red-500">{out.ytsync}</p>}
       </Card>
+
+      <TestModeCard />
 
       <Card title="사이트 수정 → 자동 버전·패치 진행 안내 공지" ok={hotfixOn === null ? null : hotfixOn}>
         <p className="text-[11px] text-zinc-500 break-keep">패치노트를 따로 쓰지 않고 올린 수정이 쌓이면, 마지막 수정 뒤 20분 동안 더 없을 때 버전을 올리고(새 기능 1.2.0→1.2.1, 고치기만 1.2.0→1.2.0.1) 패치노트 글과 '[안내] 11/20(금) 19:22 패치 진행 사항 안내' 띠 공지를 자동으로 올려요.</p>

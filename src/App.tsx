@@ -74,6 +74,8 @@ import { usePrefs } from './utils/userPrefs';
 import { RELOAD_LINK, reloadToNewVersion, useNewBuildAvailable } from './utils/appVersion';
 import { MaintenancePager } from './components/MaintenancePager';
 import { NICE_MD } from './components/common/NiceMarkdown';
+import { useTestMode, withTestLog } from './utils/testMode';
+import { TestModeBar } from './components/TestModeBar';
 import { ServiceGateScreen, serviceGateOf, cachedGate, rememberGate } from './components/ServiceGate';
 import { SELFTEST_FLAG } from './selftest/flag';
 const SelfTestPage = lazy(() => import('./components/SelfTestPage').then((m) => ({ default: m.SelfTestPage })));
@@ -98,7 +100,12 @@ function MainApp() {
   // 실험실 '과거 영상 생방 연동'이 꺼져 있으면 2020년 전 카페 정리 링크는 숨김 (관리자 화면은 따로라 영향 없음)
   const labCafeOld = usePrefs().labCafeOld;
   // 방송 오류로 짧게 꺼졌다 다시 켠 방송은 하나로 합쳐 보여 줌
-  const data = useMemo(() => (rawData ? mergeErrorStops(!labCafeOld ? hideOldCafe(rawData) : rawData) : rawData), [rawData, labCafeOld]);
+  const testMode = useTestMode();
+  const data = useMemo(() => {
+    const d = rawData ? mergeErrorStops(!labCafeOld ? hideOldCafe(rawData) : rawData) : rawData;
+    // 관리자 테스트 모드: 가정한 오늘 방송 기록을 이 기기 화면에만
+    return d && testMode?.log ? { ...d, logs: withTestLog(d.logs, testMode) } : d;
+  }, [rawData, labCafeOld, testMode]);
   const { isInstallable, promptInstall } = useInstallPrompt();
   const { user, loginWithGoogle, logout } = useAuth();
   const logsList = useMemo(() => Object.values(data?.logs || {}), [data?.logs]);
@@ -1551,6 +1558,7 @@ function MainApp() {
       {/* 저장 버튼 → 저장할 곳 고르기 창·알림 */}
       <AiSummaryHost />
       <AiCardExpandHost logs={data?.logs} />
+      <TestModeBar />
       <PullToRefresh onRefresh={refreshData} />
       <SaveHost />
       {/* 시청 기록 전체 보기 */}

@@ -1,3 +1,4 @@
+import { useTestMode, testLiveData } from '../utils/testMode';
 import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -84,7 +85,10 @@ export function CurrentProbability({
   })();
   const absenceLogs = logs.filter((l) => l.isAbsence);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [liveData, setLiveData] = useState<any>(null);
+  const [liveDataReal, setLiveData] = useState<any>(null);
+  // 관리자 테스트 모드: 이 기기에서만 가정한 생방송·확률
+  const test = useTestMode();
+  const liveData = testLiveData(test) || liveDataReal;
   const [showDetails, setShowDetails] = useState(false);
   const [showIllnessModal, setShowIllnessModal] = useState(false);
 
@@ -205,10 +209,11 @@ export function CurrentProbability({
   }, [candidateVideos]);
 
   // ── 확률 엔진 (utils/probability.ts: 메인 카드 · 자세히 보기 · 알림 공통) ──
-  const prob = useMemo(
+  const probReal = useMemo(
     () => computeBroadcastProbability(logs, currentTime, { system, isLive }),
     [logs, currentTime, system, isLive],
   );
+  const prob = useMemo(() => (typeof test?.prob === 'number' ? { ...probReal, finalProb: test.prob, dayProb: test.prob } : probReal), [probReal, test?.prob]);
   const finalProb = prob.finalProb;
   const aiMessages = useStatusMessages(system, currentTime);
   const daysSinceLastStream = prob.gap.daysSince ?? 0;
