@@ -362,7 +362,8 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                   <h2 className="text-[16px] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
                   {t.sub && <p className="mt-1 text-[12px] text-zinc-500 tabular-nums">{t.sub}</p>}
                 </>) : <VideoCardInfo key={t.id} id={t.id} title={data?.title || t.title} sub={t.sub} logs={logs} />}
-                {!t.embed && <CardFind key={`f-${t.id}`} id={t.id} onSeek={(x) => seek(x)} onOpen={(id, title, x) => switchTo(id, title, x)} />}
+                {/* AI 요약·스크립트가 있을 때만 찾기 칸 (없으면 찾을 게 없음) */}
+                {!t.embed && (ready || hasScript || compHas) && <CardFind key={`f-${t.id}`} id={t.id} onSeek={(x) => seek(x)} onOpen={(id, title, x) => switchTo(id, title, x)} />}
 
                 {(showSummary || hasScript) && <div className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
                   <div className="flex items-center gap-2 px-4 py-3">

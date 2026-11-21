@@ -11,7 +11,7 @@ import { ChevronLeft, PauseCircle, PlayCircle, Search, Trash2, X } from 'lucide-
 import { cn } from '../utils';
 import { formatDuration } from '../hooks/useVideoDuration';
 import { clearWatchEntries, progressOf, recordWatch, removeWatch, restoreWatch, useWatchHistory, watchUrl, type WatchEntry } from '../utils/watchHistory';
-import { openAiCard } from './common/AiCardExpand';
+import { openVideoCard } from './common/openVideoCard';
 import { ShortsPlayer } from './common/ShortsPlayer';
 import { shortsShareText } from './common/shortsShare';
 import { undoToast } from '../utils/ui';
@@ -82,7 +82,7 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
     recordWatch({ id: e.id, kind: e.kind, title: e.title });
     if (prefs.listPlay === 'link') { window.open(watchUrl(e.id, { kind: e.kind }), '_blank', 'noopener'); return; }
     if (e.kind === 'short') { const items = dayShorts?.length ? dayShorts : [e]; setShortsAt({ items, i: Math.max(0, items.findIndex((x) => x.id === e.id)) }); return; }
-    openAiCard(e.id, e.title || '영상', el || null, `${KIND_LABEL[e.kind] || '동영상'} · ${dayLabel(e.at)} ${timeLabel(e.at)}에 봄`);
+    openVideoCard(e.id, e.title || '영상', el || null, `${KIND_LABEL[e.kind] || '동영상'} · ${dayLabel(e.at)} ${timeLabel(e.at)}에 봄`);
   };
   // 지우기 + 되돌리기
   const remove = (e: WatchEntry) => { removeWatch(e.id); undoToast('시청 기록에서 지웠어요', () => restoreWatch([e])); };

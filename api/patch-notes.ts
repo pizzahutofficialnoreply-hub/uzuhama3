@@ -401,7 +401,10 @@ async function maybeHotfix(db: any, notes: Note[]) {
   if (Date.now() - newest < 20 * 60000) return; // 아직 수정 중일 수 있음
   await ref.set({ autoHotfix: { ...st, pending: true, at: new Date().toISOString() } }, { merge: true });
   try {
-    const { points, kind, ai } = await hotfixPoints(msgs.map((m) => m.subject).reverse());
+    const hp = await hotfixPoints(msgs.map((m) => m.subject).reverse());
+    const { points, ai } = hp;
+    // 처음 한 번(지금까지 쌓인 수정 묶음)은 0.0.1 올림 (예: 1.2.0 → 1.2.1)
+    const kind: 'feature' | 'fix' = !st.lastSha ? 'feature' : hp.kind;
     const base = [st.version, ...notes.filter((n) => n.category !== 'dev' && /^\d+(\.\d+)+$/.test(n.version) && n.version !== '0.0.0').map((n) => n.version)]
       .filter(Boolean).sort((a, b) => verCmp(String(b), String(a)))[0] || '1.0.0';
     const ver = bumpVersion(String(base), kind);

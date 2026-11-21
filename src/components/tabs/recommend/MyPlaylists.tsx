@@ -15,6 +15,8 @@ import {
   deleteList, embedQueueUrl, exportLink, importList, parseImport, moveItem, removeFromList, renameList, setDefaultList, useMyPlaylists, youtubeQueueUrl, type MyList,
 } from '../../../utils/myPlaylists';
 import { confirmSheet } from '../../../utils/ui';
+import { openAiCard } from '../../common/AiCardExpand';
+import { usePrefs } from '../../../utils/userPrefs';
 
 /**
  * 재생목록 탭 맨 위: 내가 저장한 재생목록 (이 기기에만 있음)
@@ -28,6 +30,18 @@ export function MyPlaylists({ searchTerm, logs, onNavigateToCalendar }: { search
   const logIndex = useLogIndex(logs);
   const { lists, defaultListId } = useMyPlaylists();
   const [openId, setOpenId] = useState<string | null>(null);
+  const labCard = usePrefs().labAiCard;
+  // 검색 탭 재생목록처럼: 카드가 펼쳐지며 위에서 모두 재생, 아래 목록
+  const expand = (l: MyList, el: Element | null) => {
+    const ids = l.items.map((x) => x.id);
+    if (!labCard || !ids.length) { setOpenId(l.id); return; }
+    openAiCard(ids[0], l.name, el, `내 재생목록 · ${l.items.length}개`, {
+      noSummary: true,
+      thumb: thumbOf(l) || undefined,
+      embed: embedQueueUrl(ids),
+      extra: (close) => <LiveMyListDetail id={l.id} onClose={close} logs={logs} logIndex={logIndex} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} listOnly />,
+    });
+  };
   const term = searchTerm.trim().toLowerCase().replace(/\s+/g, '');
   const shown = useMemo(() => (term
     ? lists.filter((l) => l.name.toLowerCase().replace(/\s+/g, '').includes(term) || l.items.some((x) => x.title.toLowerCase().replace(/\s+/g, '').includes(term)))
@@ -60,7 +74,7 @@ export function MyPlaylists({ searchTerm, logs, onNavigateToCalendar }: { search
                 </motion.div>
               ) : (
                 <motion.div key="card" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}>
-                  <MyListCard list={l} isDefault={defaultListId === l.id} onOpen={() => setOpenId(l.id)} />
+                  <MyListCard list={l} isDefault={defaultListId === l.id} onOpen={(el) => expand(l, el || null)} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -75,11 +89,11 @@ function shareTextOf(l: MyList) {
   return [`${l.name} (${l.items.length}개)`, '', ...l.items.map((x, i) => `${i + 1}. ${x.title}\n${urlOf(x.kind, x.id)}`)].join('\n');
 }
 
-function MyListCard({ list, isDefault, onOpen }: { list: MyList; isDefault: boolean; onOpen: () => void }) {
+function MyListCard({ list, isDefault, onOpen }: { list: MyList; isDefault: boolean; onOpen: (el?: Element | null) => void }) {
   const thumb = thumbOf(list);
   return (
-    <div className="group relative h-full flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
-      <button type="button" onClick={onOpen} className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800 cursor-pointer" title="재생목록 열기">
+    <div data-ai-card={list.id} className="group relative h-full flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
+      <button type="button" onClick={(e) => onOpen((e.currentTarget as HTMLElement).closest('[data-ai-card]'))} className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800 cursor-pointer" title="재생목록 열기">
         {thumb ? <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /> : <span className="absolute inset-0 flex items-center justify-center text-xs text-zinc-400">아직 비어 있어요</span>}
         {thumb && <span className="absolute inset-0 bg-black/10 flex items-center justify-center"><GlassPlayButton /></span>}
         <span className="absolute bottom-2 left-2 text-xs px-2.5 py-1 font-semibold rounded-lg backdrop-blur-md flex items-center gap-1.5 shadow-md bg-zinc-900/85 text-white border border-white/20">
@@ -88,7 +102,7 @@ function MyListCard({ list, isDefault, onOpen }: { list: MyList; isDefault: bool
       </button>
       <div className="p-4 flex-1 flex flex-col">
         <div className="flex items-start justify-between gap-2">
-          <button type="button" onClick={onOpen} className="flex-1 min-w-0 text-left cursor-pointer">
+          <button type="button" onClick={(e) => onOpen((e.currentTarget as HTMLElement).closest('[data-ai-card]'))} className="flex-1 min-w-0 text-left cursor-pointer">
             <p className="font-bold text-zinc-900 dark:text-white truncate hover:text-purple-600 dark:hover:text-purple-400 transition-colors">{list.name}</p>
             <p className="text-[11px] text-zinc-500 mt-0.5">{isDefault ? '저장을 누르면 바로 여기에 담겨요' : `마지막 수정 ${new Date(list.updatedAt).toLocaleDateString('ko-KR')}`}</p>
           </button>
@@ -97,7 +111,7 @@ function MyListCard({ list, isDefault, onOpen }: { list: MyList; isDefault: bool
         <div className="mt-auto pt-3">
           <button
             type="button"
-            onClick={onOpen}
+            onClick={(e) => onOpen((e.currentTarget as HTMLElement).closest('[data-ai-card]'))}
             className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs hover:scale-[1.01] bg-purple-50 hover:bg-purple-100/90 dark:bg-purple-950/70 dark:hover:bg-purple-900/70 text-purple-700 dark:text-purple-300 border border-purple-200/90 dark:border-purple-800/90"
           >
             <span className="flex items-center gap-2">
@@ -115,7 +129,15 @@ function MyListCard({ list, isDefault, onOpen }: { list: MyList; isDefault: bool
   );
 }
 
-function MyListDetail({ list, isDefault, onClose, logs, logIndex, onNavigateToCalendar }: { list: MyList; isDefault: boolean; onClose: () => void; logs?: any; logIndex: Map<string, { log: any; edit: any }>; onNavigateToCalendar?: (date: string) => void }) {
+/** 펼친 카드 안: 지금 목록 그대로 (이름 바꾸기·빼기·순서가 바로 반영) */
+function LiveMyListDetail({ id, ...rest }: { id: string; onClose: () => void; logs?: any; logIndex: Map<string, { log: any; edit: any }>; onNavigateToCalendar?: (date: string) => void; listOnly?: boolean }) {
+  const { lists, defaultListId } = useMyPlaylists();
+  const list = lists.find((x) => x.id === id);
+  if (!list) return <p className="py-8 text-center text-sm text-zinc-500">지운 재생목록이에요.</p>;
+  return <MyListDetail list={list} isDefault={defaultListId === id} {...rest} />;
+}
+
+function MyListDetail({ list, isDefault, onClose, logs, logIndex, onNavigateToCalendar, listOnly = false }: { list: MyList; isDefault: boolean; onClose: () => void; logs?: any; logIndex: Map<string, { log: any; edit: any }>; onNavigateToCalendar?: (date: string) => void; listOnly?: boolean }) {
   const [viewStyle, setViewStyle] = useViewStyle('playlist');
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(list.name);
@@ -153,6 +175,7 @@ function MyListDetail({ list, isDefault, onClose, logs, logIndex, onNavigateToCa
       countLabel={`${list.items.length}개`}
       viewStyle={viewStyle}
       onViewStyleChange={setViewStyle}
+      listOnly={listOnly}
     >
       <div className="flex flex-wrap items-center gap-2 px-1 mb-3">
         {editing ? (
