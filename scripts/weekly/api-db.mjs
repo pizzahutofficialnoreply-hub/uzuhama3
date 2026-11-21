@@ -131,7 +131,7 @@ const emptyLogs = logs.filter((l) => !l.isAbsence && !(l.games?.length || l.game
 const badTime = logs.filter((l) => !l.isAbsence && l.time && !/^\d{1,2}:\d{2}$/.test(String(l.time)));
 add('DB', '기록 날짜 형식', badDate.length === 0, badDate.slice(0, 5).map((l) => l.id).join(', '));
 add('DB', '미래 날짜 방송 기록 없음', future.length === 0, future.slice(0, 5).map((l) => l.date).join(', '));
-add('DB', '같은 날 기록 3개 이상 없음', dupDates.length === 0, dupDates.slice(0, 5).map(([d, n]) => `${d}×${n}`).join(', '));
+add('DB', '같은 날 기록 3개 이상 없음 (참고: 옛 아카이브는 하루 여러 개가 정상일 수 있음)', dupDates.length === 0, dupDates.slice(0, 5).map(([d, n]) => `${d}×${n}`).join(', '), null, true);
 add('DB', '유튜브 링크 형식', badLinks.length === 0, badLinks.slice(0, 5).join(' | '));
 add('DB', '같은 다시보기·쇼츠가 여러 날에 없음 (참고: 이틀에 걸친 방송이면 정상)', dupLinks.length === 0, dupLinks.join(' | '), null, true);
 add('DB', '시간 형식(HH:MM)', badTime.length === 0, badTime.slice(0, 5).map((l) => `${l.date} ${l.time}`).join(', '));

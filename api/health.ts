@@ -499,13 +499,24 @@ export default async function handler(req: any, res: any) {
     // 사람마다 DB 에서 문서 수백 개를 읽던 것을 서버가 30분에 한 번만 읽고 모두 이걸 받음 (DB 읽기가 사람 수와 상관없어짐)
     const { db, hasAdminCredentials } = await import('./_firebase.js');
     if (!hasAdminCredentials) return res.status(500).json({ error: 'no admin credentials' });
+    // 함수 안에 30분 기억: 그 사이엔 '가장 최근에 바뀐 달' 하나만 읽어 보고(읽기 1번) 안 바뀌었으면 그대로 보냄
+    // (CDN 이 지역마다 따로 캐시해서 묶음을 하루에 수십 번 다시 만들며 DB 를 읽었음)
+    let latest = '';
+    try { const q = await db.collection('logs_by_month').orderBy('updatedAt', 'desc').limit(1).get(); latest = String(q.docs[0]?.data()?.updatedAt || ''); } catch { /* */ }
+    const g: any = globalThis as any;
+    if (g.__snap && Date.now() - g.__snap.at < 30 * 60000 && g.__snap.latest === latest) {
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=1800, stale-while-revalidate=86400');
+      return res.status(200).json(g.__snap.body);
+    }
     const [m, c] = await Promise.all([db.collection('logs_by_month').get(), db.collection('compilations').get()]);
     const months: any[] = [];
     m.forEach((d: any) => months.push({ id: d.id, ...d.data() }));
     const comps: any[] = [];
     c.forEach((d: any) => comps.push({ docId: d.id, comp: d.data() }));
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=1800, stale-while-revalidate=86400');
-    return res.status(200).json({ at: new Date().toISOString(), months, comps });
+    const body = { at: new Date().toISOString(), months, comps };
+    g.__snap = { at: Date.now(), latest, body };
+    return res.status(200).json(body);
   }
   if (req.query?.readstat) {
     const { db, hasAdminCredentials, verifyAdmin } = await import('./_firebase.js');
