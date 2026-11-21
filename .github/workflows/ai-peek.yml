@@ -18,4 +18,6 @@ jobs:
           console.log('GC',JSON.stringify((await db.doc('youtube_cache/game_check_state').get()).data()));
           process.exit(0)})();
           J
-          SA='${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}' node p.js
+          node p.js 2>&1 | tail -5
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}
