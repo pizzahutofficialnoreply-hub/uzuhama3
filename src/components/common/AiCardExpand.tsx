@@ -92,7 +92,10 @@ function thumbOf(el: HTMLElement | null | undefined): HTMLElement | null {
   return (el.matches('[data-thumb]') ? el : el.querySelector('[data-thumb]')) as HTMLElement | null || el;
 }
 
+/** 앱 전체 방송 기록 (기록을 따로 받지 못한 화면에서 공유 글 등을 만들 때) */
+export let appLogs: Record<string, any> | undefined;
 export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) {
+  appLogs = logs;
   const [t, setT] = useState<Target | null>(null);
   const [closing, setClosing] = useState(false);
   const [to, setTo] = useState<Rect>(() => (typeof window !== 'undefined' ? finalRect() : { top: 0, left: 0, width: 0, height: 0 }));

@@ -4,6 +4,7 @@ import { Bookmark, ChevronDown, ChevronUp, EyeOff, Flag, Layers, Link2, Volume2,
 import { requestReport } from './ItemMenu';
 import { requestSave } from '../../utils/myPlaylists';
 import { shareTextOrClipboard } from '../../utils/shareUtils';
+import { shortsShareText } from './shortsShare';
 import { ShareBoxArrowIcon } from './ShareIcon';
 import { hideVideo, unhideVideo, useHidden, HIDE_DELAY } from '../../utils/hiddenVideos';
 import { toast } from '../../utils/ui';
@@ -179,6 +180,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
     } else window.open(url, '_blank', 'noopener');
   };
   // 길게 누르기 메뉴 (⋯ 메뉴와 같은 순서: 저장 · 공유 · 사이트 링크 복사 · 가리기 · 신고)
+  const shortsShare = (vid: string) => shortsShareText(vid, cleanShortsTitle(cur.title), { liveUrl: cur.liveUrl, editUrl: cur.editUrl, logs: allLogs });
   const openMenu = () => { try { (navigator as any).vibrate?.(15); } catch { /* */ } setMenuOpen(true); };
 
   const onTouchStart = (e: React.TouchEvent) => {
@@ -419,7 +421,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
                 return (
                   <div>
                     <button type="button" role="menuitem" className={row} onClick={() => { done(); requestSave({ id: vid, kind: 'short', title: cur.title || '' }); }}><Bookmark className="w-5 h-5 text-zinc-500" /> 저장</button>
-                    <button type="button" role="menuitem" className={row} onClick={() => { done(); shareTextOrClipboard(`${cleanShortsTitle(cur.title) || '우주하마 쇼츠'}\n${link}`, '쇼츠 공유').catch(() => {}); }}><ShareBoxArrowIcon className="w-5 h-5 text-zinc-500" /> 공유</button>
+                    <button type="button" role="menuitem" className={row} onClick={() => { done(); shareTextOrClipboard(shortsShare(vid), '쇼츠 공유').catch(() => {}); }}><ShareBoxArrowIcon className="w-5 h-5 text-zinc-500" /> 공유</button>
                     <button type="button" role="menuitem" className={row} onClick={() => { done(); navigator.clipboard?.writeText(link).then(() => toast('사이트 링크를 복사했어요')).catch(() => window.prompt('사이트 링크', link)); }}><Link2 className="w-5 h-5 text-zinc-500" /> 사이트 링크 복사</button>
                     <button type="button" role="menuitem" className={row} onClick={() => { done(); hideVideo({ id: vid, kind: 'short', title: cur.title || '' }); if (index < items.length - 1) window.setTimeout(() => go(1), 250); }}><EyeOff className="w-5 h-5 text-zinc-500" /> 이 영상 가리기</button>
                     <button type="button" role="menuitem" className={row} onClick={() => { done(); requestReport({ id: vid, kind: 'short', title: cur.title || '', search: { query: '', concepts: [], understood: '' } }); }}><Flag className="w-5 h-5 text-zinc-500" /> 신고</button>

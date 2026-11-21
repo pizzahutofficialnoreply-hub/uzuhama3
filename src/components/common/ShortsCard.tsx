@@ -13,6 +13,7 @@ import { ItemMenu } from './ItemMenu';
 import { useInterestTracker, noteInterest } from '../../hooks/useInterestTracker';
 import type { InterestItem } from '../../utils/interest';
 import { formatShortsShareText } from '../../utils/shareUtils';
+import { shortsShareText } from './shortsShare';
 
 /**
  * 유튜브 쇼츠 카드 (세로 9:16, 유튜브 앱의 쇼츠 선반과 같은 모양)
@@ -110,7 +111,7 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
           {label}
         </a>
         <ItemMenu compact id={ytId || ''} kind="short" title={label} className="-mr-1 -mt-0.5" onSave={() => noteInterest(interest, 'engage')} onShare={() => noteInterest(interest, 'engage')}
-          shareText={shareText || (() => formatShortsShareText({ title: label, url: ytId ? `https://www.youtube.com/shorts/${ytId}` : url, liveUrl, editUrl }))} />
+          shareText={shareText || (() => (ytId ? shortsShareText(ytId, label || '', { liveUrl, editUrl }) : formatShortsShareText({ title: label, url, liveUrl, editUrl })))} />
       </div>
       {(caption || liveUrl || editUrl) && (
         <div className="mt-1 px-0.5 flex items-center justify-between gap-1.5">
