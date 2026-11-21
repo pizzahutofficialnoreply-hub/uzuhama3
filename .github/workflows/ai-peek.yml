@@ -5,5 +5,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          sleep 150
+          sleep 5
           echo "TK $(curl -sS --max-time 30 'https://uzuhama.vercel.app/api/health?tick=status' | head -c 2500)"
