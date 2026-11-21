@@ -447,13 +447,29 @@ export async function aiScript(db: any, id: string) {
  *  - 1분씩 잘라서, 제목·게임·설명 같은 앞뒤 맥락은 주지 않음 (맥락을 보고 없는 말을 지어냈음)
  *  - 온도 0
  */
+/** config/system.voiceRef = "유튜브 주소 또는 id@시작초-끝초" (예: abcdEFGhijk@120-140) · 10분 동안 기억 */
+let vrMemo: { at: number; v: { id: string; from: number; to: number } | null } | null = null;
+async function voiceRef() {
+  if (vrMemo && Date.now() - vrMemo.at < 600000) return vrMemo.v;
+  let v: { id: string; from: number; to: number } | null = null;
+  try {
+    const { db } = await import('./_firebase.js');
+    const raw = String((await db.collection('config').doc('system').get()).data()?.voiceRef || '');
+    const m = raw.match(/([\w-]{11})[^@]*@(\d+)-(\d+)/);
+    if (m && +m[3] > +m[2] && +m[3] - +m[2] <= 40) v = { id: m[1], from: +m[2], to: +m[3] };
+  } catch { /* 없으면 예시 없이 */ }
+  vrMemo = { at: Date.now(), v };
+  return v;
+}
 export const SCRIPT_MODEL = process.env.GEMINI_SCRIPT_MODEL || 'gemini-3.5-flash-lite';
 function scriptPrompt(kind: string | undefined, len: number) {
   const live = kind === 'live';
   return `이 ${len ? `${Math.round(len)}초짜리 ` : ''}${live ? '방송 녹화' : '영상'} 조각의 소리를 듣고, 사람이 실제로 말한 것만 받아 적어. JSON 으로만 답해:
 {"lines": [{"t": "M:SS (이 조각의 시작이 0:00)", "w": "", "s": "들린 말"}]}
 규칙:
-- 귀로 또렷이 들린 말만 적어. 앞뒤를 짐작해서 이어 쓰거나 있을 법한 말을 만들어 넣지 마. 안 들리거나 애매하면 그 줄은 빼.
+- 실제로 들린 말만 적어. 앞뒤를 짐작해서 이어 쓰거나 있을 법한 말을 만들어 넣지 마. 단어를 알아들을 수 없으면 그 줄은 빼.
+- 우주하마(주인공·남자 방송인, 마이크에 가장 가깝고 크게 들리는 목소리)가 말한 건 짧은 혼잣말·중얼거림·감탄("아", "와 미쳤다")·띄엄띄엄 끊어 말한 것까지 빠짐없이 적어. 말이 끊겼다 이어지면 끊긴 곳마다 새 줄.
+- 후원 TTS(기계 목소리)나 게임 소리와 겹쳐서 말해도, 우주하마 목소리는 TTS 와 구분해서 그 말만 적어 (TTS 가 읽은 내용은 적지 말 것).
 - 이 조각 앞뒤에 무슨 일이 있었는지는 몰라도 돼. 이 조각 안에서 들린 것만.
 - 실제로 반복하지 않은 말을 반복해서 적지 마.
 - 말이 하나도 없으면 "lines": [].
@@ -470,7 +486,10 @@ export async function transcribeSegment(item: { id: string; title: string; kind?
   // 생방송은 화면이 거의 필요 없으니 장면을 드물게 (소리에 집중), 편집본은 말 자막을 봐야 해서 1초에 1장
   if (!whole) part.videoMetadata = { startOffset: `${start}s`, endOffset: `${end}s`, ...(item.kind === 'live' ? { fps: 0.2 } : {}) };
   else if (item.kind === 'live') part.videoMetadata = { fps: 0.2 };
-  const { text, model } = await gen([part, { text: scriptPrompt(item.kind, len) }], true, AI_TIMEOUT, [SCRIPT_MODEL], { temperature: 0, mediaResolution: 'MEDIA_RESOLUTION_LOW' });
+  // 우주하마 목소리 예시 (관리자가 정해 두면): 누가 우주하마인지 구분하는 데만 씀
+  const ref = await voiceRef();
+  const parts: any[] = ref ? [{ text: '먼저 이건 우주하마(주인공) 목소리 예시야. 받아 적지 말고 목소리 구분에만 써.' }, { fileData: { fileUri: `https://www.youtube.com/watch?v=${ref.id}` }, videoMetadata: { startOffset: `${ref.from}s`, endOffset: `${ref.to}s`, fps: 0.1 } }, { text: '이제 받아 적을 조각:' }, part] : [part];
+  const { text, model } = await gen([...parts, { text: scriptPrompt(item.kind, len) }], true, AI_TIMEOUT, [SCRIPT_MODEL], { temperature: 0, mediaResolution: 'MEDIA_RESOLUTION_LOW' });
   // 조각 기준 시각 → 원본 기준 (원본 기준으로 답했으면 그대로)
   const raw = (parseJson(text).lines || []) as any[];
   const secs = raw.map((x) => toSec(x?.t)).filter((t) => Number.isFinite(t));

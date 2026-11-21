@@ -60,7 +60,7 @@ export function AutomationSubTab() {
       getDoc(doc(db, 'youtube_cache', 'playlists')).then((s) => s.data()).catch(() => null),
     ]);
     setTick(t);
-    getDoc(doc(db, 'config', 'system')).then((s) => { setAutoLogOn(s.data()?.autoLogEnabled !== false); setYtSyncOn(s.data()?.autoYtSyncEnabled !== false); }).catch(() => { setAutoLogOn(null); setYtSyncOn(null); });
+    getDoc(doc(db, 'config', 'system')).then((s) => { setAutoLogOn(s.data()?.autoLogEnabled !== false); setYtSyncOn(s.data()?.autoYtSyncEnabled !== false); setVoiceRef(String(s.data()?.voiceRef || '')); }).catch(() => { setAutoLogOn(null); setYtSyncOn(null); });
     getDoc(doc(db, 'youtube_cache', 'yt_sync_state')).then((s) => setYtSync(s.data() || null)).catch(() => setYtSync(null));
     setCaches({ uploads: up, shorts: sh, playlists: pl });
     fetch(`${API_BASE}/api/videos/search-index?status=1`).then((r) => r.json()).then(setIndex).catch(() => setIndex(null));
@@ -68,6 +68,7 @@ export function AutomationSubTab() {
   useEffect(() => { load(); }, [load]);
 
   const [ytSyncOn, setYtSyncOn] = useState<boolean | null>(null);
+  const [voiceRef, setVoiceRef] = useState('');
   const [ytSync, setYtSync] = useState<any>(null);
   const run = async (key: string, url: string, admin = false) => {
     setBusy(key);
@@ -175,6 +176,19 @@ export function AutomationSubTab() {
           {ytSyncOn ? '끄기' : '켜기'}
         </button>
         {out.ytsync && <p className="text-[11px] text-red-500">{out.ytsync}</p>}
+      </Card>
+
+      <Card title="스크립트: 우주하마 목소리 예시" ok={voiceRef ? true : null}>
+        <p className="text-[11px] text-zinc-500 break-keep">우주하마 혼자 또렷하게 말하는 10~40초 구간을 적어 두면, 스크립트를 받아 적을 때 이 목소리와 후원 TTS·다른 사람 목소리를 구분하는 데 써요. 형식: 유튜브 주소@시작초-끝초 (예: https://youtu.be/abcdEFGhijk@120-140)</p>
+        <div className="flex gap-2">
+          <input value={voiceRef} onChange={(e) => setVoiceRef(e.target.value)} placeholder="https://youtu.be/…@120-140" className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs" />
+          <button type="button" disabled={busy === 'voice'} onClick={async () => {
+            setBusy('voice');
+            try { await setDoc(doc(db, 'config', 'system'), { voiceRef: voiceRef.trim() }, { merge: true }); setOut((o) => ({ ...o, voice: '저장했어요 (10분 안에 반영)' })); } catch (e: any) { setOut((o) => ({ ...o, voice: `실패: ${e?.message || e}` })); }
+            setBusy(null);
+          }} className={`${btn} bg-purple-600 text-white`}>저장</button>
+        </div>
+        {out.voice && <p className="text-[11px] text-zinc-500">{out.voice}</p>}
       </Card>
 
       <Card title="검색 색인 (태그·썸네일 글자·게임 키워드)" ok={index ? !index.lastError || Boolean(index.count) : null}>

@@ -7,7 +7,7 @@ import { isAdminUser, adminSessionValid } from '../../utils/adminAuth';
 const AiSummaryEditor = lazy(() => import('./AiSummaryEditor'));
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { BookOpen, ChevronRight, Flag, Gamepad2, Loader2, Search, Star, X, MessageCircle } from 'lucide-react';
+import { BookOpen, ChevronRight, Flag, Gamepad2, Loader2, Search, X, MessageCircle } from 'lucide-react';
 import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { aiSearch, fmtTime, type AiResult } from '../../utils/aiSearch';
 import { useBackToClose } from '../../hooks/useBackToClose';
@@ -253,13 +253,31 @@ export function opanmuOf(v: string): { text: string; hex?: string } {
   return { text: t, hex: hit?.[2] };
 }
 
+/** 오팬무·오음무·오저무: 방송에서 그 얘기를 한 시간 찾기 (스크립트에서) → 그 시간으로 */
+const MENTION: Record<string, RegExp> = { pan: /팬티|오팬|빤스/, eum: /음료|오음무|마시|드링크|음료수/, jeo: /저녁|오저무|배달|먹을까|먹었/ };
+async function seekMention(id: string, k: string, onSeek: (t: number) => void) {
+  const { loadScript } = await import('./ScriptView');
+  const { toast } = await import('../../utils/ui');
+  const sc: any = await loadScript(id).catch(() => null);
+  const hit = ((sc?.lines || []) as { t: number; s: string; w?: string }[]).find((l) => !l.w && MENTION[k].test(l.s));
+  if (hit) onSeek(Math.max(0, hit.t - 3));
+  else toast(sc?.lines?.length ? '스크립트에서 이 얘기를 한 곳을 못 찾았어요' : '스크립트가 아직 없어서 시간을 못 찾았어요', 'info');
+}
+
 function SummaryView({ d, onSeek, onSearch, spoil = false, date }: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean; date?: string | null }) {
   // 시트(사람이 적은 것)에 있으면 그걸 먼저: 오팬무·오음무·오저무
   const sheet = useSheetExtra(date);
   const pan = sheet?.pan || d.opanmu;
   const chapters: any[] = d.chapters || [];
   const stories: any[] = d.gameStories || [];
-  const games: any[] = d.games || [];
+  // 같은 게임이 이름만 달리 두 번 들어간 것 합치기 ('Librarian' 과 'Librarian: Tidy Up the Arcane Library!')
+  const gk = (x: string) => String(x || '').toLowerCase().replace(/[^0-9a-z가-힣ぁ-ヿ一-鿿]/g, '');
+  const games: any[] = (d.games || []).reduce((acc: any[], g: any) => {
+    const ns = [g.name, g.ko].filter(Boolean).map(gk).filter((x: string) => x.length >= 3);
+    const same = acc.find((a) => [a.name, a.ko].filter(Boolean).map(gk).some((x: string) => ns.some((n: string) => x === n || x.startsWith(n) || n.startsWith(x))));
+    if (same) { if (String(g.name || '').length > String(same.name || '').length) same.name = g.name; same.about ||= g.about; same.horror ||= g.horror; } else acc.push({ ...g });
+    return acc;
+  }, []);
   const parts: any[] = d.parts || [];
   const scenes: any[] = d.scenes || [];
   const storyOf = (g: any) => stories.find((s) => [g.name, g.ko].filter(Boolean).some((n: string) => n && (s.name === n || s.name.includes(n) || n.includes(s.name))));
@@ -270,9 +288,10 @@ function SummaryView({ d, onSeek, onSearch, spoil = false, date }: { d: any; onS
     <div className="space-y-5">
       {d.summary && <p className="text-[14px] text-zinc-800 dark:text-zinc-100 leading-relaxed break-keep">{pk(d.summary)}</p>}
 
-      {(pan || sheet?.eum || sheet?.jeo) && <div className="flex flex-wrap gap-1.5">
+      {/* 생방송에만 (편집 영상·쇼츠에는 오팬무 같은 게 없음) · 누르면 그 얘기를 한 시간으로 */}
+      {d.kind === 'live' && (pan || sheet?.eum || sheet?.jeo) && <div className="flex flex-wrap gap-1.5">
       {pan && (
-        <button type="button" onClick={() => onSearch('오팬무')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer" title={sheet?.pan ? '생방송 아카이브 시트에 적힌 것' : 'AI 가 방송에서 들은 것'}>
+        <button type="button" onClick={() => void seekMention(d.id, 'pan', onSeek)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer" title={sheet?.pan ? '생방송 아카이브 시트에 적힌 것' : 'AI 가 방송에서 들은 것'}>
           {(() => { const o = opanmuOf(pan); return (<>
             <span className="text-purple-600 dark:text-purple-400">오팬무</span>
             <span className="text-zinc-400 font-semibold">오늘 팬티 무슨 색?</span>
@@ -281,8 +300,8 @@ function SummaryView({ d, onSeek, onSearch, spoil = false, date }: { d: any; onS
           </>); })()}
         </button>
       )}
-      {sheet?.eum && <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100"><span className="text-purple-600 dark:text-purple-400">오음무</span><span className="text-zinc-400 font-semibold">오늘 음료 무엇?</span>{sheet.eum}</span>}
-      {sheet?.jeo && <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100"><span className="text-purple-600 dark:text-purple-400">오저무</span><span className="text-zinc-400 font-semibold">오늘 저녁 무엇?</span>{sheet.jeo}</span>}
+      {sheet?.eum && <button type="button" onClick={() => void seekMention(d.id, 'eum', onSeek)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer"><span className="text-purple-600 dark:text-purple-400">오음무</span><span className="text-zinc-400 font-semibold">오늘 음료 무엇?</span>{sheet.eum}</button>}
+      {sheet?.jeo && <button type="button" onClick={() => void seekMention(d.id, 'jeo', onSeek)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer"><span className="text-purple-600 dark:text-purple-400">오저무</span><span className="text-zinc-400 font-semibold">오늘 저녁 무엇?</span>{sheet.jeo}</button>}
       </div>}
 
       {d.nogari && (
@@ -317,24 +336,13 @@ function SummaryView({ d, onSeek, onSearch, spoil = false, date }: { d: any; onS
               <div key={`${g.name}-${i}`} className="rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 p-3.5 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <button type="button" onClick={() => onSearch(g.name || g.ko)} className="flex-1 text-left min-w-0 cursor-pointer group">
-                    <p className="text-[13.5px] font-black text-zinc-900 dark:text-white group-hover:text-purple-600 break-keep">{g.ko && g.ko !== g.name ? `${g.ko}` : g.name}</p>
-                    {g.ko && g.ko !== g.name && <p className="text-[11px] text-zinc-400 truncate">{g.name}</p>}
+                    <p className="text-[13.5px] font-black text-zinc-900 dark:text-white group-hover:text-purple-600 break-keep">{g.name || g.ko}</p>
                   </button>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {g.horror && <span className="px-1.5 py-0.5 rounded-md bg-red-500/10 text-red-600 text-[10px] font-black">공포</span>}
-                    {/* 결과: 짧으면 배지, 길면 아래에 한 줄 (길게 옆에 두면 게임 이름이 세로로 찌그러졌음) */}
-                    {s?.result && String(s.result).length <= 10 && <Spoiler on={spoil} inline><span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-black whitespace-nowrap">{s.result}</span></Spoiler>}
-                  </div>
+                  {g.horror && <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-red-500/10 text-red-600 text-[10px] font-black">공포</span>}
                 </div>
-                {s?.result && String(s.result).length > 10 && <Spoiler on={spoil}><p className="text-[11.5px] font-bold text-emerald-700 dark:text-emerald-400 break-keep">결과 · {pk(s.result)}</p></Spoiler>}
+                {s?.result && <Spoiler on={spoil}><p className="text-[11.5px] font-bold text-emerald-700 dark:text-emerald-400 break-keep">결과 · {pk(s.result)}</p></Spoiler>}
                 {s?.story ? <Spoiler on={spoil}><p className="text-[12.5px] text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep">{pk(s.story)}</p></Spoiler> : g.about ? <p className="text-[12.5px] text-zinc-600 dark:text-zinc-300 leading-relaxed break-keep">{pk(g.about)}</p> : null}
-                {(s?.highlights || []).length > 0 && (
-                  <Spoiler on={spoil}><ul className="space-y-1">
-                    {s.highlights.map((h: any, j: number) => (
-                      <li key={j} className="flex items-start gap-2 text-[12px] text-zinc-600 dark:text-zinc-300 break-keep"><Star className="w-3 h-3 mt-1 text-amber-500 shrink-0" /><TimeBtn t={h.t} onClick={() => onSeek(Math.max(0, h.t - 5))} /><span>{pk(h.d)}</span></li>
-                    ))}
-                  </ul></Spoiler>
-                )}
+                {/* 별표 장면 목록은 뺌 (흐름·이야기별 요약에 시간과 함께 있고, 게임 카드 쪽은 의미 없는 순간이 많았음) */}
                 {(g.genre || (g.tags || []).length > 0) && (
                   <div className="flex flex-wrap gap-1">
                     {[g.genre, ...(g.tags || [])].filter(Boolean).slice(0, 6).map((t: string) => <Chip key={t} label={t} tone="zinc" onClick={() => onSearch(t)} />)}
