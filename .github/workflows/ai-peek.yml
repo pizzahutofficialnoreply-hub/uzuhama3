@@ -1,0 +1,21 @@
+name: ai-peek
+on: workflow_dispatch
+jobs:
+  peek:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "AI $(curl -sS --max-time 60 'https://uzuhama.vercel.app/api/videos/search-index?ai=status' | head -c 1500)"
+          echo "CF $(curl -sS --max-time 30 'https://uzuhama.vercel.app/api/health?cf=status' | head -c 600)"
+          npm i -s firebase-admin@12 >/dev/null 2>&1
+          cat > p.js <<'J'
+          const a=require('firebase-admin');a.initializeApp({credential:a.credential.cert(JSON.parse(process.env.SA))});const db=a.firestore();
+          (async()=>{for(const d of ['2026-11-20','2026-11-21']){const x=(await db.doc('admin_data/reads_'+d).get()).data()||{};
+          const tot={};for(const [r,c] of Object.entries(x.s||{})){let s=0;for(const v of Object.values(c))s+=v;tot[r]=s;}
+          console.log('DAY',d,'server',JSON.stringify(Object.entries(tot).sort((a,b)=>b[1]-a[1]).slice(0,25)));
+          const cl={};for(const [k,v] of Object.entries(x.c||{}))cl[k]=v;console.log('CLIENT',JSON.stringify(Object.entries(cl).sort((a,b)=>b[1]-a[1]).slice(0,25)));
+          console.log('HOURS',JSON.stringify(Object.fromEntries(Object.entries(x.h||{}).map(([h,v])=>[h,Object.values(v).reduce((s,n)=>s+n,0)]))));}
+          console.log('GC',JSON.stringify((await db.doc('youtube_cache/game_check_state').get()).data()));
+          process.exit(0)})();
+          J
+          SA='${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}' node p.js
