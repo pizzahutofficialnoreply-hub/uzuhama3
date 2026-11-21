@@ -23,7 +23,7 @@ const kstHour = () => `h${new Date(Date.now() + 9 * 3600000).toISOString().slice
 export function setReadRoute(req: any) {
   try {
     const u = new URL(req?.url || '/', 'http://x');
-    const k = ['ai', 'selftest', 'img', 'kind', 'mode', 'op', 'action', 'enrich', 'src'].map((p) => (u.searchParams.get(p) ? `${p}=${u.searchParams.get(p)}` : '')).filter(Boolean).slice(0, 2).join('&');
+    const k = ['ai', 'selftest', 'img', 'kind', 'mode', 'op', 'action', 'enrich', 'src', 'gamecheck', 'snapshot', 'yt', 'sheetcheck', 'cf', 'titles', 'readstat', 'weekly'].map((p) => (u.searchParams.get(p) ? `${p}=${u.searchParams.get(p)}` : '')).filter(Boolean).slice(0, 2).join('&');
     route = safe(`${u.pathname.replace(/^\/api\//, '')}${k ? `?${k}` : ''}`);
   } catch { route = 'other'; }
 }

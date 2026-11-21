@@ -322,6 +322,18 @@ export function useFirebaseData() {
           } else if (Array.isArray(cachedComps)) {
             compSources.push(...cachedComps);
           } else {
+            // 서버 묶음(CDN)에서 먼저 (DB 읽기 0) → 안 되면 DB
+            try {
+              const base = typeof window !== 'undefined' && /vercel\.app$/.test(window.location.hostname) ? '' : 'https://uzuhama.vercel.app';
+              const r = await fetch(`${base}/api/health?snapshot=logs`);
+              const j = r.ok ? await r.json() : null;
+              if (Array.isArray(j?.comps) && j.comps.length) cachedComps = j.comps;
+            } catch { /* */ }
+          }
+          if (compSources.length) { /* 위에서 넣음 */ } else if (Array.isArray(cachedComps) && !Array.isArray(snapComps)) {
+            compSources.push(...cachedComps);
+            try { localStorage.setItem(COMPILATIONS_CACHE_KEY, JSON.stringify(cachedComps)); localStorage.setItem(COMPILATIONS_CACHE_KEY + '_at', String(Date.now())); } catch {}
+          } else if (!compSources.length) {
             const compSnaps = await getDocs(collection(db, 'compilations'));
             noteReads('compilations', Math.max(1, compSnaps.size));
             compSnaps.forEach((d) => compSources.push({ docId: d.id, comp: d.data() }));

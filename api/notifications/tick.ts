@@ -91,14 +91,7 @@ export default async function handler(req: any, res: any) {
     const now = new Date();
     const stateRef = db.collection('notification_state').doc('main');
 
-    // ── AI 영상 분석: 점검이 불릴 때마다 (간격 제한과 상관없이) 응답 뒤에서 이어서 ──
-    // 이 함수는 최대 300초. 분석 쪽 잠금으로 한 번에 하나만 돌고, 나머지는 바로 끝남
-    try {
-      const { waitUntil } = await import('@vercel/functions');
-      // 분석 함수를 따로 불러서 시작 → 그쪽이 할 게 남으면 스스로 이어 감 (잠금으로 한 번에 하나만)
-      const host = String(req.headers?.host || 'uzuhama.vercel.app');
-      waitUntil(fetch(`https://${host}/api/videos/search-index?ai=run&src=tick`, { signal: AbortSignal.timeout(5000) }).catch(() => {}));
-    } catch { /* 로컬 */ }
+    // AI 영상 분석은 클라우드플레어 워커가 2분마다 따로 부름 (예전엔 여기서도 1분마다 불러서 같은 일을 두 번 시작하며 DB 를 읽었음)
 
     // ── 0. 호출 간격 제한 (트랜잭션으로 동시 호출도 한 번만 통과) ──
     let stateSeen: any = null;

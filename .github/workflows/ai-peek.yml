@@ -1,9 +1,0 @@
-name: ai-peek
-on: workflow_dispatch
-jobs:
-  peek:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          echo "RS $(curl -sS --max-time 30 'https://uzuhama.vercel.app/api/health?readstat=sum' | head -c 6000)"
-          echo "AI $(curl -sS --max-time 60 'https://uzuhama.vercel.app/api/videos/search-index?ai=status' | python3 -c 'import sys,json;d=json.load(sys.stdin);print({k:v for k,v in d.items() if k not in ("linkBad","modelQuota","modelWhy","modelCool")})' | head -c 3000)"

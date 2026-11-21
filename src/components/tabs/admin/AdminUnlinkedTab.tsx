@@ -1,5 +1,5 @@
 import { noteReads } from '../../../utils/readStats';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { collection, doc, getCountFromServer, getDoc, getDocs, limit, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db, auth } from '../../../lib/firebase';
 import { Flag } from 'lucide-react';
@@ -498,11 +498,17 @@ function GameCheckPanel({ data, onSent }: { data: AppData; onSent: () => void })
     if (k === 'noinfo') return query(c, where('status', 'in', ['noinfo', 'gone']));
     return query(c, where('status', '==', k));
   };
-  const load = (k: string = f) => {
+  // 칸마다 한 번 읽은 건 기억 (칸을 왔다 갔다 해도 다시 안 읽음 · '목록 새로고침'만 다시 읽음)
+  const seen = useRef<Record<string, any[]>>({});
+  const countsAt = useRef(0);
+  const load = (k: string = f, force = false) => {
+    if (!force && seen.current[k]) { setRows(seen.current[k]); return; }
     setRows(null);
     getDocs(query(qOf(k), limit(300)))
-      .then((s) => { noteReads('game_check(관리자)', Math.max(1, s.size)); setRows(s.docs.map((d) => d.data()).sort((a: any, b: any) => String(b.date).localeCompare(String(a.date)))); })
+      .then((s) => { noteReads('game_check(관리자)', Math.max(1, s.size)); const r = s.docs.map((d) => d.data()).sort((a: any, b: any) => String(b.date).localeCompare(String(a.date))); seen.current[k] = r; setRows(r); })
       .catch(() => setRows([]));
+    if (!force && countsAt.current) return; // 개수는 처음·새로고침 때만
+    countsAt.current = Date.now();
     Promise.all((['mismatch', 'link', 'noinfo', 'match'] as const).map((x) => getCountFromServer(qOf(x)).then((r) => [x, r.data().count] as const).catch(() => [x, -1] as const)))
       .then((a) => { noteReads('game_check 개수(관리자)', 4); setCounts(Object.fromEntries(a)); });
   };
@@ -574,7 +580,7 @@ function GameCheckPanel({ data, onSent }: { data: AppData; onSent: () => void })
         <p className="text-zinc-500 break-keep">편집 영상 설명창(맨 위 게임 이름 줄·해시태그)의 게임 이름과 기록의 게임 이름을 비교하고, 일치한 게임은 스팀·앱스토어·구글 플레이·웹 링크를 열어 그 페이지 이름과 다시 맞춰 봐요. 예전 영상처럼 설명창에 '게임 이름 / 우주하마' 줄 없이 해시태그(#공포게임 등)만 있으면 '정보 없음'으로 보류돼요. 한글·영문·일본어 표기 차이나 글자 몇 개 차이는 일치로 보고, 이름이 아예 달라도 게임 링크 페이지 이름이 설명창과 같으면 일치로 봐요.</p>
         <div className="flex items-center gap-2">
           <p className="text-zinc-500">{st ? `${st.cursor || 0} / ${st.total || '?'}개 대조${st.done ? ' (다 함)' : ` · ${st.running ? '지금 대조 중… ' : ''}워커가 3분마다 이어서 해요 (마지막 ${st.at ? new Date(st.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-'})`}${st.lastError ? ` · 오류: ${st.lastError}` : ''}` : '아직 시작 안 함'}</p>
-          <button type="button" onClick={() => load()} className="ml-auto px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer">목록 새로고침</button>
+          <button type="button" onClick={() => { seen.current = {}; load(f, true); }} className="ml-auto px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer">목록 새로고침</button>
         </div>
         {st && !st.done && st.total ? <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden"><div className="h-full bg-purple-500 transition-all" style={{ width: `${Math.min(100, ((st.cursor || 0) / st.total) * 100)}%` }} /></div> : null}
         <div className="flex flex-wrap gap-1.5">

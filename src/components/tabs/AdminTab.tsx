@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { 
   PlusCircle, 
   FileEdit, 
@@ -33,6 +33,10 @@ type AdminViewMode = 'add' | 'edit' | 'link' | 'system' | 'suggestions' | 'patch
 
 export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAllLogs, onUpdateSystemConfig }: AdminTabProps) {
   const [viewMode, setViewMode] = useState<AdminViewMode>('add');
+  // 한 번 연 탭은 계속 붙여 두고 가리기만 (탭을 옮길 때마다 처음부터 다시 그리며 DB 를 또 읽지 않게)
+  const [visited, setVisited] = useState<Set<AdminViewMode>>(() => new Set(['add']));
+  React.useEffect(() => { setVisited((v) => (v.has(viewMode) ? v : new Set(v).add(viewMode))); }, [viewMode]);
+  const keep = (m: AdminViewMode, el: React.ReactNode) => (visited.has(m) || viewMode === m ? <div hidden={viewMode !== m}>{el}</div> : null);
 
   const adminNavTabs: { id: AdminViewMode; label: string; fullLabel: string; icon: React.ElementType }[] = [
     { id: 'add', label: '등록', fullLabel: '신규 기록 추가', icon: PlusCircle },
@@ -80,9 +84,9 @@ export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAll
 
       {/* Main Tab Content */}
       <div className="pb-32 sm:pb-0">
-        {viewMode === 'add' && <AdminAddTab onAddLog={onAddLog} onUpdateLog={onUpdateLog} onDeleteLog={onDeleteLog} data={data} />}
+        {keep('add', <AdminAddTab onAddLog={onAddLog} onUpdateLog={onUpdateLog} onDeleteLog={onDeleteLog} data={data} />)}
         
-        {viewMode === 'edit' && (
+        {keep('edit', (
           <AdminLogsTab 
             data={data} 
             onAddLog={onAddLog}
@@ -90,31 +94,31 @@ export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAll
             onDeleteLog={onDeleteLog} 
             onDeleteAllLogs={onDeleteAllLogs} 
           />
-        )}
+        ))}
 
-        {viewMode === 'link' && <AdminUnlinkedTab data={data} onUpdateLog={onUpdateLog} />}
+        {keep('link', <AdminUnlinkedTab data={data} onUpdateLog={onUpdateLog} />)}
 
-        {viewMode === 'system' && (
+        {keep('system', (
           <AdminSystemTab 
             data={data} 
             onUpdateSystemConfig={onUpdateSystemConfig} 
           />
-        )}
+        ))}
 
-        {viewMode === 'suggestions' && (
+        {keep('suggestions', (
           <AdminSuggestionsTab 
             data={data}
             onAddLog={onAddLog}
             onUpdateLog={onUpdateLog}
           />
-        )}
+        ))}
 
-        {viewMode === 'patches' && (
+        {keep('patches', (
           <AdminPatchesTab />
-        )}
-        {viewMode === 'audit' && (
+        ))}
+        {keep('audit', (
           <AdminAuditTab onAddLog={onAddLog} onUpdateLog={onUpdateLog} onDeleteLog={onDeleteLog} onUpdateSystemConfig={onUpdateSystemConfig} />
-        )}
+        ))}
       </div>
 
       {/* Mobile Backdrop Gradient Blur Layer (탭바 뒤쪽 하단만 부드럽게 감싸고 탭바/버튼과 겹치지 않도록 높이 및 z-index 최적화) */}
