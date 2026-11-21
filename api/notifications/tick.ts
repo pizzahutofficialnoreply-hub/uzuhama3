@@ -266,9 +266,15 @@ export default async function handler(req: any, res: any) {
       lastBySource: { [src]: now.getTime() }, // merge 라서 다른 출처 기록은 유지
     }, { merge: true }).catch(() => {});
 
-    // ── 10분마다: 새 편집 영상 → 방송 기록에 자동 연결 + 새 영상 알림 (새 영상이 없으면 DB 읽기 1번)
-    if (now.getUTCMinutes() % 10 === 5) {
-      try { const { ytSync } = await import('../_ytSync.js'); const y: any = await ytSync(db); if (y?.linked?.length) result.ytSync = { linked: y.linked.length }; } catch (e: any) { result.ytSyncError = String(e?.message || e).slice(0, 120); }
+    // ── 새 영상 찾기 → 방송 기록에 자동 연결 + 새 영상 알림 (새 영상이 없으면 DB 읽기 1번, 나머지는 유튜브 할당량만)
+    //    롱폼이 보통 올라오는 오전·오후 11:30~11:40(한국)에는 1분마다, 그 밖에는 10분마다 (쇼츠는 아무 때나 올라와서)
+    {
+      const k = new Date(now.getTime() + 9 * 3600000);
+      const hh = k.getUTCHours(), mm = k.getUTCMinutes();
+      const upload = (hh === 11 || hh === 23) && mm >= 30 && mm <= 40;
+      if (upload || mm % 10 === 5) {
+        try { const { ytSync } = await import('../_ytSync.js'); const y: any = await ytSync(db, { window: upload }); if (y?.linked?.length) result.ytSync = { linked: y.linked.length }; } catch (e: any) { result.ytSyncError = String(e?.message || e).slice(0, 120); }
+      }
     }
 
     // ── 하루 한 번: 검색 조정 (신고·만족도 반영, 오전 5시 이후) ──

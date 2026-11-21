@@ -98,14 +98,15 @@ export function pickLogs(logs: Log[], title: string, desc: string, day: string):
   return { logs: sorted, reason, ambiguous: many || top === 1, candidates: cands.slice(0, 20) };
 }
 
-export async function ytSync(db: any, opts: { force?: boolean } = {}) {
+export async function ytSync(db: any, opts: { force?: boolean; window?: boolean } = {}) {
   const key = process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY;
   if (!key) return { ok: false, reason: 'YOUTUBE_API_KEY 없음' };
   const sys = (await db.collection('config').doc('system').get()).data() || {};
   if (sys.autoYtSyncEnabled === false) return { ok: false, reason: '꺼 둠' };
   const stRef = db.collection('youtube_cache').doc('yt_sync_state');
   const st = (await stRef.get()).data() || {};
-  if (!opts.force && Date.now() - Number(st.at || 0) < 10 * 60000) return { ok: true, skipped: '10분 안에 함', last: st.last || null };
+  // 업로드 시간대(window)에는 1분마다, 그 밖에는 10분에 한 번
+  if (!opts.force && Date.now() - Number(st.at || 0) < (opts.window ? 50000 : 9 * 60000)) return { ok: true, skipped: '방금 함', last: st.last || null };
   await stRef.set({ at: Date.now() }, { merge: true });
 
   const pl = 'UU' + YT_CHANNEL_ID.slice(2);
@@ -115,6 +116,15 @@ export async function ytSync(db: any, opts: { force?: boolean } = {}) {
   // 맨 위(가장 새) 영상이 지난번과 같으면 새 영상이 없는 것 → DB 를 더 읽지 않고 끝 (10분마다 확인해도 읽기 1번)
   const top = String(items[0]?.contentDetails?.videoId || items[0]?.snippet?.resourceId?.videoId || '');
   if (!opts.force && top && st.top === top) return { ok: true, skipped: '새 영상 없음' };
+  // 새로 올라온 것 중 쇼츠·일반 영상이 있으면, 사이트의 쇼츠·영상 목록을 다음 방문 때 바로 새로 받게 표시
+  {
+    const prevIdx = items.findIndex((it: any) => (it.contentDetails?.videoId || it.snippet?.resourceId?.videoId) === st.top);
+    const fresh = (prevIdx >= 0 ? items.slice(0, prevIdx) : items.slice(0, 3)) as any[];
+    const isShort = (it: any) => /#shorts/i.test(`${it.snippet?.title || ''} ${it.snippet?.description || ''}`);
+    const old = new Date(Date.now() - 13 * 3600000).toISOString();
+    if (fresh.some(isShort)) await db.collection('youtube_cache').doc('shorts').set({ fetchedAt: old }, { merge: true }).catch(() => {});
+    if (fresh.some((it) => !isShort(it))) await db.collection('youtube_cache').doc('uploads').set({ fetchedAt: old }, { merge: true }).catch(() => {});
+  }
 
   // 최근 4달 기록
   const now = new Date(Date.now() + 9 * 3600000);
