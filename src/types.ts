@@ -199,6 +199,14 @@ export interface SystemConfig {
   heldVideos?: Record<string, { at?: number; reason?: string }>;
   titleDecor?: { id: string; from: string; to: string; image: string; label?: string; enabled?: boolean }[];
   maintenance: boolean;
+  /** 서비스 단계: 보통 / 런칭 준비(문 열기 전 카운트다운) / 잠시 중지 / 종료 */
+  serviceMode?: 'normal' | 'prelaunch' | 'paused' | 'ended';
+  /** 런칭 준비: 문 여는 시각 (지나면 저절로 열림) */
+  launchAt?: string;
+  serviceTitle?: string;
+  serviceMessage?: string;
+  /** 아래로 내리면 보이는 글 (런칭: 사이트 소개 / 중지·종료: 편지) */
+  serviceLetter?: string;
   maintenanceTitle?: string;
   maintenanceContent?: string;
   noticeType: 'none' | 'big' | 'small' | 'both';

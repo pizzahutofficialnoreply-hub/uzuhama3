@@ -8,6 +8,7 @@ import {
   type OnboardingConfig, type OnboardingStep, type OnboardingStepType, type OnboardingSection,
 } from '../../../Onboarding';
 import { confirmSheet } from '../../../../utils/ui';
+import { ServiceModeCard } from './ServiceModeCard';
 
 /**
  * 관리자 > 처음 시작 화면: 환영·약관·안내·자판·소개 단계를 추가·삭제·수정·순서 바꾸기
@@ -88,6 +89,7 @@ export function OnboardingSubTab({ systemEdit, handleChange, onSave, saving, onU
     <div className="space-y-4">
       {/* 미리보기용 (기록 안 남김) */}
       <Onboarding enabled={false} version={0} system={systemEdit} tutorialEnabled={false} preview />
+      <ServiceModeCard system={systemEdit} onUpdateSystemConfig={onUpdateSystemConfig} />
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>

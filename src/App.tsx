@@ -73,6 +73,7 @@ import { mergeErrorStops } from './utils/streamErrors';
 import { usePrefs } from './utils/userPrefs';
 import { RELOAD_LINK, reloadToNewVersion, useNewBuildAvailable } from './utils/appVersion';
 import { MaintenancePager } from './components/MaintenancePager';
+import { ServiceGateScreen, serviceGateOf, cachedGate, rememberGate } from './components/ServiceGate';
 import { SELFTEST_FLAG } from './selftest/flag';
 const SelfTestPage = lazy(() => import('./components/SelfTestPage').then((m) => ({ default: m.SelfTestPage })));
 import { AiSummaryHost, GO_SEARCH_EVENT } from './components/common/AiSummaryHost';
@@ -92,7 +93,7 @@ function SlugRoute() {
 
 function MainApp() {
   const navigate = useNavigate();
-  const { data: rawData, loading, loadingProgress, loadingStatusText, isFirstRun, fetchLogsByDateRange, fetchLatestLogs, rateVideo } = useFirebaseData();
+  const { data: rawData, loading, systemFresh, systemLive, loadingProgress, loadingStatusText, isFirstRun, fetchLogsByDateRange, fetchLatestLogs, rateVideo } = useFirebaseData();
   // 실험실 '과거 영상 생방 연동'이 꺼져 있으면 2020년 전 카페 정리 링크는 숨김 (관리자 화면은 따로라 영향 없음)
   const labCafeOld = usePrefs().labCafeOld;
   // 방송 오류로 짧게 꺼졌다 다시 켠 방송은 하나로 합쳐 보여 줌
@@ -822,6 +823,25 @@ function MainApp() {
     });
     return { gameNames: [...games].filter(Boolean), categories: [...cats.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count })) };
   }, [data?.logs]);
+  // 서비스 단계(런칭 준비·중지·종료)와 점검: 다음에 열 때 앱보다 먼저 막을 수 있게 기억
+  useEffect(() => {
+    if (!data?.system || !systemLive) return;
+    const ms = checkMaintenanceStatus(effectiveMaintenanceSystem(data.system, Date.now()), Date.now());
+    rememberGate(data.system, Boolean(ms.isInProgress));
+  }, [data?.system, systemLive]);
+  const gateBypass = (typeof navigator !== 'undefined' && (navigator as any).webdriver === true)
+    || (() => { try { return Number(localStorage.getItem(SELFTEST_FLAG) || 0) > Date.now(); } catch { return false; } })();
+  // 서버 설정을 받기 전: 지난번에 막혀 있었으면 앱 화면 대신 그 화면부터 (점검이면 빈 화면으로 가림)
+  if (!gateBypass && (loading || !systemFresh)) {
+    const gc = cachedGate();
+    const gm = gc ? serviceGateOf(gc, nowTime) : null;
+    if (gm) return <ServiceGateScreen mode={gm} system={gc} />;
+    if (gc?.maintenance) return <div className="fixed inset-0 bg-zinc-50 dark:bg-black" aria-busy="true" />;
+  }
+  // 저장해 둔 옛 설정으로 앱을 먼저 띄우지 않음 (점검·중지가 뒤늦게 덮이던 문제) · 서버 설정은 보통 1초 안에 옴
+  if (!loading && !systemFresh && !gateBypass && !isLoggingOut) {
+    return <LoadingScreen progress={95} statusText="설정 확인하는 중" isFirstRun={isFirstRun} />;
+  }
   if (loading || isLoggingOut) {
     return (
       <LoadingScreen 
@@ -845,6 +865,10 @@ function MainApp() {
   const automationBypass = (typeof navigator !== 'undefined' && (navigator as any).webdriver === true)
     // 관리자의 화면·기능 전체 점검 중 (15분)
     || (() => { try { return Number(localStorage.getItem(SELFTEST_FLAG) || 0) > Date.now(); } catch { return false; } })();
+  // 서버 설정에 단계가 적혀 있으면 그것, 아니면(못 받았을 때) 지난번에 기억한 것
+  const gateSys = systemLive || data.system?.serviceMode ? data.system : (cachedGate() || data.system);
+  const gateMode = serviceGateOf(gateSys, nowTime);
+  if (gateMode && !automationBypass) return <ServiceGateScreen mode={gateMode} system={gateSys} onOpen={() => setNowTime(Date.now())} />;
   if (maintenanceStatus.isInProgress && !automationBypass) {
     const endTimeMs = maintSystem?.maintenanceEnd ? parseDateSafe(maintSystem.maintenanceEnd) : null;
     const remainingSeconds = endTimeMs && !isNaN(endTimeMs) ? Math.max(0, Math.floor((endTimeMs - nowTime) / 1000)) : null;

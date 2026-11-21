@@ -211,6 +211,11 @@ const CONFIG_CACHE_KEY = 'uzuhama_config_cache_v1';
 export function useFirebaseData() {
   const [data, setData] = useState<AppData | null>(null);
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
+  // 서버에서 막 받은 설정인지 (기기에 저장해 둔 옛 설정으로 화면을 먼저 띄웠다가 점검 화면이 뒤늦게 덮이는 걸 막으려고)
+  const [systemFresh, setSystemFresh] = useState(false);
+  // 서버에서 실제로 받았는지 (시간이 지나 기다림만 끝난 것과 구분)
+  const [systemLive, setSystemLive] = useState(false);
+  useEffect(() => { const t = window.setTimeout(() => setSystemFresh(true), 1500); return () => window.clearTimeout(t); }, []);
   const [loading, setLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(15);
   const [loadingStatusText, setLoadingStatusText] = useState('불러오는 중');
@@ -459,6 +464,7 @@ export function useFirebaseData() {
       sysRef, 
       (snap) => {
         if (!snap.metadata.fromCache) noteReads('config/system(실시간)', 1);
+        if (!snap.metadata.fromCache) { setSystemFresh(true); setSystemLive(true); }
         if (snap.exists()) {
           setSystemConfig(snap.data() as SystemConfig);
           setHeldVideos((snap.data() as any)?.heldVideos);
@@ -891,6 +897,8 @@ export function useFirebaseData() {
   return { 
     data, 
     loading, 
+    systemFresh,
+    systemLive,
     loadingProgress,
     loadingStatusText,
     isFirstRun,
