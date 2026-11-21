@@ -13,7 +13,8 @@ export function SheetHandle({ onClose, onUp, className = '' }: { onClose: () => 
     if (!s?.el) return;
     s.dy = y - s.y0;
     const d = s.dy > 0 ? s.dy : s.dy / 4; // 위로는 살짝만
-    s.el.style.transform = `translateY(${d}px)`;
+    // transform 은 등장·퇴장 애니메이션(motion)이 쓰므로, 끌 때는 따로 있는 translate 속성만 씀 (둘이 겹쳐 튀던 문제)
+    s.el.style.translate = `0 ${d}px`;
     s.el.style.transition = 'none';
   };
   const end = () => {
@@ -21,12 +22,14 @@ export function SheetHandle({ onClose, onUp, className = '' }: { onClose: () => 
     st.current = null;
     if (!s?.el) return;
     const v = s.dy / Math.max(1, Date.now() - s.t0); // px/ms
-    s.el.style.transition = 'transform 220ms cubic-bezier(.2,.8,.2,1)';
+    const el = s.el;
+    el.style.transition = 'translate 220ms cubic-bezier(.2,.8,.2,1)';
     if (s.dy > 90 || v > 0.6) {
-      s.el.style.transform = 'translateY(110%)';
-      window.setTimeout(onClose, 160);
+      // 손을 뗀 자리에서 그대로 아래로 내려가며 닫힘 (닫히는 동안 위로 튀지 않게 끝날 때까지 기다렸다가 닫기)
+      el.style.translate = '0 110%';
+      window.setTimeout(() => { onClose(); window.setTimeout(() => { el.style.transition = ''; el.style.translate = ''; }, 600); }, 200);
     } else {
-      s.el.style.transform = '';
+      el.style.translate = '';
       if (onUp && s.dy < -40) onUp();
     }
   };

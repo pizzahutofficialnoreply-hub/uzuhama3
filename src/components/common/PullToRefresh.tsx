@@ -1,3 +1,4 @@
+import { markAiCacheStale } from '../../utils/aiCache';
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 
@@ -66,6 +67,7 @@ export default function PullToRefresh({ onRefresh, force = false }: { onRefresh:
       setPull(56);
       try { (navigator as any).vibrate?.(8); } catch { /* */ }
       // 설정의 '새로고침'과 똑같이: 페이지를 다시 불러옴 (빙글 도는 표시를 잠깐 보여 준 뒤)
+      markAiCacheStale();
       window.setTimeout(() => window.location.reload(), 250);
     };
     window.addEventListener('touchstart', start, { passive: true });

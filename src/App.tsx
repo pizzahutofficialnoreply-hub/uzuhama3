@@ -73,6 +73,7 @@ import { mergeErrorStops } from './utils/streamErrors';
 import { usePrefs } from './utils/userPrefs';
 import { RELOAD_LINK, reloadToNewVersion, useNewBuildAvailable } from './utils/appVersion';
 import { MaintenancePager } from './components/MaintenancePager';
+import { NICE_MD } from './components/common/NiceMarkdown';
 import { ServiceGateScreen, serviceGateOf, cachedGate, rememberGate } from './components/ServiceGate';
 import { SELFTEST_FLAG } from './selftest/flag';
 const SelfTestPage = lazy(() => import('./components/SelfTestPage').then((m) => ({ default: m.SelfTestPage })));
@@ -997,7 +998,7 @@ function MainApp() {
             className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-zinc-500 dark:text-zinc-400 text-sm font-bold cursor-pointer"
           >
             자세히 보기
-            <ChevronDown className="w-6 h-6 animate-bounce" />
+            <ChevronDown className="w-6 h-6" />
           </button>
         </div>
         )}
@@ -1024,7 +1025,7 @@ function MainApp() {
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2.5 py-1 rounded-lg shrink-0">점검 공지</span>
             </h2>
             <div className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-xs sm:text-sm">
-              <ReactMarkdown components={mdComponents}>
+              <ReactMarkdown components={NICE_MD} urlTransform={(u) => u}>
                 {inProgressText(data.system?.maintenanceContent?.trim() || fallbackNoticeMarkdown)}
               </ReactMarkdown>
             </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import { NiceMarkdown } from './common/NiceMarkdown';
 import { ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { MaintenancePager } from './MaintenancePager';
 import { FluidBackdrop } from './common/FluidBackdrop';
 import type { SystemConfig } from '../types';
@@ -50,13 +51,6 @@ function useNow(on: boolean) {
   return t;
 }
 
-const md = {
-  h2: ({ node, ...p }: any) => <h2 className="text-base font-black text-zinc-900 dark:text-white mt-4 mb-2" {...p} />,
-  p: ({ node, ...p }: any) => <p className="mb-3 text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep" {...p} />,
-  ul: ({ node, ...p }: any) => <ul className="list-disc pl-5 space-y-1.5 mb-3 text-zinc-700 dark:text-zinc-200" {...p} />,
-  li: ({ node, ...p }: any) => <li className="leading-relaxed break-keep" {...p} />,
-  strong: ({ node, ...p }: any) => <strong className="font-bold text-zinc-900 dark:text-white" {...p} />,
-};
 
 export function ServiceGateScreen({ mode, system, onOpen }: { mode: GateMode; system?: Partial<SystemConfig> | null; onOpen?: () => void }) {
   const d = DEFAULT_GATE[mode];
@@ -86,7 +80,7 @@ export function ServiceGateScreen({ mode, system, onOpen }: { mode: GateMode; sy
                     .filter(([v, u], i) => i > 0 || v > 0 || u !== '일')
                     .map(([v, u]) => (
                       <div key={u} className="min-w-[60px] px-2 py-2 rounded-2xl bg-white/70 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800">
-                        <p className="text-2xl sm:text-3xl font-black text-purple-600 dark:text-purple-400">{pad(v)}</p>
+                        <FlipNumber text={pad(v)} />
                         <p className="text-[11px] font-bold text-zinc-500">{u}</p>
                       </div>
                     ))}
@@ -96,7 +90,7 @@ export function ServiceGateScreen({ mode, system, onOpen }: { mode: GateMode; sy
           </div>
           <button type="button" onClick={goDetail} className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-zinc-500 dark:text-zinc-400 text-sm font-bold cursor-pointer">
             {mode === 'prelaunch' ? '미리 보기' : mode === 'ended' ? '편지 읽기' : '자세히 보기'}
-            <ChevronDown className="w-6 h-6 animate-bounce" />
+            <ChevronDown className="w-6 h-6" />
           </button>
         </div>
       )}
@@ -111,7 +105,7 @@ export function ServiceGateScreen({ mode, system, onOpen }: { mode: GateMode; sy
                 <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400">{mode === 'prelaunch' ? '사이트 소개 미리 보기' : mode === 'ended' ? '서비스 종료 안내' : '서비스 중지 안내'}</p>
               </div>
             </div>
-            <div className="text-sm"><ReactMarkdown components={md}>{letter}</ReactMarkdown></div>
+            <NiceMarkdown>{letter}</NiceMarkdown>
           </div>
         </div>
       )}
@@ -131,3 +125,21 @@ export function cachedGate(): (Partial<SystemConfig> & { maintenance?: boolean }
 }
 
 export default React.memo(ServiceGateScreen);
+
+/** 숫자가 바뀔 때 위로 넘어가는 시계 (넘김판처럼 위로 접히며 새 숫자가 아래에서 올라옴) */
+function FlipNumber({ text }: { text: string }) {
+  return (
+    <div className="relative h-9 sm:h-10 overflow-hidden flex justify-center" style={{ perspective: 300 }}>
+      {text.split('').map((ch, i) => (
+        <span key={i} className="relative inline-block w-[0.62em] text-2xl sm:text-3xl font-black text-purple-600 dark:text-purple-400 tabular-nums">
+          <AnimatePresence initial={false} mode="popLayout">
+            <motion.span key={ch} className="absolute inset-0 flex items-center justify-center"
+              initial={{ y: '70%', rotateX: -80, opacity: 0 }} animate={{ y: 0, rotateX: 0, opacity: 1 }} exit={{ y: '-70%', rotateX: 80, opacity: 0 }}
+              transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}>{ch}</motion.span>
+          </AnimatePresence>
+          <span className="invisible">0</span>
+        </span>
+      ))}
+    </div>
+  );
+}

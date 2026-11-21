@@ -1,4 +1,5 @@
 import { useSheetExtra } from '../../utils/sheetExtra';
+import { cachedJson, putCached } from '../../utils/aiCache';
 import { openAiCard } from './AiCardExpand';
 import { Skeleton, TextSkeleton } from './Skeleton';
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
@@ -37,7 +38,10 @@ const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
 const detailCache = new Map<string, Promise<any>>();
 export function loadDetail(id: string, fresh = false) {
   if (fresh || !detailCache.has(id)) {
-    const p = fetch(`${API_BASE}/api/videos/search-index?ai=video&id=${encodeURIComponent(id)}`).then((r) => r.json());
+    // 다 끝난 요약은 기기에 저장해 두고 씀 (새로고침 전까지 서버를 다시 안 부름)
+    const p = cachedJson(`ai_detail:${id}`, 7 * 86400000,
+      () => fetch(`${API_BASE}/api/videos/search-index?ai=video&id=${encodeURIComponent(id)}`).then((r) => r.json()),
+      (d: any) => Boolean(d?.found && !d.pending && !d.error));
     p.catch(() => detailCache.delete(id));
     detailCache.set(id, p);
   }
@@ -223,6 +227,7 @@ export function SummaryBody(props: { d: any; onSeek: (t: number) => void; onSear
         <AiSummaryEditor d={props.d} onCancel={() => setEditing(false)} onSaved={(next) => {
           const full = { ...props.d, ...next, found: true };
           detailCache.set(props.d.id, Promise.resolve(full));
+          void putCached(`ai_detail:${props.d.id}`, full);
           window.dispatchEvent(new CustomEvent(AI_DETAIL_EVENT, { detail: full }));
           setEditing(false);
         }} />

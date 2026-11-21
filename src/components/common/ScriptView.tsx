@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
+import { cachedJson } from '../../utils/aiCache';
 
 /**
  * 스크립트: AI가 영상을 보며 받아 적은 대사를 시간과 함께
@@ -13,9 +14,9 @@ const API = (typeof window !== 'undefined' && window.location.hostname.endsWith(
 const cache = new Map<string, Promise<Script>>();
 export function loadScript(id: string): Promise<Script> {
   if (!cache.has(id)) {
-    const p = fetch(`${API}/api/videos/search-index?ai=script&id=${encodeURIComponent(id)}`)
+    const p = cachedJson<Script>(`ai_script:${id}`, 86400000, () => fetch(`${API}/api/videos/search-index?ai=script&id=${encodeURIComponent(id)}`)
       .then((r) => (r.ok ? r.json() : { found: false, lines: [] }))
-      .catch(() => ({ found: false, lines: [] }));
+      .catch(() => ({ found: false, lines: [] })), (s) => Boolean(s?.found && s.lines?.length));
     p.then((s) => { if (!s?.found) window.setTimeout(() => cache.delete(id), 60000); });
     cache.set(id, p);
   }

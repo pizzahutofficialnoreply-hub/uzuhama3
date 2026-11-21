@@ -16,6 +16,7 @@ import { RecommendPrefsPanel } from './settings/RecommendPrefsPanel';
 import { usePushNotification, PushSettings } from '../hooks/usePushNotification';
 import { SystemConfig } from '../types';
 import { RemuteSheet } from './common/HourWheel';
+import { markAiCacheStale } from '../utils/aiCache';
 import { cn } from '../utils';
 import { ThemeMode, getThemeMode, applyTheme } from '../utils/theme';
 import { useNavigate } from 'react-router-dom';
@@ -242,6 +243,7 @@ export function SettingsView({
   };
 
   const handleAppRefresh = () => {
+    markAiCacheStale(); // AI 요약·스크립트도 새로 받게
     window.location.reload();
   };
 

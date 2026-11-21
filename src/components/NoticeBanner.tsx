@@ -2,7 +2,7 @@ import { toInternal } from '../utils/internalLink';
 import React, { useState, useEffect, useRef } from 'react';
 import { ExternalLink, X, Info, AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import ReactMarkdown from 'react-markdown';
+import { NiceMarkdown } from './common/NiceMarkdown';
 import { NoticeItem, NoticeLink } from '../types';
 import { formatNoticeText } from '../App';
 import { cn } from '../utils';
@@ -598,11 +598,7 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
                               >
                                 <div className={cn("pt-2.5 mt-2 border-t text-xs sm:text-sm font-medium leading-relaxed text-zinc-900 dark:text-zinc-100 select-text", itemTheme.borderDivider)}>
                                   {item.markdownContent ? (
-                                    <div className="prose dark:prose-invert prose-xs text-xs sm:text-sm max-w-none prose-h3:text-sm prose-h3:font-bold prose-h3:mb-1.5 prose-h3:mt-2 prose-ul:my-1.5 prose-li:my-0.5 prose-p:my-1">
-                                      <ReactMarkdown>
-                                        {item.markdownContent}
-                                      </ReactMarkdown>
-                                    </div>
+                                    <NiceMarkdown>{item.markdownContent}</NiceMarkdown>
                                   ) : (
                                     <div className="whitespace-pre-wrap break-keep">
                                       {formatNoticeText(item.content || item.title)}
