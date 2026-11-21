@@ -3,6 +3,7 @@ import { Search, Loader2, X, Sparkles } from 'lucide-react';
 import { aiSearch, fmtTime, type AiResult } from '../../utils/aiSearch';
 import { loadScript } from './ScriptView';
 import { politeKo as pk } from '../../utils/politeKo';
+import { getPrefs } from '../../utils/userPrefs';
 
 const API = (import.meta.env.VITE_VERCEL_API_URL || (typeof window !== 'undefined' && /vercel\.app$/.test(window.location.hostname) ? '' : 'https://uzuhama.vercel.app'));
 
@@ -31,7 +32,8 @@ export function CardFind({ id, onSeek, onOpen }: { id: string; onSeek: (t: numbe
       setRes({ q: s, mine, all: all.filter((x) => x.hasSummary !== false).slice(0, 6), picks: null });
       setBusy(false);
       // 상황으로 찾기는 조금 걸려서 뒤에 (긴 문장일 때만)
-      if (s.length >= 8) {
+      // 설정에서 'AI 검색'을 끄면 입력한 문장을 AI 로 보내지 않음 (개인정보처리방침 제7항)
+      if (s.length >= 8 && getPrefs().searchAI !== false) {
         try {
           const j = await (await fetch(`${API}/api/videos/search-index?ai=find&q=${encodeURIComponent(s)}`)).json();
           setRes((p) => (p && p.q === s ? { ...p, picks: j?.picks || [] } : p));
