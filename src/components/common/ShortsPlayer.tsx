@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronUp, Layers, Volume2, VolumeX, X } from 'lucide-react';
+import { Bookmark, ChevronDown, ChevronUp, EyeOff, Flag, Layers, Link2, Volume2, VolumeX, X } from 'lucide-react';
+import { requestReport } from './ItemMenu';
+import { requestSave } from '../../utils/myPlaylists';
+import { shareTextOrClipboard } from '../../utils/shareUtils';
+import { ShareBoxArrowIcon } from './ShareIcon';
+import { hideVideo, unhideVideo, useHidden, HIDE_DELAY } from '../../utils/hiddenVideos';
+import { toast } from '../../utils/ui';
 import { motion, AnimatePresence } from 'motion/react';
 import { CompilationDetail } from '../tabs/recommend/CompilationDetail';
 import { extractYoutubeId } from '../../utils/urlUtils';
@@ -24,6 +30,7 @@ export type ShortsPlayerItem = {
 };
 
 const SWIPE_PX = 60;
+const SOUND_KEY = 'uzuhama_shorts_sound';
 
 export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = false, zIndex }: { items: ShortsPlayerItem[]; startIndex: number; onClose: () => void; allLogs?: any; /** 끝나면 다음 쇼츠로 (연결된 쇼츠 → 추천 쇼츠) */ autoNext?: boolean; zIndex?: number }) {
 
@@ -37,7 +44,10 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
   // 다음 쇼츠로 넘어가는 동안은 플레이어를 숨기고 썸네일을 보여 줌 (이전 영상이 잠깐 보이지 않게)
   const [switching, setSwitching] = useState(true);
   const pausedRef = useRef(false);
-  const labCard = usePrefs().labAiCard;
+  const prefs = usePrefs();
+  const labCard = prefs.labAiCard;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const longRef = useRef<number | null>(null);
   pausedRef.current = paused;
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -57,7 +67,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const touchRef = useRef<{ y: number; x: number; t: number; moved: boolean } | null>(null);
+  const touchRef = useRef<{ y: number; x: number; t: number; moved: boolean; long?: boolean } | null>(null);
   const wheelLock = useRef(0);
   const firstId = useRef(extractYoutubeId(items[index]?.url || '') || '');
   const loadedId = useRef(firstId.current);
@@ -78,7 +88,12 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
       if (typeof e.origin !== 'string' || !e.origin.includes('youtube')) return;
       let d: any;
       try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
-      if (d?.event === 'onReady') { setReady(true); hideCaptions(); }
+      if (d?.event === 'onReady') {
+        setReady(true); hideCaptions();
+        // 전에 소리를 켜 둔 사람은 처음부터 소리 켜고 (휴대폰이 막으면 그대로 꺼진 채 · 아래 muted 정보로 맞춤)
+        try { if (localStorage.getItem(SOUND_KEY) === '1') { command('unMute'); command('setVolume', [100]); } } catch { /* */ }
+      }
+      if (d?.event === 'infoDelivery' && typeof d.info?.muted === 'boolean') setMuted(d.info.muted);
       const state = d?.event === 'onStateChange' ? d.info : d?.event === 'infoDelivery' ? d.info?.playerState : undefined;
       if (state === 0) {
         if (autoNextRef.current && idxRef.current < items.length - 1) goRef.current(1);
@@ -152,19 +167,33 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
   const toggleMute = () => {
     if (muted) { command('unMute'); command('setVolume', [100]); command('playVideo'); }
     else command('mute');
+    try { localStorage.setItem(SOUND_KEY, muted ? '1' : '0'); } catch { /* */ }
     setMuted((m) => !m);
   };
+  // 생방송·편집본 버튼: 설정(목록에서 누르면 → 사이트 안 / 유튜브 링크)에 따라
+  const openVideo = (url: string, title: string, sub: string) => {
+    const vid = extractYoutubeId(url) || '';
+    if (prefs.listPlay === 'site' && labCard && vid) {
+      command('pauseVideo'); setPaused(true);
+      openAiCard(vid, title, stageRef.current, sub);
+    } else window.open(url, '_blank', 'noopener');
+  };
+  // 길게 누르기 메뉴 (⋯ 메뉴와 같은 순서: 저장 · 공유 · 사이트 링크 복사 · 가리기 · 신고)
+  const openMenu = () => { try { (navigator as any).vibrate?.(15); } catch { /* */ } setMenuOpen(true); };
 
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
     touchRef.current = { y: t.clientY, x: t.clientX, t: Date.now(), moved: false };
     setAnimating(false);
+    if (longRef.current) window.clearTimeout(longRef.current);
+    longRef.current = window.setTimeout(() => { const st = touchRef.current; if (st && !st.moved) { st.long = true; openMenu(); } }, 500);
   };
   const onTouchMove = (e: React.TouchEvent) => {
     const s = touchRef.current;
     if (!s) return;
     const dy = e.touches[0].clientY - s.y;
-    if (Math.abs(dy) > 8) s.moved = true;
+    if (Math.abs(dy) > 8) { s.moved = true; if (longRef.current) window.clearTimeout(longRef.current); }
+    if (s.long) return;
     // 처음·끝에서는 살짝만 끌림
     const atEdge = (dy > 0 && index === 0) || (dy < 0 && index === items.length - 1);
     setDrag(atEdge ? dy * 0.25 : dy);
@@ -172,10 +201,12 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
   const onTouchEnd = (e: React.TouchEvent) => {
     const s = touchRef.current;
     touchRef.current = null;
+    if (longRef.current) window.clearTimeout(longRef.current);
     if (!s) return;
+    if (s.long) { setDrag(0); return; }
     const dy = e.changedTouches[0].clientY - s.y;
     const fast = Date.now() - s.t < 250 && Math.abs(dy) > 25;
-    if (!s.moved) { setDrag(0); togglePlay(); return; }
+    if (!s.moved) { setDrag(0); if (muted) toggleMute(); else togglePlay(); return; }
     setAnimating(true);
     if (dy < -SWIPE_PX || (fast && dy < 0)) go(1);
     else if (dy > SWIPE_PX || (fast && dy > 0)) go(-1);
@@ -249,8 +280,18 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
             onWheel={onWheel}
-            onClick={(e) => { if (e.detail > 0 && !('ontouchstart' in window)) togglePlay(); }}
+            onClick={(e) => { if (e.detail > 0 && !('ontouchstart' in window)) { if (muted) toggleMute(); else togglePlay(); } }}
+            onContextMenu={(e) => { e.preventDefault(); openMenu(); }}
           />
+
+          {/* 소리 꺼져 있으면 가운데 크게 (누르면 소리 켜짐) */}
+          {muted && !menuOpen && (
+            <button type="button" onClick={toggleMute} className="absolute left-1/2 top-[58%] -translate-x-1/2 h-11 px-4 rounded-full bg-black/55 backdrop-blur-md flex items-center gap-2 text-sm font-bold cursor-pointer shadow-lg ring-1 ring-white/20 animate-pulse" aria-label="소리 켜기">
+              <VolumeX className="w-5 h-5" /> 화면을 누르면 소리가 켜져요
+            </button>
+          )}
+
+          <HiddenCountdown id={idOf(index)} />
 
           {/* 멈춰도 따로 아이콘을 띄우지 않음 (넘길 때 잠깐 보이던 것도 없앰) */}
 
@@ -272,14 +313,14 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
             {cur.caption && <p className="mt-1 text-xs text-white/70">{cur.caption}</p>}
             <div className="mt-3 flex items-center gap-2 pointer-events-auto">
               {cur.liveUrl && (
-                <a href={cur.liveUrl} target="_blank" rel="noreferrer" className="h-9 px-3 rounded-full bg-white/15 backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold">
+                <button type="button" onClick={() => openVideo(cur.liveUrl!, `${cur.caption || ''} 생방송`.trim(), '생방송')} className="h-9 px-3 rounded-full bg-white/15 backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
                   <PlaySquare className="w-4 h-4" /> 생방송
-                </a>
+                </button>
               )}
               {cur.editUrl && (
-                <a href={cur.editUrl} target="_blank" rel="noreferrer" className="h-9 px-3 rounded-full bg-white/15 backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold">
+                <button type="button" onClick={() => openVideo(cur.editUrl!, cur.title || '편집본', '편집본')} className="h-9 px-3 rounded-full bg-white/15 backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
                   <YoutubeLogo className="w-4 h-4" /> 편집본
-                </a>
+                </button>
               )}
               <a href={`https://www.youtube.com/shorts/${idOf(index)}`} target="_blank" rel="noreferrer" className="h-9 px-3 rounded-full bg-white/15 backdrop-blur-md flex items-center text-xs font-semibold">
                 유튜브에서 보기
@@ -347,8 +388,8 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
                     </div>
                     <p className="flex-1 min-w-0 text-xs text-white/80 line-clamp-2">{r.games.length ? r.games.join(', ') : '게임 정보 없음'}</p>
                     <div className="flex items-center gap-1 shrink-0">
-                      {r.liveUrl && <a href={r.liveUrl} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center" aria-label="생방송 보기"><PlaySquare className="w-4 h-4" /></a>}
-                      {r.editUrl && <a href={r.editUrl} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center" aria-label="편집본 보기"><YoutubeLogo className="w-4 h-4" /></a>}
+                      {r.liveUrl && <button type="button" onClick={() => openVideo(r.liveUrl!, `${r.date.replace(/-/g, '.')} 생방송`, '생방송')} className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center cursor-pointer" aria-label="생방송 보기"><PlaySquare className="w-4 h-4" /></button>}
+                      {r.editUrl && <button type="button" onClick={() => openVideo(r.editUrl!, r.games.join(', ') || '편집본', '편집본')} className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center cursor-pointer" aria-label="편집본 보기"><YoutubeLogo className="w-4 h-4" /></button>}
                     </div>
                   </div>
                 ))}
@@ -356,6 +397,38 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
             </motion.div>
           </>
         ) : null}
+      </AnimatePresence>
+
+      {/* 길게 누르면: 아래에서 올라오는 메뉴 (⋯ 메뉴와 같은 순서) */}
+      <AnimatePresence>
+        {menuOpen && (
+          <>
+            <motion.div key="m-bg" className="absolute inset-0 z-40 bg-black/45" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMenuOpen(false)} />
+            <motion.div key="m-sheet" role="menu" aria-label="쇼츠 메뉴"
+              className="absolute inset-x-0 bottom-0 z-50 mx-auto w-full max-w-md rounded-t-[28px] bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white pb-[calc(12px+env(safe-area-inset-bottom))]"
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 420, damping: 38 }}
+              drag="y" dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.6 }}
+              onDragEnd={(_, info) => { if (info.offset.y > 80 || info.velocity.y > 500) setMenuOpen(false); }}>
+              <div className="pt-2.5 pb-2 flex justify-center"><span className="h-1.5 w-10 rounded-full bg-zinc-300 dark:bg-zinc-700" /></div>
+              <p className="px-5 pb-2 text-[13px] font-bold text-zinc-500 line-clamp-1">{cleanShortsTitle(cur.title) || '유튜브 쇼츠'}</p>
+              {(() => {
+                const vid = idOf(index);
+                const link = `https://uzuhama.vercel.app/s/${vid}`;
+                const row = 'w-full flex items-center gap-3 px-5 py-3.5 text-[15px] font-semibold text-left cursor-pointer active:bg-zinc-100 dark:active:bg-zinc-800';
+                const done = () => setMenuOpen(false);
+                return (
+                  <div>
+                    <button type="button" role="menuitem" className={row} onClick={() => { done(); requestSave({ id: vid, kind: 'short', title: cur.title || '' }); }}><Bookmark className="w-5 h-5 text-zinc-500" /> 저장</button>
+                    <button type="button" role="menuitem" className={row} onClick={() => { done(); shareTextOrClipboard(`${cleanShortsTitle(cur.title) || '우주하마 쇼츠'}\n${link}`, '쇼츠 공유').catch(() => {}); }}><ShareBoxArrowIcon className="w-5 h-5 text-zinc-500" /> 공유</button>
+                    <button type="button" role="menuitem" className={row} onClick={() => { done(); navigator.clipboard?.writeText(link).then(() => toast('사이트 링크를 복사했어요')).catch(() => window.prompt('사이트 링크', link)); }}><Link2 className="w-5 h-5 text-zinc-500" /> 사이트 링크 복사</button>
+                    <button type="button" role="menuitem" className={row} onClick={() => { done(); hideVideo({ id: vid, kind: 'short', title: cur.title || '' }); if (index < items.length - 1) window.setTimeout(() => go(1), 250); }}><EyeOff className="w-5 h-5 text-zinc-500" /> 이 영상 가리기</button>
+                    <button type="button" role="menuitem" className={row} onClick={() => { done(); requestReport({ id: vid, kind: 'short', title: cur.title || '', search: { query: '', concepts: [], understood: '' } }); }}><Flag className="w-5 h-5 text-zinc-500" /> 신고</button>
+                  </div>
+                );
+              })()}
+            </motion.div>
+          </>
+        )}
       </AnimatePresence>
 
       {/* 데스크톱: 위·아래 버튼 */}
@@ -369,5 +442,37 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
       </div>
     </div>,
     document.body
+  );
+}
+
+/** 가린 쇼츠로 다시 올라오면: 가리기 카운트다운 + 되돌리기 */
+function HiddenCountdown({ id }: { id: string; onUndo?: () => void }) {
+  const h = useHidden(id);
+  const [left, setLeft] = useState(0);
+  useEffect(() => {
+    if (h.state !== 'pending') return;
+    const tick = () => setLeft(Math.max(0, Math.ceil((h.until - Date.now()) / 1000)));
+    tick();
+    const t = window.setInterval(tick, 250);
+    return () => window.clearInterval(t);
+  }, [h.state, h.until]);
+  if (h.state === 'none') return null;
+  const pending = h.state === 'pending';
+  return (
+    <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 pointer-events-none" role="status">
+      <div className="flex flex-col items-center gap-2.5 text-center">
+        {pending ? (
+          <span className="relative w-14 h-14">
+            <svg viewBox="0 0 44 44" className="absolute inset-0 -rotate-90">
+              <circle cx="22" cy="22" r="19" fill="rgba(24,24,27,.75)" stroke="rgba(255,255,255,.18)" strokeWidth="3" />
+              <circle cx="22" cy="22" r="19" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeDasharray={119.4} strokeDashoffset={119.4 * (1 - left / (HIDE_DELAY / 1000))} style={{ transition: 'stroke-dashoffset .3s linear' }} />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center"><EyeOff className="w-5 h-5" /></span>
+          </span>
+        ) : <EyeOff className="w-8 h-8 text-white/70" />}
+        <p className="px-3 py-1 rounded-full bg-zinc-900/80 text-[13px] font-bold">{pending ? `가렸어요 · ${left}초 뒤 사라져요` : '가린 영상이에요'}</p>
+        <button type="button" onClick={(e) => { e.stopPropagation(); unhideVideo(id); toast('다시 보이게 했어요'); }} className="pointer-events-auto px-4 py-1.5 rounded-full bg-white text-zinc-900 text-[13px] font-black cursor-pointer">되돌리기</button>
+      </div>
+    </div>
   );
 }
