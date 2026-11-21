@@ -1,0 +1,10 @@
+name: ai-peek
+on: workflow_dispatch
+jobs:
+  peek:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "AI $(curl -sS --max-time 60 'https://uzuhama.vercel.app/api/videos/search-index?ai=status' | head -c 2500)"
+          echo "CF $(curl -sS --max-time 30 'https://uzuhama.vercel.app/api/health?cf=status' | head -c 300)"
+          echo "RS $(curl -sS --max-time 30 'https://uzuhama.vercel.app/api/health?readstat=1&peek=1' | head -c 300)"
