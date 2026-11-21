@@ -5,6 +5,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo "AI $(curl -sS --max-time 60 'https://uzuhama.vercel.app/api/videos/search-index?ai=status' | head -c 2500)"
-          echo "CF $(curl -sS --max-time 30 'https://uzuhama.vercel.app/api/health?cf=status' | head -c 300)"
-          echo "RS $(curl -sS --max-time 30 'https://uzuhama.vercel.app/api/health?readstat=1&peek=1' | head -c 300)"
+          echo "RS $(curl -sS --max-time 30 'https://uzuhama.vercel.app/api/health?readstat=sum' | head -c 6000)"
+          echo "AI $(curl -sS --max-time 60 'https://uzuhama.vercel.app/api/videos/search-index?ai=status' | python3 -c 'import sys,json;d=json.load(sys.stdin);print({k:v for k,v in d.items() if k not in ("linkBad","modelQuota","modelWhy","modelCool")})' | head -c 3000)"
