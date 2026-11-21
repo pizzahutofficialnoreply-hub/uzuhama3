@@ -1,6 +1,6 @@
 import { noteReads } from '../../../utils/readStats';
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, doc, getDoc, getDocs, limit, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { collection, doc, getCountFromServer, getDoc, getDocs, limit, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db, auth } from '../../../lib/firebase';
 import { Flag } from 'lucide-react';
 import { Check, EyeOff, Eye, Link2, Loader2, Search, Unlink, Undo2, Film, Clapperboard, CalendarDays } from 'lucide-react';
@@ -489,13 +489,24 @@ function GameCheckPanel({ data, onSent }: { data: AppData; onSent: () => void })
   const [f, setF] = useState<'mismatch' | 'link' | 'noinfo' | 'match'>('mismatch');
   const [busy, setBusy] = useState('');
   const [open, setOpen] = useState(false);
-  const load = () => {
-    getDoc(doc(db, 'youtube_cache', 'game_check_state')).then((d) => setSt(d.data() || null)).catch(() => {});
-    getDocs(query(collection(db, 'game_check'), limit(3000)))
+  // 목록은 지금 고른 칸만 300개까지 (예전: 전체 2천여 개를 열 때·새로고침·더 대조마다 다 읽어서 DB 읽기가 많이 나감)
+  // 칸별 개수는 개수 세기(문서 1천 개당 읽기 1번)로만
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const qOf = (k: string) => {
+    const c = collection(db, 'game_check');
+    if (k === 'link') return query(c, where('status', '==', 'match'), where('linkIssue', '==', true));
+    if (k === 'noinfo') return query(c, where('status', 'in', ['noinfo', 'gone']));
+    return query(c, where('status', '==', k));
+  };
+  const load = (k: string = f) => {
+    setRows(null);
+    getDocs(query(qOf(k), limit(300)))
       .then((s) => { noteReads('game_check(관리자)', Math.max(1, s.size)); setRows(s.docs.map((d) => d.data()).sort((a: any, b: any) => String(b.date).localeCompare(String(a.date)))); })
       .catch(() => setRows([]));
+    Promise.all((['mismatch', 'link', 'noinfo', 'match'] as const).map((x) => getCountFromServer(qOf(x)).then((r) => [x, r.data().count] as const).catch(() => [x, -1] as const)))
+      .then((a) => { noteReads('game_check 개수(관리자)', 4); setCounts(Object.fromEntries(a)); });
   };
-  useEffect(() => { if (open && rows === null) load(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open) load(f); }, [open, f]); // eslint-disable-line react-hooks/exhaustive-deps
   // 열어 둔 동안 진행 숫자는 실시간 (문서 1개만 지켜봄) · 목록은 '새로고침'을 눌렀을 때만
   useEffect(() => {
     if (!open) return;
@@ -507,10 +518,10 @@ function GameCheckPanel({ data, onSent }: { data: AppData; onSent: () => void })
       const token = await auth.currentUser?.getIdToken();
       const base = /vercel\.app$|localhost/.test(window.location.hostname) ? '' : 'https://uzuhama.vercel.app';
       await fetch(`${base}/api/health?gamecheck=1${reset ? '&reset=1' : ''}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-      load();
+      // 목록은 다시 안 읽음 (진행 숫자는 실시간으로 보임 · 결과는 '목록 새로고침'으로)
     } finally { setBusy(''); }
   };
-  const list = (rows || []).filter((r) => !r.sent && (f === 'link' ? r.status === 'match' && r.linkIssue : r.status === f || (f === 'noinfo' && r.status === 'gone')));
+  const list = (rows || []).filter((r) => !r.sent);
   const keyOf = (r: any) => `${r.logId}__${r.vid}`;
   const picked = list.filter((r) => pick[keyOf(r)]);
   // 고른 것 → 위 '자동 연결 확인'으로 (거기서 맞는 방송을 골라 바꾸기·빼기·그대로 두기)
@@ -554,7 +565,7 @@ function GameCheckPanel({ data, onSent }: { data: AppData; onSent: () => void })
     }
     setCopied(true); window.setTimeout(() => setCopied(false), 1500);
   };
-  const cnt = (k: string) => (rows || []).filter((r) => (k === 'link' ? r.status === 'match' && r.linkIssue : r.status === k)).length;
+  const cnt = (k: string) => (counts[k] >= 0 ? counts[k] : '');
   const LS: Record<string, string> = { ok: '맞음', name_diff: '이름이 다름', broken: '링크가 안 열림', nolink: '링크 없음' };
   return (
     <details open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
@@ -563,12 +574,12 @@ function GameCheckPanel({ data, onSent }: { data: AppData; onSent: () => void })
         <p className="text-zinc-500 break-keep">편집 영상 설명창(맨 위 게임 이름 줄·해시태그)의 게임 이름과 기록의 게임 이름을 비교하고, 일치한 게임은 스팀·앱스토어·구글 플레이·웹 링크를 열어 그 페이지 이름과 다시 맞춰 봐요. 예전 영상처럼 설명창에 '게임 이름 / 우주하마' 줄 없이 해시태그(#공포게임 등)만 있으면 '정보 없음'으로 보류돼요. 한글·영문·일본어 표기 차이나 글자 몇 개 차이는 일치로 보고, 이름이 아예 달라도 게임 링크 페이지 이름이 설명창과 같으면 일치로 봐요.</p>
         <div className="flex items-center gap-2">
           <p className="text-zinc-500">{st ? `${st.cursor || 0} / ${st.total || '?'}개 대조${st.done ? ' (다 함)' : ` · ${st.running ? '지금 대조 중… ' : ''}워커가 3분마다 이어서 해요 (마지막 ${st.at ? new Date(st.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-'})`}${st.lastError ? ` · 오류: ${st.lastError}` : ''}` : '아직 시작 안 함'}</p>
-          <button type="button" onClick={load} className="ml-auto px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer">목록 새로고침</button>
+          <button type="button" onClick={() => load()} className="ml-auto px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer">목록 새로고침</button>
         </div>
         {st && !st.done && st.total ? <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden"><div className="h-full bg-purple-500 transition-all" style={{ width: `${Math.min(100, ((st.cursor || 0) / st.total) * 100)}%` }} /></div> : null}
         <div className="flex flex-wrap gap-1.5">
           {([['mismatch', '불일치'], ['link', '링크 확인 필요'], ['noinfo', '설명창 정보 없음'], ['match', '일치']] as const).map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setF(k)} className={cn('px-2.5 py-1 rounded-full font-bold cursor-pointer', f === k ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300')}>{l} {rows ? cnt(k) : ''}</button>
+            <button key={k} type="button" onClick={() => setF(k)} className={cn('px-2.5 py-1 rounded-full font-bold cursor-pointer', f === k ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300')}>{l} {cnt(k)}</button>
           ))}
           <button type="button" disabled={!!busy} onClick={() => run(false)} className="ml-auto px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer disabled:opacity-50">{busy === 'run' ? '대조 중…' : '지금 더 대조'}</button>
           <button type="button" disabled={!!busy} onClick={() => run(true)} className="px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer disabled:opacity-50">{busy === 'reset' ? '…' : '처음부터 다시'}</button>

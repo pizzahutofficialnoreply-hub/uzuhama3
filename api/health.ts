@@ -477,7 +477,9 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Cache-Control', 'no-store');
     const { db, hasAdminCredentials } = await import('./_firebase.js');
     if (!hasAdminCredentials) return res.status(200).json({ alive: false });
-    const d = (await db.collection('notification_state').doc('main').get()).data() || {};
+    // DB 한도가 다 찼을 때 등 못 읽으면 '살아 있음'으로 (GitHub 예약 실행까지 같이 돌아서 한도를 더 쓰지 않게)
+    let d: any;
+    try { d = (await db.collection('notification_state').doc('main').get()).data() || {}; } catch (e: any) { return res.status(200).json({ alive: true, unknown: String(e?.message || e).slice(0, 80) }); }
     const at = Number(d.lastBySource?.cf || 0);
     return res.status(200).json({ alive: Date.now() - at < 5 * 60000, at: at ? new Date(at).toISOString() : null });
   }
