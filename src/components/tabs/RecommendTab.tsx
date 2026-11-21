@@ -2411,6 +2411,7 @@ export function RecommendTab({
                             sessionStorage.setItem('rec_user_categories', JSON.stringify(next));
                             setSelectedCategories(next);
                           }}
+                          aria-pressed={selectedCategories.includes(cat)}
                           className={`flex items-center gap-2 w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
                             selectedCategories.includes(cat)
                               ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-bold'

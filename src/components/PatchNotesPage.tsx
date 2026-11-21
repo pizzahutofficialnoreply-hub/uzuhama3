@@ -241,7 +241,10 @@ export function PatchNotesPage({ version: propVersion }: { version?: string } = 
       return;
     }
     if (window.history.length > 1) {
+      // 뒤로 갔는데 같은 화면이면(같은 패치노트 주소가 두 번 쌓인 경우) 첫 화면으로
+      const here = window.location.pathname;
       navigate(-1);
+      window.setTimeout(() => { if (window.location.pathname === here) navigate('/', { replace: true }); }, 350);
     } else {
       navigate('/', { replace: true });
     }

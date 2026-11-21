@@ -484,6 +484,16 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json({ alive: Date.now() - at < 5 * 60000, at: at ? new Date(at).toISOString() : null });
   }
   // DB 읽기 출처: 기기가 보낸 숫자 더하기 (POST) / 관리자 화면에서 보기 (GET)
+  if (req.query?.sitelogs) {
+    // 주간 점검용: 사이트가 보여 주는 방송 기록 (DB logs 컬렉션 전체 대신 · CDN 1시간)
+    const { db, hasAdminCredentials } = await import('./_firebase.js');
+    if (!hasAdminCredentials) return res.status(500).json({ error: 'no admin credentials' });
+    const { loadSiteLogs } = await import('./_siteLogs.js');
+    const u = (x: any) => (typeof x === 'string' ? x : x?.url || '');
+    const logs = ((await loadSiteLogs(db)).logs as any[]).map((l) => ({ id: l.id, date: l.date, time: l.time, isAbsence: !!l.isAbsence, category: l.category || '', games: (l.games || []).map((g: any) => g?.name).filter(Boolean), game: l.game || '', vods: (l.vods || []).map(u), edited: (l.edited || []).map(u), shorts: (l.shorts || []).map(u) }));
+    res.setHeader('Cache-Control', 'public, s-maxage=3600');
+    return res.status(200).json({ logs });
+  }
   if (req.query?.snapshot === 'logs') {
     // 방송 기록 묶음: 달마다 문서(logs_by_month) + 몰아보기(compilations)를 한 번에 → CDN 에 30분 보관
     // 사람마다 DB 에서 문서 수백 개를 읽던 것을 서버가 30분에 한 번만 읽고 모두 이걸 받음 (DB 읽기가 사람 수와 상관없어짐)

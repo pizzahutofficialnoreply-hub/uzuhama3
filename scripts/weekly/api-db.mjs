@@ -104,18 +104,12 @@ const fromFs = (v) => {
   }
 }
 
-// 방송 기록 전체 읽어서 검사
+// 방송 기록 전체 검사: 사이트가 보여 주는 기록 그대로 (과거 아카이브 + 달마다 수정분) · DB 를 직접 다 읽지 않음
 const logs = [];
 {
-  let token = '';
-  let pages = 0;
-  do {
-    const r = await fs(`logs?pageSize=300${token ? `&pageToken=${token}` : ''}`);
-    if (r.status !== 200) { add('DB', '방송 기록 읽기', false, `HTTP ${r.status}`); break; }
-    (r.data.documents || []).forEach((d) => logs.push({ id: d.name.split('/').pop(), ...Object.fromEntries(Object.entries(d.fields || {}).map(([k, v]) => [k, fromFs(v)])) }));
-    token = r.data.nextPageToken || '';
-  } while (token && ++pages < 20);
-  add('DB', '방송 기록 읽기', logs.length > 0, `${logs.length}개`);
+  const r = await hit('/api/health?sitelogs=1', { maxMs: 60000 });
+  (r.data?.logs || []).forEach((l) => logs.push(l));
+  add('DB', '방송 기록 읽기', logs.length > 0, logs.length ? `${logs.length}개` : `HTTP ${r.status}`);
 }
 const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;

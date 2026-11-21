@@ -9,7 +9,7 @@ import { absenceReasonForMessages, statusMessageKey, broadcastDayStr } from '../
  * - 확률이 오르내리는 건 미리 만들어 둔 상황별 묶음(high/medium/low...) 중에서 바로 골라 쓰므로 재생성 불필요
  */
 
-const MODELS = [process.env.GEMINI_MODEL, 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest']
+const MODELS = [process.env.GEMINI_MODEL, 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-flash-latest']
   .filter(Boolean) as string[];
 const SET_KEYS = ['absence', 'high', 'medium', 'lowDay', 'lowNight', 'streamedToday', 'longWait'] as const;
 type SetKey = typeof SET_KEYS[number];
@@ -113,7 +113,7 @@ export default async function handler(req: any, res: any) {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
       await ref.set({ lockUntil: 0 }, { merge: true });
-      return send(current, { pending: false, error: 'GEMINI_API_KEY 환경 변수가 없습니다.' });
+      return send(current, current?.sets ? { pending: false, retryLater: 'GEMINI_API_KEY 없음' } : { pending: false, error: 'GEMINI_API_KEY 환경 변수가 없습니다.' });
     }
 
     const { GoogleGenAI } = await import('@google/genai');
@@ -137,8 +137,10 @@ export default async function handler(req: any, res: any) {
         errors.push(`${model}: ${String(e?.message || e).slice(0, 160)}`);
       }
     }
-    await ref.set({ lockUntil: 0 }, { merge: true });
-    return send(current, { pending: false, error: errors.join(' / ') });
+    // 실패하면 30분 뒤에 다시 (그 사이 요청마다 AI 를 또 부르지 않게)
+    await ref.set({ lockUntil: Date.now() + 30 * 60000 }, { merge: true });
+    // 새로 못 만들어도 어제 문구가 있으면 그걸 보여 주면 되니 '오류'가 아니라 '나중에 다시' (점검이 실패로 잡지 않게)
+    return send(current, current?.sets ? { pending: false, retryLater: errors.join(' / ').slice(0, 300) } : { pending: false, error: errors.join(' / ') });
   } catch (e: any) {
     console.error('[status-messages] failed:', e);
     return res.status(500).json({ error: e?.message || String(e) });
