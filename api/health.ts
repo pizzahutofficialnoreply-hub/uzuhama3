@@ -506,6 +506,14 @@ export default async function handler(req: any, res: any) {
       try { const { addClientReads } = await import('./_readStats.js'); await addClientReads(db, body?.c || {}); } catch { /* */ }
       return res.status(204).end();
     }
+    // 합계만 (경로별 읽기 수 숫자뿐 · 내용 없음): 점검용
+    if (req.query.readstat === 'sum') {
+      const dd = (d: number) => new Date(Date.now() + 9 * 3600000 - d * 86400000).toISOString().slice(0, 10);
+      const sn = await db.getAll(db.collection('admin_data').doc(`reads_${dd(0)}`), db.collection('admin_data').doc(`reads_${dd(1)}`));
+      const sum = (o: any) => Object.fromEntries(Object.entries(o || {}).map(([k, v]: any) => [k, typeof v === 'number' ? v : Object.values(v || {}).reduce((a: number, n: any) => a + (Number(n) || 0), 0)]).sort((a: any, b: any) => b[1] - a[1]).slice(0, 30));
+      res.setHeader('Cache-Control', 'public, s-maxage=300');
+      return res.status(200).json(sn.map((x: any, i: number) => { const d = x.data() || {}; return { day: dd(i), server: sum(d.s), client: sum(d.c), hours: sum(d.h) }; }));
+    }
     try { if (!(await verifyAdmin(req))) return res.status(403).json({ error: '관리자만' }); } catch { return res.status(403).json({ error: '관리자만' }); }
     const day = (d: number) => new Date(Date.now() + 9 * 3600000 - d * 86400000).toISOString().slice(0, 10);
     const snaps = await db.getAll(db.collection('admin_data').doc(`reads_${day(0)}`), db.collection('admin_data').doc(`reads_${day(1)}`));

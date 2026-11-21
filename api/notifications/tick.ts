@@ -101,8 +101,10 @@ export default async function handler(req: any, res: any) {
     } catch { /* 로컬 */ }
 
     // ── 0. 호출 간격 제한 (트랜잭션으로 동시 호출도 한 번만 통과) ──
+    let stateSeen: any = null;
     const proceed = await db.runTransaction(async (tx: any) => {
       const snap = await tx.get(stateRef);
+      stateSeen = snap.data() || {};
       const last = snap.exists ? Number(snap.data()?.lastRunAt || 0) : 0;
       if (now.getTime() - last < MIN_INTERVAL_MS) return false;
       tx.set(stateRef, { lastRunAt: now.getTime() }, { merge: true });
@@ -110,7 +112,7 @@ export default async function handler(req: any, res: any) {
     });
     if (!proceed) return res.status(200).json({ skipped: 'throttled' });
 
-    const state = (await stateRef.get()).data() || {};
+    const state = stateSeen || (await stateRef.get()).data() || {}; // 위 잠금에서 읽은 걸 그대로 (읽기 1번 줄임)
     const result: Record<string, any> = { at: now.toISOString() };
 
     // ── 1. 방송 상태 확인 ──
@@ -272,22 +274,18 @@ export default async function handler(req: any, res: any) {
     }, { merge: true }).catch(() => {});
 
     // ── 하루 한 번: 검색 조정 (신고·만족도 반영, 오전 5시 이후) ──
-    if (new Date(now.getTime() + 9 * 3600000).getUTCHours() >= 5) {
+    // 이미 한 날이면 따로 DB 를 안 읽음 (알림 상태 문서에 그날 했는지 같이 적어 둠 · 예전엔 1분마다 확인 문서 1개를 읽었음)
+    const kday = new Date(now.getTime() + 9 * 3600000).toISOString().slice(0, 10);
+    if (new Date(now.getTime() + 9 * 3600000).getUTCHours() >= 5 && state.searchTuneDay !== kday) {
       try {
         const { tuneSearch } = await import('../_searchTune.js');
         const t = await tuneSearch(db);
+        await stateRef.set({ searchTuneDay: kday }, { merge: true }).catch(() => {});
         if (!(t as any).skipped) result.searchTune = t;
       } catch (e: any) {
         result.searchTuneError = String(e?.message || e).slice(0, 200);
       }
-      // 사라진(삭제·비공개) 영상 찾기
-      try {
-        const { checkDeadVideos } = await import('../_deadVideos.js');
-        const d = await checkDeadVideos(db);
-        if (!(d as any).skipped) result.deadVideos = d;
-      } catch (e: any) {
-        result.deadVideosError = String(e?.message || e).slice(0, 200);
-      }
+      // 사라진(삭제·비공개) 영상 찾기는 매일 하지 않음 (기록 전체를 읽어서 DB 사용이 큼) → 관리자 화면에서 눌렀을 때만
     }
 
     if (now.getUTCMinutes() % 30 < 5) {
