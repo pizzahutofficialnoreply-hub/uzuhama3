@@ -292,7 +292,7 @@ export default async function handler(req: any, res: any) {
       // 사라진(삭제·비공개) 영상 찾기는 매일 하지 않음 (기록 전체를 읽어서 DB 사용이 큼) → 관리자 화면에서 눌렀을 때만
     }
 
-    if (now.getUTCMinutes() % 30 < 5) {
+    if (now.getUTCMinutes() % 30 < 2) { // 30분에 한두 번만 (예전엔 5분 동안 매분 불러 패치노트·설정을 다섯 번씩 읽었음)
       const host = `https://${req.headers['x-forwarded-host'] || req.headers.host || 'uzuhama.vercel.app'}`;
       await fetch(`${host}/api/patch-notes?announce=1`, { signal: AbortSignal.timeout(8000) }).catch(() => {});
     }
