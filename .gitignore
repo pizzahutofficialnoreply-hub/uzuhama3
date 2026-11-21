@@ -7,3 +7,4 @@ coverage/
 .env*
 !.env.example
 weekly-out/
+public/data/snapshot_logs.json

@@ -1,9 +1,0 @@
-name: ai-peek
-on: workflow_dispatch
-jobs:
-  peek:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          for q in 'tick=status' 'cf=status' 'readstat=sum' 'snapshot=logs'; do echo "Q $q $(curl -sS --max-time 40 "https://uzuhama.vercel.app/api/health?$q" | head -c 400)"; done
-          echo "PN $(curl -sS --max-time 40 'https://uzuhama.vercel.app/api/patch-notes' | head -c 200)"

@@ -269,7 +269,9 @@ export function useFirebaseData() {
         if (doFull || !syncAt) {
           try {
             const base = typeof window !== 'undefined' && /vercel\.app$/.test(window.location.hostname) ? '' : 'https://uzuhama.vercel.app';
-            const r = await fetch(`${base}/api/health?snapshot=logs`);
+            // 먼저 빌드 때 만든 정적 파일(DB 읽기 0) → 없으면 서버 묶음
+            let r = await fetch(`${base}/data/snapshot_logs.json`).catch(() => null as any);
+            if (!r?.ok || !/json/.test(r.headers.get('content-type') || '')) r = await fetch(`${base}/api/health?snapshot=logs`);
             if (r.ok) {
               const snap = await r.json();
               if (Array.isArray(snap?.months) && snap.months.length) {
@@ -330,7 +332,8 @@ export function useFirebaseData() {
             // 서버 묶음(CDN)에서 먼저 (DB 읽기 0) → 안 되면 DB
             try {
               const base = typeof window !== 'undefined' && /vercel\.app$/.test(window.location.hostname) ? '' : 'https://uzuhama.vercel.app';
-              const r = await fetch(`${base}/api/health?snapshot=logs`);
+              let r = await fetch(`${base}/data/snapshot_logs.json`).catch(() => null as any);
+              if (!r?.ok || !/json/.test(r.headers.get('content-type') || '')) r = await fetch(`${base}/api/health?snapshot=logs`);
               const j = r.ok ? await r.json() : null;
               if (Array.isArray(j?.comps) && j.comps.length) cachedComps = j.comps;
             } catch { /* */ }
