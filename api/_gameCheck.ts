@@ -51,31 +51,88 @@ export function nameMatch(a: string, b: string): boolean {
   return sa.base === sb.base && sa.n === sb.n && sa.base.length >= 3;
 }
 
-/** 링크를 열어 그 페이지가 말하는 게임 이름 */
-async function linkTitle(link: string): Promise<{ ok: boolean; title?: string; kind: string; why?: string }> {
+/** &#xC5C5; · &amp; 같은 글자 풀기 */
+const unent = (t: string) => String(t || '').replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n))
+  .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+/** 게임 상점 페이지인지 (아니면 이름 대조는 안 하고 열리는지만) */
+const STORE = /store\.steampowered\.com|apps\.apple\.com|play\.google\.com|store\.epicgames\.com|itch\.io|freem\.ne\.jp|nintendo\.|store\.playstation\.com|xbox\.com|gog\.com|store\.onstove\.com/;
+export const LINK_V = 2;
+type LinkInfo = { ok: boolean; title?: string; titles?: string[]; kind: string; why?: string; transient?: boolean; appId?: string };
+
+/** 링크를 열어 그 페이지가 말하는 게임 이름 (스팀은 영어·한국어 이름 둘 다) */
+async function linkTitle(link: string): Promise<LinkInfo> {
   try {
     const u = new URL(link);
     const steam = link.match(/store\.steampowered\.com\/app\/(\d+)/);
     if (steam) {
-      const r = await fetch(`https://store.steampowered.com/api/appdetails?appids=${steam[1]}&l=english`, { signal: AbortSignal.timeout(6000) });
-      const j: any = await r.json().catch(() => null);
-      const d = j?.[steam[1]];
-      return d?.success ? { ok: true, title: d.data?.name, kind: 'steam' } : { ok: false, kind: 'steam', why: '스팀에 없는 앱' };
+      const one = async (l: string, cc: string) => {
+        const r = await fetch(`https://store.steampowered.com/api/appdetails?appids=${steam[1]}&l=${l}&cc=${cc}&filters=basic`, { signal: AbortSignal.timeout(8000) });
+        if (!r.ok) return { err: r.status };
+        const j: any = await r.json().catch(() => null);
+        return j ? { d: j[steam[1]] } : { err: 0 };
+      };
+      let en: any = await one('english', 'kr');
+      if (en.err !== undefined) return { ok: false, transient: true, kind: 'steam', why: `스팀이 잠깐 막음 (${en.err || '빈 답'})`, appId: steam[1] };
+      if (!en.d?.success) en = await one('english', 'us'); // 한국에서 막힌 게임
+      if (en.err !== undefined) return { ok: false, transient: true, kind: 'steam', why: '스팀이 잠깐 막음', appId: steam[1] };
+      if (!en.d?.success) return { ok: false, kind: 'steam', why: '스팀에서 내려감 (상점에 없음)', appId: steam[1] };
+      const ko: any = await one('koreana', 'kr').catch(() => ({}));
+      const titles = [en.d.data?.name, ko?.d?.data?.name].filter(Boolean);
+      return { ok: true, title: titles[0], titles: [...new Set(titles)], kind: 'steam', appId: steam[1] };
     }
     const apple = link.match(/apps\.apple\.com\/.*\/id(\d+)/);
     if (apple) {
-      const j: any = await (await fetch(`https://itunes.apple.com/lookup?id=${apple[1]}&country=kr`, { signal: AbortSignal.timeout(6000) })).json().catch(() => null);
-      return j?.results?.[0] ? { ok: true, title: j.results[0].trackName, kind: 'appstore' } : { ok: false, kind: 'appstore', why: '앱스토어에 없음' };
+      const r = await fetch(`https://itunes.apple.com/lookup?id=${apple[1]}&country=kr`, { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) return { ok: false, transient: true, kind: 'appstore', why: `앱스토어가 잠깐 막음 (${r.status})`, appId: apple[1] };
+      const j: any = await r.json().catch(() => null);
+      return j?.results?.[0] ? { ok: true, title: j.results[0].trackName, titles: [j.results[0].trackName], kind: 'appstore', appId: apple[1] } : { ok: false, kind: 'appstore', why: '앱스토어에서 내려감', appId: apple[1] };
     }
-    const r = await fetch(link, { signal: AbortSignal.timeout(6000), redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0 (uzuhama link check)', 'Accept-Language': 'ko,en' } });
-    if (!r.ok) return { ok: false, kind: u.hostname, why: `열리지 않음 (${r.status})` };
-    const html = (await r.text()).slice(0, 200000);
-    const og = (html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)/i) || [])[1];
-    const t = og || (html.match(/<title[^>]*>([^<]+)/i) || [])[1] || '';
-    return { ok: true, title: t.replace(/\s*[-|–]\s*(Apps on Google Play|Google Play 앱|Steam|itch\.io).*$/i, '').trim(), kind: /play\.google/.test(u.hostname) ? 'googleplay' : u.hostname };
+    const r = await fetch(link, { signal: AbortSignal.timeout(8000), redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36', 'Accept-Language': 'ko,en' } });
+    const kind = /play\.google/.test(u.hostname) ? 'googleplay' : STORE.test(u.hostname) ? u.hostname : 'web';
+    // 404·410: 진짜 없음 / 403·429·5xx: 사이트가 로봇을 막은 것일 수 있어 '확인 못 함'
+    if (r.status === 404 || r.status === 410) return { ok: false, kind, why: `없는 페이지 (${r.status})` };
+    if (!r.ok) return { ok: false, transient: true, kind, why: `사이트가 확인을 막음 (${r.status})` };
+    // 글자 인코딩 맞춰 읽기 (네이버 카페 등 EUC-KR)
+    const buf = new Uint8Array(await r.arrayBuffer()).slice(0, 300000);
+    let cs = (r.headers.get('content-type') || '').match(/charset=([\w-]+)/i)?.[1] || '';
+    if (!cs) cs = (new TextDecoder('latin1').decode(buf.slice(0, 4000)).match(/<meta[^>]+charset=["']?([\w-]+)/i) || [])[1] || 'utf-8';
+    let html = '';
+    try { html = new TextDecoder(cs.toLowerCase()).decode(buf); } catch { html = new TextDecoder('utf-8').decode(buf); }
+    const og = (html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)/i) || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i) || [])[1];
+    const t = unent(og || (html.match(/<title[^>]*>([^<]+)/i) || [])[1] || '');
+    const title = t.replace(/\s*[-|–]\s*(Apps on Google Play|Google Play 앱|Google Play의 앱|Steam|itch\.io|Epic Games Store).*$/i, '').trim();
+    return { ok: true, title, titles: title ? [title] : [], kind };
   } catch (e: any) {
-    return { ok: false, kind: 'web', why: `열리지 않음 (${String(e?.message || e).slice(0, 60)})` };
+    return { ok: false, transient: true, kind: 'web', why: `연결 안 됨 (${String(e?.message || e).slice(0, 50)})` };
   }
+}
+
+/** 이름이 다르게 보여도 (영어 ↔ 한글 이름) 그 상점에서 기록의 게임 이름으로 검색했을 때 이 게임이 나오면 맞는 링크 */
+async function storeSearchHas(c: LinkInfo, name: string): Promise<boolean> {
+  try {
+    if (c.kind === 'steam' && c.appId) {
+      const r = await fetch(`https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(name)}&l=koreana&cc=kr`, { signal: AbortSignal.timeout(8000) });
+      const j: any = await r.json().catch(() => null);
+      return ((j?.items || []) as any[]).slice(0, 10).some((x) => String(x.id) === c.appId);
+    }
+    if (c.kind === 'appstore' && c.appId) {
+      const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(name)}&country=kr&entity=software&limit=15`, { signal: AbortSignal.timeout(8000) });
+      const j: any = await r.json().catch(() => null);
+      return ((j?.results || []) as any[]).some((x) => String(x.trackId) === c.appId);
+    }
+  } catch { /* */ }
+  return false;
+}
+
+/** 설명창 맨 위 줄이 게임 이름처럼 생겼는지 (예전 영상은 '재밌게 보셨다면…' 같은 문장이나 알림 안내가 있음 → 정보 없음으로) */
+export function gameish(n: string): boolean {
+  const t = String(n || '').trim();
+  if (!t || t.length > 40 || t.split(/\s+/).length > 7) return false;
+  if (/[🔔💜❤♥]|알림\s*설정|팔로우|구독|좋아요|재밌게|재미있게|감사|시청|보셨|보셧|보시고|합니다|습니다|했어요|해요|에요|예요|네요|어요|봤|ㅋㅋ|ㅎㅎ|\^.?\^|:D|:\)|재밌|재미|레전드|미션/i.test(t)) return false;
+  if (!/게임$/.test(t) && /(다|요|죠|까|임|음|네|지|야|라|자|함|됨)[\s.?!~…,]*$/.test(t) && /[가-힣]{2,}\s+[가-힣]/.test(t)) return false;
+  // 조사가 붙은 말이 이어지는 문장 ('…가 될 미션', '…를 해 봤다')
+  if (t.split(/\s+/).length >= 3 && /[가-힣](이|가|을|를|은|는|에서|으로|에게|한테)\s/.test(t) && !/[A-Za-z]{3,}/.test(t)) return false;
+  return true;
 }
 
 export async function gameCheckRun(db: any, opts: { reset?: boolean } = {}) {
@@ -85,11 +142,11 @@ export async function gameCheckRun(db: any, opts: { reset?: boolean } = {}) {
   const st = opts.reset ? {} : ((await stRef.get()).data() || {});
   if (st.running && Date.now() - Number(st.running) < 4 * 60000) return { ok: true, skipped: '다른 대조가 도는 중' };
   // 다 했으면 (새 영상은 일주일에 한 번 처음부터 다시) 바로 끝
-  if (st.v === 3 && st.done && Date.now() - Date.parse(st.at || '0') < 7 * 86400000) return { ok: true, done: true, total: st.total };
+  if (st.v === 4 && st.done && Date.now() - Date.parse(st.at || '0') < 7 * 86400000) return { ok: true, done: true, total: st.total };
   if (st.done) { st.cursor = 0; }
   // 비교 방식이 바뀌면(글자 몇 개 차이 = 같은 게임) 처음부터 다시
-  if (st.v !== 3) { st.cursor = 0; st.done = false; }
-  await stRef.set({ running: Date.now(), v: 3 }, { merge: true });
+  if (st.v !== 4) { st.cursor = 0; st.done = false; }
+  await stRef.set({ running: Date.now(), v: 4 }, { merge: true });
   try {
     const { loadSiteLogs } = await import('./_siteLogs.js');
     const logs = ((await loadSiteLogs(db)).logs as any[]).filter((l) => l && !l.isAbsence && (l.edited || []).length);
@@ -115,7 +172,7 @@ export async function gameCheckRun(db: any, opts: { reset?: boolean } = {}) {
         const games = ((b.l.games || []).length ? b.l.games : b.l.game ? [{ name: b.l.game, link: '' }] : []).filter((g: any) => g?.name);
         const names = s ? gameNamesFrom(s.title || '', s.description || '') : [];
         // 설명창 맨 위 '게임 이름 / 우주하마' 줄이 있을 때만 불일치로 봄 · 해시태그(#공포게임 #협동게임 …)뿐이면 '정보 없음'
-        const main = s ? gameNamesFrom('', String(s.description || '').replace(/#[^\s#]+/g, '')) : [];
+        const main = (s ? gameNamesFrom('', String(s.description || '').replace(/#[^\s#]+/g, '')) : []).filter(gameish);
         const hit = games.filter((g: any) => names.some((n) => nameMatch(n, g.name)));
         let status: 'match' | 'mismatch' | 'noinfo' | 'gone' = !s ? 'gone' : hit.length ? 'match' : main.length ? 'mismatch' : 'noinfo';
         return { b, s, games, names, main, hit, status, via: '' };
@@ -126,34 +183,40 @@ export async function gameCheckRun(db: any, opts: { reset?: boolean } = {}) {
       const cached = links.length ? await db.getAll(...ids.map((id) => linkCache.doc(id))) : [];
       const info: Record<string, any> = {};
       const todo: number[] = [];
-      cached.forEach((d: any, i: number) => { if (d.exists) info[links[i]] = d.data(); else todo.push(i); });
-      for (let k = 0; k < todo.length; k += 8) {
-        await Promise.all(todo.slice(k, k + 8).map(async (i) => {
+      cached.forEach((d: any, i: number) => { const x = d.exists ? d.data() : null; if (x && x.lv === LINK_V) info[links[i]] = x; else todo.push(i); });
+      // 스팀은 너무 빨리 많이 물으면 막아서 4개씩
+      for (let k = 0; k < todo.length; k += 4) {
+        await Promise.all(todo.slice(k, k + 4).map(async (i) => {
           const t = await linkTitle(links[i]);
-          info[links[i]] = { link: links[i], ...t, at: new Date().toISOString() };
-          await linkCache.doc(ids[i]).set(info[links[i]]);
+          info[links[i]] = { link: links[i], ...t, lv: LINK_V, at: new Date().toISOString() };
+          if (!t.transient) await linkCache.doc(ids[i]).set(info[links[i]]); // 잠깐 막힌 건 저장 안 함 (다음에 다시)
         }));
       }
       // 불일치인데 게임 링크 페이지 이름이 설명창 이름과 같으면 → 일치 (예: 恶意 ↔ Dread Neighbor)
       for (const w of work) {
         if (w.status !== 'mismatch') continue;
-        const g = w.games.find((g: any) => { const c = g.link && info[g.link]; return c?.ok && c.title && w.main.some((n) => nameMatch(n, c.title)); });
+        const g = w.games.find((g: any) => { const c = g.link && info[g.link]; return c?.ok && STORE.test(g.link) && (c.titles || [c.title]).filter(Boolean).some((t: string) => w.main.some((n) => nameMatch(n, t))); });
         if (g) { w.status = 'match'; w.hit = [g]; w.via = 'link'; }
       }
       // 3) 결과 저장
       const wb = db.batch();
       for (const w of work) {
-        const per = w.hit.map((g: any) => {
-          if (!g.link) return { name: g.name, link: '', link_status: 'nolink' };
-          const c = info[g.link] || {};
-          const ls = !c.ok ? 'broken' : c.title && (nameMatch(c.title, g.name) || w.names.some((n) => nameMatch(n, c.title))) ? 'ok' : 'name_diff';
-          return { name: g.name, link: g.link, link_status: ls, link_title: c.title || '', why: c.why || '' };
-        });
+        const per: any[] = [];
+        for (const g of w.hit) {
+          if (!g.link) { per.push({ name: g.name, link: '', link_status: 'nolink' }); continue; }
+          const c: any = info[g.link] || {};
+          const titles: string[] = (c.titles || [c.title]).filter(Boolean);
+          const named = titles.some((t) => nameMatch(t, g.name) || w.names.some((n) => nameMatch(n, t)));
+          // 맞음 / 상점 아닌 웹(열리기만 확인) / 확인 못 함(사이트가 막음) / 안 열림 / 이름 다름(상점 검색으로도 안 나옴)
+          let ls = c.transient ? 'unknown' : !c.ok ? 'broken' : c.kind === 'web' ? 'web' : named ? 'ok' : '';
+          if (!ls) ls = (await storeSearchHas(c, g.name)) || (await Promise.all(w.main.slice(0, 2).map((n) => storeSearchHas(c, n)))).some(Boolean) ? 'ok' : 'name_diff';
+          per.push({ name: g.name, link: g.link, link_status: ls, link_title: c.title || '', why: c.why || '' });
+        }
         counts[w.status]++;
         wb.set(db.collection('game_check').doc(`${w.b.l.id}__${w.b.vid}`), {
           logId: w.b.l.id, date: w.b.l.date, vid: w.b.vid, title: w.s?.title || w.b.title, status: w.status, via: w.via, names: w.names.slice(0, 6),
           games: w.games.map((g: any) => ({ name: g.name, link: g.link || '' })), links: per,
-          linkIssue: per.some((p: any) => p.link_status !== 'ok'), at: new Date().toISOString(),
+          linkIssue: per.some((p: any) => ['broken', 'name_diff', 'nolink'].includes(p.link_status)), at: new Date().toISOString(),
         }, { merge: true });
       }
       await wb.commit();

@@ -29,3 +29,9 @@ describe('게임 이름 대조: 표기만 다른 것은 같은 게임', () => {
   ];
   it.each(diff)('%s ≠ %s', (a, b) => expect(nameMatch(a, b)).toBe(false));
 });
+
+import { gameish } from '../../api/_gameCheck';
+describe('설명창 첫 줄이 게임 이름인지', () => {
+  it.each(['Barbotine 바보틴', '챗GPT VS 제미나이', '망한 음식 마추기', '레벨 데블 LevelDevil 파트3 Part3', '오목'])('%s → 게임 이름', (x) => expect(gameish(x)).toBe(true));
+  it.each(['🔔알림설정 & 트위치는 💜팔로우', '재미있게 보셨다면 감사합니다 :D', '진짜 즐거웠고 다시는 보지 말자 우리^ㅛ^', '배그 운영자님과 듀오했어요', '무단횡단 하시면 안됩니다', '꿀벌 vs 말벌 누가 이길까?', '당근 1개 때문에 우주까지 가는 토끼 게임', '레전드가 될 미션', '판처파우스트 너무 재밌어!', '절대음감 미션은 계속됩니다'])('%s → 문장', (x) => expect(gameish(x)).toBe(false));
+});

@@ -566,7 +566,7 @@ function GameCheckPanel({ data, onSent }: { data: AppData; onSent: () => void })
     setCopied(true); window.setTimeout(() => setCopied(false), 1500);
   };
   const cnt = (k: string) => (counts[k] >= 0 ? counts[k] : '');
-  const LS: Record<string, string> = { ok: '맞음', name_diff: '이름이 다름', broken: '링크가 안 열림', nolink: '링크 없음' };
+  const LS: Record<string, string> = { ok: '맞음', name_diff: '이름이 다름 (상점에서 이 이름으로 검색해도 안 나옴)', broken: '링크가 안 열림', nolink: '링크 없음', unknown: '확인 못 함 (사이트가 확인을 막음 · 다음에 다시)', web: '열림 (게임 상점이 아니라 이름은 안 봄)' };
   return (
     <details open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
       <summary className="text-base font-bold text-zinc-900 dark:text-white cursor-pointer">게임 이름·링크 대조</summary>
@@ -600,7 +600,7 @@ function GameCheckPanel({ data, onSent }: { data: AppData; onSent: () => void })
                 <p className="font-bold text-zinc-900 dark:text-white"><span className="text-zinc-500 tabular-nums mr-1.5">{r.date}</span><a href={`https://youtu.be/${r.vid}`} target="_blank" rel="noreferrer" className="hover:underline">{r.title}</a></p>
                 <p className="mt-0.5 text-zinc-600 dark:text-zinc-300">기록: {(r.games || []).map((g: any) => g.name).join(', ') || '없음'}{r.names?.length ? ` · 설명창: ${r.names.join(', ')}` : ''}{r.status === 'gone' ? ' · 유튜브에 없음(비공개·삭제)' : ''}{r.via === 'link' ? ' · 이름은 달라도 게임 링크 페이지 이름이 설명창과 같아서 일치' : ''}</p>
                 {(r.links || []).map((p: any, i: number) => (
-                  <p key={i} className={cn('mt-0.5', p.link_status === 'ok' ? 'text-emerald-600' : 'text-amber-600')}>
+                  <p key={i} className={cn('mt-0.5', p.link_status === 'ok' || p.link_status === 'web' ? 'text-emerald-600' : p.link_status === 'unknown' ? 'text-zinc-500' : 'text-amber-600')}>
                     링크 {LS[p.link_status] || p.link_status}{p.link_title ? ` — 페이지 이름 「${p.link_title}」` : ''}{p.why ? ` (${p.why})` : ''}{p.link && <> · <a href={p.link} target="_blank" rel="noreferrer" className="underline">열기</a></>}
                   </p>
                 ))}
