@@ -262,7 +262,7 @@ export default async function handler(req: any, res: any) {
     // 관리자 '자동 시스템' 화면에서 볼 수 있게 마지막 결과를 짧게 남김 (호출한 곳: ?src=github|worker|app|admin)
     const src = String(req.query?.src || 'unknown').replace(/[^a-z0-9_-]/gi, '').slice(0, 20) || 'unknown';
     await stateRef.set({
-      lastResult: JSON.parse(JSON.stringify({ at: result.at, live: result.live, prob: result.prob ?? null, chzzkError: result.chzzkError ?? null, src })),
+      lastResult: JSON.parse(JSON.stringify({ at: result.at, live: result.live, prob: result.prob ?? null, chzzkError: result.chzzkError ?? null, src, ...(result.liveNotification ? { livePush: result.liveNotification } : {}), ...(result.peakNotification ? { peakPush: result.peakNotification } : {}), ...(result.ytSync ? { ytSync: result.ytSync } : {}) })),
       lastBySource: { [src]: now.getTime() }, // merge 라서 다른 출처 기록은 유지
     }, { merge: true }).catch(() => {});
 

@@ -472,6 +472,14 @@ export default async function handler(req: any, res: any) {
     const { gameCheckRun } = await import('./_gameCheck.js');
     return res.status(200).json(await gameCheckRun(db, { reset }));
   }
+  if (req.query?.tick === 'status') {
+    // 알림 점검이 잘 도는지 (마지막 결과·출처별 마지막 시각 · 개인 정보 없음)
+    const { db } = await import('./_firebase.js');
+    const d = (await db.collection('notification_state').doc('main').get()).data() || {};
+    const y = (await db.collection('youtube_cache').doc('yt_sync_state').get()).data() || {};
+    res.setHeader('Cache-Control', 'public, s-maxage=30');
+    return res.status(200).json({ lastResult: d.lastResult || null, lastBySource: d.lastBySource || null, peakSentDate: d.peakSentDate || null, lastAutoLog: d.lastAutoLog || null, yt: { last: y.last || null, lastPush: y.lastPush || null, lastPushError: y.lastPushError || null, at: y.at || null } });
+  }
   if (req.query?.cf === 'status') {
     // GitHub 예약 실행이 '워커가 살아 있으면 건너뛰기' 할 때 봄: 워커가 5분 안에 알림 점검을 불렀는지
     res.setHeader('Cache-Control', 'no-store');
