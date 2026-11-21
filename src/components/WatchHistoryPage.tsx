@@ -10,7 +10,11 @@ import { motion } from 'motion/react';
 import { ChevronLeft, PauseCircle, PlayCircle, Search, Trash2, X } from 'lucide-react';
 import { cn } from '../utils';
 import { formatDuration } from '../hooks/useVideoDuration';
-import { clearWatchEntries, progressOf, recordWatch, removeWatch, useWatchHistory, watchUrl, type WatchEntry } from '../utils/watchHistory';
+import { clearWatchEntries, progressOf, recordWatch, removeWatch, restoreWatch, useWatchHistory, watchUrl, type WatchEntry } from '../utils/watchHistory';
+import { openAiCard } from './common/AiCardExpand';
+import { ShortsPlayer } from './common/ShortsPlayer';
+import { shortsShareText } from './common/shortsShare';
+import { undoToast } from '../utils/ui';
 import { isInterestPaused, setInterestPaused } from '../utils/interest';
 import { ItemMenu } from './common/ItemMenu';
 import { ProgressBar } from './common/ProgressBar';
@@ -21,7 +25,8 @@ import { confirmSheet } from '../utils/ui';
  * 시청 기록 전체 보기 (유튜브 '기록' 화면처럼)
  * - 날짜별로 묶어서: 그날 본 쇼츠는 가로 줄, 영상·생방송은 목록
  * - 검색, 종류(전체·동영상·Shorts·라이브), 하나씩 삭제, 모두 지우기, 기록 일시 중지
- * - 누르면 보던 곳부터 유튜브에서 이어 보기
+ * - 누르면 검색 탭처럼: 영상은 카드가 펼쳐지며 사이트 안에서(보던 곳부터), 쇼츠는 쇼츠 화면 (설정이 '유튜브 링크로'면 유튜브)
+ * - 지우면(하나·모두) 아래 알림의 '되돌리기'로 바로 되살릴 수 있음
  * 기록은 이 기기에만 있어요
  */
 export const OPEN_HISTORY_EVENT = 'uzuhama-open-history';
@@ -71,18 +76,33 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
     return out;
   }, [list, limit, filter]);
 
-  const open = (e: WatchEntry) => { recordWatch({ id: e.id, kind: e.kind, title: e.title }); window.open(watchUrl(e.id, { kind: e.kind }), '_blank', 'noopener'); };
+  const [shortsAt, setShortsAt] = useState<{ items: WatchEntry[]; i: number } | null>(null);
+  // 누르면: 검색 탭과 같이 사이트 안에서 (영상은 카드 펼치기, 쇼츠는 쇼츠 화면) · 설정이 '유튜브 링크로'면 유튜브
+  const open = (e: WatchEntry, el?: Element | null, dayShorts?: WatchEntry[]) => {
+    recordWatch({ id: e.id, kind: e.kind, title: e.title });
+    if (prefs.listPlay === 'link') { window.open(watchUrl(e.id, { kind: e.kind }), '_blank', 'noopener'); return; }
+    if (e.kind === 'short') { const items = dayShorts?.length ? dayShorts : [e]; setShortsAt({ items, i: Math.max(0, items.findIndex((x) => x.id === e.id)) }); return; }
+    openAiCard(e.id, e.title || '영상', el || null, `${KIND_LABEL[e.kind] || '동영상'} · ${dayLabel(e.at)} ${timeLabel(e.at)}에 봄`);
+  };
+  // 지우기 + 되돌리기
+  const remove = (e: WatchEntry) => { removeWatch(e.id); undoToast('시청 기록에서 지웠어요', () => restoreWatch([e])); };
+  const clearAll = async () => {
+    if (!(await confirmSheet('시청 기록을 모두 지울까요? (이어 보기 위치도 지워져요)'))) return;
+    const was = clearWatchEntries();
+    undoToast(`시청 기록 ${was.list.length}개를 모두 지웠어요`, () => restoreWatch(was.list, was.tomb));
+  };
+  const share = (e: WatchEntry) => (e.kind === 'short' ? shortsShareText(e.id, e.title || '') : `• 영상: ${e.title ? `${e.title}, ` : ''}https://youtu.be/${e.id}`);
   const menu = (e: WatchEntry, compact = false) => (
     <ItemMenu id={e.id} kind={e.kind} title={e.title} compact={compact} noReport
-      shareText={() => `${e.title}\n${e.kind === 'short' ? `https://www.youtube.com/shorts/${e.id}` : `https://youtu.be/${e.id}`}`}
-      extraItems={[{ label: '시청 기록에서 삭제', icon: <Trash2 className="w-4 h-4" />, onClick: () => removeWatch(e.id), danger: true }]} />
+      shareText={() => share(e)}
+      extraItems={[{ label: '시청 기록에서 삭제', icon: <Trash2 className="w-4 h-4" />, onClick: () => remove(e), danger: true }]} />
   );
 
   return createPortal(
     <motion.div
       role="dialog" aria-modal="true" aria-label="시청 기록"
       initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', stiffness: 360, damping: 38 }}
-      className="fixed inset-0 z-[350] bg-white dark:bg-zinc-950 overflow-y-auto overscroll-contain"
+      className="fixed inset-0 z-[315] bg-white dark:bg-zinc-950 overflow-y-auto overscroll-contain"
     >
       <div className="max-w-3xl mx-auto pb-[max(2rem,env(safe-area-inset-bottom))]">
         <header className="sticky top-0 z-10 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md pt-[env(safe-area-inset-top)]">
@@ -93,7 +113,7 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
                 {paused ? <><PlayCircle className="w-4 h-4" /> 기록 다시 켜기</> : <><PauseCircle className="w-4 h-4" /> 기록 일시 중지</>}
               </button>
               {all.length > 0 && (
-                <button type="button" onClick={async () => await confirmSheet('시청 기록을 모두 지울까요? (이어 보기 위치도 지워져요)') && clearWatchEntries()} className="px-3 py-1.5 rounded-full text-xs font-bold text-red-600 flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer">
+                <button type="button" onClick={() => void clearAll()} className="px-3 py-1.5 rounded-full text-xs font-bold text-red-600 flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer">
                   <Trash2 className="w-4 h-4" /> 모두 지우기
                 </button>
               )}
@@ -125,7 +145,7 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
               <div className="flex gap-3 overflow-x-auto no-scrollbar px-4 pb-3" data-no-swipe>
                 {g.shorts.map((e) => (
                   <div key={e.id} className="relative shrink-0 w-[34%] max-w-[150px]">
-                    <button type="button" onClick={() => open(e)} className="block w-full text-left cursor-pointer">
+                    <button type="button" onClick={(ev) => open(e, ev.currentTarget, g.shorts)} className="block w-full text-left cursor-pointer">
                       <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800">
                         <img src={`https://i.ytimg.com/vi/${e.id}/oardefault.jpg`} onError={(ev) => { (ev.currentTarget as HTMLImageElement).src = thumb(e.id); }} alt="" loading="lazy" className="w-full h-full object-cover" />
                         <span className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
@@ -144,10 +164,10 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
                   <li key={e.id}>
                    <SwipeRow radius={16} label="시청 기록"
                     left={[{ key: 'save', label: '저장', icon: <Bookmark />, tone: 'bg-purple-600 text-white', onRun: () => requestSave({ id: e.id, kind: e.kind, title: e.title }) }]}
-                    right={[{ key: 'del', label: '기록 삭제', icon: <Trash2 />, tone: 'bg-red-500 text-white', onRun: () => { removeWatch(e.id); toast('시청 기록에서 지웠어요'); } }]}>
+                    right={[{ key: 'del', label: '기록 삭제', icon: <Trash2 />, tone: 'bg-red-500 text-white', onRun: () => remove(e) }]}>
                   <div className="flex items-start gap-3 px-4 py-2 bg-white dark:bg-zinc-950">
-                    <button type="button" onClick={() => open(e)} className="flex flex-1 min-w-0 items-start gap-3 text-left cursor-pointer">
-                      <div className="relative w-[44%] max-w-[220px] aspect-video rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 shrink-0">
+                    <button type="button" onClick={(ev) => open(e, ev.currentTarget.querySelector('[data-thumb]'), g.rows.filter((x) => x.kind === 'short'))} className="flex flex-1 min-w-0 items-start gap-3 text-left cursor-pointer">
+                      <div data-thumb className="relative w-[44%] max-w-[220px] aspect-video rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 shrink-0">
                         <img src={thumb(e.id)} alt="" loading="lazy" className="w-full h-full object-cover" />
                         {e.dur ? <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-black/75 text-white text-[11px] font-bold tabular-nums">{formatDuration(e.dur)}</span> : null}
                         {p > 0.02 && <ProgressBar value={p} />}
@@ -170,6 +190,7 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
           <div className="px-4 py-4"><button type="button" onClick={() => setLimit((n) => n + 80)} className="w-full h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-sm font-bold cursor-pointer">더 보기 ({list.length - limit}개 남음)</button></div>
         )}
       </div>
+      {shortsAt && <ShortsPlayer items={shortsAt.items.map((x) => ({ url: `https://www.youtube.com/shorts/${x.id}`, title: x.title }))} startIndex={shortsAt.i} onClose={() => setShortsAt(null)} zIndex={360} />}
     </motion.div>,
     document.body,
   );

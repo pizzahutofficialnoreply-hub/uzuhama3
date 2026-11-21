@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { markTomb } from './syncTomb';
+import { markTomb, readTomb } from './syncTomb';
 
 /**
  * 시청 기록 + 이어 보기 위치 (이 기기에만 저장)
@@ -56,7 +56,18 @@ export function recordPosition(id: string, pos: number, dur: number, title?: str
   persist();
 }
 export function removeWatch(id: string) { markTomb((t) => { t.h[id] = Date.now(); }); cache = cache.filter((x) => x.id !== id); persist(true); }
-export function clearWatchEntries() { markTomb((t) => { t.hClear = Date.now(); t.h = {}; }); cache = []; persist(true); }
+/** 모두 지우기 → 되돌리기용으로 지운 것과 예전 표시를 돌려줌 */
+export function clearWatchEntries() { const was = { list: cache, tomb: readTomb() }; markTomb((t) => { t.hClear = Date.now(); t.h = {}; }); cache = []; persist(true); return was; }
+/** 지운 기록 되돌리기 (하나·여러 개·전체) */
+export function restoreWatch(list: WatchEntry[], tomb?: { h: Record<string, number>; hClear: number }) {
+  markTomb((t) => {
+    if (tomb) { t.h = tomb.h; t.hClear = tomb.hClear; }
+    list.forEach((e) => { delete t.h[e.id]; });
+  });
+  const ids = new Set(list.map((e) => e.id));
+  cache = [...list, ...cache.filter((x) => !ids.has(x.id))].sort((a, b) => b.at - a.at).slice(0, MAX);
+  persist(true);
+}
 /** 연결된 기기와 합친 결과로 바꾸기 */
 export function replaceWatchHistory(list: WatchEntry[]) { cache = list.slice(0, MAX); persist(true); }
 
