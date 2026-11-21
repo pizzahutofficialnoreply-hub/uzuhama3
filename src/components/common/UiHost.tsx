@@ -13,7 +13,7 @@ import { cn } from '../../utils';
  *  - 토스트: 안내만 하는 알림 (예전 alert 창 대신). 화면 아래에 잠깐 떴다 사라짐, 눌러서 닫기
  *  - 확인 시트: 고르거나 지우는 것처럼 선택이 필요한 확인 (예전 confirm 창 대신). 밑에서 올라옴
  */
-type ToastItem = { id: number; text: string; kind: 'info' | 'success' | 'error'; out?: boolean; undo?: () => unknown };
+type ToastItem = { id: number; text: string; kind: 'info' | 'success' | 'error'; out?: boolean; undo?: () => unknown; action?: { label: string; onClick: () => void } };
 
 /** 관리자 화면에서 뜬 알림은 관리자 › 이력에 남김 (서버가 이력에 적음) */
 async function noteAdmin(text: string) {
@@ -50,9 +50,10 @@ export function UiHost() {
       const kind: ToastItem['kind'] = (typeof d === 'object' && d?.kind) || kindOf(text);
       const id = ++seq;
       const undo = typeof d === 'object' && typeof d?.undo === 'function' ? d.undo : undefined;
-      setToasts((list) => [...list.filter((x) => x.text !== text), { id, text, kind, undo }].slice(-3));
-      // 되돌리기가 있으면 누를 시간을 넉넉히
-      window.setTimeout(() => dismissToast(id), undo ? 8000 : Math.min(7000, 2400 + text.length * 55));
+      const action = typeof d === 'object' && d?.action && typeof d.action.onClick === 'function' ? d.action as { label: string; onClick: () => void } : undefined;
+      setToasts((list) => [...list.filter((x) => x.text !== text), { id, text, kind, undo, action }].slice(-3));
+      // 되돌리기·이동 버튼이 있으면 누를 시간을 넉넉히
+      window.setTimeout(() => dismissToast(id), undo || action ? 9000 : Math.min(7000, 2400 + text.length * 55));
       void noteAdmin(text);
     };
     window.addEventListener(TOAST_EVENT, on);
@@ -100,7 +101,7 @@ export function UiHost() {
               key={t.id}
               role="status"
               onClick={() => dismissToast(t.id)}
-              className={cn('ui-toast pointer-events-auto w-max max-w-[min(94vw,520px)] flex items-center gap-2.5 pl-3.5 pr-2 py-2 rounded-2xl bg-zinc-900 dark:bg-zinc-800 text-white text-sm text-left cursor-pointer', !t.undo && 'pr-4 py-2.5', t.out && 'ui-toast-out')}
+              className={cn('ui-toast pointer-events-auto w-max max-w-[min(94vw,520px)] flex items-center gap-2.5 pl-3.5 pr-2 py-2 rounded-2xl bg-zinc-900 dark:bg-zinc-800 text-white text-sm text-left cursor-pointer', !t.undo && !t.action && 'pr-4 py-2.5', t.out && 'ui-toast-out')}
             >
               <I className={cn('w-4 h-4 shrink-0', t.kind === 'error' ? 'text-red-400' : t.kind === 'success' ? 'text-emerald-400' : 'text-purple-300')} />
               <span className="font-semibold whitespace-pre-line break-keep leading-snug">{t.text}</span>
@@ -117,6 +118,11 @@ export function UiHost() {
                   className="ml-1 shrink-0 px-2.5 py-1 rounded-xl bg-white/15 hover:bg-white/25 text-[12.5px] font-black text-purple-200 cursor-pointer"
                 >
                   되돌리기
+                </button>
+              )}
+              {t.action && (
+                <button type="button" onClick={(e) => { e.stopPropagation(); dismissToast(t.id); t.action!.onClick(); }} className="ml-1 shrink-0 px-2.5 py-1 rounded-xl bg-white/15 hover:bg-white/25 text-[12.5px] font-black text-purple-200 cursor-pointer">
+                  {t.action.label}
                 </button>
               )}
             </div>

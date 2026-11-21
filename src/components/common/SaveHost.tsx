@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { SheetHandle } from './SheetHandle';
+import { rememberFeedback } from '../../utils/myFeedback';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Check, Flag, ListPlus, Plus, X } from 'lucide-react';
@@ -65,7 +66,7 @@ function ReportSheet({ target, onClose }: { target: ReportTarget; onClose: () =>
     setBusy(true);
     try {
       const label = reasons.find((r) => r.key === reason)?.label || reason;
-      await addDoc(collection(db, 'feedbacks'), {
+      const fref = await addDoc(collection(db, 'feedbacks'), {
         type: 'search_report',
         vid: visitorId(),
         reason,
@@ -82,6 +83,7 @@ function ReportSheet({ target, onClose }: { target: ReportTarget; onClose: () =>
         createdAt: serverTimestamp(),
       });
       noteSubmit('report', guardKey);
+      rememberFeedback(fref.id, '신고', `${label} · ${target.title || ''}`, note.trim());
       setDone(true);
       window.setTimeout(onClose, 1100);
     } catch (e) {

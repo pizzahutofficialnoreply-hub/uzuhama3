@@ -484,6 +484,24 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json({ alive: Date.now() - at < 5 * 60000, at: at ? new Date(at).toISOString() : null });
   }
   // DB 읽기 출처: 기기가 보낸 숫자 더하기 (POST) / 관리자 화면에서 보기 (GET)
+  if (req.query?.fb) {
+    // 내가 보낸 의견의 답변: 이 기기(v)가 보낸 문서만 상태·답글을 알려 줌 (다른 사람 것은 안 보임)
+    const { db, hasAdminCredentials } = await import('./_firebase.js');
+    if (!hasAdminCredentials) return res.status(500).json({ error: 'no admin credentials' });
+    const v = String(req.query.v || '');
+    const ids = String(req.query.fb).split(',').map((x) => x.trim()).filter((x) => /^[\w-]{10,40}$/.test(x)).slice(0, 30);
+    if (!v || !ids.length) return res.status(400).json({ error: 'bad request' });
+    const snaps = await db.getAll(...ids.map((id) => db.collection('feedbacks').doc(id)));
+    const items: Record<string, any> = {};
+    snaps.forEach((d: any) => {
+      const x = d.data();
+      if (!x || x.vid !== v) return;
+      const at = x.reviewedAt?.toDate ? x.reviewedAt.toDate().toISOString() : x.reviewedAt || x.resolvedAt || null;
+      items[d.id] = { status: x.status || (x.resolved ? 'approved' : 'pending'), answer: String(x.adminComment || '').slice(0, 1000), at };
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ items });
+  }
   if (req.query?.sitelogs) {
     // 주간 점검용: 사이트가 보여 주는 방송 기록 (DB logs 컬렉션 전체 대신 · CDN 1시간)
     const { db, hasAdminCredentials } = await import('./_firebase.js');

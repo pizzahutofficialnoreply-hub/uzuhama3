@@ -80,7 +80,7 @@ import { AiSummaryHost, GO_SEARCH_EVENT } from './components/common/AiSummaryHos
 import { AiCardExpandHost, openAiCard } from './components/common/AiCardExpand';
 import PullToRefresh from './components/common/PullToRefresh';
 import { activeDdays } from './utils/dday';
-import { confirmSheet } from './utils/ui';
+import { confirmSheet, toast as uiToast } from './utils/ui';
 import { joinWithCode, startDeviceSync } from './utils/deviceSync';
 import { FluidBackdrop } from './components/common/FluidBackdrop';
 
@@ -796,6 +796,19 @@ function MainApp() {
 
     return false;
   }, [navigate, openFeedback]);
+
+  // 보낸 의견에 새 답변이 오면: 앱을 열 때 아래에 '새 답변이 있어요 · 보기' (6시간에 한 번 확인)
+  useEffect(() => {
+    if (loading) return;
+    const t = window.setTimeout(async () => {
+      const { refreshAnswers, unseenAnswers } = await import('./utils/myFeedback');
+      await refreshAnswers();
+      const n = unseenAnswers().length;
+      if (!n) return;
+      uiToast(`보내 주신 의견에 새 답변이 ${n > 1 ? `${n}개 ` : ''}있어요`, 'info', { action: { label: '보기', onClick: () => { try { sessionStorage.setItem('uzuhama_feedback_tab', 'history'); } catch { /* */ } openFeedback(); } } });
+    }, 3500);
+    return () => window.clearTimeout(t);
+  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 공지 글 속 사이트 안 링크([의견 보내기로 이동하기](app://의견) 등): 새 창 대신 사이트 안에서 열기
   useEffect(() => {

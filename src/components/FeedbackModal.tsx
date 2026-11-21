@@ -33,6 +33,9 @@ import {
   Play
 } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { rememberFeedback, myFeedbacks, unseenAnswers } from '../utils/myFeedback';
+import { FeedbackFaq } from './feedback/FeedbackFaq';
+import { FeedbackHistory } from './feedback/FeedbackHistory';
 import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useBodyScrollLock } from '../utils';
@@ -75,11 +78,13 @@ export interface SelectableItem {
 export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
   useBodyScrollLock(true);
   // 위 탭 3개: 의견 보내기(의견+버그) · 데이터 요청(방송 기록 추가 / 검색 결과 추가) · 앱 점검
-  const [top, setTop] = useState<'feedback' | 'data' | 'check'>(() => {
-    try { const t = sessionStorage.getItem('uzuhama_feedback_tab'); sessionStorage.removeItem('uzuhama_feedback_tab'); if (t === 'check' || t === 'data') return t; } catch { /* */ }
+  const [top, setTop] = useState<'feedback' | 'data' | 'check' | 'faq' | 'history'>(() => {
+    try { const t = sessionStorage.getItem('uzuhama_feedback_tab'); sessionStorage.removeItem('uzuhama_feedback_tab'); if (t === 'check' || t === 'data' || t === 'history' || t === 'faq') return t; } catch { /* */ }
     return 'feedback';
   });
   const [dataSub, setDataSub] = useState<'add' | 'search'>('add');
+  const [myCount] = useState(() => myFeedbacks().length);
+  const [newAns] = useState(() => unseenAnswers().length);
   const [checkText, setCheckText] = useState('');
   const [tab] = useState<'suggestion' | 'bug' | 'data_request' | 'search_add'>('data_request');
   
@@ -550,7 +555,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
         ? `${content}\n\n[Console Log]\n${consoleLog}` 
         : generateFinalContent();
 
-      await addDoc(collection(db, 'feedbacks'), {
+      const fbRef = await addDoc(collection(db, 'feedbacks'), {
         type: tab,
         dataRequestType: tab === 'data_request' ? dataRequestType : null,
         targetLogDates: tab === 'data_request' ? distinctSelectedLogDates : null,
@@ -581,6 +586,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
         createdAt: serverTimestamp()
       });
       noteSubmit('feedback', guardKey);
+      rememberFeedback(fbRef.id, '데이터 요청', title.trim() || '방송 기록 추가', finalContent.trim());
 
       setIsSubmitted(true);
       setTimeout(() => {
@@ -655,6 +661,14 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
             </div>
           ) : (
             <div className="space-y-5 max-w-xl mx-auto">
+              {/* 자주 묻는 질문 · 내 의견 내역 */}
+              <div className="grid grid-cols-2 gap-2">
+                {([['faq', '자주 묻는 질문'], ['history', `내 의견 내역${myCount ? ` ${myCount}` : ''}`]] as const).map(([k, l]) => (
+                  <button key={k} type="button" aria-pressed={top === k} onClick={() => setTop(top === k ? 'feedback' : k)} className={`relative py-2.5 rounded-2xl text-xs font-bold border cursor-pointer ${top === k ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200'}`}>
+                    {l}{k === 'history' && newAns > 0 && <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-red-500" aria-label="새 답변" />}
+                  </button>
+                ))}
+              </div>
               {/* 위 탭 3개 */}
               <div className="grid grid-cols-3 p-1 bg-zinc-200/70 dark:bg-zinc-800/80 rounded-2xl shrink-0 gap-1" role="tablist">
                 {([['feedback', '의견 보내기', MessageSquare], ['data', '데이터 요청', Database], ['check', '앱 점검', Stethoscope]] as const).map(([k, l, Icon]) => (
@@ -665,7 +679,11 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                 ))}
               </div>
 
-              {top === 'feedback' ? (
+              {top === 'faq' ? (
+                <FeedbackFaq onAsk={() => setTop('feedback')} />
+              ) : top === 'history' ? (
+                <FeedbackHistory onWriteAgain={() => setTop('feedback')} />
+              ) : top === 'feedback' ? (
                 <FeedbackCompose areas={tabOptions} selftest={checkText || undefined} onOpenCheck={() => setTop('check')} onDone={() => { setIsSubmitted(true); setTimeout(() => handleSafeClose(), 1400); }} />
               ) : top === 'check' ? (
                 <UserSelfCheck onResult={setCheckText} onAttach={() => setTop('feedback')} />

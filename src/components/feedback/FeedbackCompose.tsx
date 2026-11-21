@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { Bug, ChevronRight, FileText, ImagePlus, Lightbulb, Loader2, Paperclip, Smartphone, Stethoscope, TriangleAlert, X, MessageCircle } from 'lucide-react';
+import { Copy, Bug, ChevronRight, FileText, ImagePlus, Lightbulb, Loader2, Paperclip, Smartphone, Stethoscope, TriangleAlert, X, MessageCircle } from 'lucide-react';
 import { db } from '../../lib/firebase';
+import { toast } from '../../utils/ui';
+import { rememberFeedback } from '../../utils/myFeedback';
 import { useAuth } from '../../hooks/useAuth';
 import { checkSubmit, noteSubmit, visitorId } from '../../utils/submitGuard';
 import { collectDiagnose, deviceInfo, deviceInfoFull, shrinkImage } from '../../utils/diagnose';
@@ -71,7 +73,7 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
 
     try {
       const where = area === '직접 입력' ? customArea.trim() : area;
-      await addDoc(collection(db, 'feedbacks'), {
+      const ref = await addDoc(collection(db, 'feedbacks'), {
         type: kind === 'suggestion' ? 'suggestion' : 'bug',
         feedbackKind: KINDS.find((k) => k.key === kind)?.label || kind,
         title: title.trim().slice(0, 120),
@@ -93,6 +95,7 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
         createdAt: serverTimestamp(),
       });
       noteSubmit('feedback', guardKey);
+      rememberFeedback(ref.id, KINDS.find((k) => k.key === kind)?.label || kind, title.trim(), content.trim());
       onDone();
     } catch (e: any) {
       setErr(/size|too large|exceeds/i.test(String(e?.message)) ? '첨부한 사진이 너무 커요. 사진을 줄이거나 빼고 다시 보내 주세요.' : `보내지 못했어요. 잠시 뒤에 다시 해 주세요. (${String(e?.code || e?.message || e).slice(0, 60)})`);
@@ -206,6 +209,22 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
       </section>
 
       {err && <p className="text-xs font-bold text-red-500 px-1">{err}</p>}
+      {/* 보낼 내용 전체 복사 (다른 곳에 붙여 넣거나 보관용) */}
+      <button type="button" onClick={() => {
+        const where = area === '직접 입력' ? customArea.trim() : area;
+        const t = [
+          `[${KINDS.find((k) => k.key === kind)?.label || kind}] ${title.trim() || '(제목 없음)'}`,
+          where ? `문제 위치: ${where}` : '',
+          content.trim() ? `내용:\n${content.trim()}` : '',
+          useDev ? `기기: ${dev.device} · ${dev.os} · ${dev.browser}` : '',
+          useDiag && diag ? `앱 진단:\n${diag}` : '',
+          useTest && selftest ? `앱 점검 결과:\n${selftest}` : '',
+          images.length ? `첨부 사진 ${images.length}장 (사진은 복사되지 않아요)` : '',
+        ].filter(Boolean).join('\n\n');
+        navigator.clipboard?.writeText(t).then(() => toast('의견 내용 전체를 복사했어요', 'success')).catch(() => window.prompt('복사', t));
+      }} className="w-full py-3 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer">
+        <Copy className="w-4 h-4" /> 전체 복사
+      </button>
       <button type="button" onClick={send} disabled={busy || !title.trim() || !content.trim()} className="w-full py-3.5 rounded-2xl bg-purple-600 text-white text-sm font-bold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40">
         {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4 hidden" />} 보내기
       </button>
