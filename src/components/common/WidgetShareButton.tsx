@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, MoreVertical, Flag } from 'lucide-react';
 import { requestReport } from './ItemMenu';
 import { POPOVER_CLS } from './LinkMenu';
@@ -70,13 +71,13 @@ function WidgetMenu({ title, sharing, onShare, className, iconClassName }: { tit
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number }>({ left: 0 });
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; up?: boolean }>({ left: 0 });
   useEffect(() => {
     if (!open || !btn.current) return;
     const r = btn.current.getBoundingClientRect();
     const up = r.bottom + 120 > window.innerHeight - 80;
-    const left = Math.max(8, Math.min(window.innerWidth - 168, r.right - 160));
-    setPos(up ? { bottom: window.innerHeight - r.top + 6, left } : { top: r.bottom + 6, left });
+    const left = Math.max(8, Math.min(window.innerWidth - 188, r.right - 180));
+    setPos(up ? { bottom: window.innerHeight - r.top + 6, left, up } : { top: r.bottom + 6, left, up });
     const close = (e: Event) => { if (!menu.current?.contains(e.target as Node) && !btn.current?.contains(e.target as Node)) setOpen(false); };
     const onScroll = () => setOpen(false);
     document.addEventListener('mousedown', close);
@@ -105,8 +106,15 @@ function WidgetMenu({ title, sharing, onShare, className, iconClassName }: { tit
       >
         {sharing ? <Loader2 className={cn("w-4 h-4 animate-spin text-purple-600 dark:text-purple-400", iconClassName)} /> : <MoreVertical className={cn("w-4 h-4", iconClassName)} />}
       </button>
-      {open && createPortal(
-        <div ref={menu} role="menu" data-no-share="true" style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }} className={cn('z-[380] w-[160px]', POPOVER_CLS)}>
+      {createPortal(
+        // 검색 탭 영상 ⋯ 메뉴와 같은 크기·같은 움직임
+        <AnimatePresence>{open && (
+        <motion.div ref={menu} role="menu" data-no-share="true"
+          initial={{ opacity: 0, scale: 0.95, y: pos.up ? 6 : -6 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.1 } }}
+          transition={{ type: 'spring', stiffness: 460, damping: 32 }}
+          style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, transformOrigin: pos.up ? 'bottom right' : 'top right' }} className={cn('z-[380] w-[180px]', POPOVER_CLS)}>
           <button type="button" role="menuitem" className={item} onClick={(e) => { setOpen(false); onShare(e); }}>
             <ShareBoxArrowIcon className="w-4 h-4 text-zinc-500" />
             이미지로 공유
@@ -115,7 +123,7 @@ function WidgetMenu({ title, sharing, onShare, className, iconClassName }: { tit
             <Flag className="w-4 h-4 text-zinc-500" />
             신고
           </button>
-        </div>,
+        </motion.div>)}</AnimatePresence>,
         document.body,
       )}
     </>

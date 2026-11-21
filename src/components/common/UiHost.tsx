@@ -100,7 +100,7 @@ export function UiHost() {
               key={t.id}
               role="status"
               onClick={() => dismissToast(t.id)}
-              className={cn('ui-toast pointer-events-auto max-w-[min(92vw,480px)] flex items-center gap-2.5 pl-3.5 pr-2 py-2 rounded-2xl bg-zinc-900 dark:bg-zinc-800 text-white text-sm text-left cursor-pointer', !t.undo && 'pr-4 py-2.5', t.out && 'ui-toast-out')}
+              className={cn('ui-toast pointer-events-auto w-max max-w-[min(94vw,520px)] flex items-center gap-2.5 pl-3.5 pr-2 py-2 rounded-2xl bg-zinc-900 dark:bg-zinc-800 text-white text-sm text-left cursor-pointer', !t.undo && 'pr-4 py-2.5', t.out && 'ui-toast-out')}
             >
               <I className={cn('w-4 h-4 shrink-0', t.kind === 'error' ? 'text-red-400' : t.kind === 'success' ? 'text-emerald-400' : 'text-purple-300')} />
               <span className="font-semibold whitespace-pre-line break-keep leading-snug">{t.text}</span>

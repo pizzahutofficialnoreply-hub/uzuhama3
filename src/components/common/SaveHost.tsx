@@ -335,11 +335,11 @@ function SaveSheetHost() {
         {toast && (
           <motion.div
             initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
-            className="fixed left-1/2 -translate-x-1/2 bottom-[calc(96px+env(safe-area-inset-bottom))] z-[390] flex items-center gap-3 pl-4 pr-2 py-2 rounded-2xl bg-zinc-900/95 text-white text-sm shadow-xl"
+            className="fixed left-1/2 -translate-x-1/2 bottom-[calc(96px+env(safe-area-inset-bottom))] z-[390] w-max max-w-[min(94vw,520px)] flex items-center gap-3 pl-4 pr-2 py-2 rounded-2xl bg-zinc-900/95 text-white text-sm shadow-xl"
           >
             <ListPlus className="w-4 h-4 text-purple-300 shrink-0" />
-            <span className="font-semibold">{toast.text}</span>
-            {toast.item && <button type="button" onClick={() => { const it = toast.item; setToast(null); setItem(it); setRemember(false); setRememberId(getMyPlaylists().defaultListId); }} className="px-2.5 py-1 rounded-lg bg-white/15 text-xs font-bold cursor-pointer">바꾸기</button>}
+            <span className="font-semibold break-keep">{toast.text}</span>
+            {toast.item && <button type="button" onClick={() => { const it = toast.item; setToast(null); setItem(it); setRemember(false); setRememberId(getMyPlaylists().defaultListId); }} className="shrink-0 whitespace-nowrap px-2.5 py-1 rounded-lg bg-white/15 text-xs font-bold cursor-pointer">바꾸기</button>}
           </motion.div>
         )}
       </AnimatePresence>

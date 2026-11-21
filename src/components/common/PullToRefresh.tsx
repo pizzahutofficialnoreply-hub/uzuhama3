@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { toast } from '../../utils/ui';
 
 /**
  * 홈 화면에 추가한 앱(PWA)에서 맨 위에서 아래로 당기면 '정보만' 새로고침
@@ -66,11 +65,8 @@ export default function PullToRefresh({ onRefresh, force = false }: { onRefresh:
       setBusy(true);
       setPull(56);
       try { (navigator as any).vibrate?.(8); } catch { /* */ }
-      window.dispatchEvent(new CustomEvent(DATA_REFRESH_EVENT));
-      try { await Promise.race([onRefresh(), new Promise((r) => setTimeout(r, 12000))]); toast('최신 정보로 바꿨어요', 'success'); } catch { toast('새로 받지 못했어요. 잠시 후 다시 해 주세요', 'error'); }
-      busyRef.current = false;
-      setBusy(false);
-      setPull(0);
+      // 설정의 '새로고침'과 똑같이: 페이지를 다시 불러옴 (빙글 도는 표시를 잠깐 보여 준 뒤)
+      window.setTimeout(() => window.location.reload(), 250);
     };
     window.addEventListener('touchstart', start, { passive: true });
     window.addEventListener('touchmove', move, { passive: false });
