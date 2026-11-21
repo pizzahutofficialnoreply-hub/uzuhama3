@@ -1407,50 +1407,80 @@ function ViewPrefsPanel() {
       {children}
     </div>
   );
+  // 너무 많아서 세 칸으로 나눔: 보기 / 정렬 / 검색 (검색 도우미는 한 번에 고르기 + 자세히)
+  const [part, setPart] = React.useState<'view' | 'sort' | 'search'>(() => { try { return (sessionStorage.getItem('uzuhama_viewprefs_part') as any) || 'view'; } catch { return 'view'; } });
+  const pick = (x: 'view' | 'sort' | 'search') => { setPart(x); try { sessionStorage.setItem('uzuhama_viewprefs_part', x); } catch { /* */ } };
+  const HELPERS: [keyof UserPrefs, string, string][] = [
+    ['searchTypo', '오타·한/영 자동 보정', "'현강' → 현상, 'gustkd' → 현상"],
+    ['searchChosung', '초성으로 찾기', 'ㅂㅌㄱㄹㅇㄷ → 배틀그라운드'],
+    ['searchSmart', '중요한 단어 먼저', "'IQ 테스트' 는 IQ 가 들어간 걸 먼저, '테스트'만 맞는 건 빼요. 붙여 써도 나눠서 찾아요"],
+    ['searchAlias', '게임 줄임말', '배그 → 배틀그라운드, 콜옵 → 콜 오브 듀티, 옵치 → 오버워치'],
+    ['searchNatural', '말하듯 검색', "'겨울 특집 추천해줘', '무서운 거 보여줘' 처럼 써도 계절·분위기에 맞춰 찾아요"],
+    ['searchRelated', '썸네일·태그에서도 찾기', '제목에 없어도 썸네일 글자·유튜브 태그·설명에 있으면 아래쪽에 보여 줘요'],
+    ['searchAI', 'AI 검색', "AI가 영상을 미리 보고 정리해 둔 장면에서 찾아요. '귀신 나오는 장면'처럼 쓰면 그 장면 시간까지 알려 줘요"],
+  ];
+  const onCount = HELPERS.filter(([k]) => prefs[k] !== false).length;
+  const mode = onCount === HELPERS.length ? 'all' : onCount === 0 ? 'none' : 'custom';
+  const [detail, setDetail] = React.useState(mode === 'custom');
+  const setAll = (v: boolean) => HELPERS.forEach(([k]) => setPref(k, v as any));
   return (
-    <div className="px-4 pb-4 pt-1.5 space-y-3 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
-      <Row title="펼친 목록 한 페이지 개수" desc="재생목록·몰아보기를 펼쳤을 때 한 번에 보이는 영상 수">
-        <Seg k="collectionPageSize" options={PAGE_SIZE_OPTIONS.map((n) => [n, `${n}개`] as [number, string])} />
-      </Row>
-      <Row title="추천 영상 기본 정렬" desc="홈·동영상 탭을 처음 열 때의 순서 (검색 중에는 정확도순)">
-        <Seg k="recommendSort" options={[['desc', '최신순'], ['asc', '과거순']]} />
-      </Row>
-      <Row title="검색했을 때 기본 정렬" desc="검색어를 넣으면 이 순서로 보여 줘요 (검색을 지우면 원래 정렬로)">
-        <Seg k="searchSort" options={[['accuracy', '정확도순'], ['desc', '최신순'], ['asc', '과거순']]} />
-      </Row>
-      <Row title="카드·목록 보기 바꾸기" desc="한 곳에서 바꾸면 모든 화면이 같이 바뀔지, 화면(추천 영상·재생목록·몰아보기)마다 따로 기억할지">
-        <Seg k="viewStyleScope" options={[['global', '모든 화면 같이'], ['per-page', '화면마다 따로']]} />
-      </Row>
-      <div data-tour="settings-play">
-      <Row title="영상 재생 기본값" desc="목록 보기에서 영상을 눌렀을 때, 카드의 생방송·쇼츠 버튼을 눌렀을 때 (사이트 안: 생방송은 펼쳐서 재생, 쇼츠는 쇼츠 화면 · 카드 아래 큰 버튼은 늘 유튜브로)">
-        <Seg k="listPlay" options={[['site', '사이트 안에서 재생'], ['link', '유튜브 링크로']]} />
-      </Row>
+    <div className="px-4 pb-4 pt-3 space-y-3 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
+      <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800" role="tablist">
+        {([['view', '보기'], ['sort', '정렬'], ['search', '검색']] as const).map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={part === k} onClick={() => pick(k)} className={cn('py-1.5 rounded-lg text-xs font-bold cursor-pointer', part === k ? 'bg-white dark:bg-zinc-700 text-purple-600 dark:text-purple-300 shadow-2xs' : 'text-zinc-500')}>{l}</button>
+        ))}
       </div>
-      <Row title="쇼츠 기본 정렬" desc="정렬 기준과 순서">
-        <div className="flex flex-wrap gap-2">
-          <Seg k="shortsSortBy" options={[['upload', '업로드일'], ['live', '방송일']]} />
-          <Seg k="shortsOrder" options={[['desc', '최신순'], ['asc', '과거순']]} />
+
+      {part === 'view' && (<>
+        <div data-tour="settings-play">
+        <Row title="영상 재생 기본값" desc="영상·생방송·쇼츠 버튼을 눌렀을 때 (카드 아래 큰 버튼은 늘 유튜브로)">
+          <Seg k="listPlay" options={[['site', '사이트 안에서 재생'], ['link', '유튜브 링크로']]} />
+        </Row>
         </div>
-      </Row>
-      <Row title="쓰는 자판" desc="검색어 오타를 자판 배열에 맞춰 고쳐 드려요">
-        <Seg k="keyboard" options={KEYBOARD_OPTIONS.map((o) => [o.value, o.label] as [UserPrefs['keyboard'], string])} />
-      </Row>
-      <SaveLocationRow />
-      <div className="pt-1.5 space-y-0.5">
-        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">검색 도우미</p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">끄면 검색어와 똑같은 글자가 있는 것만 찾아요.</p>
-        {([
-          ['searchTypo', '오타·한/영 자동 보정', "'현강' → 현상, 'gustkd' → 현상"],
-          ['searchChosung', '초성으로 찾기', 'ㅂㅌㄱㄹㅇㄷ → 배틀그라운드'],
-          ['searchSmart', '중요한 단어 먼저', "'IQ 테스트' 는 IQ 가 들어간 걸 먼저, '테스트'만 맞는 건 빼요. 붙여 써도 나눠서 찾아요"],
-          ['searchAlias', '게임 줄임말', '배그 → 배틀그라운드, 콜옵 → 콜 오브 듀티, 옵치 → 오버워치'],
-          ['searchNatural', '말하듯 검색', "'겨울 특집 추천해줘', '무서운 거 보여줘' 처럼 써도 계절·분위기에 맞춰 찾아요"],
-          ['searchRelated', '썸네일·태그에서도 찾기', '제목에 없어도 썸네일 글자·유튜브 태그·설명에 있으면 아래쪽에 보여 줘요'],
-          ['searchAI', 'AI 검색', "AI가 영상을 미리 보고 정리해 둔 장면에서 찾아요. '귀신 나오는 장면'처럼 쓰면 그 장면 시간까지 알려 줘요"],
-        ] as [keyof UserPrefs, string, string][]).map(([k, title, desc]) => {
+        <Row title="카드·목록 보기 바꾸기" desc="한 곳에서 바꾸면 모든 화면이 같이 바뀔지, 화면마다 따로 기억할지">
+          <Seg k="viewStyleScope" options={[['global', '모든 화면 같이'], ['per-page', '화면마다 따로']]} />
+        </Row>
+        <Row title="펼친 목록 한 페이지 개수" desc="재생목록·몰아보기를 펼쳤을 때 한 번에 보이는 영상 수">
+          <Seg k="collectionPageSize" options={PAGE_SIZE_OPTIONS.map((n) => [n, `${n}개`] as [number, string])} />
+        </Row>
+        <SaveLocationRow />
+      </>)}
+
+      {part === 'sort' && (<>
+        <Row title="추천 영상" desc="홈·동영상 탭을 처음 열 때">
+          <Seg k="recommendSort" options={[['desc', '최신순'], ['asc', '과거순']]} />
+        </Row>
+        <Row title="검색했을 때" desc="검색어를 넣으면 이 순서로 (지우면 원래 정렬로)">
+          <Seg k="searchSort" options={[['accuracy', '정확도순'], ['desc', '최신순'], ['asc', '과거순']]} />
+        </Row>
+        <Row title="쇼츠" desc="정렬 기준과 순서">
+          <div className="flex flex-wrap gap-2">
+            <Seg k="shortsSortBy" options={[['upload', '업로드일'], ['live', '방송일']]} />
+            <Seg k="shortsOrder" options={[['desc', '최신순'], ['asc', '과거순']]} />
+          </div>
+        </Row>
+      </>)}
+
+      {part === 'search' && (<>
+        <Row title="쓰는 자판" desc="검색어 오타를 자판 배열에 맞춰 고쳐 드려요">
+          <Seg k="keyboard" options={KEYBOARD_OPTIONS.map((o) => [o.value, o.label] as [UserPrefs['keyboard'], string])} />
+        </Row>
+        <Row title="검색 도우미" desc="오타 보정·초성·줄임말·말하듯 검색·AI 검색 같은 도움 기능">
+          <div className="grid grid-cols-3 gap-1.5">
+            {([['all', '모두 켜기', '추천'], ['none', '글자 그대로', '똑같은 글자만'], ['custom', '직접 고르기', `${onCount}/${HELPERS.length}개 켬`]] as const).map(([k, l, d]) => (
+              <button key={k} type="button" aria-pressed={k === 'custom' ? detail || mode === 'custom' : mode === k && !detail}
+                onClick={() => { if (k === 'custom') setDetail(true); else { setAll(k === 'all'); setDetail(false); } }}
+                className={cn('p-2 rounded-xl border text-left cursor-pointer', (k === 'custom' ? detail || mode === 'custom' : mode === k && !detail) ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40' : 'border-zinc-200 dark:border-zinc-700')}>
+                <span className="block text-[12.5px] font-bold text-zinc-900 dark:text-white">{l}</span>
+                <span className="block text-[10.5px] text-zinc-500">{d}</span>
+              </button>
+            ))}
+          </div>
+        </Row>
+        {detail && HELPERS.map(([k, title, desc]) => {
           const on = prefs[k] !== false;
           return (
-            <div key={k} className="flex items-center justify-between gap-3 py-2">
+            <div key={k} className="flex items-center justify-between gap-3 py-1.5">
               <div className="min-w-0">
                 <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200">{title}</p>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400 break-keep">{desc}</p>
@@ -1462,7 +1492,7 @@ function ViewPrefsPanel() {
             </div>
           );
         })}
-      </div>
+      </>)}
     </div>
   );
 }
