@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { RecommendPrefsPanel } from './settings/RecommendPrefsPanel';
 import { usePushNotification, PushSettings } from '../hooks/usePushNotification';
 import { SystemConfig } from '../types';
+import { RemuteSheet } from './common/HourWheel';
 import { cn } from '../utils';
 import { ThemeMode, getThemeMode, applyTheme } from '../utils/theme';
 import { useNavigate } from 'react-router-dom';
@@ -170,6 +171,11 @@ export function SettingsView({
     return () => window.removeEventListener('uzuhama-theme-changed', handleThemeChange);
   }, []);
 
+  // 알림 켜짐 = 구독 중 + 그 종류가 켜짐 + 잠깐 꺼 둔 시간이 아님
+  const muteLeft = (key: string) => Math.max(0, Number(settings.mute?.[key] || 0) - Date.now());
+  const isOn = (key: keyof PushSettings) => Boolean(isSubscribed && (settings[key] ?? true) && !muteLeft(key as string));
+  const [remute, setRemute] = useState<{ key: keyof PushSettings; label: string } | null>(null);
+  const PUSH_LABEL: Record<string, string> = { notifyLive: '생방송 시작 알림', notifyAbsence: '휴방 사유 알림', notifyPeakProb: '최고 확률 시간 알림', notifyReports: '신고 처리 알림', notifyNewVideo: '새 영상 알림' };
   const handleTogglePush = async (key: keyof PushSettings) => {
     if (!isSupported) {
       alert('현재 브라우저는 웹 푸시 알림을 지원하지 않아요.');
@@ -178,11 +184,15 @@ export function SettingsView({
 
     if (!isSubscribed) {
       await subscribe({ [key]: true });
+    } else if (isOn(key)) {
+      // 끌 때: 'N시간 뒤에 다시 켤까요?' (기본 24시간)
+      setRemute({ key, label: PUSH_LABEL[key as string] || '알림' });
     } else {
-      const nextVal = !settings[key];
-      await updateSettings({ [key]: nextVal });
+      const { [key as string]: _drop, ...rest } = settings.mute || {};
+      await updateSettings({ [key]: true, mute: rest });
     }
   };
+
 
   // 강력한 캐시 삭제 핸들러 (LocalStorage, SessionStorage, Cache Storage, Service Worker 완전 초기화)
   // 확인은 아래에서 올라오는 시트로
@@ -237,6 +247,12 @@ export function SettingsView({
 
   return (
     <div className="w-full max-w-2xl mx-auto py-2 pb-24 space-y-6 animate-in fade-in duration-200">
+      <RemuteSheet open={!!remute} label={remute?.label || '알림'} onClose={() => setRemute(null)} onPick={async (h) => {
+        const r = remute; setRemute(null);
+        if (!r) return;
+        if (h === null) await updateSettings({ [r.key]: false });
+        else await updateSettings({ [r.key]: true, mute: { ...(settings.mute || {}), [r.key as string]: Date.now() + h * 3600000 } });
+      }} />
       {/* 1. 의견 섹션: 상단 여백 추가 */}
       <section className="space-y-1.5 pt-4 sm:pt-6">
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
@@ -475,6 +491,12 @@ export function SettingsView({
                   className="overflow-hidden"
                 >
                   <div className="px-4 pb-4 pt-1.5 space-y-3 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
+                    {Object.keys(settings.mute || {}).filter((k) => muteLeft(k) > 0).map((k) => (
+                      <div key={k} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-[12px] text-amber-800 dark:text-amber-200">
+                        <span className="flex-1 break-keep">{PUSH_LABEL[k] || '알림'}: {Math.ceil(muteLeft(k) / 3600000)}시간 뒤 다시 켜져요</span>
+                        <button type="button" onClick={() => handleTogglePush(k as keyof PushSettings)} className="shrink-0 px-2 py-1 rounded-lg bg-white/70 dark:bg-white/10 font-bold cursor-pointer">지금 켜기</button>
+                      </div>
+                    ))}
                     <div className="flex items-center justify-between py-1">
                       <div>
                         <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">생방송 시작 알림</p>
@@ -487,13 +509,24 @@ export function SettingsView({
                         onClick={() => handleTogglePush('notifyLive')}
                         className={cn(
                           "w-10 h-6 flex items-center rounded-full p-0.5 transition-colors shrink-0",
-                          isSubscribed && settings.notifyLive ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700"
+                          isOn('notifyLive') ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700"
                         )}
                       >
-                        <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", isSubscribed && settings.notifyLive ? "translate-x-4" : "translate-x-0")} />
+                        <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", isOn('notifyLive') ? "translate-x-4" : "translate-x-0")} />
                       </button>
                     </div>
 
+
+                    <div className="flex items-center justify-between py-1">
+                      <div>
+                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">새 영상 알림</p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">새 편집 영상이 올라와 방송 기록에 연결되면 알림 · 누르면 그 영상 카드로</p>
+                      </div>
+                      <button type="button" role="switch" aria-checked={isOn('notifyNewVideo')} disabled={pushLoading} onClick={() => handleTogglePush('notifyNewVideo')}
+                        className={cn("w-10 h-6 flex items-center rounded-full p-0.5 transition-colors shrink-0", isOn('notifyNewVideo') ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700")}>
+                        <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", isOn('notifyNewVideo') ? "translate-x-4" : "translate-x-0")} />
+                      </button>
+                    </div>
 
                     <div className="flex items-center justify-between py-1">
                       <div>
@@ -507,10 +540,10 @@ export function SettingsView({
                         onClick={() => handleTogglePush('notifyAbsence')}
                         className={cn(
                           "w-10 h-6 flex items-center rounded-full p-0.5 transition-colors shrink-0",
-                          isSubscribed && settings.notifyAbsence ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700"
+                          isOn('notifyAbsence') ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700"
                         )}
                       >
-                        <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", isSubscribed && settings.notifyAbsence ? "translate-x-4" : "translate-x-0")} />
+                        <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", isOn('notifyAbsence') ? "translate-x-4" : "translate-x-0")} />
                       </button>
                     </div>
 
@@ -526,10 +559,10 @@ export function SettingsView({
                         onClick={() => handleTogglePush('notifyPeakProb')}
                         className={cn(
                           "w-10 h-6 flex items-center rounded-full p-0.5 transition-colors shrink-0",
-                          isSubscribed && (settings.notifyPeakProb ?? true) ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700"
+                          isOn('notifyPeakProb') ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700"
                         )}
                       >
-                        <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", isSubscribed && (settings.notifyPeakProb ?? true) ? "translate-x-4" : "translate-x-0")} />
+                        <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", isOn('notifyPeakProb') ? "translate-x-4" : "translate-x-0")} />
                       </button>
                     </div>
 
@@ -576,10 +609,10 @@ export function SettingsView({
                           onClick={() => handleTogglePush('notifyReports')}
                           className={cn(
                             "w-10 h-6 flex items-center rounded-full p-0.5 transition-colors shrink-0 cursor-pointer",
-                            isSubscribed && (settings.notifyReports ?? true) ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700"
+                            isOn('notifyReports') ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700"
                           )}
                         >
-                          <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", isSubscribed && (settings.notifyReports ?? true) ? "translate-x-4" : "translate-x-0")} />
+                          <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", isOn('notifyReports') ? "translate-x-4" : "translate-x-0")} />
                         </button>
                       </div>
                     )}

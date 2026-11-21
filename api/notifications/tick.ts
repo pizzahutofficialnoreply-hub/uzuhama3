@@ -266,6 +266,11 @@ export default async function handler(req: any, res: any) {
       lastBySource: { [src]: now.getTime() }, // merge 라서 다른 출처 기록은 유지
     }, { merge: true }).catch(() => {});
 
+    // ── 10분마다: 새 편집 영상 → 방송 기록에 자동 연결 + 새 영상 알림 (새 영상이 없으면 DB 읽기 1번)
+    if (now.getUTCMinutes() % 10 === 5) {
+      try { const { ytSync } = await import('../_ytSync.js'); const y: any = await ytSync(db); if (y?.linked?.length) result.ytSync = { linked: y.linked.length }; } catch (e: any) { result.ytSyncError = String(e?.message || e).slice(0, 120); }
+    }
+
     // ── 하루 한 번: 검색 조정 (신고·만족도 반영, 오전 5시 이후) ──
     // 이미 한 날이면 따로 DB 를 안 읽음 (알림 상태 문서에 그날 했는지 같이 적어 둠 · 예전엔 1분마다 확인 문서 1개를 읽었음)
     const kday = new Date(now.getTime() + 9 * 3600000).toISOString().slice(0, 10);

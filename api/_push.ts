@@ -81,7 +81,7 @@ export async function sendPush(db: any, messaging: any, targets: PushTarget[], p
 /** push_subscriptions 전체를 읽어 설정과 함께 반환 */
 export async function loadSubscriptions(db: any) {
   const snap = await db.collection('push_subscriptions').get();
-  const subs: { token: string; docId: string; notifyLive: boolean; notifyPeakProb: boolean; leadTimeMinutes: number; liveKeywords: string[] }[] = [];
+  const subs: { token: string; docId: string; notifyLive: boolean; notifyPeakProb: boolean; notifyNewVideo: boolean; leadTimeMinutes: number; liveKeywords: string[] }[] = [];
   snap.docs.forEach((d: any) => {
     const data = d.data() || {};
     let token = data.token || data.fcmToken;
@@ -89,12 +89,16 @@ export async function loadSubscriptions(db: any) {
       token = data.endpoint.split('/fcm/send/')[1];
     }
     if (!token || typeof token !== 'string') return;
+    // 알림을 잠깐 꺼 둔 기기 (N시간 뒤 다시 켜기): 그 시각까지는 아무 알림도 안 보냄
+    if (Number(data.muteUntil || 0) > Date.now()) return;
     const lead = Number(data.leadTimeMinutes);
     subs.push({
       token: token.trim(),
       docId: d.id,
-      notifyLive: data.notifyLive !== false,
-      notifyPeakProb: data.notifyPeakProb !== false,
+      // 종류별 잠깐 끄기(mute.<종류> = 다시 켜질 시각): 그 전까지는 꺼진 것으로
+      notifyLive: data.notifyLive !== false && !(Number(data.mute?.notifyLive || 0) > Date.now()),
+      notifyPeakProb: data.notifyPeakProb !== false && !(Number(data.mute?.notifyPeakProb || 0) > Date.now()),
+      notifyNewVideo: data.notifyNewVideo !== false && !(Number(data.mute?.notifyNewVideo || 0) > Date.now()),
       leadTimeMinutes: Number.isFinite(lead) ? Math.max(0, Math.min(180, Math.round(lead))) : 30,
       liveKeywords: Array.isArray(data.liveKeywords) ? data.liveKeywords.map(String) : [],
     });

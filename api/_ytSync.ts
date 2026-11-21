@@ -112,6 +112,9 @@ export async function ytSync(db: any, opts: { force?: boolean } = {}) {
   const r = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${pl}&maxResults=15&key=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(10000) });
   if (!r.ok) return { ok: false, reason: `유튜브 ${r.status}` };
   const items = ((await r.json())?.items || []) as any[];
+  // 맨 위(가장 새) 영상이 지난번과 같으면 새 영상이 없는 것 → DB 를 더 읽지 않고 끝 (10분마다 확인해도 읽기 1번)
+  const top = String(items[0]?.contentDetails?.videoId || items[0]?.snippet?.resourceId?.videoId || '');
+  if (!opts.force && top && st.top === top) return { ok: true, skipped: '새 영상 없음' };
 
   // 최근 4달 기록
   const now = new Date(Date.now() + 9 * 3600000);
@@ -160,9 +163,22 @@ export async function ytSync(db: any, opts: { force?: boolean } = {}) {
       candidates: p.candidates.map((l) => ({ id: l.id, date: l.date, game: namesOfLog(l)[0] || '' })),
       names: gameNamesFrom(title, desc).slice(0, 6), status: 'pending', at: new Date().toISOString(),
     });
-    done.push({ id, title, logs: changed, reason: p.reason });
+    done.push({ id, title, logs: changed, reason: p.reason, publishedAt: pub });
   }
   const last = { at: new Date().toISOString(), linked: done.length, skipped: skipped.length };
-  await stRef.set({ last }, { merge: true });
+  await stRef.set({ last, top }, { merge: true });
+  // 새 편집 영상 알림: '[영상 제목]' 우주하마 방송 예측에서 확인해 보세요! → 누르면 그 영상 카드가 펼쳐진 채로 (하루 안에 올라온 것만, 한 번에 3개까지)
+  const fresh = done.filter((d) => Date.now() - Date.parse(d.publishedAt || '') < 24 * 3600000).slice(0, 3);
+  if (fresh.length) {
+    try {
+      const { messaging } = await import('./_firebase.js');
+      const { loadSubscriptions, sendPush } = await import('./_push.js');
+      const subs = (await loadSubscriptions(db)).filter((x: any) => x.notifyNewVideo);
+      for (const d of fresh) {
+        if (subs.length) await sendPush(db, messaging, subs, { title: `[${d.title}]`.slice(0, 100), body: '우주하마 방송 예측에서 확인해 보세요! 연결된 생방송·게임도 같이 볼 수 있어요.', url: `/?v=${d.id}`, tag: `newvideo-${d.id}` });
+      }
+      await stRef.set({ lastPush: { at: new Date().toISOString(), ids: fresh.map((d) => d.id), to: subs.length } }, { merge: true });
+    } catch (e: any) { await stRef.set({ lastPushError: String(e?.message || e).slice(0, 200) }, { merge: true }); }
+  }
   return { ok: true, linked: done, skipped: skipped.slice(0, 10) };
 }
