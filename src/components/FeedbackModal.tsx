@@ -84,7 +84,8 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
   });
   const [dataSub, setDataSub] = useState<'add' | 'search'>('add');
   const [myCount] = useState(() => myFeedbacks().length);
-  const [newAns] = useState(() => unseenAnswers().length);
+  const [newAns, setNewAns] = useState(() => unseenAnswers().length);
+  useEffect(() => { if (top === 'history') setNewAns(0); }, [top]);
   const [checkText, setCheckText] = useState('');
   const [tab] = useState<'suggestion' | 'bug' | 'data_request' | 'search_add'>('data_request');
   
