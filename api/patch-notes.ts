@@ -316,7 +316,7 @@ async function loadNotionNotes(db: any): Promise<{ notes: Note[]; error?: string
  * 패치노트를 따로 쓰지 않고 올린 수정(GitHub 커밋)이 쌓이면, 마지막 수정 뒤 20분 동안 더 없을 때 한 번에:
  *  - 버전: 기능이 새로 생겼으면 1.2.0 → 1.2.1, 고치기만 했으면 1.2.0 → 1.2.0.1
  *  - 패치노트 글(patch_notes, auto) + 띠 공지([안내] 11/20(금) 19:22 패치 진행 사항 안내)
- * 처음 켤 때는 지금까지의 수정은 건너뛰고 그 뒤부터 */
+ * 처음 켤 때는 지난 24시간 수정부터 */
 const REPO = 'pizzahutofficialnoreply-hub/uzuhama3';
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 const kstParts = (ms: number) => { const d = new Date(ms + 9 * 3600000); return { md: `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${DOW[d.getUTCDay()]})`, hm: `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`, day: d.toISOString().slice(0, 10) }; };
@@ -388,9 +388,11 @@ async function maybeHotfix(db: any, notes: Note[]) {
   const list = ((await r.json()) || []) as any[];
   if (!list.length) return;
   const head = list[0].sha;
-  if (!st.lastSha) { await ref.set({ autoHotfix: { lastSha: head, at: new Date().toISOString() } }, { merge: true }); return; }
-  const idx = list.findIndex((c) => c.sha === st.lastSha);
-  const fresh = (idx >= 0 ? list.slice(0, idx) : list.slice(0, 30));
+  // 처음 켤 때는 지난 24시간 수정부터
+  const idx = st.lastSha ? list.findIndex((c) => c.sha === st.lastSha) : -1;
+  const fresh = st.lastSha
+    ? (idx >= 0 ? list.slice(0, idx) : list.slice(0, 30))
+    : list.filter((c) => Date.now() - Date.parse(c.commit?.author?.date || '') < 24 * 3600000);
   const msgs = fresh
     .map((c) => ({ subject: String(c.commit?.message || '').split('\n')[0].trim(), at: Date.parse(c.commit?.author?.date || c.commit?.committer?.date || '') }))
     .filter((c) => c.subject && !/^(tmp|임시|wip|merge)\b|임시 확인|^Merge /i.test(c.subject));
