@@ -136,17 +136,15 @@ export function RichTextRenderer({ content, className = '' }: RichTextRendererPr
       .replace(/&lt;span&gt;/gi, '<span>')
       .replace(/&lt;\/span&gt;/gi, '</span>');
 
-    // 링크 [텍스트](url)
-    parsed = parsed.replace(
-      /\[(.*?)\]\((https?:\/\/[^\s<>"']+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-purple-600 dark:text-purple-400 underline font-semibold hover:opacity-80 break-all">$1</a>'
-    );
-
+    // 링크: 글자에 거는 링크 [텍스트](주소) · 사이트 안 이동 [텍스트](app://의견) · [텍스트](/patch)
+    // 만든 링크는 잠깐 자리표시로 빼 두었다가 마지막에 돌려놓음 (주소 속 _ * 가 기울임 등으로 바뀌지 않게)
+    const anchors: string[] = [];
+    const keep = (html: string) => { anchors.push(html); return `\u0000${anchors.length - 1}\u0000`; };
+    const A_CLS = 'text-purple-600 dark:text-purple-400 underline font-semibold hover:opacity-80 break-all';
+    parsed = parsed.replace(/\[(.*?)\]\(((?:app|redirect):\/\/[^\s<>"')]+|\/[^\s<>"')]*)\)/g, (_m, t, u) => keep(`<a href="${u}" data-app-link="1" class="${A_CLS}">${t}</a>`));
+    parsed = parsed.replace(/\[(.*?)\]\((https?:\/\/[^\s<>"']+)\)/g, (_m, t, u) => keep(`<a href="${u}" target="_blank" rel="noopener noreferrer" class="${A_CLS}">${t}</a>`));
     // 자동 URL 링크 (대괄호 마크다운 외 일반 URL)
-    parsed = parsed.replace(
-      /(?<!href=")(https?:\/\/[^\s<]+)/g,
-      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-purple-600 dark:text-purple-400 underline font-semibold hover:opacity-80 break-all">$1</a>'
-    );
+    parsed = parsed.replace(/(https?:\/\/[^\s<\u0000]+)/g, (u) => keep(`<a href="${u}" target="_blank" rel="noopener noreferrer" class="${A_CLS}">${u}</a>`));
 
     // Bold: **텍스트** 또는 <b>텍스트</b> 또는 <strong>텍스트</strong>
     parsed = parsed.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-zinc-900 dark:text-white">$1</strong>');
@@ -170,6 +168,7 @@ export function RichTextRenderer({ content, className = '' }: RichTextRendererPr
     // Font size: <span style="font-size: ..."> 또는 <small>
     parsed = parsed.replace(/<small>(.*?)<\/small>/gi, '<span class="text-[11px] opacity-80">$1</span>');
 
+    parsed = parsed.replace(/\u0000(\d+)\u0000/g, (_m, i) => anchors[Number(i)] || '');
     // Safe direct dangerouslySetInnerHTML
     return <span dangerouslySetInnerHTML={{ __html: parsed }} />;
   };

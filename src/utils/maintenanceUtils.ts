@@ -221,7 +221,11 @@ export function generateCompletedNoticeMarkdown(options: {
   return `### 점검 완료
 - **점검 시간**: ${fullText}
 - **변경 사항**
-${changeList}`;
+${changeList}
+
+점검 뒤에도 화면이 이상하거나 오류가 보이면, 번거로우시겠지만 설정 → 의견 보내기로 겪으신 현상과 기기 정보를 자세히 남겨 주세요. 조치에 큰 도움이 돼요. 화면이 예전 그대로라면 설정 → 새로고침을 한 번 눌러 주세요.
+
+✓ [의견 보내기로 이동하기](/feedback)`;
 }
 
 /**

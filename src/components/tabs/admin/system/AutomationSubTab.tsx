@@ -60,7 +60,7 @@ export function AutomationSubTab() {
       getDoc(doc(db, 'youtube_cache', 'playlists')).then((s) => s.data()).catch(() => null),
     ]);
     setTick(t);
-    getDoc(doc(db, 'config', 'system')).then((s) => { setAutoLogOn(s.data()?.autoLogEnabled !== false); setYtSyncOn(s.data()?.autoYtSyncEnabled !== false); setVoiceRef(String(s.data()?.voiceRef || '')); }).catch(() => { setAutoLogOn(null); setYtSyncOn(null); });
+    getDoc(doc(db, 'config', 'system')).then((s) => { setAutoLogOn(s.data()?.autoLogEnabled !== false); setYtSyncOn(s.data()?.autoYtSyncEnabled !== false); setVoiceRef(String(s.data()?.voiceRef || '')); setHotfixOn(s.data()?.autoHotfixEnabled !== false); setHotfix(s.data()?.autoHotfix || null); }).catch(() => { setAutoLogOn(null); setYtSyncOn(null); });
     getDoc(doc(db, 'youtube_cache', 'yt_sync_state')).then((s) => setYtSync(s.data() || null)).catch(() => setYtSync(null));
     setCaches({ uploads: up, shorts: sh, playlists: pl });
     fetch(`${API_BASE}/api/videos/search-index?status=1`).then((r) => r.json()).then(setIndex).catch(() => setIndex(null));
@@ -69,6 +69,8 @@ export function AutomationSubTab() {
 
   const [ytSyncOn, setYtSyncOn] = useState<boolean | null>(null);
   const [voiceRef, setVoiceRef] = useState('');
+  const [hotfixOn, setHotfixOn] = useState<boolean | null>(null);
+  const [hotfix, setHotfix] = useState<any>(null);
   const [ytSync, setYtSync] = useState<any>(null);
   const run = async (key: string, url: string, admin = false) => {
     setBusy(key);
@@ -176,6 +178,17 @@ export function AutomationSubTab() {
           {ytSyncOn ? '끄기' : '켜기'}
         </button>
         {out.ytsync && <p className="text-[11px] text-red-500">{out.ytsync}</p>}
+      </Card>
+
+      <Card title="사이트 수정 → 자동 버전·패치 진행 안내 공지" ok={hotfixOn === null ? null : hotfixOn}>
+        <p className="text-[11px] text-zinc-500 break-keep">패치노트를 따로 쓰지 않고 올린 수정이 쌓이면, 마지막 수정 뒤 20분 동안 더 없을 때 버전을 올리고(새 기능 1.2.0→1.2.1, 고치기만 1.2.0→1.2.0.1) 패치노트 글과 '[안내] 11/20(금) 19:22 패치 진행 사항 안내' 띠 공지를 자동으로 올려요.</p>
+        {hotfix?.version && <p className="text-[11px] text-zinc-500">마지막: v{hotfix.version} · {ago(hotfix.at)}{hotfix.ai === false ? ' · AI 없이 수정 메모로 씀' : ''}</p>}
+        <button type="button" disabled={hotfixOn === null || busy === 'hotfix'} onClick={async () => {
+          setBusy('hotfix');
+          try { await setDoc(doc(db, 'config', 'system'), { autoHotfixEnabled: !hotfixOn }, { merge: true }); setHotfixOn(!hotfixOn); } catch (e: any) { setOut((o) => ({ ...o, hotfix: `실패: ${e?.message || e}` })); }
+          setBusy(null);
+        }} className={`${btn} ${hotfixOn ? 'bg-zinc-100 dark:bg-zinc-800' : 'bg-purple-600 text-white'}`}>{hotfixOn ? '끄기' : '켜기'}</button>
+        {out.hotfix && <p className="text-[11px] text-red-500">{out.hotfix}</p>}
       </Card>
 
       <Card title="스크립트: 우주하마 목소리 예시" ok={voiceRef ? true : null}>

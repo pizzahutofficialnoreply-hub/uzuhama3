@@ -782,6 +782,10 @@ function MainApp() {
         setPolicyType('terms');
         return true;
       }
+      if (trimmed === '/feedback') {
+        openFeedback();
+        return true;
+      }
       if (trimmed === '/privacy') {
         setPolicyType('privacy');
         return true;
@@ -792,6 +796,18 @@ function MainApp() {
 
     return false;
   }, [navigate, openFeedback]);
+
+  // 공지 글 속 사이트 안 링크([의견 보내기로 이동하기](app://의견) 등): 새 창 대신 사이트 안에서 열기
+  useEffect(() => {
+    const on = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement | null)?.closest?.('a[data-app-link], a[href="/feedback"], a[href^="app://"]') as HTMLAnchorElement | null;
+      if (!a) return;
+      e.preventDefault();
+      handleInternalRedirect(a.getAttribute('href') || '');
+    };
+    document.addEventListener('click', on);
+    return () => document.removeEventListener('click', on);
+  }, [handleInternalRedirect]);
 
   const closeNotice = (neverShowAgain: boolean) => {
     if (neverShowAgain) {

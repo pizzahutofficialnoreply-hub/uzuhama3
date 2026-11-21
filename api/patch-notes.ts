@@ -36,6 +36,8 @@ type Note = {
   url?: string;
   source?: 'firestore' | 'notion';
   updatedAt?: string;
+  /** 자동 패치(사이트 수정 모음)로 만든 글 */
+  auto?: boolean;
 };
 
 const toIso = (v: any) => (v?.toDate ? v.toDate().toISOString() : typeof v === 'string' ? v : undefined);
@@ -310,6 +312,117 @@ async function loadNotionNotes(db: any): Promise<{ notes: Note[]; error?: string
 }
 
 
+/* ── 사이트 수정 모음 → 자동 버전 + '패치 진행 사항 안내' 공지 ──
+ * 패치노트를 따로 쓰지 않고 올린 수정(GitHub 커밋)이 쌓이면, 마지막 수정 뒤 20분 동안 더 없을 때 한 번에:
+ *  - 버전: 기능이 새로 생겼으면 1.2.0 → 1.2.1, 고치기만 했으면 1.2.0 → 1.2.0.1
+ *  - 패치노트 글(patch_notes, auto) + 띠 공지([안내] 11/20(금) 19:22 패치 진행 사항 안내)
+ * 처음 켤 때는 지금까지의 수정은 건너뛰고 그 뒤부터 */
+const REPO = 'pizzahutofficialnoreply-hub/uzuhama3';
+const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+const kstParts = (ms: number) => { const d = new Date(ms + 9 * 3600000); return { md: `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${DOW[d.getUTCDay()]})`, hm: `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`, day: d.toISOString().slice(0, 10) }; };
+export function bumpVersion(base: string, kind: 'feature' | 'fix'): string {
+  const p = String(base || '1.0.0').split('.').map((x) => Number(x) || 0);
+  while (p.length < 3) p.push(0);
+  if (kind === 'feature') return `${p[0]}.${p[1]}.${p[2] + 1}`;
+  return `${p[0]}.${p[1]}.${p[2]}.${(p[3] || 0) + 1}`;
+}
+export function hotfixNoticeBody(ver: string, at: number, points: string[]) {
+  const { md, hm } = kstParts(at);
+  return [
+    `${md} 진행된 패치 관련 내용을 안내해 드려요.`,
+    '',
+    `**■ ${md} 패치 진행 사항 안내 (v${ver})**`,
+    `◆ 패치 일시 : ${md} ${hm} 경`,
+    '◆ 패치 내용',
+    ...points.map((x) => `- ${x}`),
+    '',
+    '아울러 겪고 계신 오류가 있다면 번거로우시겠지만, 설정 → 의견 보내기로 겪으신 현상과 기기 정보를 자세히 남겨 주시면 조치에 큰 도움이 돼요.',
+    '',
+    '✓ [의견 보내기로 이동하기](app://의견)',
+    `✓ [v${ver} 패치노트 보기](/patch-v${ver})`,
+    '',
+    '앞으로 더욱 안정적인 서비스를 위해 노력할게요.',
+    '감사합니다.',
+  ].join('\n');
+}
+async function hotfixPoints(subjects: string[]): Promise<{ points: string[]; kind: 'feature' | 'fix'; ai: boolean }> {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (apiKey) {
+    const prompt = `팬 사이트 "우주하마 방송 예측"에 올린 수정 기록(개발자 메모)이야. 방문자에게 보여 줄 '패치 내용' 목록으로 바꿔 줘.
+규칙:
+- 방문자가 느낄 수 있는 변화만, 2~8줄. 각 줄은 40자 안팎, "~ 개선", "~ 수정", "~ 추가"처럼 끝내기 (예: "쇼츠 공유 글에 방송일·게임 링크 추가", "검색 결과가 늦게 뜨는 현상 수정").
+- 관리자 화면·서버·DB 사용량·내부 점검 같은 건 합쳐서 "서비스 안정성 개선" 한 줄로.
+- 메모에 없는 내용은 지어내지 마. 이모지 없이.
+- kind: 방문자가 쓸 새 기능이 생겼으면 "feature", 고치기·다듬기만이면 "fix".
+JSON 으로만: {"kind":"feature|fix","points":["..."]}
+
+수정 기록:
+${subjects.map((x) => `- ${x}`).join('\n').slice(0, 8000)}`;
+    try {
+      const { GoogleGenAI } = await import('@google/genai');
+      const ai = new GoogleGenAI({ apiKey });
+      for (const m of ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-flash-latest']) {
+        try {
+          const r = await ai.models.generateContent({ model: m, contents: prompt, config: { responseMimeType: 'application/json', temperature: 0.2, httpOptions: { timeout: 20000 } } });
+          const j = JSON.parse(r.text || '{}');
+          const pts = (j.points || []).map((x: any) => String(x || '').trim()).filter(Boolean).slice(0, 8);
+          if (pts.length) return { points: pts, kind: j.kind === 'feature' ? 'feature' : 'fix', ai: true };
+        } catch { /* 다음 모델 */ }
+      }
+    } catch { /* */ }
+  }
+  // AI 가 안 되면 메모 첫 줄을 그대로 (쉼표·/ 로 나눈 것)
+  const pts = [...new Set(subjects.flatMap((x) => x.split(/\s*[,/]\s+|:\s+/)).map((x) => x.trim()).filter((x) => x.length >= 4))].slice(0, 8);
+  return { points: pts.length ? pts : ['서비스 안정성 개선'], kind: subjects.some((x) => /추가|새 |새로|만들/.test(x)) ? 'feature' : 'fix', ai: false };
+}
+async function maybeHotfix(db: any, notes: Note[]) {
+  const ref = db.collection('config').doc('system');
+  const sys = (await ref.get()).data() || {};
+  if (sys.autoHotfixEnabled === false) return;
+  const st = sys.autoHotfix || {};
+  if (st.pending && Date.now() - Date.parse(st.at || '0') < 3 * 60000) return;
+  const headers: Record<string, string> = { Accept: 'application/vnd.github+json', 'User-Agent': 'uzuhama-site' };
+  if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  const r = await fetch(`https://api.github.com/repos/${REPO}/commits?sha=main&per_page=60`, { headers, signal: AbortSignal.timeout(8000) });
+  if (!r.ok) return;
+  const list = ((await r.json()) || []) as any[];
+  if (!list.length) return;
+  const head = list[0].sha;
+  if (!st.lastSha) { await ref.set({ autoHotfix: { lastSha: head, at: new Date().toISOString() } }, { merge: true }); return; }
+  const idx = list.findIndex((c) => c.sha === st.lastSha);
+  const fresh = (idx >= 0 ? list.slice(0, idx) : list.slice(0, 30));
+  const msgs = fresh
+    .map((c) => ({ subject: String(c.commit?.message || '').split('\n')[0].trim(), at: Date.parse(c.commit?.author?.date || c.commit?.committer?.date || '') }))
+    .filter((c) => c.subject && !/^(tmp|임시|wip|merge)\b|임시 확인|^Merge /i.test(c.subject));
+  if (!msgs.length) { if (idx !== 0) await ref.set({ autoHotfix: { ...st, lastSha: head } }, { merge: true }); return; }
+  const newest = Math.max(...msgs.map((m) => m.at || 0));
+  if (Date.now() - newest < 20 * 60000) return; // 아직 수정 중일 수 있음
+  await ref.set({ autoHotfix: { ...st, pending: true, at: new Date().toISOString() } }, { merge: true });
+  try {
+    const { points, kind, ai } = await hotfixPoints(msgs.map((m) => m.subject).reverse());
+    const base = [st.version, ...notes.filter((n) => n.category !== 'dev' && /^\d+(\.\d+)+$/.test(n.version) && n.version !== '0.0.0').map((n) => n.version)]
+      .filter(Boolean).sort((a, b) => verCmp(String(b), String(a)))[0] || '1.0.0';
+    const ver = bumpVersion(String(base), kind);
+    const { md, hm, day } = kstParts(newest);
+    const content = [`## ${md} 패치 (v${ver})`, '', `패치 일시: ${md} ${hm} 경`, '', ...points.map((x) => `- ${x}`), '', '겪고 계신 오류는 설정 → 의견 보내기로 알려 주세요.'].join('\n');
+    await db.collection('patch_notes').doc(`auto-${ver}`).set({
+      version: ver, title: `${md} 패치 진행 사항`, category: kind === 'feature' ? 'patch' : 'hotfix', date: day, content, highlights: points.slice(0, 3),
+      author: '운영진', auto: true, commits: msgs.length, ai, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    });
+    const notice = {
+      id: `auto-hotfix-${ver}`, title: `${md} ${hm} 패치 진행 사항 안내`, content: hotfixNoticeBody(ver, newest, points),
+      type: 'small', prefix: '[안내]', date: day, active: true, dismissMode: 'permanent',
+      links: [{ title: '의견 보내기', url: 'app://의견' }, { title: '패치노트 보기', url: `/patch-v${ver}` }],
+    };
+    const cur = (await ref.get()).data() || {};
+    const others = (Array.isArray(cur.noticeList) ? cur.noticeList : []).filter((n: any) => !String(n?.id || '').startsWith('auto-hotfix'));
+    await ref.set({ noticeList: [notice, ...others], appVersion: ver, autoHotfix: { lastSha: head, version: ver, at: new Date().toISOString(), pending: false, ai } }, { merge: true });
+  } catch (e) {
+    await ref.set({ autoHotfix: { ...st, pending: false, at: new Date().toISOString() } }, { merge: true });
+    throw e;
+  }
+}
+
 /* ── 새 패치노트가 나오면 자동 공지 (config/system.noticeList) ── */
 const kstToday = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
 const verCmp = (a: string, b: string) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true });
@@ -360,7 +473,7 @@ const noticeBody = (version: string, points: string[], ai: boolean) => [
 async function maybeAnnounce(db: any, notes: Note[]) {
   const today = kstToday();
   const latest = notes
-    .filter((n) => n.category !== 'dev' && /^\d+(\.\d+)+$/.test(n.version) && n.version !== '0.0.0' && (!n.date || n.date <= today))
+    .filter((n) => n.category !== 'dev' && !n.auto && /^\d+(\.\d+)+$/.test(n.version) && n.version !== '0.0.0' && (!n.date || n.date <= today))
     .sort((a, b) => verCmp(b.version, a.version))[0];
   if (!latest) return;
   const ref = db.collection('config').doc('system');
@@ -440,6 +553,7 @@ export default async function handler(req: any, res: any) {
         highlights: Array.isArray(x.highlights) ? x.highlights : [],
         author: x.author || '운영진',
         ...(x.kind ? { kind: x.kind } : {}),
+        ...(x.auto ? { auto: true } : {}),
         source: 'firestore',
         updatedAt: toIso(x.updatedAt) || toIso(x.createdAt),
       };
@@ -462,7 +576,10 @@ export default async function handler(req: any, res: any) {
 
     // 새 패치노트 → 자동 공지 (실패해도 목록은 그대로)
     // (공지 확인은 정기 실행이 ?announce=1 로 부를 때만 — 방문자 요청마다 설정 문서를 읽지 않게)
-    if (req.query?.announce) { try { await maybeAnnounce(db, merged); } catch (e) { console.warn('[patch-notes] announce failed:', e); } }
+    if (req.query?.announce) {
+      try { await maybeAnnounce(db, merged); } catch (e) { console.warn('[patch-notes] announce failed:', e); }
+      try { await maybeHotfix(db, merged); } catch (e) { console.warn('[patch-notes] hotfix failed:', e); }
+    }
 
     // 방문자마다 패치노트 문서 전체를 읽지 않게 CDN 에 30분 보관
     res.setHeader('Cache-Control', req.query?.announce ? 'no-store' : 'public, s-maxage=1800, stale-while-revalidate=86400');
