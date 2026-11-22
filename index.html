@@ -42,6 +42,7 @@
       })();
     </script>
     <link rel="preload" as="image" href="/img/hippo-line.png" />
+    <link rel="preload" as="image" href="/img/hippo.png" />
     <script>
       /*
         아이폰 홈 화면 앱(iOS 26 이후) 화면 높이 버그 보정 — WebKit 버그 301994
@@ -97,15 +98,18 @@
        · 화면이 다 파래지면 앱이 다 불러와졌을 때 걷힘
       앱을 켤 때마다 (같은 실행 안의 새로 고침은 빼고) · 설정 > 화면 설정 > 시작 애니메이션 으로 끌 수 있음
     -->
-    <div id="intro" aria-hidden="true"><div class="i-card"><img src="/icon-192.png" alt="" /></div><div class="i-flood"></div><img class="i-hippo" src="/img/hippo-line.png" alt="" /></div>
+    <div id="intro" aria-hidden="true"><div class="i-card"><img src="/icon-192.png" alt="" /></div><div class="i-flood"></div><div class="i-hippo"><img class="i-fill" src="/img/hippo.png" alt="" /><img src="/img/hippo-line.png" alt="" /></div></div>
     <style>
-      #intro{position:fixed;left:0;right:0;top:0;height:var(--app-h, 100lvh);z-index:2147483000;overflow:hidden;background:#fff;pointer-events:none}
+      #intro{position:fixed;left:0;right:0;top:0;height:var(--app-h, 100lvh);z-index:2147483000;background:#fff;pointer-events:none}
+      /* 화면 높이를 잘못 알려 줘도 아래가 비지 않게 바탕을 아래로 넉넉히 더 칠함 (가운데 자리는 그대로) */
+      #intro::after{content:'';position:absolute;left:0;right:0;top:100%;height:400px;background:inherit}
       html.dark #intro{background:#000}
       #intro.i-done{transition:opacity .28s ease;opacity:0}
       #intro .i-card{position:absolute;left:50%;top:50%;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:26px;overflow:hidden}
       #intro .i-card img{width:100%;height:100%;display:block}
-      #intro .i-flood{position:absolute;left:50%;top:50%;width:2px;height:2px;margin:-1px 0 0 -1px;border-radius:50%;background:#6383b6;transform:scale(0);will-change:transform}
-      #intro .i-hippo{position:absolute;left:50%;top:50%;width:56px;height:45px;margin:-22.5px 0 0 -28px;transform-origin:50% 45%;will-change:transform}
+      #intro .i-flood{position:absolute;z-index:1;left:50%;top:50%;width:2px;height:2px;margin:-1px 0 0 -1px;border-radius:50%;background:#6383b6;transform:scale(0);will-change:transform}
+      #intro .i-hippo{position:absolute;left:50%;top:50%;width:56px;height:45px;margin:-22.5px 0 0 -28px;transform-origin:50% 45%;will-change:transform;z-index:2}
+      #intro .i-hippo img{position:absolute;inset:0;width:100%;height:100%}
     </style>
     <script>
       (function () {
@@ -129,41 +133,45 @@
         var SW = Math.max(W, window.screen ? screen.width : 0, window.screen ? screen.height : 0);
         var R = Math.ceil(Math.sqrt(SW * SW + SW * SW) / 2) + 4;
         // 아이콘을 잠깐(0.35초) 그대로 보여 준 뒤, 아이콘 속 하마 크기·자리 그대로에서 출발
+        var card = el.querySelector('.i-card'), fill = el.querySelector('.i-fill');
         hippo.style.opacity = '0';
         flood.style.width = flood.style.height = (2 * R) + 'px';
         flood.style.margin = (-R) + 'px 0 0 ' + (-R) + 'px';
-        var s1 = Math.min(W * 0.66, 360) / 56;
-        var A = 1300, B = 320;
+        var s0 = 1.45, s1 = Math.min(W * 0.66, 360) / 56;
+        // P: 아이콘에서 하마가 튀어나옴 / A: 일정한 속도로 커짐 (원본 인트로) / B: 얼굴 속으로 빨려 들어감
+        var P = 450, A = 1300, B = 320, FLOOD_AT = 330;
         var t0 = Date.now(), began = false;
         function done() { el.className = 'i-done'; setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 320); }
         function tick(start) {
           var busy = (window.__uzuLoading || 0) > 0 || document.getElementById('boot-splash');
-          if ((!busy && Date.now() - start >= A + B) || Date.now() - t0 > 9000) done(); else setTimeout(function () { tick(start); }, 50);
+          if ((!busy && Date.now() - start >= P + A + B) || Date.now() - t0 > 9000) done(); else setTimeout(function () { tick(start); }, 50);
         }
         function begin() {
           if (began) return; began = true;
-          // 파란 원: 동그라미를 키우는 방식(transform) → 앱을 불러오는 동안에도 끊기지 않음
-          var fa = flood.animate([{ transform: 'scale(0)' }, { transform: 'scale(1)' }], { duration: 350, easing: 'linear', fill: 'forwards' });
-          // 다 퍼지면 바탕 자체를 파랗게 (그 뒤로 화면 크기가 바뀌어도 빈틈 없게)
-          if (fa && fa.finished) fa.finished.then(function () { el.style.background = '#6383b6'; }).catch(function () {});
+          // 1) 하마(색 채운 그림)가 아이콘 속 그 자리에서 살짝 튀어 오르며 나오고, 아이콘 판은 작아지며 사라짐
           hippo.style.opacity = '1';
           hippo.animate([
-            { transform: 'scale(1)', offset: 0, easing: 'linear' },
-            { transform: 'scale(' + s1 + ')', offset: A / (A + B), easing: 'cubic-bezier(.35,0,.9,.6)' },
+            { transform: 'scale(1)', offset: 0, easing: 'cubic-bezier(.34,1.5,.64,1)' },
+            { transform: 'scale(' + s0 + ')', offset: P / (P + A + B), easing: 'linear' },
+            { transform: 'scale(' + s1 + ')', offset: (P + A) / (P + A + B), easing: 'cubic-bezier(.35,0,.9,.6)' },
             { transform: 'scale(' + (s1 * 24) + ')', offset: 1 }
-          ], { duration: A + B, fill: 'forwards' });
+          ], { duration: P + A + B, fill: 'forwards' });
+          card.animate([{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(.82)', opacity: 0 }], { duration: 380, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' });
+          // 2) 그다음 하마 뒤에서 파란 바탕이 일정한 속도로 퍼짐 (동그라미를 키우는 방식이라 끊기지 않음) → 하마는 윤곽선만 남음
+          var fa = flood.animate([{ transform: 'scale(0)' }, { transform: 'scale(1)' }], { duration: 350, delay: FLOOD_AT, easing: 'linear', fill: 'forwards' });
+          if (fa && fa.finished) fa.finished.then(function () { el.style.background = '#6383b6'; }).catch(function () {});
+          fill.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, delay: FLOOD_AT + 40, fill: 'forwards' });
           var start = Date.now();
-          setTimeout(function () { tick(start); }, A + B);
+          setTimeout(function () { tick(start); }, P + A + B);
         }
-        // 아이콘을 최소 0.35초 보여 준 뒤 시작.
-        // 아이폰 홈 화면 앱은 막 켰을 때 화면 아래가 잠깐 덜 그려진(까만 띠) 상태라, 화면이 다 펴질 때까지(창 크기가 바뀌는 순간) 아이콘에서 기다림 (최대 1.2초)
-        var HOLD = 350, MAXWAIT = 1200;
+        // 아이콘을 0.25초 보여 준 뒤 시작. 홈 화면 앱은 막 켰을 때 아래가 잠깐 덜 그려져 있어 펴질 때까지 조금 더 기다림 (최대 0.6초)
+        var HOLD = 250, MAXWAIT = 600;
         var waitFull = ios && ((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true);
         var grown = !waitFull;
         function tryBegin() { if (grown && Date.now() - t0 >= HOLD) begin(); }
         if (waitFull) {
           var h0 = window.innerHeight;
-          var onRs = function () { if (window.innerHeight !== h0) { grown = true; setTimeout(tryBegin, 80); } };
+          var onRs = function () { if (window.innerHeight !== h0) { grown = true; setTimeout(tryBegin, 60); } };
           window.addEventListener('resize', onRs);
           if (window.visualViewport) visualViewport.addEventListener('resize', onRs);
           setTimeout(function () { grown = true; tryBegin(); }, MAXWAIT);
