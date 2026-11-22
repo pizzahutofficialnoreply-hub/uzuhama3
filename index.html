@@ -119,6 +119,7 @@
           sessionStorage.setItem('uzuhama_intro', '1');
         } catch (e) {}
         if (skip) { el.parentNode.removeChild(el); return; }
+        var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         // 높이: 아이폰 홈 화면 앱은 창 높이가 짧게 잡히는 버그가 있어 head 의 --pwa-gap 만큼 아래로 늘림 (CSS) → 늘 기기 화면 전체
         var W = window.innerWidth, H = Math.max(window.innerHeight, document.documentElement.clientHeight || 0);
         var flood = el.querySelector('.i-flood'), hippo = el.querySelector('.i-hippo');
@@ -126,29 +127,46 @@
         var SW = Math.max(W, window.screen ? screen.width : 0, window.screen ? screen.height : 0);
         var R = Math.ceil(Math.sqrt(SW * SW + SW * SW) / 2) + 4;
         // 아이콘을 잠깐(0.35초) 그대로 보여 준 뒤, 아이콘 속 하마 크기·자리 그대로에서 출발
-        var HOLD = 350;
         hippo.style.opacity = '0';
-        // 파란 원: 모양 자르기(clip-path)는 앱을 불러오는 동안 화면 그리기가 밀려 끊겨서, 동그라미를 키우는 방식(transform)으로 → 따로 매끄럽게 돎
         flood.style.width = flood.style.height = (2 * R) + 'px';
         flood.style.margin = (-R) + 'px 0 0 ' + (-R) + 'px';
-        var fa = flood.animate([{ transform: 'scale(0)' }, { transform: 'scale(1)' }], { duration: 350, delay: HOLD, easing: 'linear', fill: 'forwards' });
-        // 다 퍼지면 바탕 자체를 파랗게 (그 뒤로 화면 크기가 바뀌어도 빈틈 없게)
-        if (fa && fa.finished) fa.finished.then(function () { el.style.background = '#6383b6'; }).catch(function () {});
-        setTimeout(function () { hippo.style.opacity = '1'; }, HOLD);
         var s1 = Math.min(W * 0.66, 360) / 56;
         var A = 1300, B = 320;
-        hippo.animate([
-          { transform: 'scale(1)', offset: 0, easing: 'linear' },
-          { transform: 'scale(' + s1 + ')', offset: A / (A + B), easing: 'cubic-bezier(.35,0,.9,.6)' },
-          { transform: 'scale(' + (s1 * 24) + ')', offset: 1 }
-        ], { duration: A + B, delay: HOLD, fill: 'forwards' });
-        var start = Date.now(), T = HOLD + A + B;
+        var t0 = Date.now(), began = false;
         function done() { el.className = 'i-done'; setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 320); }
-        function tick() {
+        function tick(start) {
           var busy = (window.__uzuLoading || 0) > 0 || document.getElementById('boot-splash');
-          if ((!busy && Date.now() - start >= T) || Date.now() - start > 8000) done(); else setTimeout(tick, 50);
+          if ((!busy && Date.now() - start >= A + B) || Date.now() - t0 > 9000) done(); else setTimeout(function () { tick(start); }, 50);
         }
-        setTimeout(tick, T);
+        function begin() {
+          if (began) return; began = true;
+          // 파란 원: 동그라미를 키우는 방식(transform) → 앱을 불러오는 동안에도 끊기지 않음
+          var fa = flood.animate([{ transform: 'scale(0)' }, { transform: 'scale(1)' }], { duration: 350, easing: 'linear', fill: 'forwards' });
+          // 다 퍼지면 바탕 자체를 파랗게 (그 뒤로 화면 크기가 바뀌어도 빈틈 없게)
+          if (fa && fa.finished) fa.finished.then(function () { el.style.background = '#6383b6'; }).catch(function () {});
+          hippo.style.opacity = '1';
+          hippo.animate([
+            { transform: 'scale(1)', offset: 0, easing: 'linear' },
+            { transform: 'scale(' + s1 + ')', offset: A / (A + B), easing: 'cubic-bezier(.35,0,.9,.6)' },
+            { transform: 'scale(' + (s1 * 24) + ')', offset: 1 }
+          ], { duration: A + B, fill: 'forwards' });
+          var start = Date.now();
+          setTimeout(function () { tick(start); }, A + B);
+        }
+        // 아이콘을 최소 0.35초 보여 준 뒤 시작.
+        // 아이폰 홈 화면 앱은 막 켰을 때 화면 아래가 잠깐 덜 그려진(까만 띠) 상태라, 화면이 다 펴질 때까지(창 크기가 바뀌는 순간) 아이콘에서 기다림 (최대 1.2초)
+        var HOLD = 350, MAXWAIT = 1200;
+        var waitFull = ios && ((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true);
+        var grown = !waitFull;
+        function tryBegin() { if (grown && Date.now() - t0 >= HOLD) begin(); }
+        if (waitFull) {
+          var h0 = window.innerHeight;
+          var onRs = function () { if (window.innerHeight !== h0) { grown = true; setTimeout(tryBegin, 80); } };
+          window.addEventListener('resize', onRs);
+          if (window.visualViewport) visualViewport.addEventListener('resize', onRs);
+          setTimeout(function () { grown = true; tryBegin(); }, MAXWAIT);
+        }
+        setTimeout(tryBegin, HOLD);
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
