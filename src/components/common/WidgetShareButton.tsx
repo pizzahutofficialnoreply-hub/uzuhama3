@@ -7,6 +7,7 @@ import { POPOVER_CLS } from './LinkMenu';
 import { shareElementAsImage } from '../../utils/shareUtils';
 import { cn } from '../../utils';
 import { ShareBoxArrowIcon } from './ShareIcon';
+import { fullHeight, bottomBase } from '../../utils/viewport';
 
 interface WidgetShareButtonProps {
   targetId?: string;
@@ -75,9 +76,9 @@ function WidgetMenu({ title, sharing, onShare, className, iconClassName }: { tit
   useEffect(() => {
     if (!open || !btn.current) return;
     const r = btn.current.getBoundingClientRect();
-    const up = r.bottom + 120 > window.innerHeight - 80;
+    const up = r.bottom + 120 > fullHeight() - 80;
     const left = Math.max(8, Math.min(window.innerWidth - 188, r.right - 180));
-    setPos(up ? { bottom: window.innerHeight - r.top + 6, left, up } : { top: r.bottom + 6, left, up });
+    setPos(up ? { bottom: bottomBase() - r.top + 6, left, up } : { top: r.bottom + 6, left, up });
     const close = (e: Event) => { if (!menu.current?.contains(e.target as Node) && !btn.current?.contains(e.target as Node)) setOpen(false); };
     const onScroll = () => setOpen(false);
     document.addEventListener('mousedown', close);

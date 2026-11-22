@@ -463,7 +463,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
         transition={{ type: 'spring', damping: 28, stiffness: 300, mass: 0.8 }}
         className={cn(
           "sheet-fill relative z-10 w-full max-w-2xl mx-auto bg-white dark:bg-zinc-900 border-t border-x border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden transition-all duration-300",
-          isExpanded ? "h-[100dvh] rounded-t-none" : "h-[85dvh] max-h-[92dvh] rounded-t-[28px]"
+          isExpanded ? "h-[var(--app-h,100dvh)] rounded-t-none" : "h-[85dvh] max-h-[92dvh] rounded-t-[28px]"
         )}
       >
         {/* 손잡이: 위로 끌면 화면 채우기, 아래로 끌면 닫기 (다른 시트와 같은 모양) */}

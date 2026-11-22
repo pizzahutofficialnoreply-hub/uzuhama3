@@ -10,6 +10,7 @@ import { requestSave, useMyPlaylists, type MyItemKind } from '../../utils/myPlay
 import { shareTextOrClipboard } from '../../utils/shareUtils';
 import { ShareBoxArrowIcon } from './ShareIcon';
 import { POPOVER_CLS } from './LinkMenu';
+import { fullHeight, bottomBase } from '../../utils/viewport';
 
 /**
  * 카드·목록·쇼츠의 ⋮ 메뉴: 저장 / 신고
@@ -49,9 +50,9 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
   useLayoutEffect(() => {
     if (!open || !btn.current) return;
     const r = btn.current.getBoundingClientRect();
-    const up = r.bottom + 264 + extraItems.length * 44 > window.innerHeight - 80; // 아래 공간이 없으면 위로
+    const up = r.bottom + 264 + extraItems.length * 44 > fullHeight() - 80; // 아래 공간이 없으면 위로
     const left = Math.max(8, Math.min(window.innerWidth - 188, r.right - 180));
-    setPos(up ? { bottom: window.innerHeight - r.top + 6, left, up } : { top: r.bottom + 6, left, up });
+    setPos(up ? { bottom: bottomBase() - r.top + 6, left, up } : { top: r.bottom + 6, left, up });
   }, [open]);
   useEffect(() => {
     if (!open) return;

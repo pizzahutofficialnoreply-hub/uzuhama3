@@ -13,6 +13,7 @@ import { GlassPlayButton } from './MediaIcons';
 import { Skeleton } from './Skeleton';
 import { VideoCardInfo, findVideo } from './VideoCardInfo';
 import { CardFind } from './CardFind';
+import { fullHeight, bottomBase } from '../../utils/viewport';
 
 /**
  * 실험실 · 카드 펼쳐 요약과 함께 보기
@@ -65,7 +66,7 @@ function safeInsets(): { top: number; bottom: number } {
 
 /** 전체 화면 (넓은 화면은 가운데 세로로 꽉) */
 function finalRect(): Rect {
-  const vw = window.innerWidth, vh = window.innerHeight;
+  const vw = window.innerWidth, vh = fullHeight();
   // 가로로 넓은 화면(휴대폰 가로·PC): 영상은 왼쪽, 요약·스크립트는 오른쪽에 나란히
   //  - 휴대폰 가로: 화면 꽉 채움 / PC: 가운데 큰 창 (위아래 여백)
   if (vw >= 700 && vw > vh * 1.15) {

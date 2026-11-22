@@ -106,6 +106,7 @@ export async function collectDiagnose(extra?: string): Promise<string> {
   add('브라우저', d.browser);
   add('앱', d.app);
   add('화면', `${d.screen} · 창 ${window.innerWidth}×${window.innerHeight}`);
+  try { const v = (window as any).__vp; if (v) add('화면 높이 보정', `보이는 화면 ${v.full} · 창 ${v.inner} · 덮개 ${v.fixedH} · 아래 기준 ${v.bottomAt}`); } catch { /* */ }
   add('언어·시간대', `${navigator.language} · ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
   add('인터넷', navigator.onLine ? '연결됨' : '끊김');
   add('화면 모드', document.documentElement.classList.contains('dark') ? '다크' : '라이트');

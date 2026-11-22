@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '../../utils';
+import { fullHeight, bottomBase } from '../../utils/viewport';
 
 /**
  * 쇼츠·편집본 링크 버튼 (카드·목록 공용)
@@ -41,7 +42,7 @@ export function LinkMenu({
     left = Math.max(8, Math.min(window.innerWidth - width - 8, left));
     const need = Math.min(320, 44 + items.length * 42);
     const up = r.top > need + 16;
-    setPos(up ? { left, width, bottom: window.innerHeight - r.top + 8, up } : { left, width, top: r.bottom + 8, up });
+    setPos(up ? { left, width, bottom: bottomBase() - r.top + 8, up } : { left, width, top: r.bottom + 8, up });
   }, [open, variant, items.length]);
   useEffect(() => {
     if (!open) return;

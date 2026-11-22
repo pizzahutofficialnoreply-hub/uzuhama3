@@ -44,23 +44,36 @@
     <link rel="preload" as="image" href="/img/hippo-line.png" />
     <script>
       /*
-        아이폰 홈 화면 앱(iOS 26 이후) 버그 보정: WebKit 버그 301994
-        화면은 874pt 인데 브라우저가 '창 높이'(innerHeight·100vh·dvh·fixed inset-0 기준)를 위쪽 상태 막대 높이(62pt)만큼 뺀 812pt 로 잡음.
-        그런데 화면은 맨 위(0)부터 맨 아래(874)까지 다 그려지므로, 화면을 덮는 요소(fixed inset-0: 로딩 화면·안내 뒷배경 등)가
-        아래 62pt 를 못 덮고 탭바 중간에서 끊김. 사파리 탭에서는 창 높이가 맞아서 괜찮음.
-        → 홈 화면 앱일 때만 (기기 화면 높이 − 창 높이)를 재서 html 에 --pwa-gap 으로 넣고, 화면 덮는 요소를 그만큼 아래로 늘림 (index.css)
+        아이폰 홈 화면 앱(iOS 26 이후) 화면 높이 버그 보정 — WebKit 버그 301994
+        화면은 874pt 인데 브라우저가 알려 주는 '창 높이'(innerHeight·100vh·dvh)는 위 상태 막대(62pt)만큼 짧은 812pt.
+        화면은 맨 아래까지 그려지므로, 창 높이로 크기를 잡은 것(둘러보기 어둡게 칠하기, 카드 확장 높이, 100dvh 등)이 아래 62pt 를 못 덮음.
+        → 켤 때(와 화면 크기가 바뀔 때) 실제로 재서 알려 줌:
+           window.__vp = { full: 보이는 화면 전체 높이, inner: 창 높이, fixedH: 'fixed; top:0; bottom:0' 상자의 실제 높이, bottomAt: 'fixed; bottom:0' 이 붙는 줄 }
+           --app-h  : 보이는 화면 전체 높이 (CSS 에서 100dvh 대신)
+           --pwa-gap: 'fixed inset-0' 상자가 화면 끝까지 못 가는 만큼 (0 이면 보정 안 함)
+        사파리 탭·안드로이드·PC 는 full = 창 높이라 아무것도 안 바뀜
       */
       (function () {
+        var d = document.documentElement;
         var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        if (!ios) return;
+        var p1, p2;
+        function probe(css) { var e = document.createElement('div'); e.setAttribute('aria-hidden', 'true'); e.style.cssText = 'position:fixed;left:0;width:1px;visibility:hidden;pointer-events:none;' + css; d.appendChild(e); return e; }
         function upd() {
           try {
-            var d = document.documentElement;
+            var inner = window.innerHeight, full = inner;
             var sa = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
-            var land = window.innerWidth > window.innerHeight;
-            var sh = land ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
-            var gap = Math.round(sh - window.innerHeight);
-            if (sa && gap > 0 && gap < 160) { d.classList.add('pwa-gap'); d.style.setProperty('--pwa-gap', gap + 'px'); }
+            if (ios && sa && window.screen) {
+              var land = window.innerWidth > inner;
+              var sh = land ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+              if (sh > inner && sh - inner < 160) full = sh;
+            }
+            if (!p1) { p1 = probe('top:0;bottom:0'); p2 = probe('bottom:0;height:1px'); }
+            var fixedH = Math.round(p1.getBoundingClientRect().height);
+            var bottomAt = Math.round(p2.getBoundingClientRect().bottom);
+            window.__vp = { full: full, inner: inner, fixedH: fixedH, bottomAt: bottomAt };
+            d.style.setProperty('--app-h', full + 'px');
+            var gap = Math.max(0, full - fixedH);
+            if (gap > 0) { d.classList.add('pwa-gap'); d.style.setProperty('--pwa-gap', gap + 'px'); }
             else { d.classList.remove('pwa-gap'); d.style.removeProperty('--pwa-gap'); }
           } catch (e) {}
         }

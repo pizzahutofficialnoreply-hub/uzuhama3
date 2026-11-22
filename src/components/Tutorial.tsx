@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Check, Pointer, Compass } from 'lucide-react';
 import type { Tab } from '../types';
 import { INSTALL_SEEN_KEY, needsIOSInstall, openSetupGuide } from '../utils/setupStatus';
+import { fullHeight, bottomBase } from '../utils/viewport';
 
 /**
  * 처음 방문한 사람을 위한 둘러보기
@@ -311,7 +312,7 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
   stepsRef.current = steps;
   const [mode, setMode] = useState<'full' | 'new'>('full');
   const [rect, setRect] = useState<Rect | null>(null);
-  const [vp, setVp] = useState({ w: typeof window !== 'undefined' ? window.innerWidth : 390, h: typeof window !== 'undefined' ? window.innerHeight : 844 });
+  const [vp, setVp] = useState({ w: typeof window !== 'undefined' ? window.innerWidth : 390, h: typeof window !== 'undefined' ? fullHeight() : 844 });
   const rootRef = useRef<HTMLDivElement>(null);
   const originalTabRef = useRef<Tab>(activeTab);
   const demoTimers = useRef<number[]>([]);
@@ -370,7 +371,7 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
   }, [activeTab]);
 
   useEffect(() => {
-    const onResize = () => setVp({ w: window.innerWidth, h: window.innerHeight });
+    const onResize = () => setVp({ w: window.innerWidth, h: fullHeight() });
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -445,11 +446,11 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
         }
         const r = cur.getBoundingClientRect();
         const topSafe = 90;
-        const bottomSafe = window.innerHeight - (isMobile ? 120 : 40);
+        const bottomSafe = fullHeight() - (isMobile ? 120 : 40);
         const fits = r.height <= bottomSafe - topSafe;
         const needs = fits ? (r.top < topSafe - 2 || r.bottom > bottomSafe + 2) : Math.abs(r.top - topSafe) > 24;
         if (needs) {
-          const offset = fits ? Math.max(topSafe, (window.innerHeight - r.height) / 2 - 40) : topSafe;
+          const offset = fits ? Math.max(topSafe, (fullHeight() - r.height) / 2 - 40) : topSafe;
           window.scrollTo({ top: Math.max(0, window.scrollY + r.top - offset), behavior: 'smooth' });
         }
       };
