@@ -142,6 +142,8 @@ export function SettingsView({
     return val === null ? true : val === 'true';
   });
 
+  const [introOn, setIntroOn] = useState<boolean>(() => { try { return localStorage.getItem('uzuhama_intro_off') !== '1'; } catch { return true; } });
+
   const handleToggleWidgetShare = () => {
     const nextVal = !enableWidgetShare;
     setEnableWidgetShare(nextVal);
@@ -788,6 +790,21 @@ export function SettingsView({
                           </span>
                         </div>
                       </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-3.5">
+                      <div>
+                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">시작 애니메이션</p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">앱을 켤 때 하마가 커지며 시작하는 화면</p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={introOn}
+                        onClick={() => { const v = !introOn; setIntroOn(v); try { if (v) localStorage.removeItem('uzuhama_intro_off'); else localStorage.setItem('uzuhama_intro_off', '1'); } catch { /* */ } }}
+                        className={cn("w-10 h-6 flex items-center rounded-full p-0.5 transition-colors shrink-0 cursor-pointer", introOn ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700")}
+                      >
+                        <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", introOn ? "translate-x-4" : "translate-x-0")} />
+                      </button>
                     </div>
                   </div>
                 </motion.div>
