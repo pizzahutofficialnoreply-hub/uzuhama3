@@ -100,7 +100,7 @@ export function MaintenanceScreen({ system, maintSystem, onEnd }: { system?: Par
         <button
           type="button"
           onClick={goDetail}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-zinc-500 dark:text-zinc-400 text-sm font-bold cursor-pointer"
+          className="absolute bottom-[calc(100lvh-100svh+env(safe-area-inset-bottom,0px)+24px)] left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-zinc-500 dark:text-zinc-400 text-sm font-bold cursor-pointer"
         >
           자세히 보기
           <ChevronDown className="w-6 h-6" />
@@ -110,7 +110,7 @@ export function MaintenanceScreen({ system, maintSystem, onEnd }: { system?: Par
       detail={(
         <>
       {/* 아래로 내리면: 연장 공지 · 점검 공지 · 바뀌는 것 · 링크 */}
-      <div id="maint-detail" className="w-full max-w-2xl mx-auto px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+24px)] pb-20 space-y-5 text-left">
+      <div id="maint-detail" className="w-full max-w-2xl mx-auto px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+24px)] pb-[calc(100lvh-100svh+env(safe-area-inset-bottom,0px)+64px)] space-y-5 text-left">
         <p className="text-center text-[11px] text-zinc-400">맨 위에서 아래로 끌면 처음 화면으로 돌아가요</p>
         {extended && (
           <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 space-y-1.5">

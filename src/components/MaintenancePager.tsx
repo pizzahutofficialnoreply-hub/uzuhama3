@@ -60,9 +60,9 @@ export function MaintenancePager({ first, detail }: { first: (goDetail: () => vo
 
   // body 로 바로 띄움 (부모에 transform 이 있으면 fixed 가 부모 기준이 돼 높이가 짧아지는 것 방지)
   return createPortal(
-    // 아이폰 홈 화면 앱에서 fixed inset-0 높이가 화면보다 짧게 잡혀 아래가 잘리던 것 → 실제 화면 높이(px)로 맞춤
-    <div className="fixed left-0 right-0 top-0 overflow-hidden bg-zinc-50 dark:bg-black" style={{ height: vh ? `${vh}px` : '100lvh' }} onWheel={onWheel} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-      <motion.div className="absolute inset-0" animate={{ y: page === 0 ? 0 : -(vh || window.innerHeight) }} transition={{ type: 'spring', stiffness: 260, damping: 32 }}>
+    // 아이폰 사파리에서 아래 도구 막대 자리만큼 비어 잘려 보이던 것 → 가장 큰 화면 높이(100lvh)까지 덮음
+    <div className="fixed left-0 right-0 top-0 overflow-hidden bg-zinc-50 dark:bg-black" style={{ height: `max(100lvh, ${vh}px)` }} onWheel={onWheel} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <motion.div className="absolute inset-0" animate={{ y: page === 0 ? '0%' : '-100%' }} transition={{ type: 'spring', stiffness: 260, damping: 32 }}>
         <section className="absolute inset-0 overflow-hidden">{first(() => go(1))}</section>
         <section ref={detailRef} className="absolute left-0 right-0 top-full h-full overflow-y-auto overscroll-contain select-text">
           {/* 내용이 화면보다 짧으면 위아래 가운데, 길면 위에서부터 스크롤 */}

@@ -87,14 +87,14 @@ export function ServiceGateScreen({ mode, system, onOpen }: { mode: GateMode; sy
               </div>
             )}
           </div>
-          <button type="button" onClick={goDetail} className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-zinc-500 dark:text-zinc-400 text-sm font-bold cursor-pointer">
+          <button type="button" onClick={goDetail} className="absolute bottom-[calc(100lvh-100svh+env(safe-area-inset-bottom,0px)+24px)] left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-zinc-500 dark:text-zinc-400 text-sm font-bold cursor-pointer">
             {mode === 'prelaunch' ? '미리 보기' : mode === 'ended' ? '편지 읽기' : '자세히 보기'}
             <ChevronDown className="w-6 h-6" />
           </button>
         </div>
       )}
       detail={(
-        <div className="w-full max-w-2xl mx-auto px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+24px)] pb-20 space-y-5 text-left">
+        <div className="w-full max-w-2xl mx-auto px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+24px)] pb-[calc(100lvh-100svh+env(safe-area-inset-bottom,0px)+64px)] space-y-5 text-left">
           <p className="text-center text-[11px] text-zinc-400">맨 위에서 아래로 끌면 처음 화면으로 돌아가요</p>
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 shadow-sm">
             <div className="flex items-center gap-3 pb-3 mb-3 border-b border-zinc-100 dark:border-zinc-800">
