@@ -65,7 +65,7 @@
             if (ios && sa && window.screen) {
               var land = window.innerWidth > inner;
               var sh = land ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
-              if (sh > inner && sh - inner < 160) full = sh;
+              if (sh > inner) full = sh; // 홈 화면 앱은 늘 기기 화면 전체를 씀
             }
             if (!p1) { p1 = probe('top:0;bottom:0'); p2 = probe('bottom:0;height:1px'); }
             var fixedH = Math.round(p1.getBoundingClientRect().height);
@@ -78,7 +78,9 @@
           } catch (e) {}
         }
         upd();
-        window.addEventListener('resize', upd);
+        // 막 켰을 때 화면이 펴지는 동안 값이 바뀌는데 크기 바뀜 알림이 그보다 먼저 와서 낡은 값이 남을 수 있음 → 처음 4초는 자주 다시 잼
+        var n = 0, iv = setInterval(function () { upd(); if (++n >= 16) clearInterval(iv); }, 250);
+        window.addEventListener('resize', function () { upd(); setTimeout(upd, 120); setTimeout(upd, 400); });
         window.addEventListener('orientationchange', function () { setTimeout(upd, 300); });
         window.addEventListener('pageshow', upd);
       })();
@@ -97,7 +99,7 @@
     -->
     <div id="intro" aria-hidden="true"><div class="i-card"><img src="/icon-192.png" alt="" /></div><div class="i-flood"></div><img class="i-hippo" src="/img/hippo-line.png" alt="" /></div>
     <style>
-      #intro{position:fixed;left:0;right:0;top:0;bottom:calc(-1 * var(--pwa-gap, 0px));z-index:2147483000;overflow:hidden;background:#fff;pointer-events:none}
+      #intro{position:fixed;left:0;right:0;top:0;height:var(--app-h, 100lvh);z-index:2147483000;overflow:hidden;background:#fff;pointer-events:none}
       html.dark #intro{background:#000}
       #intro.i-done{transition:opacity .28s ease;opacity:0}
       #intro .i-card{position:absolute;left:50%;top:50%;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:26px;overflow:hidden}
