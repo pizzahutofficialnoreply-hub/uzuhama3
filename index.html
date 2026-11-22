@@ -41,10 +41,49 @@
         } catch(e) {}
       })();
     </script>
+    <link rel="preload" as="image" href="/img/hippo-line.png" />
   </head>
   <body>
     <div id="root"><div id="boot-splash" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard',sans-serif"><img src="/icon-192.png" width="84" height="84" alt="" style="width:84px;height:84px;border-radius:22px;box-shadow:0 10px 30px -12px rgba(0,0,0,.35)" /><div class="boot-title" style="margin-top:20px;font-size:17px;font-weight:700;letter-spacing:-0.01em">우주하마 방송 예측</div></div></div>
     <style>#boot-splash{background:#fff}html.dark #boot-splash{background:#000}#boot-splash .boot-title{color:#18181b}html.dark #boot-splash .boot-title{color:#fff}</style>
+    <!-- 시작 애니메이션: 앱 아이콘 → 하마 색으로 화면이 차오르고 → 하마가 커지며(우주하마 인트로처럼) → 앱으로. 한 번 켤 때 한 번만 -->
+    <div id="intro" aria-hidden="true"><div class="i-card"><img src="/icon-192.png" alt="" /></div><div class="i-flood"></div><img class="i-hippo" src="/img/hippo-line.png" alt="" /></div>
+    <style>
+      #intro{position:fixed;inset:0;z-index:2147483000;overflow:hidden;background:#fff;pointer-events:none}
+      #intro.i-done{animation:i-out .45s ease forwards}
+      html.dark #intro{background:#000}
+      #intro .i-card{position:absolute;left:50%;top:50%;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:26px;overflow:hidden;box-shadow:0 12px 34px -14px rgba(0,0,0,.4);animation:i-card .3s ease-out both}
+      #intro .i-card img{width:100%;height:100%;display:block}
+      #intro .i-flood{position:absolute;inset:0;background:#6383b6;clip-path:circle(0 at 50% 50%);animation:i-flood .5s .32s cubic-bezier(.6,0,.3,1) forwards}
+      #intro .i-hippo{position:absolute;left:50%;top:50%;width:56px;height:45px;margin:-22.5px 0 0 -28px;opacity:0;transform-origin:50% 47%;will-change:transform;animation:i-show .12s .34s linear forwards,i-zoom 1s .6s cubic-bezier(.55,0,.85,.3) forwards}
+      @keyframes i-card{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
+      @keyframes i-flood{to{clip-path:circle(150vmax at 50% 50%)}}
+      @keyframes i-show{to{opacity:1}}
+      @keyframes i-zoom{0%{transform:scale(1)}45%{transform:scale(2.4)}75%{transform:scale(6)}100%{transform:scale(48)}}
+      @keyframes i-out{to{opacity:0;visibility:hidden}}
+    </style>
+    <script>
+      (function () {
+        var el = document.getElementById('intro');
+        var skip = false;
+        try {
+          skip = sessionStorage.getItem('uzuhama_intro') === '1' // 같은 실행 안에서 새로 고침하면 다시 안 함
+            || navigator.webdriver === true
+            || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            || /^\/(admin|selftest)/.test(location.pathname);
+          sessionStorage.setItem('uzuhama_intro', '1');
+        } catch (e) {}
+        if (skip) { el.parentNode.removeChild(el); return; }
+        // 하마 얼굴 속으로 들어가 화면이 다 파래지면(1.6초), 앱이 다 불러와졌을 때 걷어 냄 (최대 8초)
+        var start = Date.now();
+        function done() { el.className = 'i-done'; setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 500); }
+        function tick() {
+          var busy = (window.__uzuLoading || 0) > 0 || document.getElementById('boot-splash');
+          if ((!busy && Date.now() - start > 1600) || Date.now() - start > 8000) done(); else setTimeout(tick, 80);
+        }
+        setTimeout(tick, 1600);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     <!-- PWA Service Worker Registration -->
     <script>

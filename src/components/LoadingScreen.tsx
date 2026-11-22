@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { motion } from 'motion/react';
 
 interface LoadingScreenProps {
@@ -12,6 +13,12 @@ interface LoadingScreenProps {
  */
 export function LoadingScreen({ progress = 25, statusText = '불러오는 중', isFirstRun = false }: LoadingScreenProps) {
   const p = Math.max(4, Math.min(100, Math.round(progress)));
+  // 시작 애니메이션(index.html #intro)이 '아직 불러오는 중'인지 알 수 있게
+  useEffect(() => {
+    const w = window as any;
+    w.__uzuLoading = (w.__uzuLoading || 0) + 1;
+    return () => { w.__uzuLoading = Math.max(0, (w.__uzuLoading || 1) - 1); };
+  }, []);
   return (
     <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white dark:bg-black select-none" role="status" aria-live="polite">
       <motion.img
