@@ -142,6 +142,19 @@ export function SettingsView({
     return val === null ? true : val === 'true';
   });
 
+  // 화면 스타일: 기본 / 그림판 (html.skin-paint · index.html 에서 켤 때 먼저 붙임)
+  const [skin, setSkinState] = useState<'base' | 'paint'>(() => { try { return localStorage.getItem('uzuhama_skin') === 'paint' ? 'paint' : 'base'; } catch { return 'base'; } });
+  const setSkin = (k: 'base' | 'paint') => {
+    setSkinState(k);
+    try { if (k === 'paint') localStorage.setItem('uzuhama_skin', 'paint'); else localStorage.removeItem('uzuhama_skin'); } catch { /* */ }
+    const root = document.documentElement;
+    if (k === 'paint' && !document.getElementById('paint-font')) {
+      const l = document.createElement('link'); l.id = 'paint-font'; l.rel = 'stylesheet';
+      l.href = 'https://fonts.googleapis.com/css2?family=Gaegu:wght@300;400;700&display=swap';
+      document.head.appendChild(l);
+    }
+    root.classList.toggle('skin-paint', k === 'paint');
+  };
   const [introOn, setIntroOn] = useState<boolean>(() => { try { return localStorage.getItem('uzuhama_intro_off') !== '1'; } catch { return true; } });
 
   const handleToggleWidgetShare = () => {
@@ -789,6 +802,18 @@ export function SettingsView({
                             블러 적음 · 더 불투명 →
                           </span>
                         </div>
+                      </div>
+                    </div>
+                    <div className="pt-3.5">
+                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">스타일</p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">그림판: 우주하마 그림처럼 손글씨와 손으로 그은 선</p>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {([['base', '기본'], ['paint', '그림판']] as const).map(([k, l]) => (
+                          <button key={k} type="button" onClick={() => setSkin(k)} aria-pressed={skin === k}
+                            className={cn("py-2.5 rounded-2xl border text-sm font-semibold transition-all cursor-pointer",
+                              skin === k ? "border-purple-600 bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 ring-2 ring-purple-600/30" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400")}
+                            style={k === 'paint' ? { fontFamily: "'Gaegu', 'BMHANNAAir', sans-serif" } : undefined}>{l}</button>
+                        ))}
                       </div>
                     </div>
                     <div className="flex items-center justify-between pt-3.5">

@@ -727,3 +727,85 @@ html.pwa-gap .fixed.inset-0 { bottom: calc(-1 * var(--pwa-gap, 0px)); }
 @media (orientation: landscape) and (max-height: 32.4rem) {
   #root { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   그림판 스타일 (설정 › 화면 설정 › 스타일 › 그림판) — html.skin-paint
+   우주하마 그림판 그림처럼: 흰 캔버스 · 마우스로 그은 까만 선 · 하마 파랑 단색 · 개구체 손글씨
+   읽기 쉽게: 손글씨는 글자가 작아 보여 font-size-adjust 로 키우고(자리는 그대로), 긴 숫자는 고른 폭
+   어두운 화면: 까만 칠판에 분필처럼 — 순수한 흰 선 대신 살짝 누런 회백색 선, 바탕은 푸른 기 도는 먹색
+   ───────────────────────────────────────────────────────────── */
+html.skin-paint {
+  --paint-ink: #1f2026;
+  --paint-line: #1f2026;
+  --paint-paper: #ffffff;
+  --paint-card: #ffffff;
+  --paint-pale: #e6edf7;
+  /* 보라 강조색 → 하마 파랑 (사이트 전체의 purple-* 가 이 값을 씀) */
+  --color-purple-50: #eef3fa;
+  --color-purple-100: #e0e8f5;
+  --color-purple-200: #c5d4ec;
+  --color-purple-300: #a6bce0;
+  --color-purple-400: #86a3d2;
+  --color-purple-500: #6f8fc0;
+  --color-purple-600: #6383b6;
+  --color-purple-700: #4f6da0;
+  --color-purple-800: #3f5884;
+  --color-purple-900: #2f4266;
+  --color-purple-950: #1f2c45;
+}
+html.skin-paint.dark {
+  --paint-ink: #e9e6dc;          /* 분필 색 (순수한 흰색 아님) */
+  --paint-line: rgba(233, 230, 220, 0.62);
+  --paint-paper: #15171c;
+  --paint-card: #1d2027;
+  --paint-pale: #232a38;
+  --color-zinc-950: #111318;
+  --color-zinc-900: #1d2027;
+  --color-zinc-800: #2a2e37;
+  --color-zinc-700: #3a3f4b;
+  --color-purple-300: #b3c6e6;
+  --color-purple-400: #9bb3dc;
+  --color-purple-500: #839fd0;
+  --color-purple-950: #1c2536;
+}
+html.skin-paint, html.skin-paint body { background-color: var(--paint-paper); }
+html.skin-paint.dark, html.skin-paint.dark body { background-color: var(--paint-paper); color: #ece9e1; }
+
+/* 글씨: 개구체 · 손글씨는 작아 보여서 같은 자리에서 글자만 키움 */
+html.skin-paint body,
+html.skin-paint *:not(code):not(pre):not(kbd):not(.font-mono),
+html.skin-paint input::placeholder,
+html.skin-paint textarea::placeholder {
+  font-family: 'Gaegu', 'BMHANNAAir', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important;
+  font-size-adjust: 0.53;
+  letter-spacing: -0.01em;
+}
+html.skin-paint :where(.font-mono, code, pre, kbd) { font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important; font-size-adjust: none; }
+/* 숫자가 줄 맞춰 나오는 곳은 고른 폭 */
+html.skin-paint .tabular-nums { font-variant-numeric: tabular-nums; }
+/* 아주 작은 글씨는 손글씨로 읽기 어려워서 조금 더 크게 */
+html.skin-paint :where(.text-\[10px\], .text-\[10\.5px\], .text-\[11px\]) { font-size-adjust: 0.6; }
+
+/* 카드: 그림자 대신 손으로 그은 까만 테두리 + 살짝 찌그러진 모서리 */
+html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100) {
+  border-color: var(--paint-line) !important;
+  border-width: 1.8px;
+  box-shadow: none !important;
+  border-radius: 22px 26px 20px 24px / 24px 20px 26px 22px;
+}
+html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100):is(.rounded-xl, .rounded-lg) {
+  border-radius: 13px 16px 12px 15px / 15px 12px 16px 13px;
+}
+html.skin-paint.dark :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100) { background-color: var(--paint-card) !important; }
+/* 동그란 칩·알약 버튼도 선을 또렷하게 */
+html.skin-paint :where(button, a).rounded-full:is(.border, [class*="border-"]) { border-color: var(--paint-line) !important; }
+
+/* 아래 탭바: 유리 효과 대신 흰 종이 + 까만 선 */
+html.skin-paint #floating-bottom-dock :where(.rounded-full)[style*="backdrop"],
+html.skin-paint #floating-bottom-dock > div > div[class*="rounded-full"] {
+  border: 1.8px solid var(--paint-line) !important;
+}
+/* 바탕: 회색 대신 그림판 흰 캔버스 / 어두운 화면은 먹색 (까만 0 대신) */
+html.skin-paint .bg-\[\#f2f2f7\] { background-color: var(--paint-paper) !important; }
+html.skin-paint.dark .dark\:bg-black { background-color: var(--paint-paper) !important; }
+html.skin-paint header.sticky { background-color: color-mix(in srgb, var(--paint-paper) 85%, transparent) !important; border-bottom: 1.8px solid var(--paint-line) !important; }

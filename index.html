@@ -31,6 +31,12 @@
     <script>
       (function() {
         try {
+          // 화면 스타일 (기본 / 그림판): 그림판이면 손글씨 글꼴을 먼저 불러오고 표시를 붙임 (앱이 뜨기 전에 → 깜빡임 없음)
+          if (localStorage.getItem('uzuhama_skin') === 'paint') {
+            document.documentElement.classList.add('skin-paint');
+            var fl = document.createElement('link'); fl.rel = 'stylesheet'; fl.href = 'https://fonts.googleapis.com/css2?family=Gaegu:wght@300;400;700&display=swap';
+            document.head.appendChild(fl);
+          }
           var mode = localStorage.getItem('uzuhama_theme_mode') || 'system';
           var isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           if (isDark) {
