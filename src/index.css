@@ -709,3 +709,6 @@ html:not(.dark) .ea-spark path { fill: #c9b8ff; }
 @keyframes flip-fold { from { transform: rotateX(0deg); } to { transform: rotateX(-90deg); } }
 @keyframes flip-land { from { transform: rotateX(90deg); } to { transform: rotateX(0deg); } }
 @media (prefers-reduced-motion: reduce) { .flip-fold, .flip-land { animation-duration: 0.01s; animation-delay: 0s; } }
+
+/* 아이폰 홈 화면 앱 창 높이 버그 보정 (index.html 의 --pwa-gap 설명 참고): 화면을 덮는 요소를 실제 화면 끝까지 */
+html.pwa-gap .fixed.inset-0 { bottom: calc(-1 * var(--pwa-gap, 0px)); }
