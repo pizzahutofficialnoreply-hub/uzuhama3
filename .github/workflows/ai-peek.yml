@@ -4,7 +4,9 @@ jobs:
   peek:
     runs-on: ubuntu-latest
     steps:
-      - run: |
+      - env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}
+        run: |
           npm i firebase-admin@12 >/dev/null 2>&1
           cat > r.cjs <<'J'
           const admin = require('firebase-admin');
@@ -19,4 +21,4 @@ jobs:
             console.log('NL', JSON.stringify((sys.noticeList || []).filter(n => String(n.id||'').startsWith('auto')).map(n => ({ id: n.id, title: n.title, links: n.links }))));
           })();
           J
-          SA='${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}' node r.cjs
+          echo len ${#SA}; node r.cjs
