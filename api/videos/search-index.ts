@@ -269,7 +269,8 @@ export default async function handler(req: any, res: any) {
         const scheduled = Boolean(req.query?.src);
         // 정해 둔 점검 시각(한국 11/22 17:00)까지는 AI 작업도 쉼 (src/utils/plannedPause.ts 와 같은 시각)
         if (Date.now() < Date.parse('2026-11-22T08:00:00Z')) return res.status(200).json({ skipped: '점검 중 (서버 사용량 절약)' });
-        if (scheduled && chain === 0 && new Date().getUTCMinutes() % 30 >= 2) return res.status(200).json({ skipped: '30분마다 한 번만 (서버 사용량 절약)' });
+        // 정기 실행은 1시간에 한 번 (한 번 돌 때 DB 를 200번 넘게 읽어서, 30분마다면 하루 1만 번 넘음)
+        if (scheduled && chain === 0 && new Date().getUTCMinutes() >= 2) return res.status(200).json({ skipped: '1시간마다 한 번만 (DB·서버 사용량 절약)' });
         const out: any = await ai.runAiVideoLoop(db, 60000, { kind });
         // (예전엔 쉬는 중에도 계속 이어 달려서, 정기 실행 4분마다 + 이어 달리기가 겹쳐 DB 를 계속 읽었음 → 쉬는 중이면 다음 정기 실행에 맡김)
         const lastStep = out.steps?.[out.steps.length - 1] || {};

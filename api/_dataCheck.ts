@@ -423,6 +423,12 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
 
   // ── 2) 게임 이름: 제목·설명란·AI가 본 게임에 방송 기록의 게임이 하나도 없으면 AI에게 물어봄 ──
   const suspects: { l: any; vid: string; title: string; desc: string; aiGames: string[] }[] = [];
+  // 예전에 'AI가 본 게임과 맞음'으로 확인된 영상(영상+게임 이름이 그대로면)은 AI 결과를 다시 읽지 않음
+  //  (매일 영상마다 ai_video 문서를 읽느라 하루 3천 번 넘게 읽던 것)
+  const seenRef = db.collection('admin_data').doc('dataCheck_seen');
+  let seenKeys = new Set<string>();
+  try { const k = (await seenRef.get()).data()?.keys; if (Array.isArray(k)) seenKeys = new Set(k); } catch { /* */ }
+  const seenNew: string[] = [];
   for (const [vid, l] of vidToLog) {
     const names: string[] = (l.games?.length ? l.games.map((g: any) => g.name) : [l.game]).filter(Boolean);
     if (!names.length) continue;
@@ -432,11 +438,15 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
     const text = `${sn.title} ${sn.description || ''}`;
     // 제목·설명란에 이미 있으면 AI 결과는 안 읽음 (DB 읽기 아낌)
     if (names.some((n) => looseMatch(text, n))) continue;
+    const key = `${vid}|${names.join(',')}`;
+    if (seenKeys.has(key)) { seenNew.push(key); continue; }
     const ai = (await db.collection('ai_video').doc(vid).get().catch(() => null))?.data?.();
     const aiGames: string[] = (ai?.status === 'done' ? ai.games || [] : []).flatMap((g: any) => [g.name, g.ko]).filter(Boolean);
     const seen = aiGames.some((a) => names.some((n) => looseMatch(a, n)));
     if (!seen) suspects.push({ l, vid, title: sn.title, desc: String(sn.description || '').slice(0, 500), aiGames });
+    else seenNew.push(key);
   }
+  try { await seenRef.set({ keys: seenNew.slice(0, 20000), at: new Date().toISOString() }); } catch { /* */ }
   const aiLimit = opts.aiLimit ?? 40;
   for (let i = 0; i < Math.min(suspects.length, aiLimit) && Date.now() - t0 < 200000; i += 10) {
     const batch = suspects.slice(i, Math.min(i + 10, aiLimit));
