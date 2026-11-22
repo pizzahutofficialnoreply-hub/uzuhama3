@@ -267,6 +267,8 @@ export default async function handler(req: any, res: any) {
         // Vercel 무료 요금제는 함수가 '돌고 있는 시간 × 2GB'(Provisioned Memory)로 한 달 360GB·시간까지라,
         // 정기 실행(src 붙은 호출)은 30분에 한 번만 · 한 번에 60초까지만 (예전엔 2분마다 150초 + 이어 달리기로 거의 하루 종일 돌았음)
         const scheduled = Boolean(req.query?.src);
+        // 정해 둔 점검 시각(한국 11/22 17:00)까지는 AI 작업도 쉼 (src/utils/plannedPause.ts 와 같은 시각)
+        if (Date.now() < Date.parse('2026-11-22T08:00:00Z')) return res.status(200).json({ skipped: '점검 중 (서버 사용량 절약)' });
         if (scheduled && chain === 0 && new Date().getUTCMinutes() % 30 >= 2) return res.status(200).json({ skipped: '30분마다 한 번만 (서버 사용량 절약)' });
         const out: any = await ai.runAiVideoLoop(db, 60000, { kind });
         // (예전엔 쉬는 중에도 계속 이어 달려서, 정기 실행 4분마다 + 이어 달리기가 겹쳐 DB 를 계속 읽었음 → 쉬는 중이면 다음 정기 실행에 맡김)

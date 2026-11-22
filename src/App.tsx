@@ -77,6 +77,7 @@ import { MaintenancePager } from './components/MaintenancePager';
 import { NICE_MD } from './components/common/NiceMarkdown';
 import { useTestMode, withTestLog } from './utils/testMode';
 import { useDbDown, nextQuotaReset } from './utils/dbHealth';
+import { PLANNED_PAUSE_UNTIL, plannedPauseOn } from './utils/plannedPause';
 import { TestModeBar } from './components/TestModeBar';
 import { ServiceGateScreen, serviceGateOf, cachedGate, rememberGate } from './components/ServiceGate';
 import { SELFTEST_FLAG } from './selftest/flag';
@@ -1621,13 +1622,24 @@ function MainApp() {
   );
 }
 
+/** 정해 둔 점검 시각 동안은 앱(데이터 불러오기·서버 호출)을 아예 띄우지 않고 점검 화면만 */
+function MainOrPause() {
+  const [now, setNow] = useState(Date.now());
+  const bypass = (typeof navigator !== 'undefined' && (navigator as any).webdriver === true)
+    || (() => { try { return Number(localStorage.getItem(SELFTEST_FLAG) || 0) > Date.now(); } catch { return false; } })();
+  if (!bypass && plannedPauseOn(now)) {
+    return <ServiceGateScreen mode="dbcheck" system={{ launchAt: new Date(PLANNED_PAUSE_UNTIL).toISOString() }} onOpen={() => setNow(Date.now())} />;
+  }
+  return <MainApp />;
+}
+
 export default function App() {
   return (
     <Suspense fallback={<LoadingScreen progress={60} statusText="불러오는 중" />}>
       {/* 토스트·확인 시트 (모든 화면 공통) */}
       <UiHost />
       <Routes>
-        <Route path="/" element={<MainApp />} />
+        <Route path="/" element={<MainOrPause />} />
         <Route path="/admin" element={<AdminRoute />} />
         <Route path="/patch" element={<PatchNotesPage />} />
         <Route path="/patch/:version" element={<PatchNotesPage />} />
