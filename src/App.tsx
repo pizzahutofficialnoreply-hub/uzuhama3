@@ -78,6 +78,7 @@ import { NICE_MD } from './components/common/NiceMarkdown';
 import { useTestMode, withTestLog } from './utils/testMode';
 import { useDbDown, nextQuotaReset } from './utils/dbHealth';
 import { PLANNED_PAUSE_UNTIL, plannedPauseOn } from './utils/plannedPause';
+import { openWithIntro } from './utils/openWithIntro';
 import { MaintenanceScreen, autoDbMaintenance } from './components/MaintenanceScreen';
 import { TestModeBar } from './components/TestModeBar';
 import { ServiceGateScreen, serviceGateOf, cachedGate, rememberGate } from './components/ServiceGate';
@@ -875,12 +876,12 @@ function MainApp() {
   const gateBypass = (typeof navigator !== 'undefined' && (navigator as any).webdriver === true)
     || (() => { try { return Number(localStorage.getItem(SELFTEST_FLAG) || 0) > Date.now(); } catch { return false; } })();
   // DB 하루 한도가 다 차면 자동 점검 화면 (한도가 초기화되면 저절로 열림 · 관리자 페이지는 그대로)
-  if (dbDown && !gateBypass) { const sys = autoDbMaintenance(Date.now(), nextQuotaReset()); return <MaintenanceScreen system={sys} maintSystem={sys} onEnd={() => window.location.reload()} />; }
+  if (dbDown && !gateBypass) { const sys = autoDbMaintenance(Date.now(), nextQuotaReset()); return <MaintenanceScreen system={sys} maintSystem={sys} onEnd={openWithIntro} />; }
   // 서버 설정을 받기 전: 지난번에 막혀 있었으면 앱 화면 대신 그 화면부터 (점검이면 빈 화면으로 가림)
   if (!gateBypass && (loading || !systemFresh)) {
     const gc = cachedGate();
     const gm = gc ? serviceGateOf(gc, nowTime) : null;
-    if (gm) return <ServiceGateScreen mode={gm} system={gc} />;
+    if (gm) return <ServiceGateScreen mode={gm} system={gc} onOpen={openWithIntro} />;
     if (gc?.maintenance) return <div className="fixed inset-0 bg-zinc-50 dark:bg-black" aria-busy="true" />;
   }
   // 저장해 둔 옛 설정으로 앱을 먼저 띄우지 않음 (점검·중지가 뒤늦게 덮이던 문제) · 서버 설정은 보통 1초 안에 옴
@@ -913,8 +914,8 @@ function MainApp() {
   // 서버 설정에 단계가 적혀 있으면 그것, 아니면(못 받았을 때) 지난번에 기억한 것
   const gateSys = systemLive || data.system?.serviceMode ? data.system : (cachedGate() || data.system);
   const gateMode = serviceGateOf(gateSys, nowTime);
-  if (gateMode && !automationBypass) return <ServiceGateScreen mode={gateMode} system={gateSys} onOpen={() => setNowTime(Date.now())} />;
-  if (maintenanceStatus.isInProgress && !automationBypass) return <MaintenanceScreen system={data.system} maintSystem={maintSystem} />;
+  if (gateMode && !automationBypass) return <ServiceGateScreen mode={gateMode} system={gateSys} onOpen={openWithIntro} />;
+  if (maintenanceStatus.isInProgress && !automationBypass) return <MaintenanceScreen system={data.system} maintSystem={maintSystem} onEnd={openWithIntro} />;
 
   return (
     <div className="min-h-[100dvh] min-h-screen bg-[#f2f2f7] dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans selection:bg-purple-500/30 flex flex-col overflow-x-clip w-full">
@@ -1459,7 +1460,7 @@ function MainOrPause() {
     || (() => { try { return Number(localStorage.getItem(SELFTEST_FLAG) || 0) > Date.now(); } catch { return false; } })();
   if (!bypass && plannedPauseOn(now)) {
     const sys = autoDbMaintenance(Date.parse('2026-11-22T01:50:00Z'), PLANNED_PAUSE_UNTIL);
-    return <MaintenanceScreen system={sys} maintSystem={sys} onEnd={() => setNow(Date.now())} />;
+    return <MaintenanceScreen system={sys} maintSystem={sys} onEnd={openWithIntro} />;
   }
   return <MainApp />;
 }

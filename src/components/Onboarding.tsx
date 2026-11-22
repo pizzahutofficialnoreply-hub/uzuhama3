@@ -298,14 +298,15 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
                 step.type === 'terms' || step.type === 'keyboard' ? 'h-[22vh] min-h-[150px] pt-2' : 'h-[34vh] min-h-[210px] pt-4',
                 step.type === 'keyboard' && 'max-md:hidden',
                 step.type === 'setup' && 'hidden md:flex',
-                ((step.type === 'terms' || step.type === 'notice') && expanded || step.type === 'intro') && 'max-md:hidden'
+                (step.type === 'terms' || step.type === 'notice') && expanded && 'max-md:hidden',
+                step.type === 'intro' && 'hidden'
               )}>
                 <OnboardingArt type={step.type} image={step.image} keyboard={keyboard} />
               </div>
             <div className={cn('w-full md:flex-1', step.type === 'welcome' ? 'text-center md:text-left' : '', 'pt-4 md:pt-0')}>
               <h2 className={cn('font-black tracking-tight break-keep', step.type === 'welcome' ? 'text-4xl sm:text-5xl' : 'text-2xl sm:text-3xl')}>{step.title}</h2>
-              {/* 이렇게 쓰면 돼요: 할 수 있는 것을 카드로 (런칭 준비 화면 소개와 같은 내용) */}
-              {step.type === 'intro' && <div className="mt-4"><FeatureGrid dense /></div>}
+              {/* 이렇게 쓰면 돼요: 핵심 기능 네 가지를 움직이는 카드로 (런칭 준비 화면 소개와 같은 내용) */}
+              {step.type === 'intro' && <div className="mt-4 md:max-w-xl"><FeatureGrid dense /></div>}
               {step.body && step.type !== 'intro' && (
                 <div className={cn('mt-3 text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-300 break-keep prose-sm [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mt-2 [&_p]:mt-2 [&_strong]:text-zinc-900 dark:[&_strong]:text-white', step.type === 'welcome' && 'whitespace-pre-line')}>
                   {step.type === 'welcome' ? step.body : <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{fillPlaceholders(step.body, system)}</Markdown>}

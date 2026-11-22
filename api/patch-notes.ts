@@ -395,7 +395,7 @@ async function maybeHotfix(db: any, notes: Note[]) {
     : list.filter((c) => Date.now() - Date.parse(c.commit?.author?.date || '') < 24 * 3600000);
   const msgs = fresh
     .map((c) => ({ subject: String(c.commit?.message || '').split('\n')[0].trim(), at: Date.parse(c.commit?.author?.date || c.commit?.committer?.date || '') }))
-    .filter((c) => c.subject && !/^(tmp|임시|wip|merge)\b|임시 확인|^Merge /i.test(c.subject));
+    .filter((c) => c.subject && !/^(tmp|임시|wip|merge)\b|임시 확인|임시 점검|^Merge |\[노트 제외\]|그림판 스타일|화면 스타일 '그림판'/i.test(c.subject));
   if (!msgs.length) { if (idx !== 0) await ref.set({ autoHotfix: { ...st, lastSha: head } }, { merge: true }); return; }
   const newest = Math.max(...msgs.map((m) => m.at || 0));
   if (Date.now() - newest < 20 * 60000) return; // 아직 수정 중일 수 있음

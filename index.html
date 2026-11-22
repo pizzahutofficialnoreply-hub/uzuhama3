@@ -31,10 +31,7 @@
     <script>
       (function() {
         try {
-          // 화면 스타일 (기본 / 그림판): 앱이 뜨기 전에 표시를 붙임 (깜빡임 없음)
-          if (localStorage.getItem('uzuhama_skin') === 'paint') {
-            document.documentElement.classList.add('skin-paint');
-          }
+          try { localStorage.removeItem('uzuhama_skin'); } catch (e) {} // 없앤 '그림판' 스타일 설정 정리
           var mode = localStorage.getItem('uzuhama_theme_mode') || 'system';
           var isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           if (isDark) {
@@ -92,8 +89,6 @@
     </script>
   </head>
   <body>
-    <!-- 그림판 스타일용: 선을 마우스로 그은 것처럼 살짝 흔듦 (index.css 의 html.skin-paint) -->
-    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="paint-wob"><feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="7"/><feDisplacementMap in="SourceGraphic" scale="2.6"/></filter></svg>
     <div id="root"><div id="boot-splash" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard',sans-serif"><img src="/icon-192.png" width="84" height="84" alt="" style="width:84px;height:84px;border-radius:22px;box-shadow:0 10px 30px -12px rgba(0,0,0,.35)" /><div class="boot-title" style="margin-top:20px;font-size:17px;font-weight:700;letter-spacing:-0.01em">우주하마 방송 예측</div></div></div>
     <style>#boot-splash{background:#fff}html.dark #boot-splash{background:#000}#boot-splash .boot-title{color:#18181b}html.dark #boot-splash .boot-title{color:#fff}</style>
     <!--
@@ -109,7 +104,7 @@
       #intro{position:fixed;left:0;right:0;top:0;height:var(--app-h, 100lvh);z-index:2147483000;background:#fff;pointer-events:none}
       /* 화면 높이를 잘못 알려 줘도 아래가 비지 않게 바탕을 아래로 넉넉히 더 칠함 (가운데 자리는 그대로) */
       /* 시작 화면이 도는 동안엔 아래 탭바를 아예 숨김 (화면이 펴지는 순간 아래로 비치지 않게) */
-      html.intro-on #floating-bottom-dock{visibility:hidden!important}
+      html.intro-on #floating-bottom-dock, html.app-away #floating-bottom-dock{visibility:hidden!important}
       #intro::after{content:'';position:absolute;left:0;right:0;top:100%;height:400px;background:inherit}
       html.dark #intro{background:#000}
       #intro.i-done{transition:opacity .28s ease;opacity:0}
@@ -132,6 +127,11 @@
             || !el.animate;
           sessionStorage.setItem('uzuhama_intro', '1');
         } catch (e) {}
+        // 아이폰은 앱을 다시 켤 때 화면이 다 펴지기 전까지 '나갈 때 찍어 둔 화면'을 잠깐 보여 줌 → 그 사진에 탭바가 찍혀 있으면 아래로 비침
+        // 그래서 앱을 벗어날 때 탭바를 숨겨 두고(그 상태로 찍히게), 돌아오면 다시 보이게
+        document.addEventListener('visibilitychange', function () { document.documentElement.classList.toggle('app-away', document.visibilityState === 'hidden'); });
+        window.addEventListener('pagehide', function () { document.documentElement.classList.add('app-away'); });
+        window.addEventListener('pageshow', function () { document.documentElement.classList.remove('app-away'); });
         if (skip) { el.parentNode.removeChild(el); return; }
         document.documentElement.classList.add('intro-on');
         var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -180,7 +180,7 @@
         function tryBegin() { if (grown && Date.now() - t0 >= HOLD) begin(); }
         if (waitFull) {
           var h0 = window.innerHeight;
-          var onRs = function () { if (window.innerHeight !== h0) { grown = true; setTimeout(tryBegin, 60); } };
+          var onRs = function () { if (window.innerHeight !== h0) { grown = true; setTimeout(tryBegin, 160); } }; // 펴진 뒤 화면이 자리 잡을 틈을 조금 줌 (바로 시작하면 하마가 나올 때 끊김)
           window.addEventListener('resize', onRs);
           if (window.visualViewport) visualViewport.addEventListener('resize', onRs);
           setTimeout(function () { grown = true; tryBegin(); }, MAXWAIT);
