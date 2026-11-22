@@ -48,7 +48,7 @@
     <style>#boot-splash{background:#fff}html.dark #boot-splash{background:#000}#boot-splash .boot-title{color:#18181b}html.dark #boot-splash .boot-title{color:#fff}</style>
     <!--
       시작 애니메이션 (우주하마 인트로 영상을 60fps 로 한 장씩 재서 맞춤)
-       · 0초부터: 앱 아이콘 가운데에서 파란 바탕(#6383b6)이 일정한 속도로 퍼져 화면을 채움 (0.35초)
+       · 앱 아이콘을 0.35초 보여 준 뒤: 아이콘 가운데에서 파란 바탕(#6383b6)이 일정한 속도로 퍼져 화면을 채움 (0.35초)
        · 동시에 하마(윤곽선만)가 화면 가운데에서 일정한 속도로 커짐 (1.3초, 화면 너비의 66%까지) — 영상: 1.3초 동안 2.6배, 프레임마다 같은 만큼
        · 그다음 얼굴 속으로 빠르게 확대 (0.32초, 24배) — 영상: 이 구간만 확 빨라지며 이빨 위쪽으로 빨려 들어감
        · 화면이 다 파래지면 앱이 다 불러와졌을 때 걷힘
@@ -84,15 +84,19 @@
         if (standalone && window.screen) { H = Math.max(H, W > H ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height)); el.style.height = H + 'px'; }
         var flood = el.querySelector('.i-flood'), hippo = el.querySelector('.i-hippo');
         var R = Math.ceil(Math.sqrt(W * W + H * H) / 2) + 2;
-        flood.animate([{ clipPath: 'circle(0px at 50% 50%)' }, { clipPath: 'circle(' + R + 'px at 50% 50%)' }], { duration: 350, easing: 'linear', fill: 'forwards' });
+        // 아이콘을 잠깐(0.35초) 그대로 보여 준 뒤, 아이콘 속 하마 크기·자리 그대로에서 출발
+        var HOLD = 350;
+        hippo.style.opacity = '0';
+        flood.animate([{ clipPath: 'circle(0px at 50% 50%)' }, { clipPath: 'circle(' + R + 'px at 50% 50%)' }], { duration: 350, delay: HOLD, easing: 'linear', fill: 'forwards' });
+        setTimeout(function () { hippo.style.opacity = '1'; }, HOLD);
         var s1 = Math.min(W * 0.66, 360) / 56;
         var A = 1300, B = 320;
         hippo.animate([
           { transform: 'scale(1)', offset: 0, easing: 'linear' },
           { transform: 'scale(' + s1 + ')', offset: A / (A + B), easing: 'cubic-bezier(.35,0,.9,.6)' },
           { transform: 'scale(' + (s1 * 24) + ')', offset: 1 }
-        ], { duration: A + B, fill: 'forwards' });
-        var start = Date.now(), T = A + B;
+        ], { duration: A + B, delay: HOLD, fill: 'forwards' });
+        var start = Date.now(), T = HOLD + A + B;
         function done() { el.className = 'i-done'; setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 320); }
         function tick() {
           var busy = (window.__uzuLoading || 0) > 0 || document.getElementById('boot-splash');
