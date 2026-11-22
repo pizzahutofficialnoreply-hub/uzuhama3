@@ -84,7 +84,7 @@
     -->
     <div id="intro" aria-hidden="true"><div class="i-card"><img src="/icon-192.png" alt="" /></div><div class="i-flood"></div><img class="i-hippo" src="/img/hippo-line.png" alt="" /></div>
     <style>
-      #intro{position:fixed;left:0;right:0;top:0;height:100lvh;z-index:2147483000;overflow:hidden;background:#fff;pointer-events:none}
+      #intro{position:fixed;left:0;right:0;top:0;bottom:calc(-1 * var(--pwa-gap, 0px));z-index:2147483000;overflow:hidden;background:#fff;pointer-events:none}
       html.dark #intro{background:#000}
       #intro.i-done{transition:opacity .28s ease;opacity:0}
       #intro .i-card{position:absolute;left:50%;top:50%;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:26px;overflow:hidden}
@@ -106,19 +106,21 @@
           sessionStorage.setItem('uzuhama_intro', '1');
         } catch (e) {}
         if (skip) { el.parentNode.removeChild(el); return; }
-        // 홈 화면 앱(아이폰)은 막 켰을 때 창 높이가 짧게 잡혔다가 바뀌어 가운데가 튀므로, 기기 화면 높이로 고정
-        var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+        // 높이: 아이폰 홈 화면 앱은 창 높이가 짧게 잡히는 버그가 있어 head 의 --pwa-gap 만큼 아래로 늘림 (CSS) → 늘 기기 화면 전체
         var W = window.innerWidth, H = Math.max(window.innerHeight, document.documentElement.clientHeight || 0);
-        if (standalone && window.screen) { H = Math.max(H, W > H ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height)); el.style.height = H + 'px'; }
         var flood = el.querySelector('.i-flood'), hippo = el.querySelector('.i-hippo');
-        var R = Math.ceil(Math.sqrt(W * W + H * H) / 2) + 2;
+        // 원 크기: 창 높이가 나중에 바뀌어도 모자라지 않게 기기 화면 크기 기준으로 넉넉히
+        var SW = Math.max(W, window.screen ? screen.width : 0, window.screen ? screen.height : 0);
+        var R = Math.ceil(Math.sqrt(SW * SW + SW * SW) / 2) + 4;
         // 아이콘을 잠깐(0.35초) 그대로 보여 준 뒤, 아이콘 속 하마 크기·자리 그대로에서 출발
         var HOLD = 350;
         hippo.style.opacity = '0';
         // 파란 원: 모양 자르기(clip-path)는 앱을 불러오는 동안 화면 그리기가 밀려 끊겨서, 동그라미를 키우는 방식(transform)으로 → 따로 매끄럽게 돎
         flood.style.width = flood.style.height = (2 * R) + 'px';
         flood.style.margin = (-R) + 'px 0 0 ' + (-R) + 'px';
-        flood.animate([{ transform: 'scale(0)' }, { transform: 'scale(1)' }], { duration: 350, delay: HOLD, easing: 'linear', fill: 'forwards' });
+        var fa = flood.animate([{ transform: 'scale(0)' }, { transform: 'scale(1)' }], { duration: 350, delay: HOLD, easing: 'linear', fill: 'forwards' });
+        // 다 퍼지면 바탕 자체를 파랗게 (그 뒤로 화면 크기가 바뀌어도 빈틈 없게)
+        if (fa && fa.finished) fa.finished.then(function () { el.style.background = '#6383b6'; }).catch(function () {});
         setTimeout(function () { hippo.style.opacity = '1'; }, HOLD);
         var s1 = Math.min(W * 0.66, 360) / 56;
         var A = 1300, B = 320;
