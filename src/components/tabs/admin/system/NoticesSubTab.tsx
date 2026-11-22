@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SystemConfig, NoticeItem, NoticeLink } from '../../../../types';
-import { Plus, Edit2, Trash2, Check, X, Link as LinkIcon, ExternalLink, Bell, Eye, BookOpen, RotateCcw, ChevronUp, ChevronDown, GripVertical } from 'lucide-react';
+import { Plus, Edit2, Trash2, Check, X, Link as LinkIcon, ExternalLink, Bell, Eye, BookOpen, RotateCcw, ChevronUp, ChevronDown, GripVertical, Pin } from 'lucide-react';
 import { format } from 'date-fns';
 import { RichTextEditor } from '../../../common/RichTextEditor';
 
@@ -160,6 +160,12 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
     if (editingNoticeId === id) {
       handleCancelEditNotice();
     }
+  };
+
+  // 고정: 띠 공지·공지 목록에서 무엇이 있든 맨 앞, 분홍빛으로 따로 보임 (여러 개 고정하면 목록 순서대로 앞에)
+  const handleTogglePin = (id: string) => {
+    const currentList = systemEdit.noticeList || [];
+    handleChange('noticeList', currentList.map(n => n.id === id ? { ...n, pinned: !n.pinned } : n));
   };
 
   const handleToggleNotice = (id: string) => {
@@ -526,6 +532,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
                     }`}>
                       {(notice.dismissMode || 'session') === 'session' ? '영구 표시' : '일회성'}
                     </span>
+                    {notice.pinned && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300">📌 고정</span>}
                     <h4 className="font-bold text-xs text-zinc-900 dark:text-white truncate">{notice.title}</h4>
                     <span className="text-[11px] text-zinc-400">{notice.date}</span>
                   </div>
@@ -550,6 +557,15 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePin(notice.id)}
+                    title={notice.pinned ? '고정 풀기' : '맨 앞에 고정'}
+                    aria-pressed={Boolean(notice.pinned)}
+                    className={`p-1.5 rounded-lg cursor-pointer ${notice.pinned ? 'text-rose-600 bg-rose-50 dark:bg-rose-950/40' : 'text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40'}`}
+                  >
+                    <Pin className={`w-3.5 h-3.5 ${notice.pinned ? 'fill-current' : ''}`} />
+                  </button>
                   <button 
                     type="button"
                     onClick={() => handleStartEditNotice(notice)} 

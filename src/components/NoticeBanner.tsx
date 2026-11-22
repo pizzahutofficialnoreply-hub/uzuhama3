@@ -1,6 +1,6 @@
 import { toInternal } from '../utils/internalLink';
 import React, { useState, useEffect, useRef } from 'react';
-import { ExternalLink, X, Info, AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ExternalLink, X, Info, AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, Pin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NiceMarkdown } from './common/NiceMarkdown';
 import { NoticeItem, NoticeLink } from '../types';
@@ -9,7 +9,7 @@ import { cn } from '../utils';
 import { plainText } from './common/RichTextRenderer';
 import { MarqueeText } from './common/MarqueeText';
 
-export type BannerColorTheme = 'default' | 'yellow' | 'green';
+export type BannerColorTheme = 'default' | 'yellow' | 'green' | 'pinned';
 
 export interface BannerDisplayItem {
   id: string;
@@ -137,8 +137,10 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
     return !sessionDismissedIds.includes(n.id);
   });
 
+  // 고정한 공지는 무엇이 있든 맨 앞 (점검 안내보다도 앞), 색도 따로
+  const pinnedItems: typeof displayItems = [];
   activeRegularNotices.forEach(n => {
-    displayItems.push({
+    (n.pinned ? pinnedItems : displayItems).push({
       id: n.id,
       type: 'notice',
       title: plainText(n.title) || '공지사항',
@@ -146,12 +148,13 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
       links: (n.links && n.links.length > 0)
         ? n.links
         : (n.linkUrl ? [{ url: n.linkUrl, title: n.linkText || '자세히 보기' }] : []),
-      color: 'default',
+      color: n.pinned ? 'pinned' : 'default',
       badgeText: (n.prefix || '').trim() || basePrefix,
       dismissable: true,
       dismissMode: n.dismissMode || systemDismissMode
     });
   });
+  displayItems.unshift(...pinnedItems);
 
   // (4) fallback 단문 공지
   if (displayItems.length === 0 && fallbackContent && !sessionDismissedIds.includes('fallback-notice')) {
@@ -313,6 +316,21 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
         arrowBtn: 'text-emerald-800/80 dark:text-emerald-200/80 hover:text-emerald-950 dark:hover:text-white hover:bg-emerald-500/20',
         closeBtn: 'text-emerald-700/80 hover:text-emerald-950 dark:text-emerald-300/80 dark:hover:text-white hover:bg-emerald-500/20',
         borderDivider: 'border-emerald-500/30 dark:border-emerald-400/30'
+      };
+    }
+    if (color === 'pinned') {
+      // 고정 공지: 분홍빛 (다른 공지와 한눈에 구분)
+      return {
+        wrapperBorder: 'border-rose-400/60 dark:border-rose-400/50',
+        wrapperBg: 'bg-rose-500/10 dark:bg-rose-500/15',
+        text: 'text-rose-950 dark:text-rose-100',
+        badge: 'text-rose-600 dark:text-rose-300',
+        iconBg: 'bg-rose-500/15 text-rose-600 dark:text-rose-300',
+        icon: <Pin className="w-3.5 h-3.5" />,
+        linkBtn: 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-200',
+        arrowBtn: 'text-rose-700/80 dark:text-rose-200/80 hover:text-rose-950 dark:hover:text-white hover:bg-rose-500/15',
+        closeBtn: 'text-rose-600/70 hover:text-rose-900 dark:text-rose-300/70 dark:hover:text-white hover:bg-rose-500/15',
+        borderDivider: 'border-rose-500/20 dark:border-rose-400/20'
       };
     }
     // default (기존 보라색 띠 공지 색상)

@@ -155,6 +155,7 @@ export interface NoticeItem {
   linkUrl?: string;
   linkText?: string;
   links?: NoticeLink[];
+  pinned?: boolean; // 고정: 띠 공지·공지 목록 맨 앞, 다른 색
   dismissMode?: 'session' | 'permanent'; // 'session': 영구 표시 (X눌러 닫아도 새로고침/PWA 재진입 시 다시 표시), 'permanent': 일회성 표시 (한번 X누르면 계속 숨김)
 }
 

@@ -10,7 +10,7 @@ import { cn } from '../utils';
  * 설정 > 공지사항: 띠 공지·팝업 공지를 한곳에서 (패치노트처럼 카드 목록, 누르면 펼쳐짐)
  * - 이미 받아 둔 사이트 설정(system)만 쓰므로 Firestore 를 새로 읽지 않음
  */
-type Row = { id: string; title: string; content: string; type: NoticeItem['type']; prefix?: string; date: string; active: boolean; links: { url: string; title: string }[] };
+type Row = { id: string; title: string; content: string; type: NoticeItem['type']; prefix?: string; date: string; active: boolean; pinned?: boolean; links: { url: string; title: string }[] };
 
 const TYPE_LABEL: Record<string, { label: string; cls: string }> = {
   big: { label: '팝업 공지', cls: 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300' },
@@ -29,14 +29,15 @@ export function collectNotices(system?: SystemConfig): Row[] {
     prefix: n.prefix,
     date: n.date || '',
     active: Boolean(n.active) && n.type !== 'none',
+    pinned: Boolean(n.pinned),
     links: (n.links?.length ? n.links : n.linkUrl ? [{ url: n.linkUrl, title: n.linkText || '관련 링크' }] : []).filter((l: any) => l?.url).map((l: any) => ({ url: l.url, title: l.title || l.text || '관련 링크' })),
   }));
   // 예전 방식(목록이 아닌 단일 공지)도 함께
   if (system.noticeContent?.trim() && system.noticeType !== 'none' && !rows.some((r) => r.content.trim() === system.noticeContent.trim())) {
     rows.push({ id: 'legacy-notice', title: system.noticeTitle || '공지', content: system.noticeContent, type: system.noticeType, date: '', active: true, links: [] });
   }
-  // 순서: 관리자가 정한 공지 목록 순서 그대로 (위에서부터)
-  return rows;
+  // 순서: 고정한 공지가 맨 위, 나머지는 관리자가 정한 공지 목록 순서 그대로
+  return [...rows.filter((r) => r.pinned), ...rows.filter((r) => !r.pinned)];
 }
 
 export function NoticesView({ system, onClose }: { system?: SystemConfig; onClose: () => void }) {
@@ -110,6 +111,7 @@ export function NoticesView({ system, onClose }: { system?: SystemConfig; onClos
                   <span className={cn('px-2 py-0.5 rounded-md font-semibold', n.active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400')}>
                     {n.active ? '게시 중' : '지난 공지'}
                   </span>
+                  {n.pinned && <span className="px-2 py-0.5 rounded-md font-bold bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-300">📌 고정</span>}
                   {n.date && <span className="text-zinc-500">{n.date}</span>}
                   <ChevronDown className={cn('ml-auto w-4 h-4 text-zinc-400 transition-transform duration-200', isOpen && 'rotate-180')} />
                 </div>
