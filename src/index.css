@@ -730,17 +730,17 @@ html.pwa-gap .fixed.inset-0 { bottom: calc(-1 * var(--pwa-gap, 0px)); }
 
 /* ─────────────────────────────────────────────────────────────
    그림판 스타일 (설정 › 화면 설정 › 스타일 › 그림판) — html.skin-paint
-   우주하마 그림판 그림처럼: 흰 캔버스 · 마우스로 그은 까만 선 · 하마 파랑 단색 · 개구체 손글씨
-   읽기 쉽게: 손글씨는 글자가 작아 보여 font-size-adjust 로 키우고(자리는 그대로), 긴 숫자는 고른 폭
-   어두운 화면: 까만 칠판에 분필처럼 — 순수한 흰 선 대신 살짝 누런 회백색 선, 바탕은 푸른 기 도는 먹색
+   첫 시안 그대로: 점 찍힌 크림색 종이 · 굵은 잉크 테두리(살짝 삐뚤) · 그림자 대신 잉크로 그린 두께 · 하마 파랑 + 파스텔
+   글씨는 사이트 기본 글씨 그대로 (읽기 쉽게)
+   어두운 화면: 밤에 펼친 공책처럼 — 먹색 종이 + 분필색 선, 두께는 더 짙은 먹색 (흰 선·검은 0 안 씀)
    ───────────────────────────────────────────────────────────── */
 html.skin-paint {
-  --paint-ink: #1f2026;
-  --paint-line: #1f2026;
-  --paint-paper: #ffffff;
+  --paint-paper: #fbf6ec;
+  --paint-dot: rgba(99, 131, 182, 0.14);
   --paint-card: #ffffff;
-  --paint-pale: #e6edf7;
-  /* 보라 강조색 → 하마 파랑 (사이트 전체의 purple-* 가 이 값을 씀) */
+  --paint-ink: #2b2b33;
+  --paint-depth: #2b2b33;
+  --paint-hi: #fbe7a6;
   --color-purple-50: #eef3fa;
   --color-purple-100: #e0e8f5;
   --color-purple-200: #c5d4ec;
@@ -754,55 +754,58 @@ html.skin-paint {
   --color-purple-950: #1f2c45;
 }
 html.skin-paint.dark {
-  --paint-ink: #e9e6dc;          /* 분필 색 (순수한 흰색 아님) */
-  --paint-line: rgba(233, 230, 220, 0.62);
-  --paint-paper: #15171c;
-  --paint-card: #1d2027;
-  --paint-pale: #232a38;
-  --color-zinc-950: #111318;
-  --color-zinc-900: #1d2027;
-  --color-zinc-800: #2a2e37;
-  --color-zinc-700: #3a3f4b;
+  --paint-paper: #1b1d22;
+  --paint-dot: rgba(200, 210, 230, 0.07);
+  --paint-card: #24272e;
+  --paint-ink: rgba(232, 228, 216, 0.72);
+  --paint-depth: #0e0f12;
+  --paint-hi: #5c4f22;
+  --color-zinc-950: #15171b;
+  --color-zinc-900: #24272e;
+  --color-zinc-800: #30343d;
+  --color-zinc-700: #41464f;
   --color-purple-300: #b3c6e6;
   --color-purple-400: #9bb3dc;
   --color-purple-500: #839fd0;
   --color-purple-950: #1c2536;
 }
+/* 종이 바탕 (점 모눈) */
 html.skin-paint, html.skin-paint body { background-color: var(--paint-paper); }
-html.skin-paint.dark, html.skin-paint.dark body { background-color: var(--paint-paper); color: #ece9e1; }
-
-/* 글씨: 개구체 · 손글씨는 작아 보여서 같은 자리에서 글자만 키움 */
-html.skin-paint body,
-html.skin-paint *:not(code):not(pre):not(kbd):not(.font-mono),
-html.skin-paint input::placeholder,
-html.skin-paint textarea::placeholder {
-  font-family: 'Gaegu', 'BMHANNAAir', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important;
-  font-size-adjust: 0.53;
-  letter-spacing: -0.01em;
+html.skin-paint .bg-\[\#f2f2f7\],
+html.skin-paint.dark .dark\:bg-black {
+  background-color: var(--paint-paper) !important;
+  background-image: radial-gradient(var(--paint-dot) 1.3px, transparent 1.4px);
+  background-size: 18px 18px;
 }
-html.skin-paint :where(.font-mono, code, pre, kbd) { font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important; font-size-adjust: none; }
-/* 숫자가 줄 맞춰 나오는 곳은 고른 폭 */
-html.skin-paint .tabular-nums { font-variant-numeric: tabular-nums; }
-/* 아주 작은 글씨는 손글씨로 읽기 어려워서 조금 더 크게 */
-html.skin-paint :where(.text-\[10px\], .text-\[10\.5px\], .text-\[11px\]) { font-size-adjust: 0.6; }
+html.skin-paint header.sticky { background-color: color-mix(in srgb, var(--paint-paper) 88%, transparent) !important; border-bottom: 2px solid var(--paint-ink) !important; }
 
-/* 개체에 손으로 그은 선: 원래 테두리는 감추고, 그 위에 살짝 흔들린(#paint-wob, index.html) 선을 따로 그림
-   → 글씨는 흔들리지 않아 또렷하고, 선만 그림판 마우스 선처럼 삐뚤 */
-html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100),
-html.skin-paint :where(button, a).rounded-full.border:not([aria-label="하단 네비게이션"] *),
+/* 카드: 굵은 잉크 테두리(선만 살짝 삐뚤게, 글씨는 또렷) + 오른쪽 아래로 잉크 두께 + 찌그러진 모서리 */
+html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100) {
+  border-color: transparent !important;
+  background-color: var(--paint-card) !important;
+  box-shadow: 4px 5px 0 var(--paint-depth) !important;
+}
+html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100):not(.absolute, .fixed, .sticky, .relative) { position: relative; }
+html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100):not(.rounded-full, .rounded-xl, .rounded-lg) {
+  border-radius: 26px 22px 28px 20px / 24px 28px 20px 26px;
+}
+html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100):is(.rounded-xl, .rounded-lg) {
+  border-radius: 14px 17px 13px 16px / 16px 13px 17px 14px;
+  box-shadow: 2px 3px 0 var(--paint-depth) !important;
+}
+/* 동그란 칩·알약 버튼: 잉크 테두리 */
+html.skin-paint :where(button, a).rounded-full.border:not([aria-label="하단 네비게이션"] *) { border-color: transparent !important; box-shadow: 2px 2px 0 var(--paint-depth) !important; }
+html.skin-paint :where(button, a).rounded-full.border:not([aria-label="하단 네비게이션"] *):not(.absolute, .fixed, .sticky, .relative) { position: relative; }
+/* 아래 탭바·검색 버튼: 흰 종이 + 잉크 테두리 + 두께, 고른 탭은 노란 형광펜 */
 html.skin-paint #floating-bottom-dock [aria-label="하단 네비게이션"],
 html.skin-paint #floating-bottom-dock button.rounded-full:not([aria-label="하단 네비게이션"] *) {
   border-color: transparent !important;
-  box-shadow: none !important;
+  background-color: var(--paint-card) !important;
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  box-shadow: 3px 4px 0 var(--paint-depth) !important;
 }
-html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100):not(.absolute, .fixed, .sticky, .relative),
-html.skin-paint :where(button, a).rounded-full.border:not([aria-label="하단 네비게이션"] *):not(.absolute, .fixed, .sticky, .relative) { position: relative; }
-html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100):not(.rounded-full) {
-  border-radius: 22px 26px 20px 24px / 24px 20px 26px 22px;
-}
-html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100):is(.rounded-xl, .rounded-lg) {
-  border-radius: 13px 16px 12px 15px / 15px 12px 16px 13px;
-}
+html.skin-paint #floating-bottom-dock .bg-zinc-200\/75 { background-color: var(--paint-hi) !important; border: 2px solid var(--paint-ink) !important; box-shadow: none !important; backdrop-filter: none !important; }
+/* 잉크 선 (공통) */
 html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100)::after,
 html.skin-paint :where(button, a).rounded-full.border:not([aria-label="하단 네비게이션"] *)::after,
 html.skin-paint #floating-bottom-dock [aria-label="하단 네비게이션"]::after,
@@ -810,21 +813,10 @@ html.skin-paint #floating-bottom-dock button.rounded-full:not([aria-label="하�
   content: "";
   position: absolute;
   inset: 0;
-  border: 1.8px solid var(--paint-line);
+  border: 2.4px solid var(--paint-ink);
   border-radius: inherit;
   filter: url(#paint-wob);
   pointer-events: none;
   z-index: 30;
 }
-html.skin-paint.dark :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100) { background-color: var(--paint-card) !important; }
-
-/* 아래 탭바: 유리 대신 종이 + 손그림 선, 고른 탭은 노란 형광펜 (시안과 같게) */
-html.skin-paint #floating-bottom-dock [aria-label="하단 네비게이션"],
-html.skin-paint #floating-bottom-dock button.rounded-full:not([aria-label="하단 네비게이션"] *) { background-color: var(--paint-card) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-html.skin-paint #floating-bottom-dock .bg-zinc-200\/75 { background-color: #ffe98a !important; border-color: transparent !important; box-shadow: none !important; backdrop-filter: none !important; }
-html.skin-paint.dark #floating-bottom-dock .bg-zinc-200\/75 { background-color: #5c4f22 !important; }
-
-/* 바탕: 회색 대신 그림판 흰 캔버스 / 어두운 화면은 먹색 (까만 0 대신) */
-html.skin-paint .bg-\[\#f2f2f7\] { background-color: var(--paint-paper) !important; }
-html.skin-paint.dark .dark\:bg-black { background-color: var(--paint-paper) !important; }
-html.skin-paint header.sticky { background-color: color-mix(in srgb, var(--paint-paper) 85%, transparent) !important; border-bottom: 1.8px solid var(--paint-line) !important; }
+html.skin-paint :where(button, a).rounded-full.border:not([aria-label="하단 네비게이션"] *)::after { border-width: 2px; }
