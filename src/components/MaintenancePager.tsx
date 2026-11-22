@@ -27,7 +27,15 @@ export function MaintenancePager({ first, detail }: { first: (goDetail: () => vo
   }, []);
 
   // 화면 높이: 바깥 창 높이와 문서 높이 중 큰 쪽 (홈 화면 앱에서 아래 안전 영역까지 덮게)
-  const measure = () => Math.max(window.innerHeight, document.documentElement.clientHeight || 0);
+  //  홈 화면 앱(아이폰)은 앱이 화면 전체를 쓰는데도 창 높이가 위쪽 안전 영역만큼 짧게 나올 때가 있어 → 기기 화면 높이를 그대로 씀
+  const measure = () => {
+    const base = Math.max(window.innerHeight, document.documentElement.clientHeight || 0);
+    const standalone = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+    if (!standalone || !window.screen) return base;
+    const landscape = window.innerWidth > window.innerHeight;
+    const full = landscape ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+    return Math.max(base, full);
+  };
   const [vh, setVh] = useState(() => (typeof window !== 'undefined' ? measure() : 0));
   useEffect(() => {
     const on = () => setVh(measure());

@@ -8,7 +8,8 @@
  *   - 복구 코드 10개 (한 번씩만, 해시로만 저장): 휴대폰을 잃어버렸을 때
  * 통과하면: Firebase 토큰에 'adm2fa'(만료 시각) 를 붙임 → 서버 API 와 Firestore 보안 규칙이 둘 다 이걸 확인
  *   (구글 계정만 뺏겨도, 이 코드 없이는 관리자 API·DB 쓰기가 막힘)
- * 모든 기기 로그아웃: 토큰 무효화 + 표시 지우기
+ * 모든 기기 로그아웃: 토큰 무효화 + 표시 지우기 + 기억된 기기 모두 지움
+ * 기억된 기기: 코드 통과 때 고르면 30일 동안 그 기기(브라우저)에서는 코드 없이 (아래 mfaTrusted)
  */
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
@@ -150,7 +151,12 @@ export async function mfaConfirmSetup(db: any, auth: any, decoded: any, code: st
 }
 
 /** 로그인 때마다: 6자리 코드 또는 복구 코드 */
-export async function mfaVerify(db: any, auth: any, decoded: any, code: string, req: any) {
+export async function mfaVerify(db: any, auth: any, decoded: any, code: string, req: any, remember?: { name: string } | null) {
+  const out: any = await mfaVerifyCode(db, auth, decoded, code, req);
+  if (remember) out.deviceToken = await addTrusted(db, remember.name, req);
+  return out;
+}
+async function mfaVerifyCode(db: any, auth: any, decoded: any, code: string, req: any) {
   const r = ref(db);
   const d = (await r.get()).data() || {};
   if (!d.totp || !d.enabledAt) throw Object.assign(new Error('2단계 인증이 아직 설정되지 않았어요.'), { status: 400 });
@@ -177,6 +183,62 @@ export async function mfaVerify(db: any, auth: any, decoded: any, code: string, 
   return { until: await grant(db, auth, decoded, '복구 코드', req), recoveryLeft: list.filter((x: any) => !x.used).length };
 }
 
+/**
+ * 신뢰 기기 (같은 기기에서는 2단계 인증 건너뛰기)
+ *  - 코드로 통과할 때 '이 기기 기억하기'를 고르면, 그 기기 브라우저에만 무작위 열쇠(256비트)를 주고 서버엔 해시만 저장
+ *  - 다음부터 그 열쇠로 코드 없이 통과 · 30일 지나거나 목록에서 지우거나 '모든 기기 로그아웃' 하면 끝
+ *  - 기기 = 브라우저 저장소 단위 (같은 아이폰이라도 사파리와 홈 화면 앱은 따로)
+ */
+export const TRUST_MS = 30 * 86400000;
+const hashTok = (t: string) => createHash('sha256').update(`uzuhama-trusted|${t}`).digest('hex');
+const cleanName = (n: any) => String(n || '').replace(/[^\p{L}\p{N} ·()./-]/gu, '').slice(0, 40) || '이름 없는 기기';
+
+async function addTrusted(db: any, name: string, req: any) {
+  const r = ref(db);
+  const d = (await r.get()).data() || {};
+  const id = randomBytes(6).toString('hex');
+  const tok = randomBytes(32).toString('hex');
+  const now = Date.now();
+  const list = (d.trusted || []).filter((x: any) => Number(x.expiresAt) > now);
+  list.unshift({ id, h: hashTok(tok), name: cleanName(name), ua: String(req?.headers?.['user-agent'] || '').slice(0, 160), createdAt: now, lastUsedAt: now, expiresAt: now + TRUST_MS });
+  await r.set({ trusted: list.slice(0, 10) }, { merge: true });
+  return `${id}.${tok}`;
+}
+
+/** 신뢰 기기 열쇠로 통과 */
+export async function mfaTrusted(db: any, auth: any, decoded: any, deviceToken: string, req: any) {
+  const r = ref(db);
+  const d = (await r.get()).data() || {};
+  if (!d.totp || !d.enabledAt) throw Object.assign(new Error('2단계 인증이 아직 설정되지 않았어요.'), { status: 400 });
+  if (Number(d.lockUntil || 0) > Date.now()) throw Object.assign(new Error('잠시 잠겼어요.'), { status: 429 });
+  const [id, tok] = String(deviceToken || '').split('.');
+  const list = d.trusted || [];
+  const i = list.findIndex((x: any) => x.id === id);
+  const x = list[i];
+  const ok = x && tok && Number(x.expiresAt) > Date.now() && timingSafeEqual(Buffer.from(x.h), Buffer.from(hashTok(tok)));
+  if (!ok) throw Object.assign(new Error('이 기기는 기억된 기기가 아니에요. 코드로 확인해 주세요.'), { status: 401, untrusted: true });
+  list[i] = { ...x, lastUsedAt: Date.now() };
+  await r.set({ trusted: list }, { merge: true });
+  return { until: await grant(db, auth, decoded, `기억된 기기 (${x.name})`, req) };
+}
+
+/** 신뢰 기기 목록 (코드로 확인된 상태에서만) */
+export async function mfaDevices(db: any, decoded: any) {
+  if (!(Number(decoded?.adm2fa || 0) > Date.now())) throw Object.assign(new Error('먼저 지금 코드로 확인해 주세요.'), { status: 403 });
+  const d = (await ref(db).get()).data() || {};
+  return { devices: (d.trusted || []).filter((x: any) => Number(x.expiresAt) > Date.now()).map(({ h, ...rest }: any) => rest) };
+}
+
+/** 신뢰 기기 지우기 (id 또는 'all') */
+export async function mfaDeviceRevoke(db: any, decoded: any, id: string) {
+  if (!(Number(decoded?.adm2fa || 0) > Date.now())) throw Object.assign(new Error('먼저 지금 코드로 확인해 주세요.'), { status: 403 });
+  const r = ref(db);
+  const d = (await r.get()).data() || {};
+  const list = id === 'all' ? [] : (d.trusted || []).filter((x: any) => x.id !== id);
+  await r.set({ trusted: list }, { merge: true });
+  return { devices: list.map(({ h, ...rest }: any) => rest) };
+}
+
 /** 복구 코드만 새로 받기 (인증 앱은 그대로, 예전 복구 코드는 모두 못 씀) — 지금 코드로 확인된 상태에서만 */
 export async function mfaNewRecovery(db: any, decoded: any) {
   if (!(Number(decoded?.adm2fa || 0) > Date.now())) throw Object.assign(new Error('먼저 지금 코드로 확인해 주세요.'), { status: 403 });
@@ -193,12 +255,12 @@ export async function mfaNewRecovery(db: any, decoded: any) {
 export async function mfaLogoutAll(db: any, auth: any, decoded: any) {
   await auth.setCustomUserClaims(decoded.uid, {});
   await auth.revokeRefreshTokens(decoded.uid);
-  await ref(db).set({ revokedAt: new Date().toISOString() }, { merge: true });
+  await ref(db).set({ revokedAt: new Date().toISOString(), trusted: [] }, { merge: true }); // 기억된 기기도 모두 지움
 }
 
 /** 인증 앱 다시 설정 (지금 코드로 확인된 상태에서만) */
 export async function mfaReset(db: any, auth: any, decoded: any) {
   if (!(Number(decoded?.adm2fa || 0) > Date.now())) throw Object.assign(new Error('먼저 지금 코드로 확인해 주세요.'), { status: 403 });
-  await ref(db).set({ totp: null, enabledAt: null, recovery: [], pending: null }, { merge: true });
+  await ref(db).set({ totp: null, enabledAt: null, recovery: [], pending: null, trusted: [] }, { merge: true });
   await auth.setCustomUserClaims(decoded.uid, {}); // 다시 설정할 때까지 관리자 쓰기 막힘
 }

@@ -6,7 +6,7 @@ import { auth } from '../lib/firebase';
 /**
  * 관리자 2단계 인증 (구글 로그인 다음)
  * - 처음: 인증 앱에 등록(QR) → 6자리 코드로 확인 → 복구 코드 10개 보관
- * - 그다음부터: 관리자 화면을 열 때마다 6자리 코드 (또는 복구 코드)
+ * - 그다음부터: 관리자 화면을 열 때마다 6자리 코드 (또는 복구 코드) · '이 기기 기억하기'를 고르면 30일 동안 그 기기에서는 코드 없이
  * - 통과하면 4시간 유지, 30분 동안 아무것도 안 하면 다시 잠금
  * 실제로 막는 건 서버(api/_adminAuth.ts)와 Firestore 보안 규칙 — 이 화면을 건너뛰어도 데이터는 못 바꿈
  */
@@ -30,6 +30,27 @@ export async function adminMfaValid(): Promise<number> {
 }
 
 export const ADMIN_MFA_LOCK_EVENT = 'uzuhama_admin_mfa_lock';
+
+/** 기억된 기기 열쇠 (이 브라우저에만 · 서버엔 해시만) */
+export const TRUST_KEY = 'uzuhama_admin_trusted_v1';
+const trustedToken = () => { try { return localStorage.getItem(TRUST_KEY) || ''; } catch { return ''; } };
+export const trustedId = () => trustedToken().split('.')[0] || '';
+const setTrusted = (t: string) => { try { if (t) localStorage.setItem(TRUST_KEY, t); else localStorage.removeItem(TRUST_KEY); } catch { /* */ } };
+/** 목록에 보일 이 기기 이름 (기기·브라우저) */
+export function deviceLabel() {
+  const ua = navigator.userAgent;
+  const dev = /iPhone/.test(ua) ? 'iPhone' : /iPad|Macintosh/.test(ua) && navigator.maxTouchPoints > 1 ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : '기기';
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone;
+  const br = standalone ? '홈 화면 앱' : /Edg\//.test(ua) ? 'Edge' : /Whale/.test(ua) ? 'Whale' : /SamsungBrowser/.test(ua) ? '삼성 인터넷' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /FxiOS|Firefox/.test(ua) ? 'Firefox' : /Safari/.test(ua) ? 'Safari' : '브라우저';
+  return `${dev} · ${br}`;
+}
+/** 기억된 기기면 코드 없이 통과 (안 되면 열쇠를 지우고 false) */
+async function tryTrusted(): Promise<boolean> {
+  const t = trustedToken();
+  if (!t) return false;
+  try { await call('mfaTrusted', { deviceToken: t }); await auth.currentUser?.getIdToken(true); return true; }
+  catch (e: any) { if (!/RESOURCE_EXHAUSTED|quota/i.test(String(e?.message || e))) setTrusted(''); return false; }
+}
 export const adminLogoutAll = () => call('mfaLogoutAll');
 
 /** 서버가 DB 한도에 걸렸을 때 알아보기 쉽게 */
@@ -45,16 +66,19 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
   const [err, setErr] = useState('');
   const [codes, setCodes] = useState<string[]>([]);
   const [useRecovery, setUseRecovery] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [expiresAt, setExpiresAt] = useState(0);
   const [now, setNow] = useState(Date.now());
+  const lastActive = useRef(Date.now());
   const startWindow = useCallback(async () => {
     try { const r = await call('mfaChallenge'); setExpiresAt(Number(r.expiresAt) || Date.now() + 180000); } catch (e: any) { setErr(friendlyErr(e)); }
   }, []);
-  const lastActive = useRef(Date.now());
 
-  const check = useCallback(async () => {
+  const check = useCallback(async (allowTrusted = true) => {
     setErr('');
     if (await adminMfaValid()) { setPhase('ok'); return; }
+    // 기억된 기기면 코드 없이
+    if (allowTrusted && await tryTrusted()) { lastActive.current = Date.now(); setPhase('ok'); return; }
     try {
       const st = await call('mfaStatus');
       if (st.enabled) { await startWindow(); setPhase('verify'); }
@@ -82,10 +106,14 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
     if (phase !== 'ok') return;
     const bump = () => { lastActive.current = Date.now(); };
     ['pointerdown', 'keydown', 'scroll'].forEach((ev) => window.addEventListener(ev, bump, { passive: true }));
-    const lockNow = () => { setPhase('verify'); startWindow(); };
+    const lockNow = () => { setPhase('verify'); startWindow(); }; // '지금 잠그기'는 기억된 기기여도 코드로
     window.addEventListener(ADMIN_MFA_LOCK_EVENT, lockNow);
     const t = window.setInterval(async () => {
-      if (Date.now() - lastActive.current > IDLE_MS || !(await adminMfaValid())) { setPhase('verify'); startWindow(); }
+      if (Date.now() - lastActive.current > IDLE_MS || !(await adminMfaValid())) {
+        // 기억된 기기면 조용히 다시 통과, 아니면 코드
+        if (await tryTrusted()) { lastActive.current = Date.now(); return; }
+        setPhase('verify'); startWindow();
+      }
     }, 30000);
     return () => { ['pointerdown', 'keydown', 'scroll'].forEach((ev) => window.removeEventListener(ev, bump)); window.removeEventListener(ADMIN_MFA_LOCK_EVENT, lockNow); window.clearInterval(t); };
   }, [phase, startWindow]);
@@ -99,7 +127,8 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
         setCodes(r.recoveryCodes || []);
         setPhase('codes');
       } else {
-        const r = await call('mfaVerify', { code });
+        const r = await call('mfaVerify', { code, remember, deviceName: deviceLabel() });
+        if (r.deviceToken) setTrusted(r.deviceToken);
         await auth.currentUser?.getIdToken(true); // 새 표시(adm2fa)가 붙은 토큰으로 → DB 쓰기도 열림
         lastActive.current = Date.now();
         if (typeof r.recoveryLeft === 'number' && r.recoveryLeft <= 3) window.alert(`복구 코드가 ${r.recoveryLeft}개 남았어요. 관리자 보안 카드에서 인증 앱을 다시 설정해 새 복구 코드를 받아 두세요.`);
@@ -162,6 +191,12 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
             placeholder={useRecovery ? 'XXXXX-XXXXX' : '000000'}
             className="w-full text-center text-2xl font-mono tracking-[0.3em] py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
+          {phase === 'verify' && (
+            <label className="flex items-center justify-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-300 cursor-pointer">
+              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="w-4 h-4 accent-purple-600" />
+              이 기기 기억하기 (30일 동안 코드 없이)
+            </label>
+          )}
           {err && <p className="text-xs text-red-500 bg-red-500/10 p-2 rounded-xl break-keep">{err}</p>}
           <button type="button" disabled={busy || expired || (!useRecovery && code.length !== 6)} onClick={submit} className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
             {busy && <Loader2 className="w-4 h-4 animate-spin" />} 확인
@@ -175,7 +210,7 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
             expired ? (
               <div className="space-y-2">
                 <p className="text-xs font-bold text-amber-600 break-keep">입력 시간이 지났어요. 처음부터 다시 해 주세요.</p>
-                <button type="button" onClick={() => { setErr(''); setCode(''); if (phase === 'verify') startWindow(); else check(); }} className="w-full py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-bold cursor-pointer">다시 시작</button>
+                <button type="button" onClick={() => { setErr(''); setCode(''); if (phase === 'verify') startWindow(); else check(false); }} className="w-full py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-bold cursor-pointer">다시 시작</button>
               </div>
             ) : (
               <p className={`text-[11px] font-bold tabular-nums ${left <= 30 ? 'text-red-500' : 'text-zinc-400'}`}>남은 입력 시간 {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</p>

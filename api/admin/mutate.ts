@@ -42,9 +42,15 @@ export default async function handler(req: any, res: any) {
       if (action === 'mfaBeginSetup') return res.status(200).json({ success: true, ...(await m.mfaBeginSetup(db, u)) });
       if (action === 'mfaConfirmSetup') { const r = await m.mfaConfirmSetup(db, adminAuth, u, String(payload.code || ''), req); await logA({ action: 'mfa_setup' }); return res.status(200).json({ success: true, ...r }); }
       if (action === 'mfaVerify') {
-        try { const r = await m.mfaVerify(db, adminAuth, u, String(payload.code || ''), req); await logA({ action: 'mfa_login' }); return res.status(200).json({ success: true, ...r }); }
+        try { const r = await m.mfaVerify(db, adminAuth, u, String(payload.code || ''), req, payload.remember ? { name: String(payload.deviceName || '') } : null); await logA({ action: 'mfa_login', ...(payload.remember ? { remember: true } : {}) }); return res.status(200).json({ success: true, ...r }); }
         catch (e: any) { await logA({ action: 'mfa_fail', reason: String(e?.message || e).slice(0, 80) }); throw e; }
       }
+      if (action === 'mfaTrusted') {
+        try { const r = await m.mfaTrusted(db, adminAuth, u, String(payload.deviceToken || ''), req); await logA({ action: 'mfa_login_trusted' }); return res.status(200).json({ success: true, ...r }); }
+        catch (e: any) { await logA({ action: 'mfa_trusted_fail' }); throw e; }
+      }
+      if (action === 'mfaDevices') return res.status(200).json({ success: true, ...(await m.mfaDevices(db, u)) });
+      if (action === 'mfaDeviceRevoke') { const r = await m.mfaDeviceRevoke(db, u, String(payload.id || '')); await logA({ action: 'mfa_device_revoke', target: String(payload.id || '') }); return res.status(200).json({ success: true, ...r }); }
       if (action === 'mfaLogoutAll') { await m.mfaLogoutAll(db, adminAuth, u); await logA({ action: 'mfa_logout_all' }); return res.status(200).json({ success: true, summary: '모든 기기에서 관리자 로그아웃했어요' }); }
       if (action === 'mfaChallenge') return res.status(200).json({ success: true, ...(await m.mfaChallenge(db)) });
       if (action === 'mfaNewRecovery') { const r = await m.mfaNewRecovery(db, u); await logA({ action: 'mfa_new_recovery' }); return res.status(200).json({ success: true, ...r }); }
