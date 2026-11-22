@@ -11,6 +11,7 @@ import { OPEN_HISTORY_EVENT, WatchHistoryPage } from './components/WatchHistoryP
 import { layerHandledPop } from './hooks/useBackToClose';
 import { setYoutubeClientId } from './utils/youtubeAccount';
 import { SaveHost } from './components/common/SaveHost';
+import { YoutubeConsentHost } from './components/common/YoutubeConsentHost';
 import { UiHost } from './components/common/UiHost';
 import { Routes, Route, Link, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
 import { Tv, BarChart2, Calendar as CalendarIcon, FileText, Lock, X, PlaySquare, ExternalLink, AlertTriangle, CheckCircle2, Check, ChevronDown } from 'lucide-react';
@@ -75,6 +76,7 @@ import { RELOAD_LINK, reloadToNewVersion, useNewBuildAvailable } from './utils/a
 import { MaintenancePager } from './components/MaintenancePager';
 import { NICE_MD } from './components/common/NiceMarkdown';
 import { useTestMode, withTestLog } from './utils/testMode';
+import { useDbDown, nextQuotaReset } from './utils/dbHealth';
 import { TestModeBar } from './components/TestModeBar';
 import { ServiceGateScreen, serviceGateOf, cachedGate, rememberGate } from './components/ServiceGate';
 import { SELFTEST_FLAG } from './selftest/flag';
@@ -101,6 +103,7 @@ function MainApp() {
   const labCafeOld = usePrefs().labCafeOld;
   // 방송 오류로 짧게 꺼졌다 다시 켠 방송은 하나로 합쳐 보여 줌
   const testMode = useTestMode();
+  const dbDown = useDbDown();
   const data = useMemo(() => {
     const d = rawData ? mergeErrorStops(!labCafeOld ? hideOldCafe(rawData) : rawData) : rawData;
     // 관리자 테스트 모드: 가정한 오늘 방송 기록을 이 기기 화면에만
@@ -868,6 +871,8 @@ function MainApp() {
   }, [data?.system, systemLive]);
   const gateBypass = (typeof navigator !== 'undefined' && (navigator as any).webdriver === true)
     || (() => { try { return Number(localStorage.getItem(SELFTEST_FLAG) || 0) > Date.now(); } catch { return false; } })();
+  // DB 하루 한도가 다 차면 자동 점검 화면 (한도가 초기화되면 저절로 열림 · 관리자 페이지는 그대로)
+  if (dbDown && !gateBypass) return <ServiceGateScreen mode="dbcheck" system={{ launchAt: new Date(nextQuotaReset()).toISOString() }} onOpen={() => window.location.reload()} />;
   // 서버 설정을 받기 전: 지난번에 막혀 있었으면 앱 화면 대신 그 화면부터 (점검이면 빈 화면으로 가림)
   if (!gateBypass && (loading || !systemFresh)) {
     const gc = cachedGate();
@@ -1561,6 +1566,7 @@ function MainApp() {
       <TestModeBar />
       <PullToRefresh onRefresh={refreshData} />
       <SaveHost />
+      <YoutubeConsentHost />
       {/* 시청 기록 전체 보기 */}
       <AnimatePresence>{historyOpen && <WatchHistoryPage key="history" onClose={() => setHistoryOpen(false)} />}</AnimatePresence>
       {afterInstall && (

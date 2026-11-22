@@ -1,3 +1,4 @@
+import { noteDbError, noteDbOk } from '../utils/dbHealth';
 import { undoToast } from '../utils/ui';
 import { noteReads } from '../utils/readStats';
 import { setHeldVideos } from '../utils/held';
@@ -23,6 +24,7 @@ import { overlayMonthDocs } from '../utils/archiveOverlay';
 import { kvGet, kvSet } from '../utils/kv';
 import { BroadcastLog, DailyStat, TimeStat, DurationStat, MonthlyStat, AppData, PatternGuide, SystemConfig, GameItem, LinkItem } from '../types';
 import { dailyStats as defaultDaily, timeStats as defaultTime, durationStats as defaultDuration, monthlyStats as defaultMonthly, patternGuides as defaultGuides } from '../data';
+import { markChanged, changesSeen, setChangesSeen, readChangesSince } from '../utils/changeLog';
 
 // 되돌리기 실행 중에는 또 '되돌리기' 알림을 띄우지 않음
 let undoing = false;
@@ -137,7 +139,7 @@ async function loadHistoricalLogs(): Promise<Record<string, BroadcastLog>> {
     }
     historicalCache = map;
     return map;
-  } catch (err) {
+  } catch (err) { noteDbError(err);
     console.warn('과거 데이터(/data/historical_logs.json) 로드 실패:', err);
     return {};
   }
@@ -306,6 +308,35 @@ export function useFirebaseData() {
         if (cachedMerged && Object.keys(cachedMerged).length) Object.assign(logsMap, cachedMerged);
       }
 
+      // 3-1. 수정 기록: 마지막으로 본 뒤 관리자가 바꾼 문서 경로만 읽고, 그 문서만 다시 받음
+      //      (몰아보기·설정을 주기적으로 통째로 다시 읽지 않음. 기록이 너무 많으면 몰아보기만 한 번 전체로)
+      const changedComps: { id: string; op: 'set' | 'delete' }[] = [];
+      let compsFull = false;
+      try {
+        const seen = changesSeen();
+        if (!seen) setChangesSeen(new Date().toISOString());
+        else {
+          const r = await readChangesSince(seen);
+          noteReads('changes(수정 기록)', Math.max(1, r.count));
+          compsFull = r.full;
+          for (const c of r.changes) {
+            const [col, id] = c.path.split('/');
+            if (col === 'compilations' && id) changedComps.push({ id, op: c.op });
+            else if (col === 'config' && id && id !== 'system') {
+              const field = ({ dailyStats: 'stats', timeStats: 'time', patternGuides: 'guides', videoStats: 'video' } as Record<string, string>)[id];
+              if (!field) continue;
+              const snap = await getDoc(doc(db, 'config', id));
+              noteReads(`config/${id}(바뀜)`, 1);
+              const v = snap.data();
+              try { const k = 'uzuhama_cfg_docs_v1'; const cfg = JSON.parse(localStorage.getItem(k) || 'null'); if (cfg) { cfg[field] = v; localStorage.setItem(k, JSON.stringify(cfg)); } } catch { /* */ }
+              const appKey = ({ stats: 'dailyStats', time: 'timeStats', guides: 'patternGuides', video: 'videoStats' } as Record<string, string>)[field];
+              if (v) setData((prev) => (prev ? { ...prev, [appKey]: v } : prev));
+            }
+          }
+          if (r.latest > seen) setChangesSeen(r.latest);
+        }
+      } catch (e) { noteDbError(e); compsFull = false; }
+
       // 4. Firestore compilations (몰아보기) 컬렉션 조회:
       // 과거 기록 JSON이 수정되거나 교체되더라도 등록된 몰아보기와 선택된 게임 목록이 사라지지 않고 100% 영구 보존되도록 병합
       try {
@@ -319,7 +350,8 @@ export function useFirebaseData() {
             try {
               const c = JSON.parse(localStorage.getItem(COMPILATIONS_CACHE_KEY) || 'null');
               const at = Number(localStorage.getItem(COMPILATIONS_CACHE_KEY + '_at') || 0);
-              if (Array.isArray(c) && (Date.now() - at < 24 * 3600 * 1000 || (!monthChanged && at))) cachedComps = c;
+              // 저장해 둔 몰아보기를 계속 씀 (바뀐 건 아래 수정 기록으로 그 문서만 고침) · 일주일에 한 번만 전체 확인
+              if (Array.isArray(c) && at && !compsFull && Date.now() - at < 7 * 86400000) cachedComps = c;
             } catch {}
           }
           if (Array.isArray(snapComps)) {
@@ -327,6 +359,20 @@ export function useFirebaseData() {
             compSources.push(...snapComps);
             try { localStorage.setItem(COMPILATIONS_CACHE_KEY, JSON.stringify(snapComps)); localStorage.setItem(COMPILATIONS_CACHE_KEY + '_at', String(Date.now())); } catch {}
           } else if (Array.isArray(cachedComps)) {
+            // 수정 기록에 적힌 몰아보기만 다시 읽어 바꿔 끼움
+            if (changedComps.length) {
+              const byId = new Map(cachedComps.map((x) => [x.docId, x] as const));
+              for (const ch of changedComps) {
+                if (ch.op === 'delete') { byId.delete(ch.id); continue; }
+                try {
+                  const sn = await getDoc(doc(db, 'compilations', ch.id));
+                  noteReads('compilations(바뀐 것)', 1);
+                  if (sn.exists()) byId.set(ch.id, { docId: ch.id, comp: sn.data() }); else byId.delete(ch.id);
+                } catch (e) { noteDbError(e); }
+              }
+              cachedComps = [...byId.values()];
+              try { localStorage.setItem(COMPILATIONS_CACHE_KEY, JSON.stringify(cachedComps)); } catch {}
+            }
             compSources.push(...cachedComps);
           } else {
             // 서버 묶음(CDN)에서 먼저 (DB 읽기 0) → 안 되면 DB
@@ -454,7 +500,7 @@ export function useFirebaseData() {
       });
 
       return logsMap;
-    } catch (err) {
+    } catch (err) { noteDbError(err);
       console.error('fetchLatestLogs 에러:', err);
     }
   }, []);
@@ -467,7 +513,7 @@ export function useFirebaseData() {
       sysRef, 
       (snap) => {
         if (!snap.metadata.fromCache) noteReads('config/system(실시간)', 1);
-        if (!snap.metadata.fromCache) { setSystemFresh(true); setSystemLive(true); }
+        if (!snap.metadata.fromCache) { setSystemFresh(true); setSystemLive(true); noteDbOk(); }
         if (snap.exists()) {
           setSystemConfig(snap.data() as SystemConfig);
           setHeldVideos((snap.data() as any)?.heldVideos);
@@ -475,6 +521,7 @@ export function useFirebaseData() {
         }
       },
       (error) => {
+        noteDbError(error);
         if (error.code === 'unavailable' || error.message?.includes('offline')) {
           console.warn('Firestore is currently offline or unavailable for system config, using local cache.');
         } else {
@@ -524,6 +571,7 @@ export function useFirebaseData() {
         }
       },
       (err) => {
+        noteDbError(err);
         console.warn('live_status 리스너 경고:', err);
       }
     );
@@ -588,12 +636,13 @@ export function useFirebaseData() {
         let valTime = undefined;
         let valGuides = undefined;
         let valVideoStats = undefined;
-        // 설정 문서 다섯 개: 기기에 저장해 두고 12시간에 한 번만 새로 읽음 (system 은 실시간 구독으로 따로 최신화)
+        // 설정 문서 다섯 개: 기기에 저장해 두고 바뀐 것만 새로 읽음 (system 은 실시간 구독으로 따로 최신화)
         const CFG_KEY = 'uzuhama_cfg_docs_v1';
         let cfgCache: any = null;
         try { cfgCache = JSON.parse(localStorage.getItem(CFG_KEY) || 'null'); } catch {}
         try {
-          if (cfgCache && Date.now() - Number(cfgCache.at || 0) < 12 * 3600 * 1000) {
+          // 바뀐 설정 문서는 수정 기록으로 그것만 다시 읽으니, 통째로 다시 읽는 건 일주일에 한 번
+          if (cfgCache && Date.now() - Number(cfgCache.at || 0) < 7 * 86400000) {
             ({ sys: valSys, stats: valStats, time: valTime, guides: valGuides, video: valVideoStats } = cfgCache);
           } else {
             const [sysSnap, statsSnap, timeSnap, guidesSnap, videoStatsSnap] = await Promise.all([
@@ -634,7 +683,7 @@ export function useFirebaseData() {
           try {
             const cachedLogs = JSON.parse(cachedLogsStr);
             initialData.logs = { ...initialData.logs, ...cachedLogs };
-          } catch (e) {
+          } catch (e) { noteDbError(e);
             console.error('Cache parsing error', e);
           }
         }
@@ -648,7 +697,7 @@ export function useFirebaseData() {
 
         setLoadingProgress(100);
         setLoadingStatusText('준비됐어요');
-      } catch (e) {
+      } catch (e) { noteDbError(e);
         console.error(e);
       } finally {
         setLoading(false);
@@ -693,7 +742,7 @@ export function useFirebaseData() {
       });
       const prevLog = data.logs[log.id];
       if (!undoing) undoToast(`${log.date} 기록을 ${prevLog ? '바꿨어요' : '추가했어요'}`, () => runUndo(() => (prevLog ? updateLog(prevLog) : deleteLog(log.id))));
-    } catch (e) {
+    } catch (e) { noteDbError(e);
       console.error('addLog error:', e);
       throw e;
     }
@@ -739,7 +788,7 @@ export function useFirebaseData() {
       });
       const prevLog = data.logs[log.id];
       if (!undoing && prevLog) undoToast(`${log.date} 기록을 고쳤어요`, () => runUndo(() => updateLog(prevLog)));
-    } catch (e) {
+    } catch (e) { noteDbError(e);
       console.error('updateLog error:', e);
       throw e;
     }
@@ -776,7 +825,7 @@ export function useFirebaseData() {
         };
       });
       if (!undoing && targetLog) undoToast(`${targetLog.date} 기록을 지웠어요`, () => runUndo(() => addLog(targetLog)));
-    } catch (e) {
+    } catch (e) { noteDbError(e);
       console.error('deleteLog error:', e);
     }
   };
@@ -810,7 +859,7 @@ export function useFirebaseData() {
             batch = writeBatch(db);
           }
         });
-      } catch (e) {
+      } catch (e) { noteDbError(e);
         console.warn('logs_by_month 삭제 중 경고:', e);
       }
       
@@ -827,7 +876,7 @@ export function useFirebaseData() {
           logs: {}
         };
       });
-    } catch (e) {
+    } catch (e) { noteDbError(e);
       console.error('Error deleting all logs:', e);
     }
   };
@@ -840,8 +889,9 @@ export function useFirebaseData() {
         await setDoc(doc(db, 'config', 'patternGuides'), {
           [guide.id]: guide
         }, { merge: true });
+        void markChanged('config/patternGuides');
       }
-    } catch (e) {
+    } catch (e) { noteDbError(e);
       console.error(e);
     }
   };
@@ -871,7 +921,7 @@ export function useFirebaseData() {
         };
       });
       if (!undoing) undoToast('설정을 바꿨어요', () => runUndo(() => updateSystemConfig(beforeSys as any)));
-    } catch (e) {
+    } catch (e) { noteDbError(e);
       console.error('updateSystemConfig error:', e);
       throw e;
     }

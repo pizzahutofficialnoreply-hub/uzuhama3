@@ -7,6 +7,7 @@ import { normalizeHistorical } from '../../../utils/archiveOverlay';
 import { youtubeIdOf } from '../../../utils/cafeImport';
 import { confirmSheet } from '../../../utils/ui';
 import { mutate } from './system/SearchTuningCard';
+import { markChanged } from '../../../utils/changeLog';
 
 /**
  * 카페 가져오기로 넣은 것 관리 (관리자 › 등록 › 카페 정리 글 가져오기 아래)
@@ -169,7 +170,7 @@ export function AdminCafeUndo({ data, onAddLog, onUpdateLog, onDeleteLog, cafeId
         setMsg(`되돌리는 중… ${n}/${changes.length}`);
       } catch (e: any) { fails.push(`${c.date}: ${String(e?.message || e).slice(0, 60)}`); }
     }
-    for (const id of comps) { try { await deleteDoc(doc(db, 'compilations', id)); } catch (e: any) { fails.push(`${id}: ${String(e?.message || e).slice(0, 60)}`); } }
+    for (const id of comps) { try { await deleteDoc(doc(db, 'compilations', id)); void markChanged(`compilations/${id}`, 'delete'); } catch (e: any) { fails.push(`${id}: ${String(e?.message || e).slice(0, 60)}`); } }
     setMsg(`되돌렸어요: 기록 ${n}/${changes.length}개, 여러 생방 연결 ${comps.length}개.${fails.length ? ` 실패 ${fails.length}개 — ${fails.slice(0, 3).join(' / ')}` : ''}`);
     setChanges(null);
     setBusy('');

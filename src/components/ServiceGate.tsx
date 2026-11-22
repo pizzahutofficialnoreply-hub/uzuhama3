@@ -14,7 +14,8 @@ import type { SystemConfig } from '../types';
  *  - 종료: 앱 아이콘 + '그동안 고마웠어요' · 아래로 넘기면 편지
  * 점검 화면과 같은 두 장짜리 모양
  */
-export type GateMode = 'prelaunch' | 'paused' | 'ended';
+/** dbcheck: DB 하루 한도가 다 차서 자동으로 거는 점검 (한도 초기화 시각까지 카운트다운) */
+export type GateMode = 'prelaunch' | 'paused' | 'ended' | 'dbcheck';
 
 export function serviceGateOf(system: Partial<SystemConfig> | null | undefined, now: number): GateMode | null {
   const m = system?.serviceMode;
@@ -28,6 +29,11 @@ export function serviceGateOf(system: Partial<SystemConfig> | null | undefined, 
 }
 
 export const DEFAULT_GATE: Record<GateMode, { title: string; message: string; letter: string }> = {
+  dbcheck: {
+    title: '잠시 점검 중이에요',
+    message: '서버를 잠시 정리하고 있어요. 아래 시각이 되면 저절로 다시 열려요.',
+    letter: '지금은 방송 기록·알림 같은 정보를 새로 불러올 수 없어서 잠시 점검 화면을 띄웠어요.\n\n- 아래 시각이 지나면 따로 아무것도 하지 않아도 다시 열려요.\n- 이 기기에 저장된 시청 기록·내 재생목록·설정은 그대로 있어요.\n\n불편을 드려 죄송해요. 오류가 계속되면 다시 열린 뒤 [의견 보내기](/feedback)로 알려 주세요.',
+  },
   prelaunch: {
     title: '곧 문을 열어요',
     message: '우주하마 방송 예측이 준비 중이에요. 조금만 기다려 주세요!',
@@ -58,10 +64,10 @@ export function ServiceGateScreen({ mode, system, onOpen }: { mode: GateMode; sy
   const title = system?.serviceTitle?.trim() || d.title;
   const message = system?.serviceMessage?.trim() || d.message;
   const letter = system?.serviceLetter?.trim() || d.letter;
-  const now = useNow(mode === 'prelaunch');
+  const now = useNow(mode === 'prelaunch' || mode === 'dbcheck');
   const at = Date.parse(String(system?.launchAt || ''));
   const left = Number.isFinite(at) ? Math.max(0, Math.floor((at - now) / 1000)) : null;
-  useEffect(() => { if (mode === 'prelaunch' && left === 0) onOpen?.(); }, [mode, left, onOpen]);
+  useEffect(() => { if ((mode === 'prelaunch' || mode === 'dbcheck') && left === 0) onOpen?.(); }, [mode, left, onOpen]);
   const kst = (ms: number) => { const x = new Date(ms + 9 * 3600000); const w = ['일', '월', '화', '수', '목', '금', '토'][x.getUTCDay()]; return `${x.getUTCMonth() + 1}월 ${x.getUTCDate()}일 (${w}) ${pad(x.getUTCHours())}:${pad(x.getUTCMinutes())}`; };
 
   return (
@@ -73,9 +79,9 @@ export function ServiceGateScreen({ mode, system, onOpen }: { mode: GateMode; sy
             <img src="/icon-192.png" alt="우주하마 방송 예측" className={`w-24 h-24 sm:w-28 sm:h-28 rounded-[26px] shadow-lg ${mode === 'ended' ? 'grayscale-[30%]' : ''}`} />
             <h1 className="mt-6 text-3xl sm:text-4xl font-black text-zinc-900 dark:text-white tracking-tight break-keep">{title}</h1>
             <p className="mt-3 max-w-sm text-sm sm:text-base text-zinc-600 dark:text-zinc-300 break-keep">{message}</p>
-            {mode === 'prelaunch' && left !== null && (
+            {(mode === 'prelaunch' || mode === 'dbcheck') && left !== null && (
               <div className="mt-6 space-y-1.5">
-                <p className="text-sm font-bold text-zinc-600 dark:text-zinc-300">{kst(at)} 오픈</p>
+                <p className="text-sm font-bold text-zinc-600 dark:text-zinc-300">{kst(at)} {mode === 'dbcheck' ? '다시 열림' : '오픈'}</p>
                 <div className="flex items-end justify-center gap-2 tabular-nums" aria-label="오픈까지 남은 시간">
                   {([[Math.floor(left / 86400), '일'], [Math.floor(left / 3600) % 24, '시간'], [Math.floor(left / 60) % 60, '분'], [left % 60, '초']] as const)
                     .filter(([v, u], i) => i > 0 || v > 0 || u !== '일')
@@ -103,7 +109,7 @@ export function ServiceGateScreen({ mode, system, onOpen }: { mode: GateMode; sy
               <img src="/icon-192.png" alt="" className="w-10 h-10 rounded-xl" />
               <div>
                 <p className="text-sm font-black text-zinc-900 dark:text-white">우주하마 방송 예측</p>
-                <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400">{mode === 'prelaunch' ? '사이트 소개 미리 보기' : mode === 'ended' ? '서비스 종료 안내' : '서비스 중지 안내'}</p>
+                <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400">{mode === 'prelaunch' ? '사이트 소개 미리 보기' : mode === 'ended' ? '서비스 종료 안내' : mode === 'dbcheck' ? '점검 안내' : '서비스 중지 안내'}</p>
               </div>
             </div>
             {mode === 'prelaunch' && <div className="mb-4"><p className="text-[13px] font-black text-zinc-900 dark:text-white mb-2">이런 걸 할 수 있어요</p><FeatureGrid /></div>}

@@ -55,14 +55,27 @@ function prepare() {
   }).catch(() => { /* 다음에 다시 */ });
 }
 
+/** 처음 쓸 때 '하는 일·안 하는 일' 안내와 동의(만 14세 이상 포함)를 받음 · 동의는 이 기기에 기억 (안내가 바뀌면 다시) */
+export const YT_CONSENT_EVENT = 'uzuhama-youtube-consent';
+const CONSENT_KEY = 'uzuhama_youtube_consent_v1';
+const consented = () => { try { return Boolean(localStorage.getItem(CONSENT_KEY)); } catch { return false; } };
+export const markYoutubeConsent = () => { try { localStorage.setItem(CONSENT_KEY, new Date().toISOString()); } catch { /* */ } };
+
 /** 토큰 받기: 있으면 그대로, 없으면 구글 로그인 창 (버튼을 누른 그 순간에 불러야 창이 막히지 않음) */
 export function getYoutubeToken(): Promise<string> {
   if (token && token.exp > Date.now()) return Promise.resolve(token.value);
   if (!tokenClient) { prepare(); return Promise.reject(new Error('구글 로그인 준비 중이에요. 잠깐 뒤 다시 눌러 주세요.')); }
-  return new Promise<string>((resolve, reject) => {
+  const ask = (resolve: (t: string) => void, reject: (e: any) => void) => {
     pending = { resolve, reject };
     tokenClient.requestAccessToken({ prompt: token ? '' : undefined });
-  });
+  };
+  if (!consented()) {
+    // 안내 창의 '동의하고 구글 로그인'을 누르는 그 순간에 로그인 창을 띄움
+    return new Promise<string>((resolve, reject) => {
+      window.dispatchEvent(new CustomEvent(YT_CONSENT_EVENT, { detail: { onAgree: () => ask(resolve, reject), onCancel: () => reject(new Error('안내에 동의하지 않아서 저장하지 않았어요')) } }));
+    });
+  }
+  return new Promise<string>((resolve, reject) => ask(resolve, reject));
 }
 export function signOutYoutube() {
   if (token && (window as any).google?.accounts?.oauth2) (window as any).google.accounts.oauth2.revoke(token.value, () => {});

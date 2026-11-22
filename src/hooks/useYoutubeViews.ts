@@ -7,17 +7,22 @@ let loading: Promise<Record<string, number>> | null = null;
 
 function load(): Promise<Record<string, number>> {
   if (mem) return Promise.resolve(mem);
+  let stale: Record<string, number> | null = null;
   try {
     const c = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (c?.v && Date.now() - c.t < 6 * 3600000) { mem = c.v; return Promise.resolve(mem!); }
+    if (c?.v && Date.now() - c.t < 24 * 3600000) { mem = c.v; return Promise.resolve(mem!); }
+    if (c?.v) stale = c.v;
   } catch { /* */ }
   if (!loading) {
     const base = window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app';
+    // 받다 실패하거나 비어 오면 예전에 저장한 조회수로 정렬 (DB가 안 될 때도 순서가 그대로)
     loading = fetch(`${base}/api/videos/search-index?ai=views`).then((r) => r.json()).then((j) => {
-      mem = j?.views || {};
+      const v = j?.views && Object.keys(j.views).length ? j.views : null;
+      if (!v) { loading = null; mem = stale; return stale || {}; }
+      mem = v;
       try { localStorage.setItem(KEY, JSON.stringify({ v: mem, t: Date.now() })); } catch { /* */ }
       return mem!;
-    }).catch(() => { loading = null; return {}; });
+    }).catch(() => { loading = null; mem = stale; return stale || {}; });
   }
   return loading;
 }

@@ -6,6 +6,7 @@ import { db } from '../../../lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { confirmSheet } from '../../../utils/ui';
 import { loadFreshLogs } from '../../../hooks/useFirebaseData';
+import { markChanged } from '../../../utils/changeLog';
 
 /**
  * 관리자 > 기록 추가 > 카페 기준으로 맞추기
@@ -86,7 +87,7 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
     setBusy({ done: 0, total: list.length + compDocs.length });
     let n = 0;
     for (const c of compDocs) {
-      try { await setDoc(doc(db, 'compilations', c.id), c, { merge: true }); setComps((p) => new Set([...p, c.id])); setCompData((p) => (p[c.id] ? { ...p, [c.id]: { ...p[c.id], ...c } } : p)); } catch (e: any) { fails.push(`연결 문서 ${c.title}: ${String(e?.message || e).slice(0, 60)}`); }
+      try { await setDoc(doc(db, 'compilations', c.id), c, { merge: true }); void markChanged(`compilations/${c.id}`); setComps((p) => new Set([...p, c.id])); setCompData((p) => (p[c.id] ? { ...p, [c.id]: { ...p[c.id], ...c } } : p)); } catch (e: any) { fails.push(`연결 문서 ${c.title}: ${String(e?.message || e).slice(0, 60)}`); }
       setBusy({ done: ++n, total: list.length + compDocs.length });
     }
     if (compDocs.length) { try { localStorage.removeItem('uzuhama_fs_compilations_v1_at'); } catch {} }

@@ -29,6 +29,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { confirmSheet } from '../../../utils/ui';
+import { markChanged } from '../../../utils/changeLog';
 
 interface AdminMolabogiSectionProps {
   data: AppData;
@@ -537,6 +538,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
           associatedLogIds: updatedLogIds,
           updatedAt: new Date().toISOString()
         }, { merge: true });
+        void markChanged(`compilations/${comp.compilationId}`);
       } catch (err) {
         console.warn('Compilations save error:', err);
       }
@@ -638,6 +640,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
       // 1. Firestore compilations 컬렉션에서 삭제
       try {
         await deleteDoc(doc(db, 'compilations', comp.compilationId));
+        void markChanged(`compilations/${comp.compilationId}`, 'delete');
       } catch (err) {
         console.warn('Compilations deleteDoc warning:', err);
       }
@@ -756,6 +759,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
 
       try {
         await setDoc(doc(db, 'compilations', compId), compilationData, { merge: true });
+        void markChanged(`compilations/${compId}`);
       } catch (err) {
         console.warn('Compilations collection save warning:', err);
       }

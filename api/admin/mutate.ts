@@ -1,4 +1,5 @@
 import { setCorsHeaders } from '../_cors.js';
+import { markChangedAdmin } from '../_changeLog.js';
 
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
@@ -145,7 +146,7 @@ export default async function handler(req: any, res: any) {
           await db.collection('logs_by_month').doc(m).set({ month: m, updatedAt: now }, { merge: true });
           await db.collection('logs_by_month').doc(m).update({ ...upd, updatedAt: now });
         }
-        for (const c of comps) await db.collection('compilations').doc(c).delete().catch(() => {});
+        for (const c of comps) { await db.collection('compilations').doc(c).delete().catch(() => {}); await markChangedAdmin(db, `compilations/${c}`, 'delete'); }
         return res.status(200).json({ success: true, ...summary, summary: `기록 ${first.size}개를 되돌렸어요 (사본으로 ${restore}개 · 원래대로 ${remove}개)` });
       }
 
@@ -374,6 +375,7 @@ export default async function handler(req: any, res: any) {
         await db.collection('config').doc('patternGuides').set({
           [guide.id]: guide
         }, { merge: true });
+        await markChangedAdmin(db, 'config/patternGuides');
         return res.status(200).json({ success: true });
       }
 

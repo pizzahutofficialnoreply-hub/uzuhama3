@@ -53,6 +53,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+    // 수정 기록: 관리자가 바꾼 문서 경로만 남김 → 사이트는 이걸 보고 바뀐 문서만 다시 읽음
+    match /changes/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
     match /patch_notes/{doc} {
       allow read: if true;
       allow write: if isAdmin();

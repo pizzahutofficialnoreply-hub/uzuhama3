@@ -47,12 +47,21 @@ export function loadDetail(id: string, fresh = false) {
   }
   return detailCache.get(id)!;
 }
-/** AI가 보기 시작한 영상 (⋮ 메뉴에 'AI 영상 요약' 보여 줄지) — 10분마다 새로 */
+/**
+ * AI가 보기 시작한 영상·요약이 끝난 영상 목록 — 기기에 저장해 두고 6시간에 한 번만 새로 받음
+ * (서버·DB가 안 될 때도 저장해 둔 목록으로 정렬·표시가 그대로 되게. 새로 받다 실패하면 예전 목록 유지)
+ */
+const IDS_KEY = 'uzuhama_ai_ids_v1';
+const IDS_TTL = 6 * 3600000;
 let startedIds: Set<string> | null = null;
 let startedAt = 0;
 let startedP: Promise<Set<string>> | null = null;
 /** 요약까지 다 끝난 영상 */
 let doneIds: Set<string> = new Set();
+try {
+  const c = JSON.parse(localStorage.getItem(IDS_KEY) || 'null');
+  if (Array.isArray(c?.ids)) { startedIds = new Set(c.ids); doneIds = new Set(Array.isArray(c.done) ? c.done : []); startedAt = Number(c.at || 0); }
+} catch { /* */ }
 const doneSubs = new Set<() => void>();
 export const isAiDone = (id?: string | null) => Boolean(id && doneIds.has(id));
 if (typeof window !== 'undefined') window.addEventListener('uzuhama-data-refresh', () => { startedAt = 0; void aiStartedIds(); });
@@ -62,12 +71,15 @@ export function useAiDone(id: string | undefined, enabled: boolean): boolean {
   return enabled && v;
 }
 export function aiStartedIds(): Promise<Set<string>> {
-  if (startedIds && Date.now() - startedAt < 600000) return Promise.resolve(startedIds);
+  if (startedIds && Date.now() - startedAt < IDS_TTL) return Promise.resolve(startedIds);
   if (!startedP) {
     startedP = fetch(`${API_BASE}/api/videos/search-index?ai=ids`).then((r) => r.json()).then((j) => {
-      startedIds = new Set<string>(Array.isArray(j?.ids) ? j.ids : []);
+      // 오류·빈 응답이면 저장해 둔 목록을 그대로 씀 (DB 한도 초과 때 목록이 비어 정렬이 흐트러지지 않게)
+      if (!Array.isArray(j?.ids) || (!j.ids.length && startedIds?.size)) return startedIds || new Set<string>();
+      startedIds = new Set<string>(j.ids);
       if (Array.isArray(j?.done)) { doneIds = new Set<string>(j.done); doneSubs.forEach((f) => f()); }
       startedAt = Date.now();
+      try { localStorage.setItem(IDS_KEY, JSON.stringify({ ids: j.ids, done: [...doneIds], at: startedAt })); } catch { /* */ }
       return startedIds;
     }).catch(() => startedIds || new Set<string>()).finally(() => { startedP = null; });
   }

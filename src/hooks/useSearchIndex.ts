@@ -37,8 +37,8 @@ const persist = () => { try { localStorage.setItem(KEY, JSON.stringify({ ...data
 let loading: Promise<void> | null = null;
 function load() {
   if (loading) return loading;
-  // 다 채워졌으면 6시간, 아직 채우는 중이면 5분마다 새로 받음
-  if (Date.now() - loadedAt < (complete ? TTL : 5 * 60 * 1000)) return (loading = Promise.resolve());
+  // 다 채워졌으면 6시간, 아직 채우는 중이면 1시간마다 새로 받음 (받은 건 기기에 계속 남겨 두고 새 것만 더함)
+  if (Date.now() - loadedAt < (complete ? TTL : 3600 * 1000)) return (loading = Promise.resolve());
   loading = fetch(`${API_BASE}/api/videos/search-index`)
     .then((r) => r.json())
     .then((json) => {

@@ -14,6 +14,7 @@ import { AdminCategorySuggest } from './AdminCategorySuggest';
 import { useChannelVideos } from '../../../hooks/useChannelVideos';
 import { confirmSheet } from '../../../utils/ui';
 import { loadFreshLogs } from '../../../hooks/useFirebaseData';
+import { markChanged } from '../../../utils/changeLog';
 
 /**
  * 관리자 > 기록 추가 > 카페 정리 글 가져오기
@@ -309,6 +310,7 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
           broadcasts: hits.map((h) => ({ logId: h.log.id, date: h.log.date, games: [] })),
           ...(source.trim() ? { source: source.trim() } : {}),
         }, { merge: true });
+        void markChanged(`compilations/${compId}`);
         const seenLog = new Set<string>();
         for (const h of hits) {
           if (seenLog.has(h.log.id)) continue;
