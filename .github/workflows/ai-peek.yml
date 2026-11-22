@@ -1,8 +1,0 @@
-name: ai-peek
-on: workflow_dispatch
-jobs:
-  peek:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          for u in https://uzuhama.web.app/ https://uzuhama.vercel.app/; do echo "== $u"; curl -sI "$u" | grep -iE "^(HTTP|last-modified|server|x-vercel|age)"; curl -s "$u" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js|app-h|intro-on' | sort -u | head -5; done
