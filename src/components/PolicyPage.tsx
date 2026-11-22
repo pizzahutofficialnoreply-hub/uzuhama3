@@ -7,6 +7,7 @@ import React from 'react';
 import { ArrowLeft, Home, FileText, Shield } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useFirebaseData } from '../hooks/useFirebaseData';
+import { PolicyHistory } from './PolicyHistory';
 
 export function PolicyPage({ type }: { type: 'terms' | 'privacy' }) {
   const navigate = useNavigate();
@@ -99,6 +100,7 @@ export function PolicyPage({ type }: { type: 'terms' | 'privacy' }) {
           <div className={TERMS_PROSE + ' text-sm'}>
             <Markdown remarkPlugins={[remarkGfm]}>{content || '등록된 내용이 없습니다.'}</Markdown>
           </div>
+          <PolicyHistory type={type} system={data?.system} prose={TERMS_PROSE + ' text-sm'} />
         </div>
       </main>
     </div>

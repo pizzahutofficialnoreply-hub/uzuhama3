@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import { SystemConfig } from '../types';
 import Markdown from 'react-markdown';
 import { useBodyScrollLock } from '../utils';
+import { PolicyHistory } from './PolicyHistory';
 
 export function PolicyModal({ 
   type, 
@@ -35,6 +36,7 @@ export function PolicyModal({
           <div className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap font-sans leading-relaxed prose dark:prose-invert max-w-none">
             <Markdown>{content || '등록된 내용이 없습니다.'}</Markdown>
           </div>
+          <div className="whitespace-normal"><PolicyHistory type={type} system={system} /></div>
         </div>
         <div className="mt-4 flex justify-end shrink-0">
           <button 

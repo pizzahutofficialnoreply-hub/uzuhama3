@@ -95,7 +95,7 @@ import { wideAt } from './utils/layoutSize';
 
 function SlugRoute() {
   const { slug = '' } = useParams<{ slug: string }>();
-  const m = slug.match(/^patch-v?(\d+(?:\.\d+){1,3})$/i);
+  const m = slug.match(/^patch-v?(\d+(?:\.\d+){1,3}(?:\+\d+)?)$/i);
   if (m) return <PatchNotesPage version={m[1]} />;
   return <Navigate to="/" replace />;
 }

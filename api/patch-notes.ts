@@ -314,17 +314,45 @@ async function loadNotionNotes(db: any): Promise<{ notes: Note[]; error?: string
 
 /* ── 사이트 수정 모음 → 자동 버전 + '패치 진행 사항 안내' 공지 ──
  * 패치노트를 따로 쓰지 않고 올린 수정(GitHub 커밋)이 쌓이면, 마지막 수정 뒤 20분 동안 더 없을 때 한 번에:
- *  - 버전: 기능이 새로 생겼으면 1.2.0 → 1.2.1, 고치기만 했으면 1.2.0 → 1.2.0.1
+ *  - 버전: 관리자가 낸 버전(예: 1.2.0) 뒤에 '+빌드 번호'만 하나씩 올림 → 1.2.0+1, 1.2.0+2 … (새 버전을 내면 그 버전+0 부터 다시)
  *  - 패치노트 글(patch_notes, auto) + 띠 공지([안내] 11/20(금) 19:22 패치 진행 사항 안내)
  * 처음 켤 때는 지난 24시간 수정부터 */
 const REPO = 'pizzahutofficialnoreply-hub/uzuhama3';
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 const kstParts = (ms: number) => { const d = new Date(ms + 9 * 3600000); return { md: `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${DOW[d.getUTCDay()]})`, hm: `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`, day: d.toISOString().slice(0, 10) }; };
-export function bumpVersion(base: string, kind: 'feature' | 'fix'): string {
-  const p = String(base || '1.0.0').split('.').map((x) => Number(x) || 0);
+/** 자동 버전: 0.0.0+N 형식 — 앞(0.0.0)은 관리자가 낸 버전 그대로, 뒤 빌드 번호만 +1 */
+export function bumpVersion(base: string, _kind?: 'feature' | 'fix'): string {
+  const [core, build] = String(base || '1.0.0').split('+');
+  const p = core.split('.').map((x) => Number(x) || 0).slice(0, 3);
   while (p.length < 3) p.push(0);
-  if (kind === 'feature') return `${p[0]}.${p[1]}.${p[2] + 1}`;
-  return `${p[0]}.${p[1]}.${p[2]}.${(p[3] || 0) + 1}`;
+  return `${p.join('.')}+${(Number(build) || 0) + 1}`;
+}
+const VER_RE = /^\d+(\.\d+)+(\+\d+)?$/;
+
+/** 한 번만: 예전 방식(1.2.1, 1.2.0.1 …)으로 붙은 자동 버전을 0.0.0+N 으로 바꿈 (패치노트 글·띠 공지·사이트 버전) */
+async function migrateAutoVersions(db: any, notes: Note[]) {
+  const ref = db.collection('config').doc('system');
+  const sys = (await ref.get()).data() || {};
+  if (sys.autoHotfix?.verScheme === 2) return;
+  const snap = await db.collection('patch_notes').get();
+  const all = snap.docs.map((d: any) => ({ id: d.id, ref: d.ref, ...d.data() }));
+  const autos = all.filter((n: any) => n.auto).sort((a: any, b: any) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  const manual = [...all, ...notes].filter((n: any) => !n.auto && !/^auto-/.test(String(n.id || '')) && n.category !== 'dev' && VER_RE.test(String(n.version || '')) && n.version !== '0.0.0')
+    .map((n: any) => String(n.version).split('+')[0]).sort((a: string, b: string) => verCmp(b, a))[0] || '1.0.0';
+  const map: Record<string, string> = {};
+  let n = 0;
+  for (const a of autos) {
+    const nv = `${manual.split('.').slice(0, 3).join('.')}+${++n}`;
+    map[a.version] = nv;
+    const swap = (t: any) => typeof t === 'string' ? t.split(`v${a.version}`).join(`v${nv}`).split(`patch-v${a.version}`).join(`patch-v${nv}`) : t;
+    const { id, ref: r, ...data } = a;
+    await db.collection('patch_notes').doc(`auto-${nv}`).set({ ...data, version: nv, content: swap(data.content), title: swap(data.title), updatedAt: new Date().toISOString() });
+    if (id !== `auto-${nv}`) await r.delete();
+  }
+  const fix = (t: any) => { let x = t; for (const [o, v] of Object.entries(map)) x = typeof x === 'string' ? x.split(`v${o}`).join(`v${v}`).split(`patch-v${o}`).join(`patch-v${v}`).split(`auto-hotfix-${o}`).join(`auto-hotfix-${v}`) : x; return x; };
+  const noticeList = (Array.isArray(sys.noticeList) ? sys.noticeList : []).map((x: any) => (String(x?.id || '').startsWith('auto') ? JSON.parse(fix(JSON.stringify(x))) : x));
+  const last = autos.length ? map[autos[autos.length - 1].version] : null;
+  await ref.set({ noticeList, ...(last ? { appVersion: last } : {}), autoHotfix: { ...(sys.autoHotfix || {}), ...(last ? { version: last } : {}), verScheme: 2 } }, { merge: true });
 }
 export function hotfixNoticeBody(ver: string, at: number, points: string[]) {
   const { md, hm } = kstParts(at);
@@ -376,6 +404,7 @@ ${subjects.map((x) => `- ${x}`).join('\n').slice(0, 8000)}`;
   return { points: pts.length ? pts : ['서비스 안정성 개선'], kind: subjects.some((x) => /추가|새 |새로|만들/.test(x)) ? 'feature' : 'fix', ai: false };
 }
 async function maybeHotfix(db: any, notes: Note[]) {
+  try { await migrateAutoVersions(db, notes); } catch (e) { console.warn('[patch-notes] version migrate failed:', e); }
   const ref = db.collection('config').doc('system');
   const sys = (await ref.get()).data() || {};
   if (sys.autoHotfixEnabled === false) return;
@@ -403,9 +432,9 @@ async function maybeHotfix(db: any, notes: Note[]) {
   try {
     const hp = await hotfixPoints(msgs.map((m) => m.subject).reverse());
     const { points, ai } = hp;
-    // 처음 한 번(지금까지 쌓인 수정 묶음)은 0.0.1 올림 (예: 1.2.0 → 1.2.1)
-    const kind: 'feature' | 'fix' = !st.lastSha ? 'feature' : hp.kind;
-    const base = [st.version, ...notes.filter((n) => n.category !== 'dev' && /^\d+(\.\d+)+$/.test(n.version) && n.version !== '0.0.0').map((n) => n.version)]
+    const kind: 'feature' | 'fix' = hp.kind;
+    // 기준: 가장 높은 버전 (관리자가 새 버전을 냈으면 그 버전+1, 아니면 지난 자동 버전의 빌드 번호 +1)
+    const base = [st.version, ...notes.filter((n) => n.category !== 'dev' && VER_RE.test(n.version) && n.version !== '0.0.0').map((n) => n.version)]
       .filter(Boolean).sort((a, b) => verCmp(String(b), String(a)))[0] || '1.0.0';
     const ver = bumpVersion(String(base), kind);
     const { md, hm, day } = kstParts(newest);
