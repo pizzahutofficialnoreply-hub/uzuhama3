@@ -701,3 +701,11 @@ html:not(.dark) .ea-spark path { fill: #c9b8ff; }
 .egg-flicker { animation: egg-flicker 1.3s steps(1) infinite; }
 @keyframes egg-flicker { 0%, 100% { opacity: 1; } 42% { opacity: .82; } 47% { opacity: 1; } 71% { opacity: .9; } }
 @media (prefers-reduced-motion: reduce) { .egg-glow, .egg-flicker { animation: none !important; } }
+
+/* 넘김판 시계: 위 반쪽이 아래로 접히고(0.3초) 새 숫자 아래 반쪽이 펼쳐지며 내려앉음(0.3초) */
+.flip-half { backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.04); }
+.flip-fold { transform-origin: 50% 100%; animation: flip-fold 0.3s ease-in forwards; z-index: 2; }
+.flip-land { transform-origin: 50% 0%; transform: rotateX(90deg); animation: flip-land 0.3s 0.3s ease-out forwards; z-index: 3; }
+@keyframes flip-fold { from { transform: rotateX(0deg); } to { transform: rotateX(-90deg); } }
+@keyframes flip-land { from { transform: rotateX(90deg); } to { transform: rotateX(0deg); } }
+@media (prefers-reduced-motion: reduce) { .flip-fold, .flip-land { animation-duration: 0.01s; animation-delay: 0s; } }
