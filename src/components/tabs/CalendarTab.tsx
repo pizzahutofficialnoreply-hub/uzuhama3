@@ -34,6 +34,7 @@ import { openAiCard } from '../common/AiCardExpand';
 import { SelectiveCalendarModal } from '../modals/SelectiveCalendarModal';
 import { GameTitle } from '../common/GameTitle';
 import { GlassPlayButton } from '../common/MediaIcons';
+import { ShortsPlayer } from '../common/ShortsPlayer';
 import { VideoLengthBadge, VideoUploadLine } from '../common/VideoLengthBadge';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -294,6 +295,8 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isSubscribeModalOpen, setIsSubscribeModalOpen] = useState(false);
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+  // 쇼츠는 눌러서 쇼츠 화면으로 (그날 쇼츠를 위아래로 넘겨 보기)
+  const [shortsAt, setShortsAt] = useState<{ items: { url: string; title?: string }[]; i: number } | null>(null);
   const [playingModalVideo, setPlayingModalVideo] = useState<{ url: string; title: string } | null>(null);
 
   // 외부(몰아보기, 히트맵 등)에서 링크를 통해 이동해온 임시 날짜 선택인지 여부
@@ -912,6 +915,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
 
   return (
     <div className="space-y-6">
+      {shortsAt && <ShortsPlayer items={shortsAt.items} startIndex={shortsAt.i} onClose={() => setShortsAt(null)} allLogs={data.logs} />}
       
       {/* Calendar & Detail Overlay Wrapper (달력이 줄어들거나 밀리지 않도록 relative 래퍼 적용) */}
       <div className="relative w-full">
@@ -1384,12 +1388,16 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                               </div>
                             ) : ytId ? (
                               <div
-                                onClick={(e) => (!isVertical && ytId ? openAiCard(ytId, title, e.currentTarget) : setPlayingVideoUrl(video.url || null))}
+                                onClick={(e) => {
+                                  if (!isVertical) { openAiCard(ytId, title, e.currentTarget); return; }
+                                  const list = validShorts.filter((x: any) => x?.url).map((x: any) => ({ url: x.url, title: x.title }));
+                                  setShortsAt({ items: list.length ? list : [{ url: video.url || '', title }], i: Math.max(0, list.findIndex((x) => x.url === video.url)) });
+                                }}
                                 className={cn(
                                   "relative w-full overflow-hidden bg-zinc-950 border-b border-black/10 dark:border-white/10 cursor-pointer select-none group/thumb",
                                   isVertical ? "aspect-[9/16]" : "aspect-video"
                                 )}
-                                title="클릭하여 바로 재생"
+                                title={isVertical ? '눌러서 쇼츠 보기' : '눌러서 펼쳐 보기'}
                               >
                                 <img
                                   src={isVertical ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`}
@@ -1398,9 +1406,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                   loading="lazy"
                                 />
                                 {!isVertical && <VideoLengthBadge id={ytId} />}
-                                <div className="absolute inset-0 bg-black/10 group-hover/thumb:bg-black/0 transition-colors flex items-center justify-center">
-                                  <GlassPlayButton size={isVertical ? 'sm' : 'md'} />
-                                </div>
+                                {/* 누르면 카드가 펼쳐지거나 쇼츠 화면이 열려서 재생 버튼은 안 그림 */}
                               </div>
                             ) : null}
 

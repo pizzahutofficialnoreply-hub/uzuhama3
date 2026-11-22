@@ -1464,9 +1464,6 @@ function ViewPrefsPanel() {
       </>)}
 
       {part === 'search' && (<>
-        <Row title="쓰는 자판" desc="검색어 오타를 자판 배열에 맞춰 고쳐 드려요">
-          <Seg k="keyboard" options={KEYBOARD_OPTIONS.map((o) => [o.value, o.label] as [UserPrefs['keyboard'], string])} />
-        </Row>
         <Row title="검색 도우미" desc="오타 보정·초성·줄임말·말하듯 검색·AI 검색 같은 도움 기능">
           <div className="grid grid-cols-3 gap-1.5">
             {([['all', '모두 켜기', '추천'], ['none', '글자 그대로', '똑같은 글자만'], ['custom', '직접 고르기', `${onCount}/${HELPERS.length}개 켬`]] as const).map(([k, l, d]) => (

@@ -1266,7 +1266,8 @@ export function RecommendTab({
 
   // ── 구글처럼 너그러운 검색: 오타 보정용 단어 사전 (제목·게임·장르·태그·썸네일 글자·게임 키워드) ──
   const prefs = usePrefs();
-  const keyboard = prefs.keyboard;
+  // 자판 설정은 없앰: 어떤 자판이든 오타 모양만 보고 고침
+  const keyboard = 'unknown' as const;
   const searchVocab = useMemo(() => {
     const texts: string[] = [];
     allVideos.forEach((v: any) => {

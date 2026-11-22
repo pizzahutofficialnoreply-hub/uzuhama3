@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NiceMarkdown } from './common/NiceMarkdown';
+import { FeatureGrid } from './common/FeatureGrid';
 import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MaintenancePager } from './MaintenancePager';
@@ -30,7 +31,7 @@ export const DEFAULT_GATE: Record<GateMode, { title: string; message: string; le
   prelaunch: {
     title: '곧 문을 열어요',
     message: '우주하마 방송 예측이 준비 중이에요. 조금만 기다려 주세요!',
-    letter: '## 이런 걸 할 수 있어요\n\n- **요약**: 오늘 방송이 켜질 확률과 켜질 만한 시간\n- **기록**: 날짜별 방송·게임·다시보기 달력\n- **분석**: 요일·시간대·방송 길이 통계\n- **검색**: 편집본·쇼츠·재생목록, AI 요약으로 장면 찾기\n\n우주하마님을 좋아하는 팬이 만든 **비공식** 사이트예요.',
+    letter: '우주하마님을 좋아하는 팬이 만든 **비공식** 사이트예요. 우주하마님·치지직·유튜브와는 관련이 없어요.\n\n- 로그인 없이 모든 기능을 쓸 수 있어요.\n- 시청 기록·내 재생목록·설정은 이 기기에만 저장돼요.\n- 앱처럼 설치하면 방송 알림을 받을 수 있어요.',
   },
   paused: {
     title: '잠시 서비스를 멈췄어요',
@@ -105,6 +106,7 @@ export function ServiceGateScreen({ mode, system, onOpen }: { mode: GateMode; sy
                 <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400">{mode === 'prelaunch' ? '사이트 소개 미리 보기' : mode === 'ended' ? '서비스 종료 안내' : '서비스 중지 안내'}</p>
               </div>
             </div>
+            {mode === 'prelaunch' && <div className="mb-4"><p className="text-[13px] font-black text-zinc-900 dark:text-white mb-2">이런 걸 할 수 있어요</p><FeatureGrid /></div>}
             <NiceMarkdown>{letter}</NiceMarkdown>
           </div>
         </div>

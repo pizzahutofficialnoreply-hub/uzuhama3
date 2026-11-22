@@ -1,3 +1,4 @@
+import { cn } from '../../utils';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Bookmark, ChevronDown, ChevronUp, EyeOff, Flag, Layers, Link2, Volume2, VolumeX, X } from 'lucide-react';
@@ -39,6 +40,11 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
   const [drag, setDrag] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [muted, setMuted] = useState(true);
+  // 소리 켜기를 휴대폰이 막았는지 (아이폰은 영상 화면을 직접 눌러야 소리가 켜짐) → 그땐 다음 한 번 누르기를 영상으로 바로 보냄
+  const unmuteAt = useRef(0);
+  const [passThrough, setPassThrough] = useState(false);
+  useEffect(() => { if (!muted) { setPassThrough(false); try { localStorage.setItem(SOUND_KEY, '1'); } catch { /* */ } } }, [muted]);
+  const isIOS = typeof navigator !== 'undefined' && /iP(hone|ad|od)/.test(navigator.userAgent);
   const [paused, setPaused] = useState(false);
   const [ready, setReady] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -91,8 +97,9 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
       try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
       if (d?.event === 'onReady') {
         setReady(true); hideCaptions();
-        // 전에 소리를 켜 둔 사람은 처음부터 소리 켜고 (휴대폰이 막으면 그대로 꺼진 채 · 아래 muted 정보로 맞춤)
-        try { if (localStorage.getItem(SOUND_KEY) === '1') { command('unMute'); command('setVolume', [100]); } } catch { /* */ }
+        // 처음부터 소리 켜고 재생 (쇼츠를 누른 손길로 열었으니 대부분 허용됨) · 직접 끈 사람만 끈 채로
+        // 휴대폰이 막아서 멈추면 아래(state 2)에서 다시 끄고 이어 재생
+        try { if (localStorage.getItem(SOUND_KEY) !== '0') { unmuteAt.current = Date.now(); command('unMute'); command('setVolume', [100]); command('playVideo'); } } catch { /* */ }
       }
       if (d?.event === 'infoDelivery' && typeof d.info?.muted === 'boolean') setMuted(d.info.muted);
       const state = d?.event === 'onStateChange' ? d.info : d?.event === 'infoDelivery' ? d.info?.playerState : undefined;
@@ -101,7 +108,16 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
         else { command('seekTo', [0, true]); command('playVideo'); }
       }
       if (state === 1) { setPaused(false); setSwitching(false); hideCaptions(); }
-      if (state === 2) setPaused(true);
+      if (state === 2) {
+        if (Date.now() - unmuteAt.current < 1800) {
+          // 소리 켜기가 막혀 멈춘 것 → 소리 끄고 그대로 이어 재생 + 아이폰은 영상 화면을 직접 누르게
+          unmuteAt.current = 0;
+          command('mute'); command('playVideo'); setMuted(true);
+          if (isIOS) setPassThrough(true);
+          return;
+        }
+        setPaused(true);
+      }
     };
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
@@ -166,7 +182,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
     setPaused((p) => !p);
   };
   const toggleMute = () => {
-    if (muted) { command('unMute'); command('setVolume', [100]); command('playVideo'); }
+    if (muted) { unmuteAt.current = Date.now(); command('unMute'); command('setVolume', [100]); command('playVideo'); }
     else command('mute');
     try { localStorage.setItem(SOUND_KEY, muted ? '1' : '0'); } catch { /* */ }
     setMuted((m) => !m);
@@ -277,7 +293,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
 
           {/* 밀기·누르기를 받는 투명 막 (플레이어가 손가락을 가로채지 않게) */}
           <div
-            className="absolute inset-0 touch-none cursor-pointer"
+            className={cn('absolute inset-0 touch-none cursor-pointer', passThrough && 'pointer-events-none')}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
@@ -287,7 +303,15 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
           />
 
           {/* 소리 꺼져 있으면 가운데 크게 (누르면 소리 켜짐) */}
-          {muted && !menuOpen && (
+          {passThrough && muted && !menuOpen && (
+            <div className="absolute left-1/2 top-[18%] -translate-x-1/2 w-max max-w-[86%] px-4 py-2 rounded-2xl bg-black/70 backdrop-blur-md text-[13px] font-bold text-center pointer-events-none break-keep">
+              아이폰은 영상을 직접 한 번 눌러야 소리가 켜져요 · 영상에 뜬 소리 버튼을 눌러 주세요
+            </div>
+          )}
+          {passThrough && (
+            <button type="button" onClick={() => setPassThrough(false)} className="absolute right-3 top-[calc(env(safe-area-inset-top,0px)+56px)] px-3 py-1.5 rounded-full bg-black/60 text-[12px] font-bold cursor-pointer">넘기기로 돌아가기</button>
+          )}
+          {muted && !menuOpen && !passThrough && (
             <button type="button" onClick={toggleMute} className="absolute left-1/2 top-[58%] -translate-x-1/2 h-11 px-4 rounded-full bg-black/55 backdrop-blur-md flex items-center gap-2 text-sm font-bold cursor-pointer shadow-lg ring-1 ring-white/20 animate-pulse" aria-label="소리 켜기">
               <VolumeX className="w-5 h-5" /> 화면을 누르면 소리가 켜져요
             </button>

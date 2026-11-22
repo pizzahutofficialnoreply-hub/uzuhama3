@@ -276,7 +276,8 @@ function nearestWord(t: string, k: string[], vocab: Vocab, layout: KeyboardLayou
     vocab.words.forEach((w) => { const arr = byLen!.get(w.keys.length) || []; arr.push(w); byLen!.set(w.keys.length, arr); });
     BY_LEN.set(vocab, byLen);
   }
-  const limit = Math.max(1, k.length * 0.34);
+  // 과하게 고치지 않게: 글자(키) 4개 중 1개 정도까지만 다른 단어로 (짧은 말은 1개까지)
+  const limit = k.length < 6 ? 1 : k.length * 0.25;
   let bestW: Nearest = null;
   for (let len = Math.ceil(k.length - limit); len <= Math.floor(k.length + limit); len++) {
     for (const w of byLen.get(len) || []) {

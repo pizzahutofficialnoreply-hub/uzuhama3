@@ -1,3 +1,4 @@
+import { FeatureGrid } from './common/FeatureGrid';
 import { noteReads } from '../utils/readStats';
 import React, { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_PRIVACY, DEFAULT_TERMS } from '../content/legal';
@@ -63,7 +64,6 @@ export const DEFAULT_ONBOARDING: OnboardingConfig = {
       body: '우주하마님을 좋아하는 팬이 만든 **비공식** 사이트예요.\n\n- 우주하마님, 치지직, 유튜브와는 관련이 없어요.\n- 방송 확률은 지난 기록으로 계산한 거라 틀릴 때도 있어요.\n- 영상과 이미지의 권리는 원작자에게 있어요.',
       button: '알겠어요',
     },
-    { id: 'keyboard', type: 'keyboard', title: '어떤 자판 쓰세요?', body: '검색어에 오타가 나면 쓰는 자판에 맞춰 고쳐 드릴게요. 나중에 설정에서 바꿀 수 있어요.', button: '다음' },
     {
       id: 'intro', type: 'intro', title: '이렇게 쓰면 돼요',
       body: '- **요약**: 오늘 방송 확률과 켜질 만한 시간\n- **기록**: 날짜별 방송·게임·다시보기 달력\n- **분석**: 요일·시간대·방송 길이 통계\n- **검색**: 편집본·쇼츠·재생목록 찾아보기',
@@ -184,7 +184,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
   // → 앱으로 열었을 땐 약관 동의와 '준비하기'(알림 켜기)만 짧게
   const standalone = useMemo(() => isStandaloneMode(), []);
   const steps = useMemo(() => {
-    const all = config?.steps || [];
+    const all = (config?.steps || []).filter((s) => s.type !== 'keyboard'); // 자판 고르기는 없앰
     if (updateMode) {
       const terms = all.find((s) => s.type === 'terms') || DEFAULT_ONBOARDING.steps.find((s) => s.type === 'terms')!;
       return [{ ...terms, id: 'terms-update', title: '약관이 바뀌었어요', body: termsUpdateBody(termsUpdate), button: '동의해요' }];
@@ -298,13 +298,15 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
                 step.type === 'terms' || step.type === 'keyboard' ? 'h-[22vh] min-h-[150px] pt-2' : 'h-[34vh] min-h-[210px] pt-4',
                 step.type === 'keyboard' && 'max-md:hidden',
                 step.type === 'setup' && 'hidden md:flex',
-                (step.type === 'terms' || step.type === 'notice') && expanded && 'max-md:hidden'
+                ((step.type === 'terms' || step.type === 'notice') && expanded || step.type === 'intro') && 'max-md:hidden'
               )}>
                 <OnboardingArt type={step.type} image={step.image} keyboard={keyboard} />
               </div>
             <div className={cn('w-full md:flex-1', step.type === 'welcome' ? 'text-center md:text-left' : '', 'pt-4 md:pt-0')}>
               <h2 className={cn('font-black tracking-tight break-keep', step.type === 'welcome' ? 'text-4xl sm:text-5xl' : 'text-2xl sm:text-3xl')}>{step.title}</h2>
-              {step.body && (
+              {/* 이렇게 쓰면 돼요: 할 수 있는 것을 카드로 (런칭 준비 화면 소개와 같은 내용) */}
+              {step.type === 'intro' && <div className="mt-4"><FeatureGrid dense /></div>}
+              {step.body && step.type !== 'intro' && (
                 <div className={cn('mt-3 text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-300 break-keep prose-sm [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mt-2 [&_p]:mt-2 [&_strong]:text-zinc-900 dark:[&_strong]:text-white', step.type === 'welcome' && 'whitespace-pre-line')}>
                   {step.type === 'welcome' ? step.body : <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{fillPlaceholders(step.body, system)}</Markdown>}
                 </div>
