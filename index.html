@@ -94,6 +94,8 @@
     </script>
   </head>
   <body>
+    <!-- 그림판 스타일용: 선을 마우스로 그은 것처럼 살짝 흔듦 (index.css 의 html.skin-paint) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="paint-wob"><feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="7"/><feDisplacementMap in="SourceGraphic" scale="2.6"/></filter></svg>
     <div id="root"><div id="boot-splash" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard',sans-serif"><img src="/icon-192.png" width="84" height="84" alt="" style="width:84px;height:84px;border-radius:22px;box-shadow:0 10px 30px -12px rgba(0,0,0,.35)" /><div class="boot-title" style="margin-top:20px;font-size:17px;font-weight:700;letter-spacing:-0.01em">우주하마 방송 예측</div></div></div>
     <style>#boot-splash{background:#fff}html.dark #boot-splash{background:#000}#boot-splash .boot-title{color:#18181b}html.dark #boot-splash .boot-title{color:#fff}</style>
     <!--

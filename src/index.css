@@ -786,25 +786,44 @@ html.skin-paint .tabular-nums { font-variant-numeric: tabular-nums; }
 /* 아주 작은 글씨는 손글씨로 읽기 어려워서 조금 더 크게 */
 html.skin-paint :where(.text-\[10px\], .text-\[10\.5px\], .text-\[11px\]) { font-size-adjust: 0.6; }
 
-/* 카드: 그림자 대신 손으로 그은 까만 테두리 + 살짝 찌그러진 모서리 */
-html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100) {
-  border-color: var(--paint-line) !important;
-  border-width: 1.8px;
+/* 개체에 손으로 그은 선: 원래 테두리는 감추고, 그 위에 살짝 흔들린(#paint-wob, index.html) 선을 따로 그림
+   → 글씨는 흔들리지 않아 또렷하고, 선만 그림판 마우스 선처럼 삐뚤 */
+html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100),
+html.skin-paint :where(button, a).rounded-full.border:not([aria-label="하단 네비게이션"] *),
+html.skin-paint #floating-bottom-dock [aria-label="하단 네비게이션"],
+html.skin-paint #floating-bottom-dock button.rounded-full:not([aria-label="하단 네비게이션"] *) {
+  border-color: transparent !important;
   box-shadow: none !important;
+}
+html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100):not(.absolute, .fixed, .sticky, .relative),
+html.skin-paint :where(button, a).rounded-full.border:not([aria-label="하단 네비게이션"] *):not(.absolute, .fixed, .sticky, .relative) { position: relative; }
+html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100):not(.rounded-full) {
   border-radius: 22px 26px 20px 24px / 24px 20px 26px 22px;
 }
 html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100):is(.rounded-xl, .rounded-lg) {
   border-radius: 13px 16px 12px 15px / 15px 12px 16px 13px;
 }
-html.skin-paint.dark :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100) { background-color: var(--paint-card) !important; }
-/* 동그란 칩·알약 버튼도 선을 또렷하게 */
-html.skin-paint :where(button, a).rounded-full:is(.border, [class*="border-"]) { border-color: var(--paint-line) !important; }
-
-/* 아래 탭바: 유리 효과 대신 흰 종이 + 까만 선 */
-html.skin-paint #floating-bottom-dock :where(.rounded-full)[style*="backdrop"],
-html.skin-paint #floating-bottom-dock > div > div[class*="rounded-full"] {
-  border: 1.8px solid var(--paint-line) !important;
+html.skin-paint :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100)::after,
+html.skin-paint :where(button, a).rounded-full.border:not([aria-label="하단 네비게이션"] *)::after,
+html.skin-paint #floating-bottom-dock [aria-label="하단 네비게이션"]::after,
+html.skin-paint #floating-bottom-dock button.rounded-full:not([aria-label="하단 네비게이션"] *)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1.8px solid var(--paint-line);
+  border-radius: inherit;
+  filter: url(#paint-wob);
+  pointer-events: none;
+  z-index: 30;
 }
+html.skin-paint.dark :where(.bg-white, .dark\:bg-zinc-900)[class*="rounded"]:is(.border-zinc-200, .border-zinc-100) { background-color: var(--paint-card) !important; }
+
+/* 아래 탭바: 유리 대신 종이 + 손그림 선, 고른 탭은 노란 형광펜 (시안과 같게) */
+html.skin-paint #floating-bottom-dock [aria-label="하단 네비게이션"],
+html.skin-paint #floating-bottom-dock button.rounded-full:not([aria-label="하단 네비게이션"] *) { background-color: var(--paint-card) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html.skin-paint #floating-bottom-dock .bg-zinc-200\/75 { background-color: #ffe98a !important; border-color: transparent !important; box-shadow: none !important; backdrop-filter: none !important; }
+html.skin-paint.dark #floating-bottom-dock .bg-zinc-200\/75 { background-color: #5c4f22 !important; }
+
 /* 바탕: 회색 대신 그림판 흰 캔버스 / 어두운 화면은 먹색 (까만 0 대신) */
 html.skin-paint .bg-\[\#f2f2f7\] { background-color: var(--paint-paper) !important; }
 html.skin-paint.dark .dark\:bg-black { background-color: var(--paint-paper) !important; }
