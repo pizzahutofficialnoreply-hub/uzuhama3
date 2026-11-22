@@ -7,6 +7,7 @@ import { NoticeItem, NoticeLink } from '../types';
 import { formatNoticeText } from '../App';
 import { cn } from '../utils';
 import { plainText } from './common/RichTextRenderer';
+import { MarqueeText } from './common/MarqueeText';
 
 export type BannerColorTheme = 'default' | 'yellow' | 'green';
 
@@ -366,10 +367,10 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
                     <span className={cn("inline-flex items-center justify-center w-5 h-5 rounded-md shrink-0", theme.iconBg)}>
                       {theme.icon}
                     </span>
-                    <span className="font-extrabold text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm truncate flex-1 min-w-0">
+                    <MarqueeText className="font-extrabold text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm flex-1 min-w-0">
                       <span className={cn("font-black mr-1.5", theme.badge)}>{currentItem.badgeText}</span>
                       {currentItem.title}
-                    </span>
+                    </MarqueeText>
                   </div>
 
                   <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-1">
@@ -500,10 +501,10 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
                                 {itemTheme.icon}
                               </span>
 
-                              <span className="font-extrabold text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm truncate flex-1 min-w-0">
+                              <MarqueeText className="font-extrabold text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm flex-1 min-w-0">
                                 <span className={cn("font-black mr-1.5", itemTheme.badge)}>{item.badgeText}</span>
                                 {item.title}
-                              </span>
+                              </MarqueeText>
                             </div>
 
                             {/* 우측 조작부 */}
