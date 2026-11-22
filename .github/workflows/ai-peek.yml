@@ -1,9 +1,0 @@
-name: ai-peek
-on: workflow_dispatch
-jobs:
-  peek:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          sleep 150
-          for i in 1 2 3; do curl -s "https://uzuhama.vercel.app/api/health?dbping=1&t=$i"; echo; sleep 20; done
