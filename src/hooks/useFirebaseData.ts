@@ -226,7 +226,7 @@ export function useFirebaseData() {
     const ping = () => {
       if (liveRef.current || (typeof navigator !== 'undefined' && navigator.onLine === false)) return;
       const base = typeof window !== 'undefined' && /vercel\.app$/.test(window.location.hostname) ? '' : 'https://uzuhama.vercel.app';
-      fetch(`${base}/api/health?dbping=1`).then((r) => r.json()).then((j) => { if (j?.down && !liveRef.current) noteDbError({ code: 'resource-exhausted' }); }).catch(() => {});
+      fetch(`${base}/api/health?dbping=1`).then((r) => r.json()).then((j) => { if (j?.down && !liveRef.current) noteDbError({ code: 'resource-exhausted' }, true); }).catch(() => {});
     };
     const t = window.setTimeout(ping, 6000);
     return () => window.clearTimeout(t);
