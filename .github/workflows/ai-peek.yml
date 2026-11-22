@@ -5,18 +5,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          npm i playwright@1 >/dev/null 2>&1 && npx playwright install --with-deps chromium >/dev/null 2>&1
-          cat > t.cjs <<'J'
-          const { chromium } = require('playwright');
-          (async () => {
-            const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 390, height: 844 } });
-            await p.addInitScript(() => { localStorage.setItem('uzuhama_onboarding_version', '999'); localStorage.setItem('uzuhama_tutorial_done_v1', '1'); localStorage.setItem('uzuhama_tutorial_new_1.2.0', '1'); Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => false }); });
-            p.on('console', (m) => console.log('C', m.type(), m.text().slice(0, 250)));
-            p.on('request', (r) => { if (/dbping|firestore/.test(r.url())) console.log('R', r.url().slice(0, 160)); });
-            p.on('response', async (r) => { if (/dbping|Listen\/channel/.test(r.url()) && r.request().method() !== 'OPTIONS') console.log('P', r.status(), (await r.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 400)); else if (r.status() >= 400) console.log('E', r.status(), r.url().slice(0, 120)); });
-            await p.goto('https://uzuhama.vercel.app/');
-            for (const s of [3, 8, 15]) { await p.waitForTimeout(s === 3 ? 3000 : 5000); console.log('T', s, (await p.evaluate(() => document.body.innerText)).slice(0, 120).replace(/\n/g, ' | ')); }
-            await b.close();
-          })();
-          J
-          node t.cjs
+          curl -s "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/config/system?mask.fieldPaths=serviceMode" | head -c 300; echo
+          curl -s "https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents/logs_by_month?pageSize=2&mask.fieldPaths=month" | head -c 300; echo
+          curl -s "https://uzuhama.vercel.app/api/health?dbping=1&x=2"; echo
