@@ -68,6 +68,7 @@ import { SmartTrendLabel } from '../stats/SmartTrendLabel';
 import { StatInsightSummary } from '../stats/StatInsightSummary';
 import { WidgetShareButton } from '../common/WidgetShareButton';
 import { HEATMAP_LEVEL_COLORS, getBroadcastHeatmapLevel } from '../../utils/heatmapUtils';
+import { wideAt } from '../../utils/layoutSize';
 
 const PDF_CATEGORY_PALETTE = [
   '#93a9d2', '#93c5fd', '#6ee7b7', '#fcd34d', '#f472b6',
@@ -932,7 +933,7 @@ export function DetailedStatsTab({
   const onSwipeStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
     const target = e.target as HTMLElement;
-    const blocked = window.innerWidth >= 640 || e.touches.length > 1 ||
+    const blocked = wideAt(640) || e.touches.length > 1 ||
       Boolean(target.closest('.overflow-x-auto, .hide-scrollbar, .no-scrollbar, input, textarea, select, iframe, .recharts-wrapper, table, [data-no-swipe], [role="dialog"]'));
     swipeRef.current = t ? { x: t.clientX, y: t.clientY, t: Date.now(), ok: !blocked } : null;
   };

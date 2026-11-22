@@ -1,3 +1,4 @@
+import { wideAt } from './layoutSize';
 /**
  * Android 및 모바일 기기를 위한 햅틱 피드백 유틸리티
  * PC UI 환경에서는 햅틱을 동작시키지 않으며, 미지원 브라우저에서도 안전하게 통과됩니다.
@@ -14,7 +15,7 @@ export function triggerHaptic(duration: number | number[] = 12): void {
 
   // PC 환경(마우스 중심, 큰 화면) 감지: PC에서는 햅틱 피드백 제외
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-    (window.innerWidth < 1024 && ('ontouchstart' in window || navigator.maxTouchPoints > 0));
+    (!wideAt(1024) && ('ontouchstart' in window || navigator.maxTouchPoints > 0));
 
   if (!isMobile) return;
 

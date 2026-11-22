@@ -616,6 +616,7 @@ export const VideoCard = ({
 };
 
 import { AppData } from "../../types";
+import { wideAt } from '../../utils/layoutSize';
 
 export function RecommendTab({ 
   data, 
@@ -829,7 +830,7 @@ export function RecommendTab({
 
   const [showAllWithoutSearch, setShowAllWithoutSearch] = useState(false);
 
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(!wideAt(768));
   const [mobileViewMode, setMobileViewMode] = useState<'1' | '2'>(() => {
     if (typeof window === 'undefined') return '1';
     return (localStorage.getItem('uzuhama_recommend_view_mode') as '1' | '2') || '1';
@@ -844,7 +845,7 @@ export function RecommendTab({
   };
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => setIsMobile(!wideAt(768));
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -1597,7 +1598,7 @@ export function RecommendTab({
   const onSwipeStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
     const target = e.target as HTMLElement;
-    const blocked = window.innerWidth >= 640 || e.touches.length > 1 ||
+    const blocked = wideAt(640) || e.touches.length > 1 ||
       Boolean(target.closest('.overflow-x-auto, .no-scrollbar, input, textarea, select, iframe, .recharts-wrapper, [data-no-swipe], [data-swipe-row], [role="dialog"]'));
     swipeRef.current = t ? { x: t.clientX, y: t.clientY, t: Date.now(), ok: !blocked } : null;
   };

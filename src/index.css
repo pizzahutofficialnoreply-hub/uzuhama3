@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/*
+  화면 너비 기준(sm·md·lg·xl)에 '높이도 넉넉할 때' 조건을 더함
+  → 휴대폰을 가로로 돌리면(너비는 넓지만 높이가 430px 안팎) PC 화면 대신 휴대폰 화면 그대로 (아래 탭바·띠 공지·그래프 한 줄씩)
+  PC·태블릿은 높이가 520px 넘으니 그대로
+*/
+@custom-variant sm (@media (min-width: 40rem) and (min-height: 32.5rem));
+@custom-variant md (@media (min-width: 48rem) and (min-height: 32.5rem));
+@custom-variant lg (@media (min-width: 64rem) and (min-height: 32.5rem));
+@custom-variant xl (@media (min-width: 80rem) and (min-height: 32.5rem));
+
 /* 배달의민족 한나체 Pro (BM HANNA Pro) - 제목, 헤딩, 볼드 강조, 버튼 전용 웹폰트 */
 @font-face {
   font-family: 'BMHANNAPro';
@@ -712,3 +722,8 @@ html:not(.dark) .ea-spark path { fill: #c9b8ff; }
 
 /* 아이폰 홈 화면 앱 창 높이 버그 보정 (index.html 의 --pwa-gap 설명 참고): 화면을 덮는 요소를 실제 화면 끝까지 */
 html.pwa-gap .fixed.inset-0 { bottom: calc(-1 * var(--pwa-gap, 0px)); }
+
+/* 휴대폰 가로: 노치·다이내믹 아일랜드 쪽에 내용이 가리지 않게 */
+@media (orientation: landscape) and (max-height: 32.4rem) {
+  #root { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+}

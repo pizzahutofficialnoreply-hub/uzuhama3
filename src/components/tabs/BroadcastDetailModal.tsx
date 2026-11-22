@@ -6,6 +6,7 @@ import { motion } from 'motion/react';
 import { cn } from '../../utils';
 import { extractYoutubeId } from '../../utils/urlUtils';
 import { GameTitle } from '../common/GameTitle';
+import { wideAt } from '../../utils/layoutSize';
 
 const YoutubeLogo = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -119,7 +120,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
   // 화면 크기 감지: 모바일 5개, PC 8개
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window !== 'undefined') {
-      return window.innerWidth < 1024;
+      return !wideAt(1024);
     }
     return false;
   });
@@ -129,7 +130,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024);
+      setIsMobile(!wideAt(1024));
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);

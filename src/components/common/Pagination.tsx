@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { wideAt } from '../../utils/layoutSize';
 
 /** 추천 영상 탭과 같은 숫자 페이지 넘기기 (<< < 1 2 3 > >>) — 모든 목록에서 같은 모양으로 사용 */
 export function Pagination({ currentPage, totalPages, onChange, className }: {
@@ -7,9 +8,9 @@ export function Pagination({ currentPage, totalPages, onChange, className }: {
   onChange: (page: number) => void;
   className?: string;
 }) {
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && !wideAt(768));
   useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
+    const onResize = () => setIsMobile(!wideAt(768));
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);

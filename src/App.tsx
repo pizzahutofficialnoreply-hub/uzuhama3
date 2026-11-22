@@ -90,6 +90,7 @@ import { activeDdays } from './utils/dday';
 import { confirmSheet, toast as uiToast } from './utils/ui';
 import { joinWithCode, startDeviceSync } from './utils/deviceSync';
 import { FluidBackdrop } from './components/common/FluidBackdrop';
+import { wideAt } from './utils/layoutSize';
 
 function SlugRoute() {
   const { slug = '' } = useParams<{ slug: string }>();
@@ -269,7 +270,7 @@ function MainApp() {
   const [forceRender, setForceRender] = useState(0);
 
   // 모바일 전체화면 설정창이 열려있을 때만 배경 스크롤 차단
-  useBodyScrollLock(isSettingsOpen && typeof window !== 'undefined' && window.innerWidth < 1024);
+  useBodyScrollLock(isSettingsOpen && typeof window !== 'undefined' && !wideAt(1024));
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);

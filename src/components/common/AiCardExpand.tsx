@@ -22,7 +22,7 @@ import { CardFind } from './CardFind';
 export const AI_CARD_EVENT = 'uzuhama-ai-card';
 /** 펼친 영상 화면이 다 닫혔을 때 (결산처럼 아래에 있던 화면이 다시 앞으로) */
 export const AI_CARD_CLOSED = 'uzuhama-ai-card-closed';
-type Rect = { top: number; left: number; width: number; height: number };
+type Rect = { top: number; left: number; width: number; height: number; wide?: boolean; pc?: boolean };
 export type CardOpts = {
   /** 몰아보기: 요약이 있을 때만 요약 칸, 없으면 바로 아래 목록 */
   compilation?: boolean;
@@ -66,9 +66,20 @@ function safeInsets(): { top: number; bottom: number } {
 /** 전체 화면 (넓은 화면은 가운데 세로로 꽉) */
 function finalRect(): Rect {
   const vw = window.innerWidth, vh = window.innerHeight;
+  // 가로로 넓은 화면(휴대폰 가로·PC): 영상은 왼쪽, 요약·스크립트는 오른쪽에 나란히
+  //  - 휴대폰 가로: 화면 꽉 채움 / PC: 가운데 큰 창 (위아래 여백)
+  if (vw >= 700 && vw > vh * 1.15) {
+    const pc = vh >= 520;
+    const width = pc ? Math.min(1240, vw - 64) : vw;
+    const height = pc ? Math.min(vh - 48, Math.round(width * 0.62)) : vh;
+    return { top: pc ? Math.round((vh - height) / 2) : 0, left: (vw - width) / 2, width, height, wide: true, pc };
+  }
   const width = vw < 640 ? vw : Math.min(640, vw - 48);
   return { top: 0, left: (vw - width) / 2, width, height: vh };
 }
+/** 넓은 화면에서 열고 닫는 모양: 카드에서 늘어나는 대신 살짝 커지며 나타남 */
+const WIDE_FROM = { x: 0, y: 24, scale: 0.96, opacity: 0, clipPath: 'inset(0px 0px 0px 0px round 0px)' };
+const WIDE_OPEN = { x: 0, y: 0, scale: 1, opacity: 1, clipPath: 'inset(0px 0px 0px 0px round 0px)' };
 
 /** 카드 자리(from)를 펼친 화면(to) 기준의 변환으로: 폭을 맞춰 같은 비율로 줄이고 위(상태 표시줄 칸)·아래는 잘라서 원래 카드 모양 */
 function fromTransform(f: Rect, to: Rect, safeTop: number, radius = 24) {
@@ -317,25 +328,29 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
       {t && (
         <motion.div key="ai-card" className="fixed inset-0 z-[320]" initial={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0 } }}>
           <motion.div className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: closing ? 0.3 : 0.35 }} onClick={close}>
-            <motion.div className="absolute inset-0 bg-black" style={{ opacity: shadeOpacity }} />
+            {/* PC 큰 창: 뒤 화면이 살짝 비치게 (휴대폰은 꽉 채워 가림) */}
+            <motion.div className={`absolute inset-0 ${to.pc ? 'bg-black/70 backdrop-blur-sm' : 'bg-black'}`} style={{ opacity: shadeOpacity }} />
           </motion.div>
           <motion.div
             role="dialog" aria-modal="true" aria-label={`${t.title} · 펼쳐 보기`} data-testid="ai-card"
-            initial={fromTransform(t.from, to, safeTop + BAR_H)}
-            animate={closing ? fromTransform(back.current || t.from, to, safeTop + BAR_H) : OPEN_SHAPE}
+            initial={to.wide ? WIDE_FROM : fromTransform(t.from, to, safeTop + BAR_H)}
+            animate={to.wide ? (closing ? WIDE_FROM : WIDE_OPEN) : closing ? fromTransform(back.current || t.from, to, safeTop + BAR_H) : OPEN_SHAPE}
             transition={closing ? CLOSE_T : OPEN_T}
             onAnimationComplete={finish}
             style={{ top: to.top, left: to.left, width: to.width, height: to.height, transformOrigin: '0 0', willChange: 'transform, clip-path' }}
             className="fixed"
             onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}
           >
-           <motion.div className="dark absolute inset-0 overflow-hidden bg-black text-white flex flex-col" style={{ y: dragY, scale: dragScale, borderRadius: dragRadius, transformOrigin: '50% 0%' }}>
+           <motion.div className={`dark absolute inset-0 overflow-hidden bg-black text-white flex ${to.wide ? 'flex-row' : 'flex-col'}`} style={{ y: dragY, scale: dragScale, borderRadius: to.pc ? 24 : dragRadius, transformOrigin: '50% 0%', ...(to.pc ? { background: '#0c0c0e', boxShadow: '0 30px 80px -20px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.08)' } : {}) }}>
+            {to.wide && <button type="button" onClick={close} className="absolute z-30 right-[calc(env(safe-area-inset-right,0px)+10px)] top-2.5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>}
+            {/* 넓은 화면: 영상·자막을 왼쪽 칸으로 묶음 (좁은 화면에선 그대로 위에서 아래로) */}
+            <div className={to.wide ? 'relative w-[58%] shrink-0 flex flex-col justify-center bg-black pl-[env(safe-area-inset-left,0px)]' : 'contents'}>
             {/* 상태 표시줄 칸 + 맨 위: 바로 재생 */}
             {/* 맨 위 막대: 상태 표시줄 아래 손잡이 + 닫기 — 영상 위에는 아무것도 안 덮음 (유튜브 자막·설정 버튼이 눌리게) */}
-            <div data-video-drag className="shrink-0 bg-black relative flex items-end justify-center cursor-grab" style={{ height: `calc(env(safe-area-inset-top) + ${BAR_H}px)` }}>
+            {!to.wide && <div data-video-drag className="shrink-0 bg-black relative flex items-end justify-center cursor-grab" style={{ height: `calc(env(safe-area-inset-top) + ${BAR_H}px)` }}>
               <span className="mb-[14px] h-1 w-10 rounded-full bg-white/40" aria-hidden />
               <button type="button" onClick={close} style={{ opacity: settled ? 1 : 0, transition: 'opacity .2s' }} className="absolute right-2 bottom-1 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
-            </div>
+            </div>}
             <div ref={slotRef} className="relative w-full aspect-video bg-black shrink-0">
               {play ? null : (
                 <button type="button" onClick={() => setPlay({ t: 0 })} className="absolute inset-0 w-full h-full cursor-pointer" aria-label="여기서 재생">
@@ -350,14 +365,15 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                 {subLine ? <>{subLine.w && <span className="mr-1 text-[11px] text-zinc-400">{subLine.w}</span>}{subLine.s}</> : <span className="text-zinc-500 text-[12px]">{play ? '…' : '재생하면 여기에 대사가 나와요'}</span>}
               </div>
             )}
+            </div>
             <div className="relative flex-1 min-h-0">
             {/* 영상과 아래 내용 사이: 영상 아랫부분이 비치는 빛 + 밑으로 지나가는 내용은 흐리게 (한 덩어리로 이어 보이게) */}
             {/* 영상 바로 아래: 밑으로 지나가는 내용을 실시간으로 흐리게 (위로 갈수록 더 흐리고 어둡게, 단계 없이 이어지게) */}
-            <div className="ai-card-seam pointer-events-none absolute inset-x-0 top-0 z-10 h-11" aria-hidden>
+            {!to.wide && <div className="ai-card-seam pointer-events-none absolute inset-x-0 top-0 z-10 h-11" aria-hidden>
               <span className="seam-l1" /><span className="seam-l2" /><span className="seam-l3" />
-            </div>
+            </div>}
             <motion.div ref={scrollEl} className="absolute inset-0 overflow-y-auto overscroll-contain" initial={{ opacity: 0.35 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: closing ? 0.14 : 0.24 }}>
-              <div className="px-5 pt-16 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
+              <div className={to.wide ? 'pl-5 pr-[calc(env(safe-area-inset-right,0px)+20px)] pt-12 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]' : 'px-5 pt-16 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]'}>
                 {t.embed || t.compilation ? (<>
                   <h2 className="text-[16px] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
                   {t.sub && <p className="mt-1 text-[12px] text-zinc-500 tabular-nums">{t.sub}</p>}
