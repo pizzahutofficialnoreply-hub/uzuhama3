@@ -278,7 +278,7 @@ export default async function handler(req: any, res: any) {
           // 분석은 최대 몇 분 걸려서 바로 돌아오고, 이 함수가 뒤에서 이어서 (최대 300초)
           await stRef.set({ coolUntil: 0 }, { merge: true });
           const { waitUntil } = await import('@vercel/functions');
-          waitUntil(ai.runAiVideoLoop(db, 120000).catch(() => {}));
+          waitUntil(ai.runAiVideoLoop(db, 60000).catch(() => {}));
           return res.status(200).json({ success: true, summary: '분석을 시작했어요. 1~4분 뒤 새로 고침해 보세요.' });
         }
         return res.status(200).json({ success: true, ...(await ai.aiVideoStatus(db)) });

@@ -264,12 +264,17 @@ export default async function handler(req: any, res: any) {
           const cu = Number(((await stRef.get()).data() || {}).coolUntil || 0) - Date.now();
           if (cu > 0 && cu < SHORT_COOL) await new Promise((r) => setTimeout(r, Math.min(cu + 2000, 240000)));
         }
-        const out: any = await ai.runAiVideoLoop(db, chain > 0 ? 100000 : 150000, { kind });
+        // Vercel 무료 요금제는 함수가 '돌고 있는 시간 × 2GB'(Provisioned Memory)로 한 달 360GB·시간까지라,
+        // 정기 실행(src 붙은 호출)은 30분에 한 번만 · 한 번에 60초까지만 (예전엔 2분마다 150초 + 이어 달리기로 거의 하루 종일 돌았음)
+        const scheduled = Boolean(req.query?.src);
+        if (scheduled && chain === 0 && new Date().getUTCMinutes() % 30 >= 2) return res.status(200).json({ skipped: '30분마다 한 번만 (서버 사용량 절약)' });
+        const out: any = await ai.runAiVideoLoop(db, 60000, { kind });
         // (예전엔 쉬는 중에도 계속 이어 달려서, 정기 실행 4분마다 + 이어 달리기가 겹쳐 DB 를 계속 읽었음 → 쉬는 중이면 다음 정기 실행에 맡김)
         const lastStep = out.steps?.[out.steps.length - 1] || {};
         if (lastStep.cool || lastStep.busy || (lastStep.skipped && /쉼|쉬는|분석 중/.test(String(lastStep.skipped)))) out.more = false;
         // 백그라운드로 계속: 시간이 다 돼도 할 게 남았으면 스스로 다음 실행을 부름 (한 줄에 최대 80번, 한도·다른 실행 중이면 멈춤)
-        if (out.more && chain < 80) {
+        // 이어 달리기는 관리자가 직접 돌릴 때만, 최대 3번
+        if (out.more && !scheduled && chain < 3) {
           const host = String(req.headers?.host || 'uzuhama.vercel.app');
           const url = `https://${host}/api/videos/search-index?ai=run&chain=${chain + 1}${kind ? `&kind=${kind}` : ''}`;
           try {
