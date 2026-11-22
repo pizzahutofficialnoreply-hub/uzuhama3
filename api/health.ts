@@ -417,6 +417,19 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400');
     return res.status(200).json({ youtubeOAuthClientId: String(process.env.YOUTUBE_OAUTH_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID || '').trim() });
   }
+  // DB 살아 있는지 (사이트가 실시간 설정을 못 받을 때만 물음 · 1분 CDN 보관이라 몰려도 읽기 1분에 1회)
+  //  브라우저 SDK 는 한도 초과(RESOURCE_EXHAUSTED)를 오류로 알려 주지 않고 조용히 다시 시도만 해서, 서버가 대신 확인
+  if (req.query?.dbping) {
+    res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=60');
+    try {
+      const { db } = await import('./_firebase.js');
+      await db.collection('config').doc('system').get();
+      return res.status(200).json({ down: false });
+    } catch (e: any) {
+      const m = `${e?.code || ''} ${e?.message || ''}`;
+      return res.status(200).json({ down: /RESOURCE_EXHAUSTED|quota|\b8\b/i.test(m), error: m.slice(0, 120) });
+    }
+  }
   const sync = String(req.query?.sync || '');
   if (sync) return syncHandler(sync, req, res);
   const img = String(req.query?.img || '');

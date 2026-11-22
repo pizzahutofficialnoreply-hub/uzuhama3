@@ -218,6 +218,19 @@ export function useFirebaseData() {
   // 서버에서 실제로 받았는지 (시간이 지나 기다림만 끝난 것과 구분)
   const [systemLive, setSystemLive] = useState(false);
   useEffect(() => { const t = window.setTimeout(() => setSystemFresh(true), 1500); return () => window.clearTimeout(t); }, []);
+  // 실시간 설정이 6초 안에 안 오면 서버에 DB 상태를 한 번 물어봄 → 하루 한도가 다 찼으면 자동 점검 화면
+  //  (브라우저 SDK 는 한도 초과를 오류로 안 알려 주고 조용히 다시 시도만 함)
+  const liveRef = useRef(false);
+  useEffect(() => { liveRef.current = systemLive; }, [systemLive]);
+  useEffect(() => {
+    const ping = () => {
+      if (liveRef.current || (typeof navigator !== 'undefined' && navigator.onLine === false)) return;
+      const base = typeof window !== 'undefined' && /vercel\.app$/.test(window.location.hostname) ? '' : 'https://uzuhama.vercel.app';
+      fetch(`${base}/api/health?dbping=1`).then((r) => r.json()).then((j) => { if (j?.down && !liveRef.current) noteDbError({ code: 'resource-exhausted' }); }).catch(() => {});
+    };
+    const t = window.setTimeout(ping, 6000);
+    return () => window.clearTimeout(t);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(15);
   const [loadingStatusText, setLoadingStatusText] = useState('불러오는 중');
