@@ -302,18 +302,38 @@ export function cafeCollector() {
       { name: '오늘·휴생추·휴영추', qs: ['오늘', '휴생추', '휴영추', '휴.생.추', '휴.영.추'], re: /\d{1,2}\s*월\s*\d{1,2}\s*일\s*오늘|휴\s*\.?\s*생\s*\.?\s*추|휴\s*\.?\s*영\s*\.?\s*추/ },
       { name: '쇼츠 생방링크', qs: ['생방링크', '쇼츠 생방링크'], re: /생방\s*링크/ },
     ];
-    const pickArts = (o: any, out: any[] = []): any[] => { if (!o || typeof o !== 'object') return out; if (o.articleId && (o.subject || o.title)) out.push(o); for (const v of Object.values(o)) pickArts(v, out); return out; };
+    const pickArts = (o: any, out: any[] = []): any[] => { if (!o || typeof o !== 'object') return out; if ((o.articleId || o.articleid) && (o.subject || o.title)) out.push({ ...o, articleId: o.articleId || o.articleid }); for (const v of Object.values(o)) pickArts(v, out); return out; };
+    // 네이버 카페 검색 주소가 여러 개라 차례로 시도 → 되는 것을 기억 (안 되면 이유를 아래에 보여 줌)
+    const enc = encodeURIComponent;
+    const URLS = [
+      (q: string, p: number) => `https://apis.naver.com/cafe-web/cafe-mobile/CafeMobileWebArticleSearchListV4?cafeId=${club}&query=${enc(q)}&searchBy=1&sortBy=date&page=${p}&perPage=50&adUnit=MW_CAFE_BOARD&ad=false`,
+      (q: string, p: number) => `https://apis.naver.com/cafe-web/cafe-mobile/CafeMobileWebArticleSearchListV4?cafeId=${club}&query=${enc(q)}&searchBy=0&sortBy=date&page=${p}&perPage=50&adUnit=MW_CAFE_BOARD&ad=false`,
+      (q: string, p: number) => `https://apis.naver.com/cafe-web/cafe-mobile/CafeMobileWebArticleSearchListV3?cafeId=${club}&query=${enc(q)}&searchBy=1&sortBy=date&page=${p}&perPage=50`,
+      (q: string, p: number) => `https://apis.naver.com/cafe-web/cafe2/ArticleSearchListV2.json?search.clubid=${club}&search.query=${enc(q)}&search.searchBy=1&search.sortBy=date&search.page=${p}&search.perPage=50`,
+      (q: string, p: number) => `https://apis.naver.com/cafe-web/cafe2/ArticleListV2dot1.json?search.clubid=${club}&search.queryType=lastArticle&search.query=${enc(q)}&search.page=${p}&search.perPage=50`,
+    ];
+    let good = -1;
+    async function searchPage(q: string, p: number): Promise<any[]> {
+      const order = good >= 0 ? [good] : URLS.map((_, i) => i);
+      for (const i of order) {
+        try {
+          const r = await fetch(URLS[i](q, p), { credentials: 'include' });
+          const text = await r.text();
+          let j: any = null; try { j = JSON.parse(text); } catch { /* */ }
+          const arts = j ? pickArts(j) : [];
+          if (arts.length) { if (good < 0) log(`검색 방법 ${i + 1}번이 돼요`); good = i; return arts; }
+          if (good < 0) log(`검색 방법 ${i + 1}번: HTTP ${r.status} · ${text.replace(/\s+/g, ' ').slice(0, 90)}`);
+        } catch (e: any) { if (good < 0) log(`검색 방법 ${i + 1}번: ${String(e?.message || e).slice(0, 80)}`); }
+      }
+      return [];
+    }
     const found = new Map<string, { title: string; series: string }>();
     for (const sr of SERIES) {
       for (const q of sr.qs) {
         let empty = 0;
         for (let page = 1; page <= 200 && !stop; page++) {
           st(`검색 「${q}」 ${page}쪽 · 찾은 글 ${found.size}개`);
-          let arts: any[] = [];
-          try {
-            const r = await fetch(`https://apis.naver.com/cafe-web/cafe-mobile/CafeMobileWebArticleSearchListV4?cafeId=${club}&query=${encodeURIComponent(q)}&searchBy=1&sortBy=date&page=${page}&perPage=50&adUnit=MW_CAFE_BOARD&ad=false`, { credentials: 'include' });
-            arts = pickArts(await r.json());
-          } catch { /* */ }
+          const arts = await searchPage(q, page);
           if (!arts.length) break;
           let fresh = 0;
           for (const a of arts) {
@@ -331,7 +351,7 @@ export function cafeCollector() {
       }
     }
     if (stop) return;
-    if (!found.size) { st('검색 결과가 없어요. 네이버에 로그인한 상태로 카페 화면에서 눌러 주세요.'); return; }
+    if (!found.size) { st('검색이 안 됐어요. 위 회색 글(검색 방법 1~5번 결과)을 캡처해서 보내 주세요. 네이버에 로그인한 상태인지도 확인해 주세요.'); return; }
     const out: string[] = [];
     let n = 0; let fail = 0;
     for (const [aid, f] of found) {
@@ -354,7 +374,7 @@ export function cafeCollector() {
   }
 
   (async () => {
-    if (!here) { await listMode(); return; }
+    if (!here || !window.confirm('지금 열린 글(목차 글)에서 이어진 글을 모을까요?\n\n취소: 다른 방법 고르기 (5번: 정리 글 전부 자동 검색)')) { await listMode(); return; }
     const seen = new Set<string>();
     const out: string[] = [];
     let ok = 0;
