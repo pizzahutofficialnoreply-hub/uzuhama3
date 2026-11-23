@@ -10,7 +10,7 @@ import {
 /**
  * 자동 알림 점검 엔드포인트 (GET/POST /api/notifications/tick)
  *
- * 1~5분마다 외부에서 호출만 해주면 됨 (cron-job.org, GitHub Actions, 앱 접속자 핑 등).
+ * Cloudflare 워커가 1분마다 부름. 전체 작업은 5분마다, 나머지 분은 치지직 상태만 가볍게 확인 (방송 켜짐·꺼짐 순간엔 바로 전체 작업).
  * - 비밀값 없이 호출해도 안전하도록: 50초 이내 재호출은 무시하고, 같은 이벤트는 한 번만 발송(중복 방지 기록)
  * - 방송 시작: 치지직 상태가 OPEN 이고 이번 방송(openDate)에 대해 아직 안 보냈으면 notifyLive 구독자에게 발송
  * - 유력 시간: 메인 카드와 같은 확률 엔진으로 오늘 유력 시간을 계산, 구독자별 사전 알림(leadTime) 시점에 발송
@@ -82,6 +82,27 @@ export default async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // ── 가벼운 확인 (Vercel 무료 CPU 한 달 4시간 → 11/23 초과로 정지됐었음) ──
+  // 워커가 1분마다 부르지만, 전체 작업(DB 읽기·쓰기, 알림 확인, 영상 동기화)은 5분에 한 번만.
+  // 그 사이 1분들은 치지직 상태만 보고, 방송이 막 켜지거나 꺼졌을 때(3분 안)만 바로 전체 작업 → 시작 알림·기록 생성은 늦지 않음
+  // DB·모듈은 불러오지도 않아서 이 경우 CPU 를 거의 안 씀
+  const src0 = String(req.query?.src || '');
+  let prefetched: { r: Response; json: any } | null = null;
+  if (src0 !== 'admin' && new Date().getUTCMinutes() % 5 !== 0) {
+    try {
+      const r = await fetch(CHZZK_URL, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; uzuhama-notifier/1.0)' }, signal: AbortSignal.timeout(5000) });
+      const json = await r.json().catch(() => null);
+      const c = json?.content;
+      const fresh = (s: any) => { const t = s ? kstDateTimeToMs(String(s)) : NaN; return Number.isFinite(t) && Date.now() - t < 3 * 60000 && Date.now() - t > -120000; };
+      const changed = (c?.status === 'OPEN' && fresh(c?.openDate)) || (c?.status === 'CLOSE' && fresh(c?.closeDate));
+      if (!changed) { res.setHeader('Cache-Control', 'no-store'); return res.status(200).json({ skipped: 'light', live: c?.status || 'UNKNOWN' }); }
+      prefetched = { r, json };
+    } catch {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).json({ skipped: 'light', live: 'UNKNOWN' });
+    }
+  }
+
   try {
     const { db, messaging, hasAdminCredentials } = await import('../_firebase.js');
     if (!hasAdminCredentials) {
@@ -112,11 +133,11 @@ export default async function handler(req: any, res: any) {
     let liveStatus: 'OPEN' | 'CLOSE' | 'UNKNOWN' = 'UNKNOWN';
     let content: any = null;
     try {
-      const r = await fetch(CHZZK_URL, {
+      const r = prefetched?.r || await fetch(CHZZK_URL, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; uzuhama-notifier/1.0)' },
         signal: AbortSignal.timeout(5000),
       });
-      const json = await r.json().catch(() => null);
+      const json = prefetched ? prefetched.json : await r.json().catch(() => null);
       content = json?.content;
       liveStatus = content?.status === 'OPEN' ? 'OPEN' : content?.status === 'CLOSE' ? 'CLOSE' : 'UNKNOWN';
       // 방송이 꺼져 있으면 정상 응답(code 200)이면서 상태값이 비어 오는 경우가 있음 → 꺼짐으로 처리
@@ -267,12 +288,12 @@ export default async function handler(req: any, res: any) {
     }, { merge: true }).catch(() => {});
 
     // ── 새 영상 찾기 → 방송 기록에 자동 연결 + 새 영상 알림 (새 영상이 없으면 DB 읽기 1번, 나머지는 유튜브 할당량만)
-    //    롱폼이 보통 올라오는 오전·오후 11:30~11:40(한국)에는 1분마다, 그 밖에는 10분마다 (쇼츠는 아무 때나 올라와서)
+    //    롱폼이 보통 올라오는 오전·오후 11:30~11:40(한국)에는 5분마다, 그 밖에는 30분마다 (쇼츠는 아무 때나 올라와서)
     {
       const k = new Date(now.getTime() + 9 * 3600000);
       const hh = k.getUTCHours(), mm = k.getUTCMinutes();
       const upload = (hh === 11 || hh === 23) && mm >= 30 && mm <= 40;
-      if (upload || mm % 10 === 5) {
+      if (upload || mm % 30 === 5) { // 평소엔 30분마다 (CPU 절약)
         try { const { ytSync } = await import('../_ytSync.js'); const y: any = await ytSync(db, { window: upload }); if (y?.linked?.length) result.ytSync = { linked: y.linked.length }; } catch (e: any) { result.ytSyncError = String(e?.message || e).slice(0, 120); }
       }
     }
@@ -292,7 +313,7 @@ export default async function handler(req: any, res: any) {
       // 사라진(삭제·비공개) 영상 찾기는 매일 하지 않음 (기록 전체를 읽어서 DB 사용이 큼) → 관리자 화면에서 눌렀을 때만
     }
 
-    if (now.getUTCMinutes() % 30 < 2) { // 30분에 한두 번만 (예전엔 5분 동안 매분 불러 패치노트·설정을 다섯 번씩 읽었음)
+    if (now.getUTCMinutes() < 2) { // 1시간에 한 번만 (서버를 한 번 더 부르는 거라 CPU 절약)
       const host = `https://${req.headers['x-forwarded-host'] || req.headers.host || 'uzuhama.vercel.app'}`;
       await fetch(`${host}/api/patch-notes?announce=1`, { signal: AbortSignal.timeout(8000) }).catch(() => {});
     }

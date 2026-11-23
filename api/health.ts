@@ -502,7 +502,7 @@ export default async function handler(req: any, res: any) {
     let d: any;
     try { d = (await db.collection('notification_state').doc('main').get()).data() || {}; } catch (e: any) { return res.status(200).json({ alive: true, unknown: String(e?.message || e).slice(0, 80) }); }
     const at = Number(d.lastBySource?.cf || 0);
-    return res.status(200).json({ alive: Date.now() - at < 5 * 60000, at: at ? new Date(at).toISOString() : null });
+    return res.status(200).json({ alive: Date.now() - at < 12 * 60000, at: at ? new Date(at).toISOString() : null });
   }
   // DB 읽기 출처: 기기가 보낸 숫자 더하기 (POST) / 관리자 화면에서 보기 (GET)
   if (req.query?.fb) {

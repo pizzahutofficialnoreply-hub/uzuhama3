@@ -159,6 +159,12 @@ export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
 
+  // AI 정기 실행은 시간이 아니면 DB·모듈을 불러오기 전에 바로 끝냄 (부르기만 해도 CPU 를 쓰지 않게)
+  if (String(req.query?.ai || '') === 'run') {
+    const d = new Date();
+    if (d.getUTCHours() % 2 !== 0 || d.getUTCMinutes() >= 2) { res.setHeader('Cache-Control', 'no-store'); return res.status(200).json({ skipped: '2시간마다 한 번만 (서버 사용량 절약)' }); }
+  }
+
   try {
     const { db } = await import('../_firebase.js');
     const metaRef = db.collection('youtube_cache').doc('search_index');
@@ -256,36 +262,21 @@ export default async function handler(req: any, res: any) {
         res.setHeader('Cache-Control', 'no-store');
         // 한 번 불렸을 때 시간이 남으면 여러 구간 (이 함수는 최대 300초)
         const kind = ['short', 'video', 'live'].includes(String(req.query?.kind)) ? String(req.query.kind) : undefined;
-        const chain = Math.max(0, Number(req.query?.chain || 0));
         const stRef = db.collection('youtube_cache').doc('ai_state');
-        const SHORT_COOL = 15 * 60000;
-        // 이어 달리기 중인데 AI 가 잠깐 붐벼서 쉬는 중이면(15분 이내): 여기서 기다렸다가 이어서
-        if (chain > 0) {
-          const cu = Number(((await stRef.get()).data() || {}).coolUntil || 0) - Date.now();
-          if (cu > 0 && cu < SHORT_COOL) await new Promise((r) => setTimeout(r, Math.min(cu + 2000, 240000)));
-        }
-        // Vercel 무료 요금제는 함수가 '돌고 있는 시간 × 2GB'(Provisioned Memory)로 한 달 360GB·시간까지라,
-        // 정기 실행(src 붙은 호출)은 30분에 한 번만 · 한 번에 60초까지만 (예전엔 2분마다 150초 + 이어 달리기로 거의 하루 종일 돌았음)
-        const scheduled = Boolean(req.query?.src);
-        // 정해 둔 점검 시각(한국 11/22 17:00)까지는 AI 작업도 쉼 (src/utils/plannedPause.ts 와 같은 시각)
-        if (Date.now() < Date.parse('2026-11-22T08:00:00Z')) return res.status(200).json({ skipped: '점검 중 (서버 사용량 절약)' });
-        // 정기 실행은 1시간에 한 번 (한 번 돌 때 DB 를 200번 넘게 읽어서, 30분마다면 하루 1만 번 넘음)
-        if (scheduled && chain === 0 && new Date().getUTCMinutes() >= 2) return res.status(200).json({ skipped: '1시간마다 한 번만 (DB·서버 사용량 절약)' });
+        // Vercel 무료 요금제는 CPU 사용 시간이 한 달 4시간뿐이라 (11/23 초과로 정지됨)
+        // 누가 부르든(워커·GitHub·수동) 2시간에 한 번, 정각 2분 안에 온 호출만 60초 동안 · 이어 달리기 없음
+        const nowD = new Date();
+        if (nowD.getUTCHours() % 2 !== 0 || nowD.getUTCMinutes() >= 2) return res.status(200).json({ skipped: '2시간마다 한 번만 (서버 사용량 절약)' });
+        // 같은 시각에 여러 곳에서 불러도 한 번만
+        const runSlot = nowD.toISOString().slice(0, 13);
+        const took = await db.runTransaction(async (tx: any) => {
+          const s = (await tx.get(stRef)).data() || {};
+          if (s.runSlot === runSlot) return false;
+          tx.set(stRef, { runSlot }, { merge: true });
+          return true;
+        });
+        if (!took) return res.status(200).json({ skipped: '이번 시각에 이미 실행 중' });
         const out: any = await ai.runAiVideoLoop(db, 60000, { kind });
-        // (예전엔 쉬는 중에도 계속 이어 달려서, 정기 실행 4분마다 + 이어 달리기가 겹쳐 DB 를 계속 읽었음 → 쉬는 중이면 다음 정기 실행에 맡김)
-        const lastStep = out.steps?.[out.steps.length - 1] || {};
-        if (lastStep.cool || lastStep.busy || (lastStep.skipped && /쉼|쉬는|분석 중/.test(String(lastStep.skipped)))) out.more = false;
-        // 백그라운드로 계속: 시간이 다 돼도 할 게 남았으면 스스로 다음 실행을 부름 (한 줄에 최대 80번, 한도·다른 실행 중이면 멈춤)
-        // 이어 달리기는 관리자가 직접 돌릴 때만, 최대 3번
-        if (out.more && !scheduled && chain < 3) {
-          const host = String(req.headers?.host || 'uzuhama.vercel.app');
-          const url = `https://${host}/api/videos/search-index?ai=run&chain=${chain + 1}${kind ? `&kind=${kind}` : ''}`;
-          try {
-            const { waitUntil } = await import('@vercel/functions');
-            waitUntil(fetch(url, { signal: AbortSignal.timeout(5000) }).catch(() => {}));
-          } catch { /* */ }
-          out.chained = chain + 1;
-        }
         return res.status(200).json(out);
       }
       return res.status(400).json({ error: 'unknown ai mode' });
