@@ -1,0 +1,40 @@
+name: tmp job (일회용 · 분석)
+on:
+  workflow_dispatch:
+    inputs:
+      script: { description: '돌릴 스크립트', required: true, default: 'ops/tmp/steam.mjs' }
+      cleanup: { description: '임시 브랜치만 지우기', type: boolean, default: false }
+permissions:
+  contents: write
+jobs:
+  j:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: cleanup only
+        if: inputs.cleanup
+        run: git push origin --delete tmp-dump || true
+      - uses: actions/setup-node@v4
+        if: ${{ !inputs.cleanup }}
+        with: { node-version: 22 }
+      - run: npm install --no-save firebase-admin@13 >/dev/null 2>&1
+        if: ${{ !inputs.cleanup }}
+      - run: node ${{ inputs.script }}
+        if: ${{ !inputs.cleanup }}
+        env:
+          SA: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}"
+          YT: "${{ secrets.GOOGLE_API_KEY }}"
+      - name: encrypt & push
+        if: ${{ !inputs.cleanup }}
+        run: |
+          tar czf dump.tgz out
+          openssl rand -hex 32 > k.txt
+          openssl enc -aes-256-cbc -pbkdf2 -in dump.tgz -out dump.enc -pass file:k.txt
+          openssl pkeyutl -encrypt -pubin -inkey ops/tmp/pub.pem -in k.txt -out k.enc
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          git checkout --orphan tmp-dump
+          git rm -rfq --cached .
+          git add -f dump.enc k.enc
+          git commit -qm dump
+          git push -f origin tmp-dump
