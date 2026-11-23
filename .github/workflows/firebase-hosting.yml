@@ -54,8 +54,12 @@ jobs:
           node-version: 22
       - name: Build
         if: steps.key.outputs.skip != '1'
+        env:
+          # 방송 기록 묶음 파일(DB 읽기만) 을 같이 배포 → 방문자가 서버를 안 거치고 받음 (메인 키가 없으면 건너뜀)
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}
         run: |
           npm install --no-audit --no-fund
+          node scripts/build-snapshot.mjs
           npx tsc --noEmit
           npx vite build
       - uses: FirebaseExtended/action-hosting-deploy@v0

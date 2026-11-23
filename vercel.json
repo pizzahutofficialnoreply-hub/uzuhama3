@@ -7,7 +7,7 @@
     },
     "api/notifications/tick.ts": {
       "includeFiles": "api/**",
-      "maxDuration": 300
+      "maxDuration": 60
     },
     "api/admin/*.ts": {
       "includeFiles": "api/**",

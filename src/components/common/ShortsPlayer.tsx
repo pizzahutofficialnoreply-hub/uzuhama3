@@ -10,7 +10,7 @@ import { ShareBoxArrowIcon } from './ShareIcon';
 import { hideVideo, unhideVideo, useHidden, HIDE_DELAY } from '../../utils/hiddenVideos';
 import { toast } from '../../utils/ui';
 import { motion, AnimatePresence } from 'motion/react';
-import { CompilationDetail } from '../tabs/recommend/CompilationDetail';
+import { CompilationDetail } from './LazyCompilationDetail';
 import { extractYoutubeId } from '../../utils/urlUtils';
 import { cleanShortsTitle } from '../../utils/videoSearch';
 import { PlaySquare, YoutubeLogo } from './MediaIcons';

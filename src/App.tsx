@@ -27,14 +27,14 @@ const CalendarTab = lazy(() => loadCalendarTab().then((m) => ({ default: m.Calen
 const DetailedStatsTab = lazy(() => loadDetailedTab().then((m) => ({ default: m.DetailedStatsTab })));
 const RecommendTab = lazy(() => loadRecommendTab().then((m) => ({ default: m.RecommendTab })));
 const onboardingSeenVersion = () => { try { return Number(localStorage.getItem('uzuhama_onboarding_version') || 0); } catch { return 0; } };
-import { NoticeModal } from './components/NoticeModal';
+const NoticeModal = lazy(() => import('./components/NoticeModal').then((m) => ({ default: m.NoticeModal })));
 import { NoticeBanner } from './components/NoticeBanner';
 import { HeaderDday } from './components/common/HeaderDday';
 import { HeaderTitle } from './components/common/HeaderTitle';
 import { SelfTestHeaderLine } from './components/common/UserSelfCheck';
-import { FeedbackModal } from './components/FeedbackModal';
-import { PolicyModal } from './components/PolicyModal';
-import { TermsRevisionModal } from './components/TermsRevisionModal';
+const FeedbackModal = lazy(() => import('./components/FeedbackModal').then((m) => ({ default: m.FeedbackModal })));
+const PolicyModal = lazy(() => import('./components/PolicyModal').then((m) => ({ default: m.PolicyModal })));
+const TermsRevisionModal = lazy(() => import('./components/TermsRevisionModal').then((m) => ({ default: m.TermsRevisionModal })));
 import { FloatingBottomNav } from './components/FloatingBottomNav';
 import { CurrentProbability } from './components/CurrentProbability';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -950,11 +950,11 @@ function MainApp() {
         if (activeModalNotices.length === 0) return null;
 
         return (
-          <NoticeModal 
+          <Suspense fallback={null}><NoticeModal 
             notices={activeModalNotices} 
             onClose={() => setDismissedSystemNotice(true)} 
             onNavigateInternal={handleInternalRedirect}
-          />
+          /></Suspense>
         );
       })()}
 
@@ -966,7 +966,7 @@ function MainApp() {
         if (isAcked) return null;
 
         return (
-          <TermsRevisionModal 
+          <Suspense fallback={null}><TermsRevisionModal 
             revision={rev}
             onAcknowledge={() => {
               localStorage.setItem(ackKey, 'true');
@@ -979,7 +979,7 @@ function MainApp() {
               localStorage.setItem(ackKey, 'true');
               setForceRender(prev => prev + 1);
             } : undefined}
-          />
+          /></Suspense>
         );
       })()}
 
@@ -1438,16 +1438,16 @@ function MainApp() {
 
       {/* Policies & Modals */}
       {policyType && (
-        <PolicyModal 
+        <Suspense fallback={null}><PolicyModal 
           type={policyType} 
           system={data.system} 
           onClose={() => setPolicyType(null)} 
-        />
+        /></Suspense>
       )}
 
       {/* 의견 보내기 모달 (모든 오버레이 및 모바일 설정창 상단에 항상 최상위 레이어로 렌더링) */}
       {showFeedbackModal && (
-        <FeedbackModal onClose={() => closeFeedback()} system={data.system} data={data} />
+        <Suspense fallback={null}><FeedbackModal onClose={() => closeFeedback()} system={data.system} data={data} /></Suspense>
       )}
     </div>
   );

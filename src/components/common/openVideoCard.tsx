@@ -1,5 +1,5 @@
 import { openAiCard, appLogs } from './AiCardExpand';
-import { CompilationDetail } from '../tabs/recommend/CompilationDetail';
+import { CompilationDetail } from './LazyCompilationDetail';
 
 const ytId = (u: string) => (String(u || '').match(/(?:youtu\.be\/|v=|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/) || [])[1] || '';
 
