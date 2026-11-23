@@ -181,7 +181,14 @@
             if (c.state !== 'running') { if (!tapMode) return; /* 아이폰 누르기 모드: 깨는 중이면 한 번 더 */ try { c.resume(); } catch (e) {} }
             if (c.currentTime > at + (tapMode ? 0.6 : 0.25)) return; // 너무 늦게 준비되면 박자가 안 맞으니 생략
             var s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(Math.max(c.currentTime, at)); srcNode = s;
+            s.onended = releaseAudio;
           }).catch(function () {});
+        }
+        // 노래가 끝나면(또는 건너뛰면) 재생 모드를 풀고 소리 장치를 닫음 → 다이나믹 아일랜드·잠금 화면의 재생 표시가 바로 사라짐
+        function releaseAudio() {
+          try { if (navigator.audioSession) navigator.audioSession.type = 'auto'; } catch (e) {}
+          try { if (ac && ac.close) ac.close(); } catch (e) {}
+          ac = null;
         }
         // 도는 중에 화면을 누르면 건너뜀 (소리도 멈춤)
         el.style.pointerEvents = 'auto';
@@ -199,6 +206,7 @@
         el.addEventListener('pointerdown', function () {
           if (!began) return;
           try { if (srcNode) srcNode.stop(); } catch (e) {}
+          releaseAudio();
           skipNow();
         });
         function skipNow() { if (el.className === 'i-done') return; document.documentElement.classList.remove('intro-on'); el.className = 'i-done'; el.style.pointerEvents = 'none'; setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 320); }
