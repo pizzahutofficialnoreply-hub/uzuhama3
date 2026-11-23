@@ -54,7 +54,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   searchAI: true,
   labAiSummary: true,
   labAiCard: true,
-  labCafeOld: false,
+  labCafeOld: true,
   listPlay: 'site',
 };
 
@@ -66,14 +66,17 @@ const EVENT = 'uzuhama-prefs-change';
 export function getPrefs(): UserPrefs {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
-    return { ...DEFAULT_PREFS, ...(saved && typeof saved === 'object' ? saved : {}) };
+    const s = saved && typeof saved === 'object' ? saved : {};
+    // 과거 영상 생방 연동: 기본 켜짐으로 바뀜 (예전에 저장된 꺼짐 값은 한 번 켜 줌)
+    if (s.labCafeOldV !== 2) s.labCafeOld = true;
+    return { ...DEFAULT_PREFS, ...s };
   } catch {
     return { ...DEFAULT_PREFS };
   }
 }
 
 export function setPref<K extends keyof UserPrefs>(key: K, value: UserPrefs[K]) {
-  const next = { ...getPrefs(), [key]: value };
+  const next = { ...getPrefs(), [key]: value, labCafeOldV: 2 };
   try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* 저장 공간 없음 */ }
   try { window.dispatchEvent(new CustomEvent(EVENT)); } catch { /* 무시 */ }
 }

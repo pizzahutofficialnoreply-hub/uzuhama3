@@ -176,9 +176,10 @@ export function cafeCollector() {
     });
   }
   async function listMode() {
-    const pick = (window.prompt('무엇을 모을까요? 번호를 적어 주세요\n1: 생방쏭 글만 (방송 알림·다시보기 링크)\n2: 이츠하마타임 글만 (영상·쇼츠 생방링크)\n3: 이 화면의 글 전부\n4: 사이트에 있는 영상 제목으로 카페를 검색해서 모으기 (확인 필요한 것부터)\n(다른 이름을 적으면 그 작성자 글만)', '1') || '').trim();
+    const pick = (window.prompt('무엇을 모을까요? 번호를 적어 주세요\n1: 생방쏭 글만 (방송 알림·다시보기 링크)\n2: 이츠하마타임 글만 (영상·쇼츠 생방링크)\n3: 이 화면의 글 전부\n4: 사이트에 있는 영상 제목으로 카페를 검색해서 모으기 (확인 필요한 것부터)\n5: 정리 글 전부 자동 검색 (생방정리·생방쏭·오늘/휴생추/휴영추·쇼츠 생방링크) → 파일로 저장\n(다른 이름을 적으면 그 작성자 글만)', '5') || '').trim();
     if (!pick) return;
     if (pick === '4') { await titleMode(); return; }
+    if (pick === '5') { await seriesMode(); return; }
     const who = pick === '2' ? '이츠하마타임' : pick === '1' || pick === '3' ? '' : pick;
     const needTitle = pick === '1' ? '생방쏭' : '';
     const auto = window.confirm('다음 페이지들도 자동으로 넘기며 모을까요? (취소: 이 화면만)');
@@ -289,6 +290,67 @@ export function cafeCollector() {
     st(`영상 제목 ${n}개 검색 · 새로 읽음 ${ok}개 · 못 찾음 ${none}개 · 지금까지 모은 글 ${Object.keys(acc).length}개`);
     showCopy(Object.values(acc).join('\n\n'), '<button id="uzu-clr" style="margin-top:8px;background:#3f3f46;color:#fff;border:0;border-radius:10px;padding:8px 12px;cursor:pointer">모은 것 비우기</button>');
     ($('uzu-clr') as HTMLButtonElement).onclick = () => { saveAcc({}); st('비웠어요'); };
+  }
+
+  // ── 5: 정리 글 시리즈 전부 카페 검색으로 찾아 읽고, 끝나면 파일로 내려받기 (한 번만 돌리면 됨)
+  async function seriesMode() {
+    const club = /^\d+$/.test(clubId) ? clubId : '30027092';
+    // 제목 모양으로 거름 (작성자는 여러 명일 수 있어서 제목 기준)
+    const SERIES: { name: string; qs: string[]; re: RegExp }[] = [
+      { name: '생방정리', qs: ['생방정리', '생방 정리'], re: /생방\s*정리/ },
+      { name: '생방쏭', qs: ['생방쏭'], re: /생방\s*쏭/ },
+      { name: '오늘·휴생추·휴영추', qs: ['오늘', '휴생추', '휴영추', '휴.생.추', '휴.영.추'], re: /\d{1,2}\s*월\s*\d{1,2}\s*일\s*오늘|휴\s*\.?\s*생\s*\.?\s*추|휴\s*\.?\s*영\s*\.?\s*추/ },
+      { name: '쇼츠 생방링크', qs: ['생방링크', '쇼츠 생방링크'], re: /생방\s*링크/ },
+    ];
+    const pickArts = (o: any, out: any[] = []): any[] => { if (!o || typeof o !== 'object') return out; if (o.articleId && (o.subject || o.title)) out.push(o); for (const v of Object.values(o)) pickArts(v, out); return out; };
+    const found = new Map<string, { title: string; series: string }>();
+    for (const sr of SERIES) {
+      for (const q of sr.qs) {
+        let empty = 0;
+        for (let page = 1; page <= 200 && !stop; page++) {
+          st(`검색 「${q}」 ${page}쪽 · 찾은 글 ${found.size}개`);
+          let arts: any[] = [];
+          try {
+            const r = await fetch(`https://apis.naver.com/cafe-web/cafe-mobile/CafeMobileWebArticleSearchListV4?cafeId=${club}&query=${encodeURIComponent(q)}&searchBy=1&sortBy=date&page=${page}&perPage=50&adUnit=MW_CAFE_BOARD&ad=false`, { credentials: 'include' });
+            arts = pickArts(await r.json());
+          } catch { /* */ }
+          if (!arts.length) break;
+          let fresh = 0;
+          for (const a of arts) {
+            const t = String(a.subject || a.title || '').replace(/<[^>]+>/g, '');
+            const aid = String(a.articleId);
+            if (!sr.re.test(t) || found.has(aid)) continue;
+            found.set(aid, { title: t, series: sr.name }); fresh++;
+          }
+          // 제목이 안 맞는 글만 몇 쪽 이어지면 그 검색어는 끝
+          empty = fresh ? 0 : empty + 1;
+          if (empty >= 8) break;
+          await sleep(300);
+        }
+        log(`「${q}」 검색 끝 · 지금까지 ${found.size}개`);
+      }
+    }
+    if (stop) return;
+    if (!found.size) { st('검색 결과가 없어요. 네이버에 로그인한 상태로 카페 화면에서 눌러 주세요.'); return; }
+    const out: string[] = [];
+    let n = 0; let fail = 0;
+    for (const [aid, f] of found) {
+      if (stop) break;
+      n++;
+      st(`글 읽는 중… ${n}/${found.size}${fail ? ` · 못 읽음 ${fail}` : ''} (다 끝나면 파일로 저장돼요)`);
+      const a = await readArticle(club, aid);
+      if (!a) { fail++; log(`✗ ${f.title}`); continue; }
+      out.push(`===== ${a.title || f.title} ⟪${[a.at, a.writer].filter(Boolean).join(' · ')}⟫ [${f.series} #${aid}]\n${toText(a.html).text}`);
+      await sleep(300);
+    }
+    const all = out.join('\n\n');
+    const blob = new Blob([all], { type: 'text/plain;charset=utf-8' });
+    const name = `uzuhama-cafe-${new Date().toISOString().slice(0, 10)}.txt`;
+    const save = () => { const u = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = u; el.download = name; document.body.appendChild(el); el.click(); setTimeout(() => { URL.revokeObjectURL(u); el.remove(); }, 2000); };
+    save();
+    st(`다 모았어요 · 글 ${out.length}개${fail ? ` · 못 읽음 ${fail}개` : ''} · ${name} 으로 저장했어요`);
+    $('uzu-out').innerHTML = '<button id="uzu-dl" style="margin-top:8px;background:#9333ea;color:#fff;border:0;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer">파일 다시 저장</button>';
+    ($('uzu-dl') as HTMLButtonElement).onclick = save;
   }
 
   (async () => {
