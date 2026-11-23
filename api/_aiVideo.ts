@@ -977,6 +977,8 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
     if ((st.priority || []).includes(item.id)) await stRef.set({ priority: (st.priority || []).filter((x: string) => x !== item!.id) }, { merge: true });
     // 연동 점검: 이 영상과 연결된 생방송·영상·쇼츠 중 AI 분석이 끝난 것과 내용이 맞는지 (글로만 비교, 한도에 걸리면 다음에)
     try { await checkLinks(db, item.id, { ...fin, title: item.title }); } catch (e: any) { if (isRate(String(e?.message || e))) { /* 다음 분석 때 */ } }
+    // 연동 추천: 대사가 겹치는 생방송 ↔ 편집 영상·쇼츠를 찾아 연동 탭 '연결 확인'에 (AI 호출 없음)
+    try { const { suggestLinks } = await import('./_linkSuggest.js'); await suggestLinks(db, item.id, { ...fin, title: item.title, kind: item.kind || fin.kind, publishedAt: item.publishedAt || fin.publishedAt }); await db.collection('ai_video').doc(item.id).set({ suggestAt: new Date().toISOString() }, { merge: true }); } catch { /* 다음에 */ }
     await release({ calls: calls + 1, doneCount: Number(st.doneCount || 0) + 1 });
     // 웃음참기: 이 영상(또는 이 생방송이 들어 있는 웃음참기)의 어디가 어느 생방송인지 다시 맞춤 (한도면 다음에)
     try { for (const cid of await laughCompsWith(db, item.id)) await compRanges(db, cid); } catch { /* 다음에 */ }
@@ -1484,6 +1486,24 @@ export async function aiPrioritize(db: any, id: string) {
 }
 
 /** 시간이 허락하는 만큼 여러 구간 (점검·예약 실행 공통) */
+/** 예전에 분석이 끝난 영상도 연동 추천을 조금씩 (정기 실행 한 번에 몇 개 · 문서 몇 개 읽기) */
+export async function suggestBackfill(db: any, n = 6) {
+  const stRef = db.collection('youtube_cache').doc('ai_state');
+  const pos = Number((await stRef.get()).data()?.suggestPos || 0);
+  const done: string[] = ((await db.collection('youtube_cache').doc('ai_ids').get()).data()?.done || []) as string[];
+  if (pos >= done.length) return { finished: true, total: done.length };
+  const ids = done.slice(pos, pos + n);
+  const snaps = await db.getAll(...ids.map((x) => db.collection('ai_video').doc(x)));
+  const { suggestLinks } = await import('./_linkSuggest.js');
+  const out: any[] = [];
+  for (let i = 0; i < ids.length; i++) {
+    const d = snaps[i].exists ? snaps[i].data() : null;
+    if (!d || d.suggestAt || d.comp) continue;
+    try { out.push({ id: ids[i], ...(await suggestLinks(db, ids[i], d)) }); await db.collection('ai_video').doc(ids[i]).set({ suggestAt: new Date().toISOString() }, { merge: true }); } catch (e: any) { out.push({ id: ids[i], error: String(e?.message || e).slice(0, 80) }); }
+  }
+  await stRef.set({ suggestPos: pos + ids.length }, { merge: true });
+  return { pos: pos + ids.length, total: done.length, out };
+}
 export async function runAiVideoLoop(db: any, budgetMs = 150000, opts: { kind?: string } = {}) {
   const t0 = Date.now();
   const steps: any[] = [];

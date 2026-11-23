@@ -277,6 +277,7 @@ export default async function handler(req: any, res: any) {
         });
         if (!took) return res.status(200).json({ skipped: '이번 시각에 이미 실행 중' });
         const out: any = await ai.runAiVideoLoop(db, 60000, { kind });
+        try { out.suggest = await ai.suggestBackfill(db, 6); } catch (e: any) { out.suggestError = String(e?.message || e).slice(0, 120); }
         return res.status(200).json(out);
       }
       return res.status(400).json({ error: 'unknown ai mode' });

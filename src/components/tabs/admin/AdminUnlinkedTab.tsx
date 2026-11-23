@@ -416,7 +416,8 @@ function AutoLinkReview({ data, onUpdateLog }: { data: AppData; onUpdateLog: (lo
   const strip = async (it: any, keep: string[] = []) => {
     for (const l of Object.values(data.logs)) {
       if (!l || keep.includes(l.id)) continue;
-      if ((l.edited || []).some((e: any) => vid(e?.url) === it.id)) await onUpdateLog({ ...l, edited: (l.edited || []).filter((e: any) => vid(e?.url) !== it.id) });
+      const inE = (l.edited || []).some((e: any) => vid(e?.url) === it.id), inS = (l.shorts || []).some((e: any) => vid(e?.url) === it.id);
+      if (inE || inS) await onUpdateLog({ ...l, edited: (l.edited || []).filter((e: any) => vid(e?.url) !== it.id), shorts: (l.shorts || []).filter((e: any) => vid(e?.url) !== it.id) });
     }
   };
   const act = async (it: any, what: 'ok' | 'move' | 'drop') => {
@@ -427,14 +428,17 @@ function AutoLinkReview({ data, onUpdateLog }: { data: AppData; onUpdateLog: (lo
         await strip(it);
       }
       if (what === 'move') {
-        const ids = sel[it.id] || [];
+        const ids = sel[it.id] || it._pick || [];
         if (!ids.length) return;
         const logs = ids.map((id) => data.logs[id]).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
         const dates = logs.map((l) => l.date);
         await strip(it, ids);
+        // AI 추천 쇼츠는 쇼츠 칸에, 나머지는 편집 영상 칸에
+        const key = it.kind === 'shorts' ? 'shorts' : 'edited';
         for (const l of logs) {
-          const rest = (l.edited || []).filter((e: any) => vid(e?.url) !== it.id);
-          await onUpdateLog({ ...l, edited: [...rest, { title: it.title, url: `https://www.youtube.com/watch?v=${it.id}`, ...(dates.length > 1 ? { allBroadcastDates: dates } : {}) } as any] });
+          const rest = ((l as any)[key] || []).filter((e: any) => vid(e?.url) !== it.id);
+          const url = key === 'shorts' ? `https://www.youtube.com/shorts/${it.id}` : `https://www.youtube.com/watch?v=${it.id}`;
+          await onUpdateLog({ ...l, [key]: [...rest, { title: it.title, url, ...(dates.length > 1 && key === 'edited' ? { allBroadcastDates: dates } : {}) } as any] });
         }
       }
       await setDoc(doc(db, 'yt_auto', it.id), { status: what === 'drop' ? 'dropped' : 'approved', doneAt: new Date().toISOString() }, { merge: true });
@@ -447,7 +451,7 @@ function AutoLinkReview({ data, onUpdateLog }: { data: AppData; onUpdateLog: (lo
       <p className="text-[11px] text-zinc-500 break-keep">새 편집 영상을 설명창 게임 이름으로 방송 기록에 자동으로 넣은 것, 그리고 '게임 이름·링크 대조'에서 고르고 보낸 것이에요. 지금 연결은 이미 사이트에 보이고 있어요. 맞으면 승인, 다른 방송이면 아래 후보(설명창 게임을 한 방송, 가까운 날짜 순)를 골라 '바꾸기'. 영상 연결은 맞는데 기록의 게임 이름이 틀린 거면 등록 탭에서 그 기록을 고쳐 주세요.</p>
       <ul className="space-y-3">
         {items.map((it) => {
-          const chosen = sel[it.id] ?? (it.logs || []).map((l: any) => l.id);
+          const chosen = sel[it.id] ?? (it.source === 'ai' ? (it.candidates || []).slice(0, 1).map((c: any) => c.id) : (it.logs || []).map((l: any) => l.id));
           return (
             <li key={it.id} className={cn('rounded-xl border p-3 text-xs space-y-2', it.ambiguous ? 'border-amber-400/60 bg-amber-50/50 dark:bg-amber-950/20' : 'border-zinc-200 dark:border-zinc-800')}>
               <div className="flex gap-3">
@@ -456,20 +460,20 @@ function AutoLinkReview({ data, onUpdateLog }: { data: AppData; onUpdateLog: (lo
                   <a href={`https://youtu.be/${it.id}`} target="_blank" rel="noreferrer" className="font-bold text-zinc-900 dark:text-white hover:underline line-clamp-2">{it.title}</a>
                   <p className="mt-0.5 text-zinc-500">{it.ambiguous && <b className="text-amber-600">확인 필요 · </b>}{it.reason}</p>
                   {it.names?.length > 0 && <p className="text-zinc-500">설명창 게임: {it.names.join(' · ')}</p>}
-                  <p className="text-zinc-600 dark:text-zinc-300">넣은 방송: {(it.logs || []).map((l: any) => l.date).join(', ')}</p>
+                  <p className="text-zinc-600 dark:text-zinc-300">{it.source === 'ai' ? <><b className="text-purple-600">AI 추천</b> · {it.kind === 'shorts' ? '쇼츠' : '편집 영상'} · 지금 연결: {(it.logs || []).map((l: any) => l.date).join(', ') || '없음'}</> : <>넣은 방송: {(it.logs || []).map((l: any) => l.date).join(', ')}</>}</p>
                 </div>
               </div>
               {it.candidates?.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {it.candidates.map((c: any) => {
                     const on = chosen.includes(c.id);
-                    return <button key={c.id} type="button" onClick={() => setSel((s) => ({ ...s, [it.id]: on ? chosen.filter((x: string) => x !== c.id) : [...chosen, c.id] }))} className={cn('px-2 py-1 rounded-lg font-bold cursor-pointer', on ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300')}>{c.date}{c.game ? ` ${c.game.slice(0, 14)}` : ''}</button>;
+                    return <button key={c.id} type="button" onClick={() => setSel((s) => ({ ...s, [it.id]: on ? chosen.filter((x: string) => x !== c.id) : [...chosen, c.id] }))} className={cn('px-2 py-1 rounded-lg font-bold cursor-pointer', on ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300')}>{c.date}{c.game ? ` ${c.game.slice(0, 14)}` : ''}{c.score != null ? ` · ${c.score}%` : ''}</button>;
                   })}
                 </div>
               )}
               <div className="flex gap-1.5">
                 <button type="button" disabled={!!busy} onClick={() => act(it, 'ok')} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold cursor-pointer disabled:opacity-50 inline-flex items-center gap-1">{busy === it.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} 승인</button>
-                <button type="button" disabled={!!busy || !sel[it.id]} onClick={() => act(it, 'move')} className="px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold cursor-pointer disabled:opacity-40">고른 방송으로 바꾸기</button>
+                <button type="button" disabled={!!busy || !(sel[it.id] || (it.source === 'ai' && it.candidates?.length))} onClick={() => { if (!sel[it.id]) setSel((s) => ({ ...s, [it.id]: chosen })); act({ ...it, _pick: chosen }, 'move'); }} className="px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold cursor-pointer disabled:opacity-40">고른 방송으로 바꾸기</button>
                 <button type="button" disabled={!!busy} onClick={() => act(it, 'drop')} className="px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 font-bold cursor-pointer inline-flex items-center gap-1"><Unlink className="w-3.5 h-3.5" /> 빼기</button>
               </div>
             </li>
