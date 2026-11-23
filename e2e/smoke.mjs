@@ -15,6 +15,8 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+// 실제 DB·서버는 건드리지 않음 (테스트가 DB 읽기·Vercel 사용량을 쓰지 않게)
+await ctx.route(/firestore\.googleapis\.com|firebaseinstallations|vercel\.app\/api\//, (r) => r.abort());
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
