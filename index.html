@@ -177,15 +177,27 @@
           try { if (c.resume) c.resume(); } catch (e) {}
           var at = c.currentTime + delayMs / 1000;
           bufP.then(function (ab) { return buf || new Promise(function (res, rej) { c.decodeAudioData(ab.slice(0), function (b) { buf = b; res(b); }, rej); }); }).then(function (b) {
-            if (c.state !== 'running' || !began || el.className === 'i-done') return; // 막혔으면(아이폰 등) 조용히
-            if (c.currentTime > at + 0.25) return; // 너무 늦게 준비되면 박자가 안 맞으니 생략
+            if (!began || el.className === 'i-done') return;
+            if (c.state !== 'running') { if (!tapMode) return; /* 아이폰 누르기 모드: 깨는 중이면 한 번 더 */ try { c.resume(); } catch (e) {} }
+            if (c.currentTime > at + (tapMode ? 0.6 : 0.25)) return; // 너무 늦게 준비되면 박자가 안 맞으니 생략
             var s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(Math.max(c.currentTime, at)); srcNode = s;
           }).catch(function () {});
         }
         // 도는 중에 화면을 누르면 건너뜀 (소리도 멈춤)
         el.style.pointerEvents = 'auto';
+        // 아이폰은 손가락을 '뗄 때'(click/touchend)만 소리를 허락함 → 시작은 click 으로
+        //  + 무음 스위치를 켜 둬도 들리게 재생 모드로 (iOS 16.4+), 누르는 순간 소리 장치를 깨워 둠
+        function startByTap() {
+          if (began || !tapMode) return;
+          try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+          var c = audio();
+          try { if (c) { c.resume(); var sb = c.createBuffer(1, 1, 22050), s0 = c.createBufferSource(); s0.buffer = sb; s0.connect(c.destination); s0.start(0); } } catch (e) {}
+          el.classList.remove('i-wait'); begin();
+        }
+        el.addEventListener('click', startByTap);
+        el.addEventListener('touchend', function (e) { if (!began && tapMode) { e.preventDefault(); startByTap(); } }, { passive: false });
         el.addEventListener('pointerdown', function () {
-          if (!began) { if (tapMode) { el.classList.remove('i-wait'); begin(); } return; }
+          if (!began) return;
           try { if (srcNode) srcNode.stop(); } catch (e) {}
           skipNow();
         });
