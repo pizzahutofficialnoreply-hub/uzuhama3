@@ -176,7 +176,7 @@ export function cafeCollector() {
     });
   }
   async function listMode() {
-    const pick = (window.prompt('무엇을 모을까요? 번호를 적어 주세요\n1: 생방쏭 글만 (방송 알림·다시보기 링크)\n2: 이츠하마타임 글만 (영상·쇼츠 생방링크)\n3: 이 화면의 글 전부\n4: 사이트에 있는 영상 제목으로 카페를 검색해서 모으기 (확인 필요한 것부터)\n5: 정리 글 전부 자동 검색 (생방정리·생방쏭·오늘/휴생추/휴영추·쇼츠 생방링크) → 파일로 저장\n(다른 이름을 적으면 그 작성자 글만)', '5') || '').trim();
+    const pick = (window.prompt('무엇을 모을까요? 번호를 적어 주세요\n1: 생방쏭 글만 (방송 알림·다시보기 링크)\n2: 이츠하마타임 글만 (영상·쇼츠 생방링크)\n3: 이 화면의 글 전부\n4: 사이트에 있는 영상 제목으로 카페를 검색해서 모으기 (확인 필요한 것부터)\n5: 정리 글 전부 자동 검색 (생방정리·생방쏭·휴생추/휴영추·쇼츠 생방링크) → 파일로 저장\n(다른 이름을 적으면 그 작성자 글만)', '5') || '').trim();
     if (!pick) return;
     if (pick === '4') { await titleMode(); return; }
     if (pick === '5') { await seriesMode(); return; }
@@ -299,7 +299,8 @@ export function cafeCollector() {
     const SERIES: { name: string; qs: string[]; re: RegExp }[] = [
       { name: '생방정리', qs: ['생방정리', '생방 정리'], re: /생방\s*정리/ },
       { name: '생방쏭', qs: ['생방쏭'], re: /생방\s*쏭/ },
-      { name: '오늘·휴생추·휴영추', qs: ['오늘', '휴생추', '휴영추', '휴.생.추', '휴.영.추'], re: /\d{1,2}\s*월\s*\d{1,2}\s*일\s*오늘|휴\s*\.?\s*생\s*\.?\s*추|휴\s*\.?\s*영\s*\.?\s*추/ },
+      // '0월 0일 오늘' 은 안 찾음 (업로드 날짜 확인용인데 유튜브가 더 정확)
+      { name: '휴생추·휴영추', qs: ['휴생추', '휴영추', '휴.생.추', '휴.영.추'], re: /휴\s*\.?\s*생\s*\.?\s*추|휴\s*\.?\s*영\s*\.?\s*추/ },
       { name: '쇼츠 생방링크', qs: ['생방링크', '쇼츠 생방링크'], re: /생방\s*링크/ },
     ];
     const pickArts = (o: any, out: any[] = []): any[] => { if (!o || typeof o !== 'object') return out; if ((o.articleId || o.articleid) && (o.subject || o.title)) out.push({ ...o, articleId: o.articleId || o.articleid }); for (const v of Object.values(o)) pickArts(v, out); return out; };
@@ -331,7 +332,7 @@ export function cafeCollector() {
     for (const sr of SERIES) {
       for (const q of sr.qs) {
         let empty = 0;
-        for (let page = 1; page <= 200 && !stop; page++) {
+        for (let page = 1; page <= 1000 && !stop; page++) {
           st(`검색 「${q}」 ${page}쪽 · 찾은 글 ${found.size}개`);
           const arts = await searchPage(q, page);
           if (!arts.length) break;
@@ -342,9 +343,9 @@ export function cafeCollector() {
             if (!sr.re.test(t) || found.has(aid)) continue;
             found.set(aid, { title: t, series: sr.name }); fresh++;
           }
-          // 제목이 안 맞는 글만 몇 쪽 이어지면 그 검색어는 끝
+          // 맞는 글이 없는 쪽이 이어져도 끝까지 넘김 (검색 결과가 더 없을 때만 멈춤)
           empty = fresh ? 0 : empty + 1;
-          if (empty >= 8) break;
+          if (empty && empty % 10 === 0) log(`「${q}」 ${page}쪽까지 · 최근 ${empty}쪽은 맞는 제목이 없었지만 계속 넘겨요`);
           await sleep(300);
         }
         log(`「${q}」 검색 끝 · 지금까지 ${found.size}개`);
