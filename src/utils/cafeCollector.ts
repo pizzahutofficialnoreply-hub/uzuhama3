@@ -176,7 +176,7 @@ export function cafeCollector() {
     });
   }
   async function listMode() {
-    const pick = (window.prompt('무엇을 모을까요? 번호를 적어 주세요\n1: 생방쏭 글만 (방송 알림·다시보기 링크)\n2: 이츠하마타임 글만 (영상·쇼츠 생방링크)\n3: 이 화면의 글 전부\n4: 사이트에 있는 영상 제목으로 카페를 검색해서 모으기 (확인 필요한 것부터)\n5: 정리 글 전부 자동 검색 (생방정리·생방쏭·휴생추/휴영추·쇼츠 생방링크) → 파일로 저장\n(다른 이름을 적으면 그 작성자 글만)', '5') || '').trim();
+    const pick = (window.prompt('무엇을 모을까요? 번호를 적어 주세요\n1: 생방쏭 글만 (방송 알림·다시보기 링크)\n2: 이츠하마타임 글만 (영상·쇼츠 생방링크)\n3: 이 화면의 글 전부\n4: 사이트에 있는 영상 제목으로 카페를 검색해서 모으기 (확인 필요한 것부터)\n5: 검색어를 쳐서 그 글만 바로 모으기 (생방쏭·생방정리 등 · 계속 쌓임 · 파일 저장)\n(다른 이름을 적으면 그 작성자 글만)', '5') || '').trim();
     if (!pick) return;
     if (pick === '4') { await titleMode(); return; }
     if (pick === '5') { await seriesMode(); return; }
@@ -292,17 +292,9 @@ export function cafeCollector() {
     ($('uzu-clr') as HTMLButtonElement).onclick = () => { saveAcc({}); st('비웠어요'); };
   }
 
-  // ── 5: 정리 글 시리즈 전부 카페 검색으로 찾아 읽고, 끝나면 파일로 내려받기 (한 번만 돌리면 됨)
+  // ── 5: 검색어를 직접 쳐서 그 글만 바로 모으기 (여러 번 쳐도 계속 쌓임 · 같은 글은 한 번만 · 언제든 파일 저장)
   async function seriesMode() {
     const club = /^\d+$/.test(clubId) ? clubId : '30027092';
-    // 제목 모양으로 거름 (작성자는 여러 명일 수 있어서 제목 기준)
-    const SERIES: { name: string; qs: string[]; re: RegExp }[] = [
-      { name: '생방정리', qs: ['생방정리', '생방 정리'], re: /생방\s*정리/ },
-      { name: '생방쏭', qs: ['생방쏭'], re: /생방\s*쏭/ },
-      // '0월 0일 오늘' 은 안 찾음 (업로드 날짜 확인용인데 유튜브가 더 정확)
-      { name: '휴생추·휴영추', qs: ['휴생추', '휴영추', '휴.생.추', '휴.영.추'], re: /휴\s*\.?\s*생\s*\.?\s*추|휴\s*\.?\s*영\s*\.?\s*추/ },
-      { name: '쇼츠 생방링크', qs: ['생방링크', '쇼츠 생방링크'], re: /생방\s*링크/ },
-    ];
     const pickArts = (o: any, out: any[] = []): any[] => { if (!o || typeof o !== 'object') return out; if ((o.articleId || o.articleid) && (o.subject || o.title)) out.push({ ...o, articleId: o.articleId || o.articleid }); for (const v of Object.values(o)) pickArts(v, out); return out; };
     // 네이버 카페 검색 주소가 여러 개라 차례로 시도 → 되는 것을 기억 (안 되면 이유를 아래에 보여 줌)
     const enc = encodeURIComponent;
@@ -328,54 +320,79 @@ export function cafeCollector() {
       }
       return [];
     }
-    const found = new Map<string, { title: string; series: string }>();
-    for (const sr of SERIES) {
-      for (const q of sr.qs) {
-        let empty = 0;
-        for (let page = 1; page <= 1000 && !stop; page++) {
-          st(`검색 「${q}」 ${page}쪽 · 찾은 글 ${found.size}개`);
+    // 모은 글: 이 브라우저에 쌓아 둠 (창을 닫았다 다시 열어도 이어짐)
+    const KEY = 'uzuCafeSearchAcc';
+    let acc: Record<string, string> = {};
+    try { acc = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* */ }
+    const keep = () => { try { localStorage.setItem(KEY, JSON.stringify(acc)); } catch { log('브라우저 저장 공간이 가득 찼어요 · 지금 [파일 저장] 을 눌러 두세요'); } };
+    let running = false;
+    const o = $('uzu-out');
+    const btn = (id: string, label: string, bg: string) => `<button id="${id}" style="margin:4px 4px 0 0;background:${bg};color:#fff;border:0;border-radius:10px;padding:7px 12px;font-weight:700;cursor:pointer">${label}</button>`;
+    o.innerHTML = '<div style="margin-top:8px;display:flex;gap:6px"><input id="uzu-q" placeholder="검색어 (예: 생방쏭)" style="flex:1;min-width:0;background:#27272a;color:#fafafa;border:1px solid #3f3f46;border-radius:10px;padding:8px"/>'
+      + btn('uzu-go', '찾기', '#9333ea') + '</div>'
+      + '<label style="display:block;margin-top:6px;font-size:12px;color:#d4d4d8"><input id="uzu-tonly" type="checkbox" checked/> 제목에 이 말이 들어간 글만</label>'
+      + '<div style="margin-top:6px;font-size:12px;color:#a1a1aa">빠른 검색: ' + ['생방정리', '생방쏭', '휴생추', '휴영추', '생방링크'].map((w) => `<a href="#" data-q="${w}" style="color:#c4b5fd;margin-right:8px">${w}</a>`).join('') + '</div>'
+      + '<div>' + btn('uzu-stop', '멈추기', '#52525b') + btn('uzu-dl', '파일 저장', '#16a34a') + btn('uzu-cp', '전부 복사', '#2563eb') + btn('uzu-clr', '비우기', '#3f3f46') + '</div>';
+    const input = $('uzu-q') as HTMLInputElement;
+    const count = () => Object.keys(acc).length;
+    st(`검색어를 쳐서 [찾기] · 지금까지 모은 글 ${count()}개`);
+    const all = () => Object.values(acc).join('\n\n');
+    ($('uzu-dl') as HTMLButtonElement).onclick = () => {
+      const u = URL.createObjectURL(new Blob([all()], { type: 'text/plain;charset=utf-8' }));
+      const el = document.createElement('a'); el.href = u; el.download = `uzuhama-cafe-${new Date().toISOString().slice(0, 10)}.txt`; document.body.appendChild(el); el.click(); setTimeout(() => { URL.revokeObjectURL(u); el.remove(); }, 2000);
+    };
+    ($('uzu-cp') as HTMLButtonElement).onclick = async () => { try { await navigator.clipboard.writeText(all()); st(`복사했어요 · 글 ${count()}개`); } catch { st('복사가 막혔어요 · [파일 저장] 을 써 주세요'); } };
+    ($('uzu-clr') as HTMLButtonElement).onclick = () => { if (!window.confirm(`모은 글 ${count()}개를 비울까요?`)) return; acc = {}; keep(); st('비웠어요'); };
+    ($('uzu-stop') as HTMLButtonElement).onclick = () => { stop = true; };
+    o.querySelectorAll('a[data-q]').forEach((a) => ((a as HTMLAnchorElement).onclick = (e) => { e.preventDefault(); input.value = a.getAttribute('data-q') || ''; run(); }));
+    input.onkeydown = (e) => { if (e.key === 'Enter') run(); };
+    ($('uzu-go') as HTMLButtonElement).onclick = () => run();
+    const norm = (t: string) => t.replace(/[\s.·]/g, '').toLowerCase();
+
+    async function run() {
+      const q = input.value.trim();
+      if (!q || running) return;
+      running = true; stop = false;
+      const titleOnly = ($('uzu-tonly') as HTMLInputElement).checked;
+      const want = norm(q);
+      const todo: { aid: string; title: string }[] = [];
+      try {
+        // 1) 검색 결과 쪽을 결과가 끝날 때까지 넘기며 글 목록만 (빠름)
+        for (let page = 1; page <= 400 && !stop; page++) {
+          st(`「${q}」 검색 ${page}쪽 · 새 글 ${todo.length}개`);
           const arts = await searchPage(q, page);
           if (!arts.length) break;
-          let fresh = 0;
           for (const a of arts) {
             const t = String(a.subject || a.title || '').replace(/<[^>]+>/g, '');
             const aid = String(a.articleId);
-            if (!sr.re.test(t) || found.has(aid)) continue;
-            found.set(aid, { title: t, series: sr.name }); fresh++;
+            if (acc[aid] || todo.some((x) => x.aid === aid)) continue;
+            if (titleOnly && !norm(t).includes(want)) continue;
+            todo.push({ aid, title: t });
           }
-          // 맞는 글이 없는 쪽이 이어져도 끝까지 넘김 (검색 결과가 더 없을 때만 멈춤)
-          empty = fresh ? 0 : empty + 1;
-          if (empty && empty % 10 === 0) log(`「${q}」 ${page}쪽까지 · 최근 ${empty}쪽은 맞는 제목이 없었지만 계속 넘겨요`);
+          await sleep(250);
+        }
+        if (!todo.length) { st(`「${q}」 새로 모을 글이 없어요 · 지금까지 ${count()}개`); return; }
+        // 2) 글 읽기
+        let ok = 0, fail = 0;
+        for (const t of todo) {
+          if (stop) break;
+          st(`「${q}」 글 읽는 중 ${ok + fail + 1}/${todo.length} · 지금까지 ${count()}개`);
+          const a = await readArticle(club, t.aid);
+          if (!a) { fail++; log(`✗ ${t.title}`); continue; }
+          ok++;
+          acc[t.aid] = `===== ${a.title || t.title} ⟪${[a.at, a.writer].filter(Boolean).join(' · ')}⟫ [${q} #${t.aid}]\n${toText(a.html).text}`;
+          if (ok % 20 === 0) keep();
           await sleep(300);
         }
-        log(`「${q}」 검색 끝 · 지금까지 ${found.size}개`);
-      }
+        keep();
+        log(`「${q}」 ${ok}개 모음${fail ? ` · 못 읽음 ${fail}` : ''}`);
+        st(`「${q}」 끝${stop ? ' (멈춤)' : ''} · 지금까지 모은 글 ${count()}개 · 다른 검색어를 치거나 [파일 저장]`);
+      } finally { running = false; }
     }
-    if (stop) return;
-    if (!found.size) { st('검색이 안 됐어요. 위 회색 글(검색 방법 1~5번 결과)을 캡처해서 보내 주세요. 네이버에 로그인한 상태인지도 확인해 주세요.'); return; }
-    const out: string[] = [];
-    let n = 0; let fail = 0;
-    for (const [aid, f] of found) {
-      if (stop) break;
-      n++;
-      st(`글 읽는 중… ${n}/${found.size}${fail ? ` · 못 읽음 ${fail}` : ''} (다 끝나면 파일로 저장돼요)`);
-      const a = await readArticle(club, aid);
-      if (!a) { fail++; log(`✗ ${f.title}`); continue; }
-      out.push(`===== ${a.title || f.title} ⟪${[a.at, a.writer].filter(Boolean).join(' · ')}⟫ [${f.series} #${aid}]\n${toText(a.html).text}`);
-      await sleep(300);
-    }
-    const all = out.join('\n\n');
-    const blob = new Blob([all], { type: 'text/plain;charset=utf-8' });
-    const name = `uzuhama-cafe-${new Date().toISOString().slice(0, 10)}.txt`;
-    const save = () => { const u = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = u; el.download = name; document.body.appendChild(el); el.click(); setTimeout(() => { URL.revokeObjectURL(u); el.remove(); }, 2000); };
-    save();
-    st(`다 모았어요 · 글 ${out.length}개${fail ? ` · 못 읽음 ${fail}개` : ''} · ${name} 으로 저장했어요`);
-    $('uzu-out').innerHTML = '<button id="uzu-dl" style="margin-top:8px;background:#9333ea;color:#fff;border:0;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer">파일 다시 저장</button>';
-    ($('uzu-dl') as HTMLButtonElement).onclick = save;
   }
 
   (async () => {
-    if (!here || !window.confirm('지금 열린 글(목차 글)에서 이어진 글을 모을까요?\n\n취소: 다른 방법 고르기 (5번: 정리 글 전부 자동 검색)')) { await listMode(); return; }
+    if (!here || !window.confirm('지금 열린 글(목차 글)에서 이어진 글을 모을까요?\n\n취소: 다른 방법 고르기 (5번: 검색어로 모으기)')) { await listMode(); return; }
     const seen = new Set<string>();
     const out: string[] = [];
     let ok = 0;
