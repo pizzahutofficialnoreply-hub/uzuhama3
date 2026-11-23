@@ -27,6 +27,11 @@ try {
   mkdirSync('public/data', { recursive: true });
   writeFileSync(OUT, JSON.stringify({ at: new Date().toISOString(), months, comps }));
   console.log(`[snapshot] 달 ${months.length}개 · 몰아보기 ${comps.length}개 저장`);
+  // 채널 영상 목록 (업로드 날짜: 검색 탭 최신순 정렬) — 서버를 안 거치고 바로 쓰게
+  try {
+    const up = (await db.collection('youtube_uploads_items').get()).docs.flatMap((d) => d.data()?.items || []);
+    if (up.length) { writeFileSync('public/data/channel_uploads.json', JSON.stringify({ at: new Date().toISOString(), videos: up.map((v) => ({ videoId: v.videoId, title: v.title, publishedAt: v.publishedAt })) })); console.log(`[snapshot] 채널 영상 ${up.length}개 저장`); }
+  } catch (e) { console.log('[snapshot] 채널 영상 목록 건너뜀:', String(e?.message || e).slice(0, 120)); }
 } catch (e) {
   console.log('[snapshot] 실패 → 건너뜀:', String(e?.message || e).slice(0, 200));
 }

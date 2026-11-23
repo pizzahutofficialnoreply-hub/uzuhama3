@@ -24,6 +24,12 @@ let fetching: Promise<void> | null = null;
 
 function ensure() {
   if (fetching || (cache.length && Date.now() - at < TTL)) return;
+  // 저장해 둔 게 없으면: 사이트에 같이 배포된 목록을 먼저 (서버를 안 거쳐서 바로 정렬됨) → 그 뒤 서버에서 최신
+  if (!cache.length) {
+    fetch('/data/channel_uploads.json').then((r) => (r.ok && /json/.test(r.headers.get('content-type') || '') ? r.json() : null)).then((j) => {
+      if (!cache.length && Array.isArray(j?.videos) && j.videos.length) { cache = j.videos; listeners.forEach((fn) => fn(cache)); }
+    }).catch(() => {});
+  }
   fetching = fetch(`${API_BASE}/api/videos/shorts?kind=uploads`)
     .then((r) => r.json())
     .then((json) => {

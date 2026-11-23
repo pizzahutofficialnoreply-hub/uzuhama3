@@ -1988,6 +1988,11 @@ export function RecommendTab({
         const t = pub ? Date.parse(pub) : NaN;
         if (!isNaN(t)) return t;
       }
+      if (v.isCompilation || (Array.isArray(v.allBroadcastDates) && v.allBroadcastDates.length > 1)) {
+        // 업로드 날짜를 아직 모르면(목록을 받기 전) 등록한 날 대신 그 안의 가장 늦은 방송일 → 나중에 받아도 순서가 거의 안 바뀜
+        const ds = [...(Array.isArray(v.allBroadcastDates) ? v.allBroadcastDates : []), ...(Array.isArray(v.games) ? v.games.map((g: any) => g?.date) : [])].filter((d: any) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)).sort();
+        if (ds.length) { const t = Date.parse(ds[ds.length - 1]); if (!isNaN(t)) return t; }
+      }
       if (v.isCompilation) {
         if (v.createdAt) {
           const t = new Date(v.createdAt).getTime();

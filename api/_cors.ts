@@ -25,10 +25,12 @@ export function setCorsHeaders(req: any, res: any): boolean {
     console.log(`[CORS Request] ${method} ${url} | Origin: ${origin || '(same-origin/no-origin)'}`);
   }
 
+  // CDN 이 출처(사이트 주소)마다 따로 저장하게 늘 붙임 — 안 붙이면 출처 없이 부른(워커 등) 응답이 저장돼서
+  // 다른 사이트(web.app·베타)에서 부를 때 허용 표시 없이 나가 막힘
+  res.setHeader('Vary', 'Origin');
   if (origin && isAllowedOrigin(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Vary', 'Origin');
   }
 
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
