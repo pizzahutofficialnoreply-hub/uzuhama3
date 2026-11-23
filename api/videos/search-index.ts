@@ -233,7 +233,7 @@ export default async function handler(req: any, res: any) {
         let ids: string[] = Array.isArray(c?.ids) ? c.ids : [];
         let done: string[] = Array.isArray(c?.done) ? c.done : [];
         if (!c || c.v !== ai.AI_IDX_VER || Date.now() - Date.parse(c.at || '0') > 7 * 86400000) {
-          const snap = await db.collection('ai_video').select('status', 'pv', 'sv', 'storyTries', 'tries', 'error').get();
+          const snap = await db.collection('ai_video').select('status', 'pv', 'sv', 'storyTries', 'tries', 'error', 'noStory').get();
           const ix = ai.buildAiIndex(snap.docs.map((d: any) => ({ id: d.id, data: d.data() })));
           await cRef.set(ix);
           ids = ix.ids; done = ix.done;

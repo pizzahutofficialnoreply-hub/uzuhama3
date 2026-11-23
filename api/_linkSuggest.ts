@@ -104,7 +104,8 @@ export async function suggestLinks(db: any, id: string, me: any) {
   if (liveLines.length < 20) return { skipped: 'no script' };
   const { readQueueDoc } = await import('./_aiVideo.js');
   const q = await readQueueDoc(db);
-  const doneIds = new Set<string>(((await db.collection('youtube_cache').doc('ai_ids').get()).data()?.done || []) as string[]);
+  const ix = (await db.collection('youtube_cache').doc('ai_ids').get()).data() || {};
+  const doneIds = new Set<string>((ix.scan || ix.done || []) as string[]);
   const t0 = Date.parse(log.date);
   const lg = logGames(log);
   const items = ((q?.items || []) as any[]).filter((it) => it.kind !== 'live' && !it.comp && doneIds.has(it.id) && !where(it.id).length)

@@ -794,7 +794,7 @@ export function SettingsView({
                     <div className="flex items-center justify-between pt-3.5">
                       <div>
                         <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">시작 애니메이션</p>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">앱을 켤 때 하마가 커지며 시작하는 화면</p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">우주하마 채널 인트로 모방 애니메이션 재생</p>
                       </div>
                       <button
                         type="button"

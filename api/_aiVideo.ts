@@ -588,12 +588,12 @@ async function analyzeGame(db: any, name: string, ko: string, link = '') {
 /** 스토리 정리 버전: 바뀌면 이미 본 영상도 (영상은 다시 안 보고) 정리만 다시 */
 const SV = 3; // 3: 스크립트(대사) 바탕으로 다시 정리 · 2: 노가리·오팬무
 /** 스토리 정리를 다시 할 영상: 예전 방식이거나, 스크립트가 다 만들어졌는데 아직 스크립트로 정리 안 한 것 */
-const needStory = (d: any) => d.status === 'done' && Number(d.storyTries || 0) < 3 && (Number(d.sv || 0) < 2 || (Number(d.sv || 0) < SV && Boolean(d.scriptDone)));
+const needStory = (d: any) => d.status === 'done' && !d.noStory && Number(d.storyTries || 0) < 3 && (Number(d.sv || 0) < 2 || (Number(d.sv || 0) < SV && Boolean(d.scriptDone)));
 
 /* ── 분석 목록 색인 (youtube_cache/ai_ids 문서 하나) ──
  * ids: 분석을 시작한 영상, done: 요약까지 끝난 영상, fin: 더 볼 게 없는 영상
  * 매번 ai_video 문서를 수십~수천 개 읽어 '다음 볼 영상'을 찾던 것 → 이 문서 하나로 거르고 남은 것만 읽음 */
-export const AI_IDX_VER = 2;
+export const AI_IDX_VER = 3; // 3: 쇼츠(요약 없음)는 ids·done 에서 빼고 scan 에
 export function aiFinished(d: any): boolean {
   if (!d) return false;
   const busySkip = d.status === 'skip' && /high demand|UNAVAILABLE/i.test(d.error || '');
@@ -604,8 +604,10 @@ export function aiFinished(d: any): boolean {
 }
 export function buildAiIndex(docs: { id: string; data: any }[]) {
   return {
-    ids: docs.filter((x) => x.data?.status !== 'skip').map((x) => x.id),
-    done: docs.filter((x) => x.data?.status === 'done').map((x) => x.id),
+    ids: docs.filter((x) => x.data?.status !== 'skip' && !x.data?.noStory).map((x) => x.id),
+    done: docs.filter((x) => x.data?.status === 'done' && !x.data?.noStory).map((x) => x.id),
+    // 연동 추천용: 요약 없는 쇼츠까지 분석이 끝난 것 전부
+    scan: docs.filter((x) => x.data?.status === 'done').map((x) => x.id),
     fin: docs.filter((x) => aiFinished(x.data)).map((x) => x.id),
     v: AI_IDX_VER,
     at: new Date().toISOString(),
@@ -618,8 +620,9 @@ async function indexAiDoc(db: any, id: string) {
     const d = (await db.collection('ai_video').doc(id).get()).data();
     const op = (on: boolean) => (on ? FieldValue.arrayUnion(id) : FieldValue.arrayRemove(id));
     await db.collection('youtube_cache').doc('ai_ids').set({
-      ids: op(Boolean(d) && d.status !== 'skip'),
-      done: op(d?.status === 'done'),
+      ids: op(Boolean(d) && d.status !== 'skip' && !d.noStory),
+      done: op(d?.status === 'done' && !d.noStory),
+      scan: op(d?.status === 'done'),
       fin: op(aiFinished(d)),
     }, { merge: true });
   } catch { /* 다음 전체 정리 때 맞춰짐 */ }
@@ -963,7 +966,9 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
     // 전체를 보고 스토리·사건 단위로 묶기 (장면 하나하나가 아니라) + 게임별 줄거리·하이라이트
     let scriptLines: any[] = [];
     try { scriptLines = (await aiScript(db, item.id)).lines || []; } catch { /* 없으면 예전처럼 */ }
-    const story = await buildStory(item.title, cur, games, scriptLines).catch((e: any) => {
+    // 쇼츠는 요약(줄거리)을 만들지 않음 — 장면·대사만 남겨 연동 검사에 씀 (AI 무료 한도 절약)
+    const isShort = (item.kind || cur?.kind) === 'short';
+    const story = isShort ? null : await buildStory(item.title, cur, games, scriptLines).catch((e: any) => {
       if (isRate(String(e?.message || e))) throw e;
       return null;
     });
@@ -973,7 +978,7 @@ async function runAiVideoStepInner(db: any, opts: { kind?: string } = {}): Promi
     const moments = story?.moments || [];
     if (moments.length) { try { await db.collection('ai_moments').doc(item.id).set({ id: item.id, moments, at: new Date().toISOString() }); } catch { /* */ } }
     const kw = buildKw({ ...fin, nogari: `${fin.nogari} ${moments.map((m: any) => m.d).join(' ')}` }).slice(0, 1500);
-    await ref.set({ summary, chapters: fin.chapters, gameStories: fin.gameStories, nogari: fin.nogari, opanmu: fin.opanmu, sv: story ? (story.fromScript ? SV : 2) : 0, storyTries: story ? 0 : Number(cur?.storyTries || 0) + 1, kw, hasMoments: moments.length > 0, status: 'done', doneAt: new Date().toISOString() }, { merge: true });
+    await ref.set({ summary: isShort ? '' : summary, chapters: fin.chapters, gameStories: fin.gameStories, nogari: fin.nogari, opanmu: fin.opanmu, sv: isShort ? SV : story ? (story.fromScript ? SV : 2) : 0, storyTries: story || isShort ? 0 : Number(cur?.storyTries || 0) + 1, ...(isShort ? { noStory: true } : {}), kw, hasMoments: moments.length > 0, status: 'done', doneAt: new Date().toISOString() }, { merge: true });
     if ((st.priority || []).includes(item.id)) await stRef.set({ priority: (st.priority || []).filter((x: string) => x !== item!.id) }, { merge: true });
     // 연동 점검: 이 영상과 연결된 생방송·영상·쇼츠 중 AI 분석이 끝난 것과 내용이 맞는지 (글로만 비교, 한도에 걸리면 다음에)
     try { await checkLinks(db, item.id, { ...fin, title: item.title }); } catch (e: any) { if (isRate(String(e?.message || e))) { /* 다음 분석 때 */ } }
@@ -1490,7 +1495,8 @@ export async function aiPrioritize(db: any, id: string) {
 export async function suggestBackfill(db: any, n = 6) {
   const stRef = db.collection('youtube_cache').doc('ai_state');
   const pos = Number((await stRef.get()).data()?.suggestPos || 0);
-  const done: string[] = ((await db.collection('youtube_cache').doc('ai_ids').get()).data()?.done || []) as string[];
+  const ix = (await db.collection('youtube_cache').doc('ai_ids').get()).data() || {};
+  const done: string[] = (ix.scan || ix.done || []) as string[];
   if (pos >= done.length) return { finished: true, total: done.length };
   const ids = done.slice(pos, pos + n);
   const snaps = await db.getAll(...ids.map((x) => db.collection('ai_video').doc(x)));
