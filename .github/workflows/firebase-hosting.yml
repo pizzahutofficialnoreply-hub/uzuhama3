@@ -1,36 +1,67 @@
-name: Deploy to Firebase Hosting (uzuhama.web.app)
+name: Deploy to Firebase Hosting
 
-# main 에 푸시되면 uzuhama.web.app 에도 자동 배포합니다.
-# 한 번만 설정: GitHub 저장소 Settings > Secrets and variables > Actions 에
-#   FIREBASE_SERVICE_ACCOUNT_UZUHAMA = Firebase 서비스 계정 JSON 전체
-# 를 추가하세요. (없으면 이 작업은 건너뜁니다)
+# 배포 규칙
+#  - main 에 푸시되면 → 베타에만 자동 배포 (FIREBASE_SERVICE_ACCOUNT_UZUHAMA_BETA)
+#  - 메인 uzuhama.web.app (데이터베이스가 있는 본 프로젝트, FIREBASE_SERVICE_ACCOUNT_UZUHAMA) 은
+#    자동 배포 없음. 운영자가 직접 지시할 때만 수동 실행 (target=main, confirm=main)
+# 프로젝트 ID 는 각 서비스 계정 JSON 의 project_id 에서 읽음 (키가 없으면 건너뜀)
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      target:
+        description: '배포 대상 (beta / main)'
+        required: true
+        default: beta
+        type: choice
+        options: [beta, main]
+      confirm:
+        description: '메인에 배포하려면 main 이라고 입력'
+        required: false
+        default: ''
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      HAS_FIREBASE_SECRET: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA != '' }}
+      TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'beta' }}
     steps:
+      - name: Pick key
+        id: key
+        env:
+          BETA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA_BETA }}
+          MAIN: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "$TARGET" = "main" ]; then
+            if [ "$CONFIRM" != "main" ]; then echo "메인 배포는 confirm=main 이 필요합니다"; exit 1; fi
+            KEY="$MAIN"; NAME=FIREBASE_SERVICE_ACCOUNT_UZUHAMA
+          else
+            KEY="$BETA"; NAME=FIREBASE_SERVICE_ACCOUNT_UZUHAMA_BETA
+          fi
+          if [ -z "$KEY" ]; then echo "$NAME 키가 없어 건너뜁니다"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          PID=$(printf '%s' "$KEY" | jq -r .project_id)
+          if [ -z "$PID" ] || [ "$PID" = "null" ]; then echo "$NAME 에서 project_id 를 못 읽음"; exit 1; fi
+          echo "배포 대상: $TARGET → $PID"
+          echo "pid=$PID" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
-        if: env.HAS_FIREBASE_SECRET == 'true'
+        if: steps.key.outputs.skip != '1'
       - uses: actions/setup-node@v4
-        if: env.HAS_FIREBASE_SECRET == 'true'
+        if: steps.key.outputs.skip != '1'
         with:
           node-version: 22
       - name: Build
-        if: env.HAS_FIREBASE_SECRET == 'true'
+        if: steps.key.outputs.skip != '1'
         run: |
           npm install --no-audit --no-fund
           npx tsc --noEmit
           npx vite build
       - uses: FirebaseExtended/action-hosting-deploy@v0
-        if: env.HAS_FIREBASE_SECRET == 'true'
+        if: steps.key.outputs.skip != '1'
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}
-          projectId: uzuhama
+          firebaseServiceAccount: ${{ env.TARGET == 'main' && secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA || secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA_BETA }}
+          projectId: ${{ steps.key.outputs.pid }}
           channelId: live
