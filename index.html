@@ -99,7 +99,7 @@
        · 화면이 다 파래지면 앱이 다 불러와졌을 때 걷힘
       앱을 켤 때마다 (같은 실행 안의 새로 고침은 빼고) · 설정 > 화면 설정 > 시작 애니메이션 으로 끌 수 있음
     -->
-    <div id="intro" aria-hidden="true"><div class="i-card"><img src="/icon-192.png" alt="" /></div><div class="i-flood"></div><div class="i-hippo"><img class="i-fill" src="/img/hippo.png" alt="" /><img src="/img/hippo-line.png" alt="" /></div></div>
+    <div id="intro" aria-hidden="true"><div class="i-card"><img src="/icon-192.png" alt="" /></div><div class="i-flood"></div><div class="i-hippo"><img class="i-fill" src="/img/hippo.png" alt="" /><img src="/img/hippo-line.png" alt="" /></div><div class="i-tap">화면을 눌러 재생하세요</div></div>
     <style>
       /* 세 겹: 맨 아래 검은 바탕(화면 전체) → 그 위로 파란색이 덮음 → 다 끝나면 메인 화면. 도는 동안 뒤 화면·스크롤바는 안 보임 */
       #intro{position:fixed;left:0;right:0;top:0;height:var(--app-h, 100lvh);z-index:2147483000;background:#000;pointer-events:none}
@@ -117,6 +117,11 @@
       #intro .i-flood{position:absolute;z-index:1;left:50%;top:50%;width:2px;height:2px;margin:-1px 0 0 -1px;border-radius:50%;background:#6383b6;transform:scale(0);will-change:transform}
       #intro .i-hippo{position:absolute;left:50%;top:50%;width:56px;height:45px;margin:-22.5px 0 0 -28px;transform-origin:50% 45%;will-change:transform;z-index:2}
       #intro .i-hippo img{position:absolute;inset:0;width:100%;height:100%}
+      /* 아이폰 실험실 '눌러서 소리와 함께': 누르기 전까지 아래에 안내 */
+      #intro .i-tap{position:absolute;left:0;right:0;bottom:calc(48px + env(safe-area-inset-bottom));text-align:center;color:rgba(255,255,255,.7);font:600 14px/1.4 -apple-system,system-ui,sans-serif;opacity:0;transition:opacity .3s;z-index:3}
+      #intro.i-wait .i-tap{opacity:1}
+      #intro.i-wait .i-tap{animation:itap 1.6s ease-in-out infinite}
+      @keyframes itap{50%{opacity:.35}}
     </style>
     <script>
       (function () {
@@ -154,13 +159,46 @@
         // P: 아이콘에서 하마가 튀어나옴 / A: 일정한 속도로 커짐 (원본 인트로) / B: 얼굴 속으로 빨려 들어감
         var P = 450, A = 1300, B = 320, FLOOD_AT = 330;
         var t0 = Date.now(), began = false;
-        function done() { document.documentElement.classList.remove('intro-on'); el.className = 'i-done'; setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 320); }
+        // ── 소리 (채널 인트로 노래 약 1.8초) ──
+        //  설정 > 인트로 소리 (기본 켜짐) · 안드로이드 홈 화면 앱은 바로 소리 남 · 아이폰은 켤 때 소리를 막아서 기본은 소리 없이
+        //  아이폰 실험실 '눌러서 소리와 함께' 를 켜면: 누르기 전까지 아이콘에서 기다리고, 누르면 소리와 함께 시작
+        var soundOn = true, tapMode = false;
+        try {
+          soundOn = localStorage.getItem('uzuhama_intro_sound_off') !== '1';
+          var pf = JSON.parse(localStorage.getItem('uzuhama_user_prefs_v1') || '{}');
+          tapMode = ios && soundOn && pf && pf.labIntroTap === true;
+        } catch (e) {}
+        var ac = null, buf = null, srcNode = null, musicAt = 0;
+        var AC = window.AudioContext || window.webkitAudioContext;
+        var bufP = (soundOn && AC && window.fetch) ? fetch('/sound/intro.m4a').then(function (r) { return r.arrayBuffer(); }) : null;
+        function audio() { if (!ac && AC) { try { ac = new AC(); } catch (e) {} } return ac; }
+        function playMusic(delayMs) {
+          var c = audio(); if (!c || !bufP) return;
+          try { if (c.resume) c.resume(); } catch (e) {}
+          var at = c.currentTime + delayMs / 1000;
+          bufP.then(function (ab) { return buf || new Promise(function (res, rej) { c.decodeAudioData(ab.slice(0), function (b) { buf = b; res(b); }, rej); }); }).then(function (b) {
+            if (c.state !== 'running' || !began || el.className === 'i-done') return; // 막혔으면(아이폰 등) 조용히
+            if (c.currentTime > at + 0.25) return; // 너무 늦게 준비되면 박자가 안 맞으니 생략
+            var s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(Math.max(c.currentTime, at)); srcNode = s;
+          }).catch(function () {});
+        }
+        // 도는 중에 화면을 누르면 건너뜀 (소리도 멈춤)
+        el.style.pointerEvents = 'auto';
+        el.addEventListener('pointerdown', function () {
+          if (!began) { if (tapMode) { el.classList.remove('i-wait'); begin(); } return; }
+          try { if (srcNode) srcNode.stop(); } catch (e) {}
+          skipNow();
+        });
+        function skipNow() { if (el.className === 'i-done') return; document.documentElement.classList.remove('intro-on'); el.className = 'i-done'; el.style.pointerEvents = 'none'; setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 320); }
+        function done() { document.documentElement.classList.remove('intro-on'); el.className = 'i-done'; el.style.pointerEvents = 'none'; setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 320); }
         function tick(start) {
           var busy = (window.__uzuLoading || 0) > 0 || document.getElementById('boot-splash');
           if ((!busy && Date.now() - start >= P + A + B) || Date.now() - t0 > 9000) done(); else setTimeout(function () { tick(start); }, 50);
         }
         function begin() {
           if (began) return; began = true;
+          // 노래는 하마가 튀어나오기 시작하고 0.3초 뒤 (커지기 시작할 때 첫 박자)
+          if (soundOn && (!ios || tapMode)) playMusic(P - 150);
           // 1) 하마(색 채운 그림)가 아이콘 속 그 자리에서 살짝 튀어 오르며 나오고, 아이콘 판은 작아지며 사라짐
           hippo.style.opacity = '1';
           hippo.animate([
@@ -181,7 +219,7 @@
         var HOLD = 250, MAXWAIT = 600;
         var waitFull = ios && ((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true);
         var grown = !waitFull;
-        function tryBegin() { if (grown && Date.now() - t0 >= HOLD) begin(); }
+        function tryBegin() { if (tapMode) { el.classList.add('i-wait'); return; } if (grown && Date.now() - t0 >= HOLD) begin(); }
         if (waitFull) {
           var h0 = window.innerHeight;
           var onRs = function () { if (window.innerHeight !== h0) { grown = true; setTimeout(tryBegin, 160); } }; // 펴진 뒤 화면이 자리 잡을 틈을 조금 줌 (바로 시작하면 하마가 나올 때 끊김)

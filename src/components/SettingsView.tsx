@@ -143,6 +143,7 @@ export function SettingsView({
   });
 
   const [introOn, setIntroOn] = useState<boolean>(() => { try { return localStorage.getItem('uzuhama_intro_off') !== '1'; } catch { return true; } });
+  const [introSound, setIntroSound] = useState<boolean>(() => { try { return localStorage.getItem('uzuhama_intro_sound_off') !== '1'; } catch { return true; } });
 
   const handleToggleWidgetShare = () => {
     const nextVal = !enableWidgetShare;
@@ -806,6 +807,23 @@ export function SettingsView({
                         <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", introOn ? "translate-x-4" : "translate-x-0")} />
                       </button>
                     </div>
+                    {introOn && (
+                      <div className="flex items-center justify-between pt-3.5">
+                        <div>
+                          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">인트로 소리</p>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">채널 인트로 노래와 함께 (아이폰은 실험실에서 따로 켜야 해요)</p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={introSound}
+                          onClick={() => { const v = !introSound; setIntroSound(v); try { if (v) localStorage.removeItem('uzuhama_intro_sound_off'); else localStorage.setItem('uzuhama_intro_sound_off', '1'); } catch { /* */ } }}
+                          className={cn("w-10 h-6 flex items-center rounded-full p-0.5 transition-colors shrink-0 cursor-pointer", introSound ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700")}
+                        >
+                          <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", introSound ? "translate-x-4" : "translate-x-0")} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -861,6 +879,7 @@ export function SettingsView({
                     <p className="text-xs text-zinc-500 break-keep">아직 다듬는 중인 기능이에요. 마음에 안 들면 꺼 둘 수 있어요.</p>
                     <LabToggle k="labAiSummary" title="AI 영상 요약" desc="영상 ⋮ 메뉴와 검색 결과에 AI가 정리한 이야기별 요약·노가리를 보여 줘요. AI는 실수할 수 있어요." />
                     <LabToggle k="labAiCard" title="카드 펼쳐 요약과 함께 보기" desc="AI 요약이 끝난 영상 카드의 썸네일을 누르면 카드가 커지면서 위에서 바로 재생되고, 제목 아래에 요약이 펼쳐져요. 스포일러는 가릴 수 있어요. (쇼츠·목록 보기 제외)" />
+                    <LabToggle k="labIntroTap" title="아이폰: 화면 눌러 인트로 소리 재생" desc="아이폰은 앱을 켤 때 소리를 막아요. 켜 두면 인트로가 화면을 누를 때까지 기다렸다가, 누르면 채널 인트로 노래와 함께 재생돼요." />
                     <LabToggle k="labCafeOld" title="과거 영상 생방 연동" desc="2020년 전 영상에 팬카페 정리 글을 보고 이어 붙인 생방송 다시보기·영상·쇼츠도 보여 줘요. 예전 기록이라 날짜나 짝이 조금 틀릴 수 있어요." />
                   </div>
                 </motion.div>
@@ -1514,7 +1533,7 @@ function ViewPrefsPanel() {
 }
 
 /** 실험실 켜고 끄기 */
-function LabToggle({ k, title, desc }: { k: 'labAiSummary' | 'labAiCard' | 'labCafeOld'; title: string; desc: string }) {
+function LabToggle({ k, title, desc }: { k: 'labAiSummary' | 'labAiCard' | 'labCafeOld' | 'labIntroTap'; title: string; desc: string }) {
   const prefs = usePrefs();
   const on = Boolean(prefs[k]);
   return (

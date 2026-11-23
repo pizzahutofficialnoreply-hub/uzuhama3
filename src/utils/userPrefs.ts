@@ -33,6 +33,8 @@ export interface UserPrefs {
   labAiCard: boolean;
   /** 실험실: 과거 영상 생방 연동 — 팬카페 정리 글에서 가져온 2020년 전 링크(비교적 부정확)도 보여 주기 */
   labCafeOld: boolean;
+  /** 실험실: 아이폰에서 인트로를 화면을 눌러 소리와 함께 재생 (누르기 전까지 기다림) */
+  labIntroTap: boolean;
   /** 목록 보기에서 영상을 누르면: 사이트 안에서 펼쳐 재생 / 유튜브 링크로 */
   listPlay: 'site' | 'link';
 }
@@ -55,6 +57,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   labAiSummary: true,
   labAiCard: true,
   labCafeOld: true,
+  labIntroTap: false,
   listPlay: 'site',
 };
 
