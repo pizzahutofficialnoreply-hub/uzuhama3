@@ -39,6 +39,8 @@ export function buildGameCatalog(logs: any): Map<string, GameInfo> {
   return map;
 }
 
+const PLAYLIST_ALIAS: Record<string, string> = { 배틀그라운드: 'PUBG: BATTLEGROUNDS', 배그: 'PUBG: BATTLEGROUNDS' };
+
 /** 재생목록 이름 → 게임 (없으면 null) */
 export function inferPlaylistGame(title: string, catalog: Map<string, GameInfo>): GameInfo | null {
   const rest = String(title || '')
@@ -46,7 +48,9 @@ export function inferPlaylistGame(title: string, catalog: Map<string, GameInfo>)
     .replace(/[\[\]()【】「」|/]/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
-  const k = norm(rest);
+  // 스팀 이름으로 바꾼 게임의 한국어 재생목록 이름 (예: 우주하마 배틀그라운드 → PUBG: BATTLEGROUNDS)
+  const alias = PLAYLIST_ALIAS[norm(rest)];
+  const k = norm(alias || rest);
   if (k.length < 2) return null;
   // 1) 기록에 있는 게임과 정확히 같음
   const exact = catalog.get(k);

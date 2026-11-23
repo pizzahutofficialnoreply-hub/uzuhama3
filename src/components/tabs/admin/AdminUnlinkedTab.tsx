@@ -1,4 +1,5 @@
 import { noteReads } from '../../../utils/readStats';
+import { CleanupReview } from './CleanupReview';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { collection, doc, getCountFromServer, getDoc, getDocs, limit, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db, auth } from '../../../lib/firebase';
@@ -158,6 +159,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
 
   return (
     <div className="space-y-4">
+      <CleanupReview data={data} onUpdateLog={onUpdateLog} />
       <AutoLinkReview key={autoKey} data={data} onUpdateLog={onUpdateLog} />
       <GameCheckPanel data={data} onSent={() => setAutoKey((k) => k + 1)} />
       <SheetCheckPanel data={data} />

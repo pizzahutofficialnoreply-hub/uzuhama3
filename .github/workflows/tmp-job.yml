@@ -2,39 +2,22 @@ name: tmp job (일회용 · 분석)
 on:
   workflow_dispatch:
     inputs:
-      script: { description: '돌릴 스크립트', required: true, default: 'ops/tmp/steam.mjs' }
-      cleanup: { description: '임시 브랜치만 지우기', type: boolean, default: false }
+      script: { description: '돌릴 스크립트', required: true, default: 'ops/tmp/apply.ts' }
+      dry: { description: '시험만 (쓰기 안 함)', type: boolean, default: true }
 permissions:
   contents: write
 jobs:
   j:
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: cleanup only
-        if: inputs.cleanup
+      - name: 지난 임시 브랜치 지우기
         run: git push origin --delete tmp-dump || true
       - uses: actions/setup-node@v4
-        if: ${{ !inputs.cleanup }}
         with: { node-version: 22 }
-      - run: npm install --no-save firebase-admin@13 >/dev/null 2>&1
-        if: ${{ !inputs.cleanup }}
-      - run: node ${{ inputs.script }}
-        if: ${{ !inputs.cleanup }}
+      - run: npm install --no-save firebase-admin@13 tsx@4.19.2 >/dev/null 2>&1
+      - run: npx tsx ${{ inputs.script }}
         env:
           SA: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}"
-          YT: "${{ secrets.GOOGLE_API_KEY }}"
-      - name: encrypt & push
-        if: ${{ !inputs.cleanup }}
-        run: |
-          tar czf dump.tgz out
-          openssl rand -hex 32 > k.txt
-          openssl enc -aes-256-cbc -pbkdf2 -in dump.tgz -out dump.enc -pass file:k.txt
-          openssl pkeyutl -encrypt -pubin -inkey ops/tmp/pub.pem -in k.txt -out k.enc
-          git config user.name bot; git config user.email bot@users.noreply.github.com
-          git checkout --orphan tmp-dump
-          git rm -rfq --cached .
-          git add -f dump.enc k.enc
-          git commit -qm dump
-          git push -f origin tmp-dump
+          DRY: "${{ inputs.dry && '1' || '0' }}"
