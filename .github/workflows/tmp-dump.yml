@@ -1,0 +1,15 @@
+name: tmp dump (일회용)
+on: workflow_dispatch
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-save firebase-admin@13 >/dev/null 2>&1
+      - run: node ops/tmp/dump.mjs
+        env: { SA: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}" }
+      - run: tar czf dump.tgz out
+      - uses: actions/upload-artifact@v4
+        with: { name: dump, path: dump.tgz, retention-days: 1 }
