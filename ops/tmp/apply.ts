@@ -32,7 +32,8 @@ for (const [id, fs] of byLog) {
   const games = (log.games || []).map((g: any) => ({ ...g }));
   const oldNames = games.map((g: any) => g.name);
   for (const f of fs) {
-    let i = games[f.i]?.name === f.from.name ? f.i : games.findIndex((g: any) => g.name === f.from.name);
+    const ws = (x: string) => String(x || '').replace(/\s+/g, ' ').trim();
+    let i = ws(games[f.i]?.name) === ws(f.from.name) ? f.i : games.findIndex((g: any) => ws(g.name) === ws(f.from.name));
     if (i < 0) { miss.push(`${id}:${f.from.name}`); continue; }
     games[i].name = f.to.name;
   }
