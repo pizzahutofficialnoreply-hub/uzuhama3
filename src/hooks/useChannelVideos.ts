@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { kvGet, kvSet } from '../utils/kv';
 
 /**
  * 우주하마 유튜브 채널의 일반 영상 전체 (쇼츠·생방송 제외)
@@ -21,8 +22,17 @@ try {
 } catch { /* 무시 */ }
 const listeners = new Set<(v: ChannelVideo[]) => void>();
 let fetching: Promise<void> | null = null;
+// localStorage 가 가득 차 저장이 안 된 기기(아이폰 등)도 다음에 켜면 바로 쓰게 IndexedDB 에도 보관
+const kvKey = 'channel_uploads_v1';
+const kvReady: Promise<void> = cache.length ? Promise.resolve() : kvGet<{ items: ChannelVideo[]; at: number }>(kvKey).then((s) => {
+  if (!cache.length && Array.isArray(s?.items) && s!.items.length) { cache = s!.items; at = Number(s!.at || 0); listeners.forEach((fn) => fn(cache)); }
+}).catch(() => {});
 
 function ensure() {
+  // IndexedDB 에서 꺼내는 중이면 끝난 뒤에 판단 (꺼낸 목록이 새것이면 서버를 안 부름)
+  kvReady.then(ensureNow);
+}
+function ensureNow() {
   if (fetching || (cache.length && Date.now() - at < TTL)) return;
   // 저장해 둔 게 없으면: 사이트에 같이 배포된 목록을 먼저 (서버를 안 거쳐서 바로 정렬됨) → 그 뒤 서버에서 최신
   if (!cache.length) {
@@ -37,6 +47,7 @@ function ensure() {
       cache = json.videos;
       at = Date.now();
       try { localStorage.setItem(KEY, JSON.stringify({ items: cache, at })); } catch { /* 가득 참 */ }
+      kvSet(kvKey, { items: cache, at });
       listeners.forEach((fn) => fn(cache));
     })
     .catch(() => { /* 다음에 */ })

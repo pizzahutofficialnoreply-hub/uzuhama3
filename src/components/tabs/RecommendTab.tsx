@@ -1289,7 +1289,8 @@ export function RecommendTab({
     (logs as any[]).forEach((log) => (Array.isArray(log?.shorts) ? log.shorts : []).forEach((s: any) => {
       const url = typeof s === 'string' ? s : s?.url;
       const id = extractYoutubeId(url || '');
-      if (!id || byId.has(id)) return;
+      if (id && byId.has(id)) { const h: any = byId.get(id); h._n = (h._n || 1) + 1; h.caption = `몰아보기 · ${h._n}개 방송`; return; }
+      if (!id) return;
       byId.set(id, { id, interest: { id, kind: 'short', title: cleanShortsTitle(s.title || ''), tokens: tokensOf(Array.isArray(log?.games) && log.games.length ? log.games : log?.game ? [{ name: log.game, category: log.category }] : [], [log?.category]) },
         url, title: (typeof s === 'string' ? '' : s?.title) || '', caption: log?.date ? `${log.date} 방송` : undefined,
         liveUrl: (Array.isArray(log?.vods) ? log.vods : []).find((v: any) => v?.url)?.url });

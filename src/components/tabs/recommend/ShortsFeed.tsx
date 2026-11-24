@@ -123,11 +123,14 @@ export function ShortsFeed({ logs, searchTerm, plan, chosung = true, exclude, se
       liveUrl: (Array.isArray(log?.vods) ? log.vods : []).find((v: any) => v?.url)?.url,
       editUrl: (Array.isArray(log?.edited) ? log.edited : []).find((v: any) => v?.url && !v.isCompilation && !v.compilationId)?.url,
     });
+    // 같은 쇼츠가 여러 방송에 들어 있으면(여러 방송 장면을 모은 쇼츠) → 몰아보기로
+    const multi = new Map<string, any[]>();
     list.forEach((log: any) => {
       // 1) 방송 기록에 등록된 쇼츠
       (Array.isArray(log?.shorts) ? log.shorts : []).forEach((s: any) => {
         const url = typeof s === 'string' ? s : s?.url;
         const id = extractYoutubeId(url || '');
+        if (url && id && !(s?.isCompilation || s?.compilationId)) { const arr = multi.get(id) || []; if (log?.date && !arr.some((x) => x?.date === log.date)) arr.push(log); multi.set(id, arr); }
         if (!url || !id || byId.has(id)) return;
         if (s?.isCompilation || s?.compilationId) return;
         byId.set(id, {
@@ -163,6 +166,18 @@ export function ShortsFeed({ logs, searchTerm, plan, chosung = true, exclude, se
           // 펼치기 화면(몰아보기 목록)에 그대로 넘기는 영상 정보
           compilationVideo: { id, videoUrl: e.url, videoTitle: e.title || '', isCompilation: true, compilationId: e.compilationId, games: e.games || [], allBroadcastDates: dates, parentLog: log } });
       });
+    });
+    multi.forEach((ls, id) => {
+      const e = byId.get(id);
+      if (!e || e.isCompilation || ls.length < 2) return;
+      const sorted = [...ls].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+      const dates = sorted.map((l) => l.date);
+      e.isCompilation = true;
+      e.date = sorted[0].date;
+      e.gameNames = [...new Set(sorted.flatMap(gameNamesOfLog))];
+      e.genres = genresOfLog ? [...new Set(sorted.flatMap((l) => genresOfLog(l)))] : e.genres;
+      e.compilation = sorted.map((l) => ({ date: l.date, games: gameNamesOfLog(l), ...linksOf(l) }));
+      e.compilationVideo = { id, videoUrl: e.url, videoTitle: e.title || '', isCompilation: true, games: sorted.flatMap((l) => gameNamesOfLog(l).map((name) => ({ name, date: l.date }))), allBroadcastDates: dates, parentLog: sorted[0] };
     });
     // 편집본 영상 ID → 그 방송 기록 (쇼츠 아래 연결된 영상으로 생방송을 찾을 때 씀)
     const logByEdited = new Map<string, any>();

@@ -92,6 +92,8 @@ import { confirmSheet, toast as uiToast } from './utils/ui';
 import { joinWithCode, startDeviceSync } from './utils/deviceSync';
 import { FluidBackdrop } from './components/common/FluidBackdrop';
 import { wideAt } from './utils/layoutSize';
+// 채널 영상 목록을 앱 켤 때 미리 꺼내 둠 (검색 탭을 열 때 순서가 한 번 바뀌어 보이지 않게)
+import './hooks/useChannelVideos';
 
 function SlugRoute() {
   const { slug = '' } = useParams<{ slug: string }>();
