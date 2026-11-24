@@ -313,7 +313,8 @@ async function loadNotionNotes(db: any): Promise<{ notes: Note[]; error?: string
 
 
 /* ── 사이트 수정 모음 → 자동 버전 + '패치 진행 사항 안내' 공지 ──
- * 패치노트를 따로 쓰지 않고 올린 수정(GitHub 커밋)이 쌓이면, 마지막 수정 뒤 20분 동안 더 없을 때 한 번에:
+ * 패치노트를 따로 쓰지 않고 올린 수정(GitHub 커밋)이 의미 있는 것 10개 이상 쌓이면(또는 7일이 지나면), 마지막 수정 뒤 20분 동안 더 없을 때 한 번에:
+ *  - 지난 자동 패치에서 추가했다가 이번에 없앤 기능은 그 버전 글에 취소선 + (v새버전에서 제거)
  *  - 버전: 관리자가 낸 버전(예: 1.2.0) 뒤에 '+빌드 번호'만 하나씩 올림 → 1.2.0+1, 1.2.0+2 … (새 버전을 내면 그 버전+0 부터 다시)
  *  - 패치노트 글(patch_notes, auto) + 띠 공지([안내] 11/20(금) 19:22 패치 진행 사항 안내)
  * 처음 켤 때는 지난 24시간 수정부터 */
@@ -373,7 +374,8 @@ export function hotfixNoticeBody(ver: string, at: number, points: string[]) {
     '감사합니다.',
   ].join('\n');
 }
-async function hotfixPoints(subjects: string[]): Promise<{ points: string[]; kind: 'feature' | 'fix'; ai: boolean }> {
+type PrevAuto = { version: string; points: string[] };
+async function hotfixPoints(subjects: string[], prev: PrevAuto[] = []): Promise<{ points: string[]; kind: 'feature' | 'fix'; ai: boolean; removed: { version: string; point: string }[] }> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (apiKey) {
     const prompt = `팬 사이트 "우주하마 방송 예측"에 올린 수정 기록(개발자 메모)이야. 방문자에게 보여 줄 '패치 내용' 목록으로 바꿔 줘.
@@ -382,7 +384,11 @@ async function hotfixPoints(subjects: string[]): Promise<{ points: string[]; kin
 - 관리자 화면·서버·DB 사용량·내부 점검 같은 건 합쳐서 "서비스 안정성 개선" 한 줄로.
 - 메모에 없는 내용은 지어내지 마. 이모지 없이.
 - kind: 방문자가 쓸 새 기능이 생겼으면 "feature", 고치기·다듬기만이면 "fix".
-JSON 으로만: {"kind":"feature|fix","points":["..."]}
+- removed: 아래 '지난 패치 내용' 중 이번 수정 기록으로 없앤(되돌린·삭제한) 기능이 있으면 그 줄을 글자 그대로. 확실할 때만, 없으면 빈 목록.
+JSON 으로만: {"kind":"feature|fix","points":["..."],"removed":[{"version":"1.2.0+3","point":"지난 줄 그대로"}]}
+
+지난 패치 내용:
+${prev.map((p) => p.points.map((x) => `- v${p.version}: ${x}`).join('\n')).join('\n').slice(0, 3000) || '(없음)'}
 
 수정 기록:
 ${subjects.map((x) => `- ${x}`).join('\n').slice(0, 8000)}`;
@@ -394,14 +400,16 @@ ${subjects.map((x) => `- ${x}`).join('\n').slice(0, 8000)}`;
           const r = await ai.models.generateContent({ model: m, contents: prompt, config: { responseMimeType: 'application/json', temperature: 0.2, httpOptions: { timeout: 20000 } } });
           const j = JSON.parse(r.text || '{}');
           const pts = (j.points || []).map((x: any) => String(x || '').trim()).filter(Boolean).slice(0, 8);
-          if (pts.length) return { points: pts, kind: j.kind === 'feature' ? 'feature' : 'fix', ai: true };
+          const removed = (Array.isArray(j.removed) ? j.removed : []).map((x: any) => ({ version: String(x?.version || ''), point: String(x?.point || '').trim() }))
+            .filter((x: any) => prev.some((p) => p.version === x.version && p.points.includes(x.point)));
+          if (pts.length) return { points: pts, kind: j.kind === 'feature' ? 'feature' : 'fix', ai: true, removed };
         } catch { /* 다음 모델 */ }
       }
     } catch { /* */ }
   }
   // AI 가 안 되면 메모 첫 줄을 그대로 (쉼표·/ 로 나눈 것)
   const pts = [...new Set(subjects.flatMap((x) => x.split(/\s*[,/]\s+|:\s+/)).map((x) => x.trim()).filter((x) => x.length >= 4))].slice(0, 8);
-  return { points: pts.length ? pts : ['서비스 안정성 개선'], kind: subjects.some((x) => /추가|새 |새로|만들/.test(x)) ? 'feature' : 'fix', ai: false };
+  return { points: pts.length ? pts : ['서비스 안정성 개선'], kind: subjects.some((x) => /추가|새 |새로|만들/.test(x)) ? 'feature' : 'fix', ai: false, removed: [] };
 }
 async function maybeHotfix(db: any, notes: Note[]) {
   try { await migrateAutoVersions(db, notes); } catch (e) { console.warn('[patch-notes] version migrate failed:', e); }
@@ -412,7 +420,7 @@ async function maybeHotfix(db: any, notes: Note[]) {
   if (st.pending && Date.now() - Date.parse(st.at || '0') < 3 * 60000) return;
   const headers: Record<string, string> = { Accept: 'application/vnd.github+json', 'User-Agent': 'uzuhama-site' };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  const r = await fetch(`https://api.github.com/repos/${REPO}/commits?sha=main&per_page=60`, { headers, signal: AbortSignal.timeout(8000) });
+  const r = await fetch(`https://api.github.com/repos/${REPO}/commits?sha=main&per_page=100`, { headers, signal: AbortSignal.timeout(8000) });
   if (!r.ok) return;
   const list = ((await r.json()) || []) as any[];
   if (!list.length) return;
@@ -420,7 +428,7 @@ async function maybeHotfix(db: any, notes: Note[]) {
   // 처음 켤 때는 지난 24시간 수정부터
   const idx = st.lastSha ? list.findIndex((c) => c.sha === st.lastSha) : -1;
   const fresh = st.lastSha
-    ? (idx >= 0 ? list.slice(0, idx) : list.slice(0, 30))
+    ? (idx >= 0 ? list.slice(0, idx) : list)
     : list.filter((c) => Date.now() - Date.parse(c.commit?.author?.date || '') < 24 * 3600000);
   const msgs = fresh
     .map((c) => ({ subject: String(c.commit?.message || '').split('\n')[0].trim(), at: Date.parse(c.commit?.author?.date || c.commit?.committer?.date || '') }))
@@ -428,9 +436,17 @@ async function maybeHotfix(db: any, notes: Note[]) {
   if (!msgs.length) { if (idx !== 0) await ref.set({ autoHotfix: { ...st, lastSha: head } }, { merge: true }); return; }
   const newest = Math.max(...msgs.map((m) => m.at || 0));
   if (Date.now() - newest < 20 * 60000) return; // 아직 수정 중일 수 있음
+  // 조금씩 자주 말고 적당히 쌓였을 때 한 번에: 의미 있는 수정 10개 이상, 또는 가장 오래된 수정이 7일 넘게 기다렸을 때
+  const oldest = Math.min(...msgs.map((m) => m.at || Date.now()));
+  if (msgs.length < 10 && Date.now() - oldest < 7 * 864e5) return;
   await ref.set({ autoHotfix: { ...st, pending: true, at: new Date().toISOString() } }, { merge: true });
   try {
-    const hp = await hotfixPoints(msgs.map((m) => m.subject).reverse());
+    // 지난 자동 패치 (최근 6개): 이번에 없앤 기능이 있으면 그 줄에 취소선
+    // (복합 색인 없이: 자동 글만 받아 여기서 정렬)
+    const prevSnap = await db.collection('patch_notes').where('auto', '==', true).get().catch(() => null);
+    const prevDocs = (prevSnap?.docs || []).map((d: any) => ({ ref: d.ref, ...d.data() })).sort((a: any, b: any) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).slice(0, 6);
+    const prev: PrevAuto[] = prevDocs.map((d: any) => ({ version: String(d.version), points: String(d.content || '').split('\n').filter((x: string) => /^- (?!~~)/.test(x)).map((x: string) => x.slice(2).trim()) }));
+    const hp = await hotfixPoints(msgs.map((m) => m.subject).reverse(), prev);
     const { points, ai } = hp;
     const kind: 'feature' | 'fix' = hp.kind;
     // 기준: 가장 높은 버전 (관리자가 새 버전을 냈으면 그 버전+1, 아니면 지난 자동 버전의 빌드 번호 +1)
@@ -448,6 +464,14 @@ async function maybeHotfix(db: any, notes: Note[]) {
       type: 'small', prefix: '[안내]', date: day, active: true, dismissMode: 'permanent',
       links: [{ title: '의견 보내기', url: 'app://의견' }, { title: '패치노트 보기', url: `/patch-v${ver}` }],
     };
+    // 없앤 기능: 그 버전 패치노트의 해당 줄을 ~~취소선~~ + (v새버전에서 제거)
+    for (const rm of hp.removed || []) {
+      const d = prevDocs.find((x: any) => String(x.version) === rm.version);
+      if (!d) continue;
+      const nc = String(d.content || '').split('\n').map((x: string) => (x === `- ${rm.point}` ? `- ~~${rm.point}~~ (v${ver}에서 제거)` : x)).join('\n');
+      const hl = (Array.isArray(d.highlights) ? d.highlights : []).filter((x: string) => x !== rm.point); // 요약 줄(글자 그대로 보임)에서는 빼기만
+      if (nc !== d.content) await d.ref.set({ content: nc, highlights: hl, updatedAt: new Date().toISOString() }, { merge: true });
+    }
     const cur = (await ref.get()).data() || {};
     const others = (Array.isArray(cur.noticeList) ? cur.noticeList : []).filter((n: any) => !String(n?.id || '').startsWith('auto-hotfix'));
     await ref.set({ noticeList: [notice, ...others], appVersion: ver, autoHotfix: { lastSha: head, version: ver, at: new Date().toISOString(), pending: false, ai } }, { merge: true });

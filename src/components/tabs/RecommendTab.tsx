@@ -1189,6 +1189,28 @@ export function RecommendTab({
       }
     });
 
+    // 여러 방송 장면을 모은 쇼츠 (같은 쇼츠가 방송 2개 이상에 들어 있음) → 홈에도 몰아보기처럼
+    const shortLogs = new Map<string, { url: string; title: string; logs: any[] }>();
+    Object.values(data.logs).forEach((log: any) => (Array.isArray(log?.shorts) ? log.shorts : []).forEach((sh: any) => {
+      const url = typeof sh === 'string' ? sh : sh?.url;
+      const sid = extractYoutubeId(url || '');
+      if (!sid || sh?.isCompilation || sh?.compilationId) return;
+      const e = shortLogs.get(sid) || { url, title: (typeof sh === 'string' ? '' : sh?.title) || '', logs: [] };
+      if (log?.date && !e.logs.some((x: any) => x.date === log.date)) e.logs.push(log);
+      shortLogs.set(sid, e);
+    }));
+    shortLogs.forEach((e, sid) => {
+      if (e.logs.length < 2 || videoMap.has(sid)) return;
+      const ls = [...e.logs].sort((a: any, b: any) => String(b.date).localeCompare(String(a.date)));
+      if (baseWeights.current[sid] === undefined) baseWeights.current[sid] = Math.random();
+      videoMap.set(sid, {
+        id: sid, isShorts: true,
+        videoTitle: (e.title || '우주하마 쇼츠').replace(/\s*#shorts\b/ig, '').trim() || '우주하마 쇼츠',
+        videoUrl: e.url, parentLog: ls[0], allBroadcastDates: ls.map((l: any) => l.date),
+        games: ls.flatMap((l: any) => (Array.isArray(l.games) && l.games.length ? l.games : l.game ? [{ name: l.game }] : []).map((g: any) => ({ ...(typeof g === 'string' ? { name: g } : g), date: l.date }))),
+      });
+    });
+
     // 몰아보기 영상: 연동된 모든 생방 로그로부터 등록된 게임들을 누락 없이 모두 수집
     videoMap.forEach((v) => {
       if (v.isCompilation && Array.isArray(v.allBroadcastDates)) {
