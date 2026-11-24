@@ -40,7 +40,7 @@ export function getBgm(): Pref {
 type State = Pref & { playing: boolean; track: ReturnType<typeof trackAt> };
 const listeners = new Set<(s: State) => void>();
 export function onBgm(fn: (s: State) => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
-export function bgmState(): State { return { ...getBgm(), playing: !!el && !el.paused, track: trackAt(el?.currentTime || savedPos()) }; }
+export function bgmState(): State { return { ...getBgm(), playing: !!el && !el.paused, track: trackAt(el ? el.currentTime : savedPos()) }; }
 const emit = () => { const s = bgmState(); listeners.forEach((fn) => fn(s)); };
 
 let el: HTMLAudioElement | null = null;
@@ -50,9 +50,12 @@ let routed = false; // Web Audio 를 거치는지
 let started = false;
 let videoOpen = false;
 let lastTrack = -1;
+let unlocked = false;      // 이 오디오가 터치로 한 번 재생 허락을 받았는지 (아이폰은 그 뒤엔 터치 없이도 재생됨)
+let waitIntro = false;     // 인트로가 끝나길 기다리는 중
+const introOn = () => document.documentElement.classList.contains('intro-on');
 
 const savedPos = () => { try { return Number(localStorage.getItem(POS_KEY) || 0) || 0; } catch { return 0; } };
-const savePos = () => { try { if (el && el.currentTime > 0) localStorage.setItem(POS_KEY, String(Math.floor(el.currentTime))); } catch { /* */ } };
+const savePos = () => { try { if (el) localStorage.setItem(POS_KEY, String(Math.floor(el.currentTime))); } catch { /* */ } };
 
 function meta() {
   if (!el || !('mediaSession' in navigator)) return;
@@ -107,12 +110,25 @@ function play() {
   if (!p.on || videoOpen || (document.hidden && !p.bg)) return;
   const a = ensureEl();
   try { ac?.resume(); } catch { /* */ }
-  // 인트로(채널 인트로 노래)가 도는 중이면 소리 0 으로 시작했다가 끝난 뒤 천천히 키움
-  const intro = document.documentElement.classList.contains('intro-on');
-  if (intro && gain && ac) { gain.gain.setValueAtTime(0, ac.currentTime); setTimeout(() => { if (gain && ac) { gain.gain.setValueAtTime(0, ac.currentTime); gain.gain.linearRampToValueAtTime(getBgm().vol, ac.currentTime + 2); } }, 2600); }
-  a.play().then(() => { started = true; emit(); }).catch(() => { /* 아직 터치 전 → 첫 터치 때 */ });
+  // 인트로(채널 인트로 노래)가 도는 중이면 겹치지 않게: 재생 허락만 받아 두고(바로 멈춤) 인트로가 끝나면 시작
+  if (introOn()) {
+    waitIntro = true;
+    if (!unlocked) { a.muted = true; a.play().then(() => { a.pause(); a.muted = false; unlocked = true; }).catch(() => { a.muted = false; }); }
+    return;
+  }
+  const fadeIn = waitIntro; waitIntro = false;
+  if (fadeIn) fade();
+  a.play().then(() => { started = true; unlocked = true; emit(); }).catch(() => { /* 아직 터치 전 → 첫 터치 때 */ });
 }
 function pause() { savePos(); try { el?.pause(); } catch { /* */ } }
+/** 2초 동안 0 → 설정 음량 (인트로 뒤) */
+function fade() {
+  const v = getBgm().vol;
+  if (gain && ac) { gain.gain.setValueAtTime(0, ac.currentTime); gain.gain.linearRampToValueAtTime(v, ac.currentTime + 2); return; }
+  if (!el) return;
+  try { el.volume = 0; } catch { /* */ }
+  let k = 0; const id = setInterval(() => { k++; try { if (el) el.volume = Math.min(v, (v * k) / 20); } catch { /* */ } if (k >= 20) clearInterval(id); }, 100);
+}
 /** 다음·이전 곡 */
 export function skip(dir: 1 | -1) {
   const a = ensureEl();
@@ -151,4 +167,6 @@ export function initBgm() {
     if (has) pause(); else play();
   };
   new MutationObserver(() => check()).observe(document.body, { childList: true, subtree: true });
+  // 인트로가 끝나면(또는 건너뛰면) 기다리던 배경음 시작
+  new MutationObserver(() => { if (waitIntro && !introOn()) setTimeout(play, 300); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 }
