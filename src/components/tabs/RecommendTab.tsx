@@ -1,4 +1,5 @@
 import { chooseSheet } from '../../utils/ui';
+import { liveTitle } from '../../utils/liveTitle';
 import { ChevronRight } from 'lucide-react';
 import { VideoSwipe } from '../common/VideoSwipe';
 import { useAiDone } from '../common/AiSummaryHost';
@@ -154,7 +155,7 @@ export const VideoCard = ({
   const pickLive = (l: { url: string; title?: string }) => {
     const id = ytOf(l.url);
     if (!sitePlay || !id) return false;
-    openAiCard(id, l.title && !/^우주하마\s*생방송!?$/.test(l.title) ? l.title : `${video.parentLog?.date || ''} 생방송`.trim(), thumbRef.current, '생방송');
+    openAiCard(id, liveTitle(l.title, video.parentLog?.date), thumbRef.current, '생방송');
     return true;
   };
   const pickShort = (_l: { url: string }, i: number) => {
@@ -1667,11 +1668,11 @@ export function RecommendTab({
         if (!id || seen.has(id)) return;
         seen.add(id);
         const t = String((typeof v === 'string' ? '' : v?.title) || '').trim();
-        const generic = !t || /^우주하마\s*생방송!?$/.test(t) || t === '생방송';
+
         out.push({
           id, videoUrl: url, isLive: true, parentLog: log, allBroadcastDates: [log.date],
           liveEdits: (editsByDate.get(log.date) || []).map(({ url: u, title }) => ({ url: u, title })),
-          videoTitle: generic ? `${log.date.replace(/-/g, '.')} 생방송` : t,
+          videoTitle: liveTitle(t, log.date),
           games: Array.isArray(log.games) ? log.games : [], category: log.category, createdAt: log.date,
         });
       });

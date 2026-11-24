@@ -1,4 +1,5 @@
 import { useYoutubeViews, ytIdOf } from '../../hooks/useYoutubeViews';
+import { liveTitle } from '../../utils/liveTitle';
 import { makeMatcher } from '../../utils/textMatch';
 import { usePrefs } from '../../utils/userPrefs';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -1929,23 +1930,23 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                               {ytId ? (
                                 <button
                                   type="button"
-                                  onClick={(e) => { const id = extractYoutubeId(v.url); if (id) openAiCard(id, v.title || '생방송 다시보기', e.currentTarget); }}
+                                  onClick={(e) => { const id = extractYoutubeId(v.url); if (id) openAiCard(id, liveTitle(v.title, log.date), e.currentTarget); }}
                                   className="inline-flex items-center gap-1.5 text-left hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer group/btn"
                                   title="브라우저에서 바로 재생"
                                 >
                                   <PlaySquare className="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400 group-hover/btn:scale-110 transition-transform" />
-                                  <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed group-hover/btn:underline">{v.title}</span>
+                                  <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed group-hover/btn:underline">{liveTitle(v.title, log.date)}</span>
                                 </button>
                               ) : (
                                 <a 
                                   href={v.url || undefined} aria-disabled={!v.url || undefined} 
                                   target="_blank" 
                                   rel="noopener noreferrer" 
-                                  title={v.title || '생방송 다시보기'}
+                                  title={liveTitle(v.title, log.date)}
                                   className="inline-flex items-center gap-1.5 text-left hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
                                 >
                                   <PlaySquare className="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400" />
-                                  <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed">{v.title}</span>
+                                  <span className="hidden sm:inline text-sm break-keep break-words leading-relaxed">{liveTitle(v.title, log.date)}</span>
                                 </a>
                               )}
                             </div>

@@ -109,8 +109,8 @@ function WidgetMenu({ title, sharing, onShare, className, iconClassName }: { tit
       </button>
       {createPortal(
         // 검색 탭 영상 ⋯ 메뉴와 같은 크기·같은 움직임
-        <AnimatePresence>{open && (
-        <motion.div ref={menu} role="menu" data-no-share="true"
+        <AnimatePresence>{open && <motion.div key="scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 z-[379] bg-black/15 dark:bg-black/35" onClick={(e) => { e.stopPropagation(); setOpen(false); }} />}{open && (
+        <motion.div key="menu" ref={menu} role="menu" data-no-share="true"
           initial={{ opacity: 0, scale: 0.95, y: pos.up ? 6 : -6 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.1 } }}

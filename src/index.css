@@ -263,6 +263,12 @@ input.font-pro,
   letter-spacing: 0.008em;
 }
 
+/* 제목·굵은 글씨 안쪽의 span·a 는 바깥 글꼴(한나체 Pro)을 그대로 — 위 'span 은 Air' 규칙 때문에
+   흘러가는 공지 제목(MarqueeText)이나 '제목 <span>부제</span>' 같은 곳이 Air 로 보이던 것 */
+:is(h1, h2, h3, h4, h5, h6, b, strong, .font-bold, .font-extrabold, .font-black, .font-semibold, .font-hanna, .font-pro, .ui-title, .font-display) :is(span, a, small):not(.font-air):not(.font-normal):not(.font-medium):not(.font-light) {
+  font-family: inherit;
+}
+
 /* 자동 스크롤 시 및 탭 전환 시 연한 모션 블러 효과 */
 body.is-auto-scrolling,
 .is-auto-scrolling main,

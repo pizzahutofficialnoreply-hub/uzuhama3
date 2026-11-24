@@ -1,4 +1,5 @@
 import React, { useMemo, useRef } from 'react';
+import { liveTitle } from '../../utils/liveTitle';
 import { VideoCardInfo } from './VideoCardInfo';
 import type { BroadcastLog } from '../../types';
 import { useVideoMeta, formatDuration, formatRelativeTime } from '../../hooks/useVideoDuration';
@@ -125,8 +126,8 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts }: { id: s
 function Card({ c, onPick, logs, below }: { c: Cand | (Omit<Cand, 'kind'> & { kind: string }); onPick: (id: string, title: string, el: Element | null) => void; logs?: Record<string, BroadcastLog>; below?: React.ReactNode }) {
   const meta = useVideoMeta(c.id);
   const ref = useRef<HTMLDivElement>(null);
-  const generic = !c.title || /^우주하마\s*생방송!?$/.test(c.title);
-  const title = generic ? (c.kind === 'live' ? `${c.date} 생방송${c.games.length ? ` · ${c.games.slice(0, 2).join(', ')}` : ''}` : c.games.join(', ') || `${c.date} 방송`) : c.title;
+  // 생방송은 '날짜 생방송'(방제가 있으면 그대로) · 게임 이름을 붙이지 않음
+  const title = c.kind === 'live' ? liveTitle(c.title, c.date) : (c.title || c.games.join(', ') || `${c.date} 방송`);
   const pick = () => onPick(c.id, title, ref.current);
   return (
     <div className="relative isolate flex flex-col rounded-[24px] overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
@@ -153,7 +154,7 @@ function Card({ c, onPick, logs, below }: { c: Cand | (Omit<Cand, 'kind'> & { ki
 
 function Row({ c, onPick }: { c: Cand; onPick: (id: string, title: string, el: Element | null) => void }) {
   const meta = useVideoMeta(c.id);
-  const title = c.title || c.games.join(', ') || `${c.date} 방송`;
+  const title = c.kind === 'live' ? liveTitle(c.title, c.date) : (c.title || c.games.join(', ') || `${c.date} 방송`);
   const sub = [c.kind === 'live' ? `${c.date} 생방송` : c.games.slice(0, 2).join(' · '), meta?.publishedAt ? formatRelativeTime(meta.publishedAt) : ''].filter(Boolean).join(' · ');
   return (
     <li>

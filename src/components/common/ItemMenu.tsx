@@ -85,8 +85,12 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
       </button>
       {createPortal(
         <AnimatePresence>
+          {/* 뒤를 살짝 어둡게 → 라이트 모드에서도 메뉴가 또렷하게 (누르면 닫힘) */}
+          {open && <motion.div key="scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[379] bg-black/15 dark:bg-black/35" onClick={(e) => { e.stopPropagation(); setOpen(false); }} onPointerDown={(e) => e.stopPropagation()} />}
           {open && (
             <motion.div
+              key="menu"
               ref={menu}
               role="menu"
               initial={{ opacity: 0, scale: 0.95, y: pos.up ? 6 : -6 }}

@@ -12,7 +12,7 @@ import { fullHeight, bottomBase } from '../../utils/viewport';
 export type MenuLink = { url: string; title?: string };
 
 /** ⋮ 메뉴와 쇼츠·편집본·생방송 고르기 메뉴가 같이 쓰는 모양 (둥글기·그림자) */
-export const POPOVER_CLS = 'rounded-2xl overflow-hidden bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 ring-1 ring-black/5 dark:ring-white/10 shadow-[0_18px_40px_-8px_rgba(0,0,0,0.30),0_4px_12px_rgba(0,0,0,0.10)] dark:shadow-[0_20px_46px_-6px_rgba(0,0,0,0.85),0_4px_12px_rgba(0,0,0,0.5)]';
+export const POPOVER_CLS = 'rounded-2xl overflow-hidden bg-white dark:bg-zinc-800 border border-zinc-300/80 dark:border-zinc-700 ring-1 ring-black/10 dark:ring-white/10 shadow-[0_22px_48px_-6px_rgba(0,0,0,0.38),0_6px_16px_rgba(0,0,0,0.16)] dark:shadow-[0_20px_46px_-6px_rgba(0,0,0,0.85),0_4px_12px_rgba(0,0,0,0.5)]';
 
 export function LinkMenu({
   items, label, menuTitle, icon, tone, variant = 'card', onOpen, onPick,
@@ -89,8 +89,10 @@ export function LinkMenu({
       </button>
       {createPortal(
         <AnimatePresence>
+          {open && <motion.div key="scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 z-[379] bg-black/15 dark:bg-black/35" onClick={(e) => { e.stopPropagation(); setOpen(false); }} />}
           {open && (
             <motion.div
+              key="menu"
               ref={menu}
               initial={{ opacity: 0, y: pos.up ? 8 : -8, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
