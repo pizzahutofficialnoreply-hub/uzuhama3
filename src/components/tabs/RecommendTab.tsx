@@ -643,13 +643,13 @@ export function RecommendTab({
 }) {
 // const { data } = useFirebaseData();
   const labCardOn = usePrefs().labAiCard;
-  const [internalSearchTerm, setInternalSearchTerm] = useState(() => localStorage.getItem('rec_searchTerm') || '');
+  const [internalSearchTerm, setInternalSearchTerm] = useState(() => sessionStorage.getItem('rec_searchTerm') || '');
   const searchTerm = propSearchTerm !== undefined ? propSearchTerm : internalSearchTerm;
   const setSearchTerm = (term: string) => {
     setInternalSearchTerm(term);
     onSearchTermChange?.(term);
     try {
-      localStorage.setItem('rec_searchTerm', term);
+      sessionStorage.setItem('rec_searchTerm', term);
     } catch {}
   };
   const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
@@ -693,8 +693,8 @@ export function RecommendTab({
 
   const [hasSearched, setHasSearched] = useState<boolean>(() => {
     try {
-      return Boolean(localStorage.getItem('rec_hasSearched') === 'true') ||
-        Boolean(localStorage.getItem('rec_searchTerm')?.trim()) ||
+      return Boolean(sessionStorage.getItem('rec_hasSearched') === 'true') ||
+        Boolean(sessionStorage.getItem('rec_searchTerm')?.trim()) ||
         Boolean(targetCategory) ||
         Boolean(targetSearchTerm);
     } catch {
@@ -704,7 +704,7 @@ export function RecommendTab({
 
   useEffect(() => {
     try {
-      localStorage.setItem('rec_hasSearched', hasSearched ? 'true' : 'false');
+      sessionStorage.setItem('rec_hasSearched', hasSearched ? 'true' : 'false');
     } catch {}
   }, [hasSearched]);
 
@@ -768,7 +768,7 @@ export function RecommendTab({
   });
   const [sortOrder, setSortOrder] = useState(() => {
     const saved = localStorage.getItem('rec_sortOrder');
-    const hasSearch = Boolean(localStorage.getItem('rec_searchTerm')?.trim());
+    const hasSearch = Boolean(sessionStorage.getItem('rec_searchTerm')?.trim());
     if (saved === 'accuracy' && !hasSearch) return 'desc';
     if (saved === 'recommend') return getPrefs().recommendSort; // 추천순은 '추천' 탭으로 옮김
     return saved || getPrefs().recommendSort; // 기본값은 설정에서
@@ -856,7 +856,7 @@ export function RecommendTab({
   }, [data?.logs]);
 
   useEffect(() => {
-    localStorage.setItem('rec_searchTerm', searchTerm);
+    sessionStorage.setItem('rec_searchTerm', searchTerm);
     localStorage.setItem('rec_selectedCategories', JSON.stringify(selectedCategories));
     sessionStorage.setItem('rec_shuffleSeed', shuffleSeed.toString());
     sessionStorage.setItem('rec_currentPage', currentPage.toString());
