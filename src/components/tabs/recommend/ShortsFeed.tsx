@@ -100,16 +100,16 @@ export function ShortsFeed({ logs, searchTerm, plan, chosung = true, exclude, se
   const controlled = orderProp !== undefined;
   const [page, setPage] = useState(1);
   // 정렬: 생방일순(방송 날짜) / 업로드순(유튜브에 올라온 날짜)
-  const [sortBy, setSortBy] = useState<'live' | 'upload'>(() => { const v = sessionStorage.getItem('rec_shorts_sort'); return v === 'live' || v === 'upload' ? v : getPrefs().shortsSortBy; });
-  const changeSort = (v: 'live' | 'upload') => { setSortBy(v); setPage(1); try { sessionStorage.setItem('rec_shorts_sort', v); } catch {} };
+  const [sortBy, setSortBy] = useState<'live' | 'upload'>(() => { const v = localStorage.getItem('rec_shorts_sort'); return v === 'live' || v === 'upload' ? v : getPrefs().shortsSortBy; });
+  const changeSort = (v: 'live' | 'upload') => { setSortBy(v); setPage(1); try { localStorage.setItem('rec_shorts_sort', v); } catch {} };
   // 순서: 최신순 / 과거순
-  const [orderState, setOrder] = useState<'desc' | 'asc' | 'popular'>(() => { const v = sessionStorage.getItem('rec_shorts_order'); return v === 'asc' || v === 'desc' || v === 'popular' ? v : getPrefs().shortsOrder; });
+  const [orderState, setOrder] = useState<'desc' | 'asc' | 'popular'>(() => { const v = localStorage.getItem('rec_shorts_order'); return v === 'asc' || v === 'desc' || v === 'popular' ? v : getPrefs().shortsOrder; });
   const order: 'desc' | 'asc' | 'accuracy' | 'popular' = controlled ? orderProp! : orderState;
   const ytViews = useYoutubeViews(order === 'popular');
-  const changeOrder = (v: 'desc' | 'asc' | 'popular') => { setOrder(v); setPage(1); try { sessionStorage.setItem('rec_shorts_order', v); } catch {} };
+  const changeOrder = (v: 'desc' | 'asc' | 'popular') => { setOrder(v); setPage(1); try { localStorage.setItem('rec_shorts_order', v); } catch {} };
   // 장르 (연결된 방송에서 한 게임의 장르)
-  const [genre, setGenre] = useState<string>(() => sessionStorage.getItem('rec_shorts_genre') || '전체');
-  const changeGenre = (v: string) => { setGenre(v); setPage(1); try { sessionStorage.setItem('rec_shorts_genre', v); } catch {} };
+  const [genre, setGenre] = useState<string>(() => localStorage.getItem('rec_shorts_genre') || '전체');
+  const changeGenre = (v: string) => { setGenre(v); setPage(1); try { localStorage.setItem('rec_shorts_genre', v); } catch {} };
   const [playerAt, setPlayerAt] = useState<number | null>(null);
 
   const channelShorts = useChannelShorts();

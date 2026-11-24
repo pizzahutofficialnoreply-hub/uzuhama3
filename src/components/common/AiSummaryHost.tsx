@@ -14,6 +14,7 @@ import { aiSearch, fmtTime, type AiResult } from '../../utils/aiSearch';
 import { useBackToClose } from '../../hooks/useBackToClose';
 import { requestReport } from './ItemMenu';
 import { politeKo as pk } from '../../utils/politeKo';
+import { gameCategoryOf } from '../../utils/gameCategory';
 
 /**
  * ⋮ › AI 영상 요약: AI가 영상을 다 보고 정리한 내용
@@ -355,14 +356,16 @@ function SummaryView({ d, onSeek, onSearch, spoil = false, date }: { d: any; onS
                   <button type="button" onClick={() => onSearch(g.name || g.ko)} className="flex-1 text-left min-w-0 cursor-pointer group">
                     <p className="text-[13.5px] font-black text-zinc-900 dark:text-white group-hover:text-purple-600 break-keep">{g.name || g.ko}</p>
                   </button>
-                  {g.horror && <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-red-500/10 text-red-600 text-[10px] font-black">공포</span>}
+                  {/* 카테고리는 AI 짐작이 아니라 방송 기록에 적힌 값 그대로 */}
+                  {(() => { const c = gameCategoryOf(g.name || g.ko || ''); return c ? <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-black ${/공포|호러/.test(c) ? 'bg-red-500/10 text-red-600' : 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-300'}`}>{c}</span> : null; })()}
                 </div>
                 {s?.result && <Spoiler on={spoil}><p className="text-[11.5px] font-bold text-emerald-700 dark:text-emerald-400 break-keep">결과 · {pk(s.result)}</p></Spoiler>}
                 {s?.story ? <Spoiler on={spoil}><p className="text-[12.5px] text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep">{pk(s.story)}</p></Spoiler> : g.about ? <p className="text-[12.5px] text-zinc-600 dark:text-zinc-300 leading-relaxed break-keep">{pk(g.about)}</p> : null}
                 {/* 별표 장면 목록은 뺌 (흐름·이야기별 요약에 시간과 함께 있고, 게임 카드 쪽은 의미 없는 순간이 많았음) */}
-                {(g.genre || (g.tags || []).length > 0) && (
+                {((g.tags || []).length > 0) && (
                   <div className="flex flex-wrap gap-1">
-                    {[g.genre, ...(g.tags || [])].filter(Boolean).slice(0, 6).map((t: string) => <Chip key={t} label={t} tone="zinc" onClick={() => onSearch(t)} />)}
+                    {/* AI 가 짐작한 장르(g.genre)는 빼고 분위기 낱말만 */}
+                    {[...new Set((g.tags || []) as string[])].filter(Boolean).slice(0, 6).map((t: string) => <Chip key={t} label={t} tone="zinc" onClick={() => onSearch(t)} />)}
                   </div>
                 )}
               </div>

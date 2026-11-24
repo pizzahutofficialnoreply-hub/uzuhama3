@@ -657,7 +657,7 @@ export function RecommendTab({
   // 사용자가 직접 선택하여 저장된 카테고리
   const userChosenCategoriesRef = useRef<string[]>((() => {
     try {
-      const saved = sessionStorage.getItem('rec_user_categories');
+      const saved = localStorage.getItem('rec_user_categories');
       return saved ? JSON.parse(saved) : ['전체'];
     } catch {
       return ['전체'];
@@ -669,7 +669,7 @@ export function RecommendTab({
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>(() => {
     try {
-      const saved = sessionStorage.getItem('rec_user_categories') || sessionStorage.getItem('rec_selectedCategories');
+      const saved = localStorage.getItem('rec_user_categories') || localStorage.getItem('rec_selectedCategories');
       return saved ? JSON.parse(saved) : ['전체'];
     } catch { return ['전체']; }
   });
@@ -710,7 +710,7 @@ export function RecommendTab({
 
   // 하위 탭: 홈(전체·정렬 자유) / 추천(추천순) / 동영상(편집본만) / Shorts / 재생목록
   const [subTab, setSubTab] = useState<RecommendSubTab>(() => {
-    const saved = sessionStorage.getItem('rec_subTab') as RecommendSubTab | null;
+    const saved = localStorage.getItem('rec_subTab') as RecommendSubTab | null;
     return saved && RECOMMEND_SUB_TABS.some((t) => t.id === saved) ? saved : 'home';
   });
   const [subTabDir, setSubTabDir] = useState(0); // 넘어가는 방향 (밀기 애니메이션용)
@@ -721,7 +721,7 @@ export function RecommendTab({
     setSubTab(next);
     // 선택한 탭 버튼이 보이도록 탭 줄을 옆으로 맞춤
     requestAnimationFrame(() => document.getElementById(`rec-subtab-${next}`)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }));
-    sessionStorage.setItem('rec_subTab', next);
+    localStorage.setItem('rec_subTab', next);
     setCurrentPage(1);
     setSelectedBroadcastModalVideo(null);
   };
@@ -729,7 +729,7 @@ export function RecommendTab({
     if (targetCategory) {
       isNavigatedFromExternalRef.current = true;
       setSelectedCategories([targetCategory]);
-      setSubTab('home'); sessionStorage.setItem('rec_subTab', 'home'); // 다른 화면에서 넘어오면 홈 탭으로
+      setSubTab('home'); localStorage.setItem('rec_subTab', 'home'); // 다른 화면에서 넘어오면 홈 탭으로
       setSearchTerm('');
       setHasSearched(true);
       onClearTarget?.();
@@ -740,7 +740,7 @@ export function RecommendTab({
     if (targetSearchTerm) {
       isNavigatedFromExternalRef.current = true;
       setSearchTerm(targetSearchTerm);
-      setSubTab('home'); sessionStorage.setItem('rec_subTab', 'home'); // 다른 화면에서 넘어오면 홈 탭으로
+      setSubTab('home'); localStorage.setItem('rec_subTab', 'home'); // 다른 화면에서 넘어오면 홈 탭으로
       setSelectedCategories(['전체']);
       setHasSearched(true);
       onClearTarget?.();
@@ -750,7 +750,7 @@ export function RecommendTab({
   useEffect(() => {
     if (pinnedVideoId) {
       isNavigatedFromExternalRef.current = true;
-      setSubTab('recommend'); sessionStorage.setItem('rec_subTab', 'recommend'); // 특정 영상 추천으로 넘어오면 추천 탭 (맨 앞에 고정)
+      setSubTab('recommend'); localStorage.setItem('rec_subTab', 'recommend'); // 특정 영상 추천으로 넘어오면 추천 탭 (맨 앞에 고정)
       setSearchTerm('');
       setSelectedCategories(['전체']);
       setCurrentPage(1);
@@ -767,7 +767,7 @@ export function RecommendTab({
     return saved ? parseInt(saved, 10) : 1;
   });
   const [sortOrder, setSortOrder] = useState(() => {
-    const saved = sessionStorage.getItem('rec_sortOrder');
+    const saved = localStorage.getItem('rec_sortOrder');
     const hasSearch = Boolean(sessionStorage.getItem('rec_searchTerm')?.trim());
     if (saved === 'accuracy' && !hasSearch) return 'desc';
     if (saved === 'recommend') return getPrefs().recommendSort; // 추천순은 '추천' 탭으로 옮김
@@ -857,10 +857,10 @@ export function RecommendTab({
 
   useEffect(() => {
     sessionStorage.setItem('rec_searchTerm', searchTerm);
-    sessionStorage.setItem('rec_selectedCategories', JSON.stringify(selectedCategories));
+    localStorage.setItem('rec_selectedCategories', JSON.stringify(selectedCategories));
     sessionStorage.setItem('rec_shuffleSeed', shuffleSeed.toString());
     sessionStorage.setItem('rec_currentPage', currentPage.toString());
-    sessionStorage.setItem('rec_sortOrder', sortOrder);
+    localStorage.setItem('rec_sortOrder', sortOrder);
   }, [searchTerm, selectedCategories, shuffleSeed, currentPage, sortOrder]);
 
   useEffect(() => {
@@ -2438,7 +2438,7 @@ export function RecommendTab({
                               }
                             }
                             userChosenCategoriesRef.current = next;
-                            sessionStorage.setItem('rec_user_categories', JSON.stringify(next));
+                            localStorage.setItem('rec_user_categories', JSON.stringify(next));
                             setSelectedCategories(next);
                           }}
                           aria-pressed={selectedCategories.includes(cat)}
