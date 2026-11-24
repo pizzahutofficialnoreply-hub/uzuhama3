@@ -17,6 +17,7 @@ import { usePushNotification, PushSettings } from '../hooks/usePushNotification'
 import { SystemConfig } from '../types';
 import { RemuteSheet } from './common/HourWheel';
 import { markAiCacheStale } from '../utils/aiCache';
+import { BgmControl } from './common/BgmControl';
 import { cn } from '../utils';
 import { ThemeMode, getThemeMode, applyTheme } from '../utils/theme';
 import { useNavigate } from 'react-router-dom';
@@ -824,6 +825,7 @@ export function SettingsView({
                         </button>
                       </div>
                     )}
+                    <BgmControl />
                   </div>
                 </motion.div>
               )}

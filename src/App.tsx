@@ -93,6 +93,7 @@ import { joinWithCode, startDeviceSync } from './utils/deviceSync';
 import { FluidBackdrop } from './components/common/FluidBackdrop';
 import { wideAt } from './utils/layoutSize';
 import { setGameCategories } from './utils/gameCategory';
+import { initBgm } from './utils/bgm';
 // 채널 영상 목록을 앱 켤 때 미리 꺼내 둠 (검색 탭을 열 때 순서가 한 번 바뀌어 보이지 않게)
 import './hooks/useChannelVideos';
 
@@ -121,6 +122,7 @@ function MainApp() {
   const logsList = useMemo(() => Object.values(data?.logs || {}), [data?.logs]);
   // AI 요약 카드가 AI 짐작 장르 대신 방송 기록의 카테고리를 쓰게
   useEffect(() => { setGameCategories(logsList); }, [logsList]);
+  useEffect(() => { initBgm(); }, []);
   // 홈 화면 앱에서 당겨서 새로고침: 바뀐 기록만 받아 옴
   const refreshData = useCallback(() => fetchLatestLogs(true), [fetchLatestLogs]);
   useRealtimeNotification(logsList, data?.system); // 실시간 제보 심사 결과 및 최고 확률 안내 알림 수신 브릿지 활성화

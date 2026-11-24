@@ -1,4 +1,5 @@
 import { FeatureGrid } from './common/FeatureGrid';
+import { BgmControl } from './common/BgmControl';
 import { noteReads } from '../utils/readStats';
 import React, { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_PRIVACY, DEFAULT_TERMS } from '../content/legal';
@@ -388,6 +389,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
               {step.type === 'setup' && (
                 <div className="mt-6">
                   <SetupItemList items={standalone ? [...setupItems.filter((i) => i.kind === 'notify'), ...setupItems.filter((i) => i.kind !== 'notify')] : setupItems} onOpen={(k) => openSetupGuide(k)} />
+                  <div className="mt-3"><BgmControl compact /></div>
                 </div>
               )}
 
