@@ -170,7 +170,7 @@
         } catch (e) {}
         var ac = null, buf = null, srcNode = null, musicAt = 0;
         var AC = window.AudioContext || window.webkitAudioContext;
-        var bufP = (soundOn && AC && window.fetch) ? fetch('/sound/intro.m4a').then(function (r) { return r.arrayBuffer(); }) : null;
+        var bufP = (soundOn && AC && window.fetch) ? fetch('/sound/intro-v2.m4a').then(function (r) { return r.arrayBuffer(); }) : null;
         function audio() { if (!ac && AC) { try { ac = new AC(); } catch (e) {} } return ac; }
         function playMusic(delayMs) {
           var c = audio(); if (!c || !bufP) return;

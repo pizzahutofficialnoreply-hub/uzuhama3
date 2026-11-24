@@ -7,21 +7,22 @@
  *  - 음량: 아이폰은 audio.volume 을 못 바꿔서 Web Audio 로 줄임 ('계속 듣기' 일 땐 Web Audio 를 안 씀 — 앱 밖에서 끊겨서)
  */
 const KEY = 'uzuhama_bgm';
-const POS_KEY = 'uzuhama_bgm_pos';
-const SRC = '/sound/bgm.m4a';
+const POS_KEY = 'uzuhama_bgm_pos2'; // 파일이 바뀌어 위치를 새로
+// v2: 원곡 mp3(320kbps) 8곡을 곡마다 음량 맞추고 1.5초 간격으로 이어 붙임 (예전 녹음본 대신)
+const SRC = '/sound/bgm-v2.m4a';
 type Pref = { on: boolean; vol: number; bg: boolean };
 const DEF: Pref = { on: true, vol: 0.5, bg: false };
 
-/** 녹음 순서대로 (파일 안에서 시작하는 초) */
+/** 곡 순서 (파일 안에서 시작하는 초 · 곡 사이 1.5초 쉼) */
 export const BGM_TRACKS: { at: number; title: string; artist: string }[] = [
   { at: 0, title: 'Demise', artist: 'Ethan Meixsell' },
-  { at: 152.3, title: 'Operatic 3', artist: 'Vibe Mountain' },
-  { at: 342.7, title: 'Half Pipe', artist: 'Huma-Huma' },
-  { at: 478.2, title: 'Synergy', artist: 'Geographer' },
-  { at: 640.7, title: 'Italy Jr.', artist: 'Underbelly' },
-  { at: 802.7, title: 'Knuckles', artist: 'Slynk' },
-  { at: 998.6, title: 'Membrane', artist: 'Slynk' },
-  { at: 1227.5, title: 'Jolly Old St Nicholas (Instrumental)', artist: "E's Jammy Jams" },
+  { at: 152.66, title: 'Operatic 3', artist: 'Vibe Mountain' },
+  { at: 344.26, title: 'Half Pipe', artist: 'Huma-Huma' },
+  { at: 479.8, title: 'Synergy', artist: 'Geographer' },
+  { at: 643.21, title: 'Italy Jr.', artist: 'Underbelly' },
+  { at: 802.38, title: 'Knuckles', artist: 'Slynk' },
+  { at: 996.72, title: 'Membrane', artist: 'Slynk' },
+  { at: 1225.92, title: 'Jolly Old St Nicholas (Instrumental)', artist: "E's Jammy Jams" },
 ];
 export function trackAt(sec: number) {
   let i = 0;
@@ -117,7 +118,7 @@ export function skip(dir: 1 | -1) {
   const a = ensureEl();
   const cur = trackAt(a.currentTime);
   const i = (cur.index + dir + BGM_TRACKS.length) % BGM_TRACKS.length;
-  try { a.currentTime = BGM_TRACKS[i].at + 0.05; } catch { /* */ }
+  try { a.currentTime = BGM_TRACKS[i].at; } catch { /* */ }
   savePos(); meta(); emit();
 }
 
