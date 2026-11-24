@@ -285,7 +285,7 @@ function MainApp() {
   const [recommendPinnedVideoId, setRecommendPinnedVideoId] = useState<string | null>(null);
   const [globalSearchTerm, setGlobalSearchTerm] = useState(() => {
     try {
-      return sessionStorage.getItem('rec_searchTerm') || '';
+      return localStorage.getItem('rec_searchTerm') || '';
     } catch {
       return '';
     }
