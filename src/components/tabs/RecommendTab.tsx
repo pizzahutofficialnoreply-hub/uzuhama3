@@ -2673,7 +2673,8 @@ export function RecommendTab({
         )}
 
         {viewStyle === 'list' ? (
-          <div className="flex flex-col gap-1.5 -mx-2 sm:mx-0">
+          // 토스식 목록: 흰 카드 하나에 줄을 쌓음 (줄 사이 선 없이, 누르면 면이 밝아짐)
+          <div className="flex flex-col bg-white dark:bg-zinc-900 rounded-[26px] p-1.5 sm:p-2">
             {paginatedVids.map((video, idx) => {
               const ytId = extractYoutubeId(video.videoUrl) || video.id;
               const isMulti = Boolean(video.isCompilation || (Array.isArray(video.allBroadcastDates) && video.allBroadcastDates.length > 1));

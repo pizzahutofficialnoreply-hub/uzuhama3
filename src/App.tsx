@@ -482,7 +482,7 @@ function MainApp() {
     } else if (tab === 'detailed') {
       targetEl = document.getElementById('detailed-main-card') || document.getElementById('detailed-tab-view');
     } else if (tab === 'summary') {
-      targetEl = document.getElementById('summary-weekly-trend-card') || document.getElementById('summary-tab-view');
+      targetEl = document.getElementById('summary-home') || document.getElementById('summary-tab-view');
     } else if (tab === 'recommend') {
       targetEl = document.getElementById('recommend-filter-card') || document.getElementById('recommend-tab-view');
     } else {
@@ -1214,8 +1214,8 @@ function MainApp() {
               <div id="summary-tab-view" className={activeTab === 'summary' ? 'block tab-enter' : 'hidden'}>
                 <SummaryTab data={data} fetchLogs={fetchLogsByDateRange} isActive={activeTab === 'summary'}
                   onOpenDate={handleNavigateToCalendar}
-                  onGoTab={(t) => handleTabChange(t)}
-                  onOpenSettings={(sec) => { setSettingsInitialSection(sec); openSettings(); }} />
+                  onOpenStats={(sub, start, end) => { window.dispatchEvent(new CustomEvent('uzuhama:stats-open', { detail: { sub, start, end } })); handleTabChange('detailed'); }}
+                  onOpenVideo={(id) => (id ? handleNavigateToRecommend(undefined, undefined, id) : handleTabChange('recommend'))} />
               </div>
  {mountedTabs.has('calendar') && (
               <div id="calendar-tab-view" className={activeTab === 'calendar' ? 'block tab-enter' : 'hidden'}>

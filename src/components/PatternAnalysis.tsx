@@ -1,4 +1,4 @@
-import { Target, Activity } from 'lucide-react';
+import { Activity } from 'lucide-react';
 import { PatternGuide } from '../types';
 import React from 'react';
 import { WidgetShareButton } from './common/WidgetShareButton';
@@ -45,10 +45,9 @@ export function PatternAnalysis({ guides, onIllnessClick }: PatternAnalysisProps
   };
 
   return (
-    <div id="summary-pattern-guide-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 relative">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2 break-keep">
-          <Target className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+    <div id="summary-pattern-guide-card" className="bg-white dark:bg-zinc-900 rounded-[26px] px-6 pt-5 pb-5 relative">
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-[20px] sm:text-[22px] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em] flex items-center gap-2 break-keep">
           예측 가이드
         </h3>
         <WidgetShareButton targetId="summary-pattern-guide-card" title="예측 가이드" />
@@ -57,11 +56,11 @@ export function PatternAnalysis({ guides, onIllnessClick }: PatternAnalysisProps
       <div className="space-y-6">
         {guides.map((guide, index) => (
           <div key={guide.id} className="flex gap-4">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold">
+            <div className="flex-shrink-0 w-11 h-11 rounded-full bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold">
               {index + 1}
             </div>
             <div>
-              <h4 className="text-base sm:text-lg font-semibold text-zinc-800 dark:text-zinc-100 mb-2 break-keep">{guide.title}</h4>
+              <h4 className="text-[17px] font-bold font-hanna font-pro text-zinc-900 dark:text-zinc-100 mb-1 break-keep">{guide.title}</h4>
               <div className="text-sm sm:text-base text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap break-keep">
                 {renderContent(guide)}
               </div>

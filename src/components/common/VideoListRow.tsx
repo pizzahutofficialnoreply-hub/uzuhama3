@@ -82,20 +82,20 @@ export function VideoListRow({
 
   return (
     <VideoSwipe id={videoId} kind={(saveKind || interest?.kind || 'video') as any} title={title} shareText={shareText} radius={16} cell onEngage={() => noteInterest(interest, 'engage')}>
-    <div ref={trackRef} data-ai-card={onLiveClick && isCompilation ? videoId : undefined} className={cn('group relative flex items-center gap-3.5 rounded-2xl transition-colors', held && 'video-held', dense ? 'p-2' : 'px-2.5 py-2.5', highlighted ? 'bg-purple-50 dark:bg-purple-950/40' : 'hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60')}>
+    <div ref={trackRef} data-ai-card={onLiveClick && isCompilation ? videoId : undefined} className={cn('press-row group relative flex items-center gap-3.5 rounded-[18px]', held && 'video-held', dense ? 'p-2' : 'px-2.5 py-2.5', highlighted && 'bg-purple-50 dark:bg-purple-950/40')}>
       {/* 줄 전체를 덮는 링크 (버튼들은 그 위에 따로) */}
       <a href={link} target="_blank" rel="noreferrer" onClick={(e) => {
         noteInterest(interest, 'play');
         if (!sitePlay) return;
         e.preventDefault();
         openAiCard(videoId, title, thumbRef.current, subline || upload || badge);
-      }} className="absolute inset-0 rounded-2xl" aria-label={sitePlay ? `${title} 펼쳐서 보기` : `${title} 유튜브에서 보기`} />
+      }} className="absolute inset-0 rounded-[18px]" aria-label={sitePlay ? `${title} 펼쳐서 보기` : `${title} 유튜브에서 보기`} />
 
       {typeof index === 'number' && (
         <span className="w-5 text-right text-[11px] text-zinc-400 tabular-nums shrink-0 pointer-events-none">{index}</span>
       )}
 
-      <div ref={thumbRef} data-thumb data-ai-card={onLiveClick && isCompilation ? undefined : videoId || undefined} className="relative w-[42%] max-w-[176px] sm:max-w-[200px] aspect-video rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 shrink-0 pointer-events-none">
+      <div ref={thumbRef} data-thumb data-ai-card={onLiveClick && isCompilation ? undefined : videoId || undefined} className="relative w-[40%] max-w-[168px] sm:max-w-[196px] aspect-video rounded-[14px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 pointer-events-none">
         {videoId ? (
           <img src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
         ) : (
@@ -111,17 +111,21 @@ export function VideoListRow({
 
       <div className="min-w-0 flex-1 pointer-events-none">
         {held && <p className="mb-0.5 text-[11px] font-bold text-zinc-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3" />{HELD_TEXT}</p>}
-        <p className="text-[13px] sm:text-[15px] font-semibold leading-snug text-zinc-900 dark:text-zinc-100 line-clamp-2 break-keep">{title}</p>
+        <p className="text-[15px] sm:text-[16px] font-bold font-hanna font-pro leading-snug text-zinc-900 dark:text-zinc-100 line-clamp-2 break-keep">{title}</p>
         {(badge || isCompilation) && (
-          <p className="mt-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+          <p className="mt-1 text-[12px] font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1">
             {isCompilation && <Layers className="w-3 h-3" />}
             {badge}
           </p>
         )}
-        {(subline || upload) && <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{subline || upload}</p>}
+        {(subline || upload) && <p className="mt-0.5 text-[12.5px] sm:text-[13px] text-zinc-500 dark:text-zinc-400 tabular-nums">{subline || upload}</p>}
       </div>
 
-      {(videoId || liveUrl || lives.length > 0 || onLiveClick || validShorts.length > 0 || shareText || edits.length > 0) && (
+      {sitePlay && !onLiveClick ? (
+        <div className="relative z-10 shrink-0 -mr-1">
+          <ItemMenu id={videoId} kind={saveKind || interest?.kind || 'video'} title={title} className="w-9 h-9 rounded-full" shareText={shareText} onShare={() => noteInterest(interest, 'engage')} />
+        </div>
+      ) : (videoId || liveUrl || lives.length > 0 || onLiveClick || validShorts.length > 0 || shareText || edits.length > 0) && (
         <div className={cn('relative z-10 gap-1.5 shrink-0 items-center',
           // 휴대폰: 버튼이 많으면 두 줄로 (줄이 너무 길어지지 않게)
           [Boolean(liveUrl || onLiveClick || lives.length), edits.length > 0, validShorts.length > 0, Boolean(videoId)].filter(Boolean).length > 3

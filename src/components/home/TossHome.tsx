@@ -1,16 +1,15 @@
 /**
  * 요약 탭 위쪽: 토스 홈처럼 '큰 제목 + ›' 카드에 '동그란 아이콘 · 작은 설명 · 큰 값' 줄을 쌓음
  *  - 최근 방송 (누르면 그날 기록으로)
- *  - 최근 30일 (누르면 분석 탭)
- *  - 새 영상 (누르면 검색 탭)
- *  - 맨 아래 작은 버튼: 알림 설정 · 화면 설정
+ *  - 최근 30일 (방송한 날·시간 → 분석 탭 추이, 게임 → 분석 탭 카테고리)
+ *  - 새 영상 (누르면 검색 탭에서 그 영상)
  * 누르면 토스처럼 줄·카드 면이 살짝 밝아짐 (.press-row / .press-card)
  */
 import { useMemo, useState, type ReactNode } from 'react';
 import { format, parseISO, subDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ChevronRight, Gamepad2, CalendarDays, Clock, Bell, Palette, Film } from 'lucide-react';
-import type { AppData, BroadcastLog, Tab } from '../../types';
+import { ChevronRight, Gamepad2, CalendarDays, Clock, Film } from 'lucide-react';
+import type { AppData, BroadcastLog } from '../../types';
 import { extractYoutubeId } from '../../utils/urlUtils';
 import { cn } from '../../utils';
 
@@ -59,11 +58,13 @@ const Tint = ({ children, tone }: { children: ReactNode; tone: 'purple' | 'amber
   }[tone])}>{children}</span>
 );
 
-export function TossHome({ data, onOpenDate, onGoTab, onOpenSettings }: {
+export function TossHome({ data, onOpenDate, onOpenStats, onOpenVideo }: {
   data: AppData;
   onOpenDate: (date: string) => void;
-  onGoTab: (tab: Tab) => void;
-  onOpenSettings: (section: 'notification' | 'theme') => void;
+  /** 분석 탭: 하위 탭 + 기간 */
+  onOpenStats: (sub: 'trend' | 'day' | 'category', start: string, end: string) => void;
+  /** 검색 탭에서 그 영상 */
+  onOpenVideo: (videoId: string | null) => void;
 }) {
   const logs = useMemo(() => Object.values(data.logs || {}).filter((l) => l?.date && !l.isAbsence).sort((a, b) => (b.date + (b.time || '')).localeCompare(a.date + (a.time || ''))), [data.logs]);
 
@@ -74,12 +75,13 @@ export function TossHome({ data, onOpenDate, onGoTab, onOpenSettings }: {
     const from = format(subDays(new Date(), 30), 'yyyy-MM-dd');
     let inRange = logs.filter((l) => l.date >= from);
     let label = '최근 30일';
-    if (!inRange.length && logs.length) { const y = logs[0].date.slice(0, 4); inRange = logs.filter((l) => l.date.startsWith(y)); label = `${y}년`; }
+    let start = from; let end = format(new Date(), 'yyyy-MM-dd');
+    if (!inRange.length && logs.length) { const y = logs[0].date.slice(0, 4); inRange = logs.filter((l) => l.date.startsWith(y)); label = `${y}년`; start = `${y}-01-01`; end = `${y}-12-31`; }
     const hours = inRange.reduce((s, l) => s + (l.durationHours || 0), 0);
     const cnt: Record<string, number> = {};
     inRange.forEach((l) => (l.games?.length ? l.games.map((g) => g.name) : [l.game]).forEach((g) => { if (g) cnt[g] = (cnt[g] || 0) + 1; }));
     const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0]?.[0];
-    return { n: inRange.length, hours, top, label };
+    return { n: inRange.length, hours, top, label, start, end };
   }, [logs]);
 
   const newVideos = useMemo(() => {
@@ -92,7 +94,7 @@ export function TossHome({ data, onOpenDate, onGoTab, onOpenSettings }: {
   const dayText = (d: string) => format(parseISO(d), 'M월 d일 (E)', { locale: ko });
 
   return (
-    <div className="space-y-3 stagger">
+    <div id="summary-home" className="space-y-3 stagger scroll-mt-24">
       <Section title="최근 방송" onMore={() => onOpenDate(recent[0].date)}>
         {recent.map((l) => {
           const t = thumbOf(l.vods?.[0]?.url) || thumbOf(l.edited?.[0]?.url);
@@ -105,18 +107,18 @@ export function TossHome({ data, onOpenDate, onGoTab, onOpenSettings }: {
         })}
       </Section>
 
-      <Section title={month.label} onMore={() => onGoTab('detailed')}>
-        <Row onClick={() => onGoTab('detailed')} icon={<Tint tone="emerald"><CalendarDays /></Tint>} caption="방송한 날" value={month.n ? `${month.n}번` : '아직 없어요'} />
-        {month.hours > 0 && <Row onClick={() => onGoTab('detailed')} icon={<Tint tone="amber"><Clock /></Tint>} caption="방송한 시간" value={hoursText(month.hours)} />}
-        {month.top && <Row onClick={() => onGoTab('detailed')} icon={<Tint tone="rose"><Gamepad2 /></Tint>} caption="제일 많이 한 게임" value={month.top} />}
+      <Section title={month.label} onMore={() => onOpenStats('trend', month.start, month.end)}>
+        <Row onClick={() => onOpenStats('trend', month.start, month.end)} icon={<Tint tone="emerald"><CalendarDays /></Tint>} caption="방송한 날" value={month.n ? `${month.n}번` : '아직 없어요'} />
+        {month.hours > 0 && <Row onClick={() => onOpenStats('day', month.start, month.end)} icon={<Tint tone="amber"><Clock /></Tint>} caption="방송한 시간" value={hoursText(month.hours)} />}
+        {month.top && <Row onClick={() => onOpenStats('category', month.start, month.end)} icon={<Tint tone="rose"><Gamepad2 /></Tint>} caption="제일 많이 한 게임" value={month.top} />}
       </Section>
 
       {newVideos.length > 0 && (
-        <Section title="새 영상" onMore={() => onGoTab('recommend')}>
+        <Section title="새 영상" onMore={() => onOpenVideo(null)}>
           {newVideos.map((v) => {
             const t = thumbOf(v.url);
             return (
-              <Row key={v.url} onClick={() => onGoTab('recommend')}
+              <Row key={v.url} onClick={() => onOpenVideo(extractYoutubeId(v.url))}
                 icon={<Thumb src={t} fallback={<Tint tone="zinc"><Film /></Tint>} />}
                 caption={dayText(v.date)} value={v.title} />
             );
@@ -124,11 +126,6 @@ export function TossHome({ data, onOpenDate, onGoTab, onOpenSettings }: {
         </Section>
       )}
 
-      {/* 토스 홈 맨 아래 '화면 설정 · 계좌 추가'처럼 작은 버튼 두 개 */}
-      <div className="flex items-center justify-center gap-2 pt-1">
-        <button type="button" onClick={() => onOpenSettings('notification')} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 cursor-pointer"><Bell className="w-4 h-4" />알림 설정</button>
-        <button type="button" onClick={() => onOpenSettings('theme')} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 cursor-pointer"><Palette className="w-4 h-4" />화면 설정</button>
-      </div>
     </div>
   );
 }

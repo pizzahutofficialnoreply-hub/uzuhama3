@@ -329,6 +329,16 @@ export function DetailedStatsTab({
   const [range2, setRange2] = useState<CmpRange | null>(null);
   const compare = false;
   const selectSub = (t: 'trend' | 'day' | 'category') => setActiveSubTab(t);
+  // 요약 탭 카드에서 '분석 탭의 ○○로' 이동 (하위 탭 + 기간)
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ sub?: 'trend' | 'day' | 'category'; start?: string; end?: string }>).detail || {};
+      if (d.sub) setActiveSubTab(d.sub);
+      if (d.start && d.end) { setStartDate(d.start); setEndDate(d.end); fetchLogs?.(d.start, d.end); }
+    };
+    window.addEventListener('uzuhama:stats-open', on);
+    return () => window.removeEventListener('uzuhama:stats-open', on);
+  }, [fetchLogs]);
   const [downloadConfirm, setDownloadConfirm] = useState<'csv' | 'pdf' | null>(null);
   useBodyScrollLock(Boolean(downloadConfirm));
   useEffect(() => {

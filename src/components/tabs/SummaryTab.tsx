@@ -3,7 +3,7 @@ import { YearRecapBanner } from '../YearRecap';
 import { PatternAnalysis } from '../PatternAnalysis';
 import { WidgetShareButton } from '../common/WidgetShareButton';
 import { IllnessInfoModal } from '../IllnessInfoModal';
-import { AppData, Tab } from '../../types';
+import { AppData } from '../../types';
 import { TossHome } from '../home/TossHome';
 import { format, startOfMonth, endOfMonth, parseISO, startOfWeek, isSameDay, addDays } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, Cell, LabelList } from 'recharts';
@@ -18,11 +18,11 @@ interface SummaryTabProps {
   isActive?: boolean;
   /** 토스식 홈 카드에서 이동 */
   onOpenDate?: (date: string) => void;
-  onGoTab?: (tab: Tab) => void;
-  onOpenSettings?: (section: 'notification' | 'theme') => void;
+  onOpenStats?: (sub: 'trend' | 'day' | 'category', start: string, end: string) => void;
+  onOpenVideo?: (videoId: string | null) => void;
 }
 
-export function SummaryTab({ data, fetchLogs, isActive = true, onOpenDate, onGoTab, onOpenSettings }: SummaryTabProps) {
+export function SummaryTab({ data, fetchLogs, isActive = true, onOpenDate, onOpenStats, onOpenVideo }: SummaryTabProps) {
   // 가장 최근 연도의 데이터만 표시
   const latestYear = useMemo(() => {
     const dates = Object.values(data.logs || {}).map(l => l.date).filter(Boolean).sort();
@@ -312,15 +312,15 @@ export function SummaryTab({ data, fetchLogs, isActive = true, onOpenDate, onGoT
   ];
 
   return (
-    <div className="space-y-6">
-      {onOpenDate && onGoTab && onOpenSettings && <TossHome data={data} onOpenDate={onOpenDate} onGoTab={onGoTab} onOpenSettings={onOpenSettings} />}
+    <div className="space-y-3">
+      {onOpenDate && onOpenStats && onOpenVideo && <TossHome data={data} onOpenDate={onOpenDate} onOpenStats={onOpenStats} onOpenVideo={onOpenVideo} />}
       <YearRecapBanner logs={data.logs} fetchLogs={fetchLogs} />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div id="summary-weekly-trend-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div id="summary-weekly-trend-card" className="bg-white dark:bg-zinc-900 rounded-[26px] px-6 pt-5 pb-5 relative">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-bold text-zinc-900 dark:text-white">최근 주간 방송 횟수</h4>
+            <h3 className="text-[20px] sm:text-[22px] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">최근 주간 방송 횟수</h3>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/40">{latestYear}년</span>
+              <span className="text-[13px] text-zinc-500 dark:text-zinc-400">{latestYear}년</span>
               <WidgetShareButton targetId="summary-weekly-trend-card" title="최근 주간 방송 횟수" />
             </div>
           </div>
@@ -365,11 +365,11 @@ export function SummaryTab({ data, fetchLogs, isActive = true, onOpenDate, onGoT
           </div>
         </div>
 
-        <div id="summary-daily-density-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative">
+        <div id="summary-daily-density-card" className="bg-white dark:bg-zinc-900 rounded-[26px] px-6 pt-5 pb-5 relative">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-bold text-zinc-900 dark:text-white">최근 요일별 집중도</h4>
+            <h3 className="text-[20px] sm:text-[22px] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">요일별 방송</h3>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/40">{latestYear}년</span>
+              <span className="text-[13px] text-zinc-500 dark:text-zinc-400">{latestYear}년</span>
               <WidgetShareButton targetId="summary-daily-density-card" title="최근 요일별 집중도" />
             </div>
           </div>

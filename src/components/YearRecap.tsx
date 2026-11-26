@@ -31,7 +31,7 @@ export function YearRecapBanner({ logs, fetchLogs }: { logs?: Record<string, Bro
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} data-testid="recap-banner"
-        className="w-full text-left rounded-[24px] p-5 bg-zinc-900 dark:bg-zinc-900 border border-zinc-800 shadow-sm flex items-center gap-4 cursor-pointer active:scale-[0.99] transition-transform">
+        className="w-full text-left rounded-[26px] p-5 bg-zinc-900 dark:bg-zinc-900 flex items-center gap-4 cursor-pointer active:scale-[0.99] transition-transform">
         <span className="text-[44px] shrink-0"><EventArt kind="popper" label={`${year} 결산`} /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-[12px] font-bold text-zinc-400">올해도 수고했어요</span>
