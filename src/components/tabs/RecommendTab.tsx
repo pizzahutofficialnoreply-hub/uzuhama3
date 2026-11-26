@@ -4,7 +4,7 @@ import { ChevronRight } from 'lucide-react';
 import { VideoSwipe } from '../common/VideoSwipe';
 import { useAiDone } from '../common/AiSummaryHost';
 import { openAiCard } from '../common/AiCardExpand';
-import { CARD_SURFACE, CARD_CLOSED, CARD_THUMB, CARD_THUMB_IMG, CARD_BODY, CARD_HEAD, CARD_TITLE, CARD_MENU, CARD_ACTION } from '../common/cardStyles';
+import { CARD_SURFACE, CARD_CLOSED, CARD_THUMB_IMG, CARD_BODY, CARD_HEAD, CARD_TITLE, CARD_MENU, CARD_ACTION } from '../common/cardStyles';
 import { boostByRecs, hasRecCounts, loadRecCounts, onRecs } from '../../utils/videoRecs';
 import { ShortsPlayer } from '../common/ShortsPlayer';
 import { recommendShorts } from '../../utils/relatedShorts';
@@ -328,7 +328,7 @@ export const VideoCard = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div ref={thumbRef} data-thumb data-thumb-radius="24px 24px 0 0" className={CARD_THUMB}>
+      <div ref={thumbRef} data-thumb data-thumb-radius="24px 24px 0 0" className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
         {held && <HeldCover compact={isCompact} />}
         {isPlayingInline && !held ? (
           <div className="relative w-full h-full bg-black z-20">
@@ -372,7 +372,7 @@ export const VideoCard = ({
             <img 
               src={`https://i.ytimg.com/vi/${extractYoutubeId(video.videoUrl || "") || video.id}/mqdefault.jpg`} 
               alt="" 
-              className={CARD_THUMB_IMG} 
+              className={cn(CARD_THUMB_IMG, 'bg-zinc-200 dark:bg-zinc-800')} 
             />
           </button>
         )}
@@ -470,8 +470,8 @@ export const VideoCard = ({
           </p>
         )}
         
-        {/* 몰아보기: 카드 펼치기가 꺼진 경우만 '펼치기' 버튼 (켜져 있으면 썸네일을 누르면 펼쳐지니 게임 태그만) */}
-        {video.isCompilation && !compExpand ? (
+        {/* 몰아보기는 펼치기 UI (생방 여러 개는 아래 '생방송' 버튼에서 골라 보기) */}
+        {video.isCompilation ? (
           <div className="mt-3 mb-2">
             <button
               type="button"
@@ -572,8 +572,39 @@ export const VideoCard = ({
           )
         )}
         
-        {/* 유튜브·생방송·쇼츠 버튼은 카드를 펼친 화면에 있음 (목록은 썸네일·제목·게임만, 토스식으로 가볍게) */}
-        {shortsAt !== null && <ShortsPlayer items={[...shorts.map((x: any) => ({ url: x.url, title: x.title })), ...recommendShorts(allLogs, (video.parentLog?.games || []).map((g: any) => g?.name), shorts.map((x: any) => x.url))]} startIndex={shortsAt} onClose={() => setShortsAt(null)} allLogs={allLogs} autoNext />}
+        <div className="mt-auto pt-4 flex flex-col gap-2 relative">
+          <a 
+            href={video.videoUrl ? withResume(video.videoUrl, video.id) : undefined} aria-disabled={!video.videoUrl || undefined} 
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => {
+              if (!video.videoUrl) e.preventDefault();
+              else noteInterest(interestItem, 'play');
+            }}
+            className={`w-full flex justify-center items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-bold transition-all font-hanna font-pro ${
+              video.videoUrl
+                ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 shadow-2xs hover:scale-[1.01]'
+                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
+            }`}
+          >
+            {video.isLive ? <PlaySquare className="w-4 h-4 text-purple-600 dark:text-purple-400" /> : <YoutubeLogo className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />} <span className="font-hanna font-pro">{sitePlay ? '유튜브로 보기' : video.isLive ? '생방송 보기' : '영상 보기'}</span>
+          </a>
+          
+          {(!video.isCompilation || video.isLive) && (
+            <div className="flex gap-2">
+              {video.isLive ? (
+                // 라이브 카드: 카드 자체가 생방송이라 그 방송의 편집본을 (두 방송에 걸친 편집본도 포함)
+                <LinkMenu items={liveEdits} label="편집본" menuTitle="편집본" tone="zinc" icon={<YoutubeLogo className="w-4 h-4 shrink-0" />} onOpen={() => noteInterest(interestItem, 'engage')} />
+              ) : (
+                // 생방송이 하나면 바로, 여러 개면 골라 보기 (생방 두 개에 걸친 편집본도)
+                <LinkMenu items={liveLinks} label={liveLinks.length > 1 ? '생방송' : '생방송 (풀영상)'} menuTitle="생방송" tone="purple" icon={<PlaySquare className="w-4 h-4 shrink-0" />} onOpen={() => noteInterest(interestItem, 'play')} onPick={pickLive} />
+              )}
+
+              <LinkMenu items={shorts} label={shorts.length > 1 ? '쇼츠' : '쇼츠 보기'} menuTitle="쇼츠" tone="red" icon={<ShortsIcon className="w-4 h-4" />} onOpen={() => noteInterest(interestItem, 'engage')} onPick={pickShort} />
+            </div>
+          )}
+          {shortsAt !== null && <ShortsPlayer items={[...shorts.map((x: any) => ({ url: x.url, title: x.title })), ...recommendShorts(allLogs, (video.parentLog?.games || []).map((g: any) => g?.name), shorts.map((x: any) => x.url))]} startIndex={shortsAt} onClose={() => setShortsAt(null)} allLogs={allLogs} autoNext />}
+        </div>
       </div>
     </div>
     </VideoSwipe>
@@ -2611,8 +2642,10 @@ export function RecommendTab({
       <div id="recommend-cards-container" className="min-h-[400px]">
         {/* 보기 방식: 카드 / 목록(유튜브 동영상 탭처럼) + 모바일 카드 1개·2개씩 */}
         {recommended.length > 0 && (
-          // 영상 수는 위 칸에 이미 있어서 여기선 보기 방식만 (오른쪽 정렬)
-          <div className="flex items-center justify-end gap-2 px-1 mb-3">
+          <div className="flex items-center justify-between gap-2 px-1 mb-3">
+            <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+              총 <strong className="text-purple-600 dark:text-purple-400 font-bold">{recommended.length}</strong>개 영상
+            </span>
             <div className="flex items-center gap-1.5">
               {viewStyle === 'card' && (
                 <div className="flex sm:hidden items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60">

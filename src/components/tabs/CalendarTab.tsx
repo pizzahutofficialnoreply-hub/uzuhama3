@@ -931,19 +931,40 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
               <h3 className="text-xl font-bold text-zinc-900 dark:text-white shrink-0">방송 기록 달력</h3>
               
-              {/* 오늘로 가기만 (날짜 직접 입력칸은 월 선택·화살표와 겹쳐서 뺌) */}
-              <button
-                type="button"
-                onClick={() => {
-                  const today = new Date();
-                  setCurrentDate(today);
-                  handleDayClick(today);
-                }}
-                className="tap px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-bold cursor-pointer text-xs font-hanna font-pro"
-                title="오늘 기록 보기"
-              >
-                오늘
-              </button>
+              {/* 달력 첫 번째 칸: 날짜 설정 인풋 및 오늘 이동 바로가기 */}
+              <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200 dark:border-zinc-700/80 rounded-xl px-2.5 py-1 text-xs shadow-2xs">
+                <span className="text-zinc-500 dark:text-zinc-400 font-semibold shrink-0 font-hanna font-pro">날짜 설정</span>
+                <input
+                  type="date"
+                  min={minDateStr}
+                  max={maxDateStr}
+                  value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(currentDate, 'yyyy-MM-dd')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) return;
+                    const parsed = parseISO(val);
+                    if (!isNaN(parsed.getTime())) {
+                      setCurrentDate(parsed);
+                      handleDayClick(parsed);
+                    }
+                  }}
+                  className="bg-transparent text-zinc-900 dark:text-white font-medium text-xs focus:outline-none cursor-pointer font-hanna font-pro"
+                  title="특정 날짜를 직접 설정하여 달력 이동 및 상세 기록 조회"
+                  aria-label="달력 날짜 직접 설정"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const today = new Date();
+                    setCurrentDate(today);
+                    handleDayClick(today);
+                  }}
+                  className="px-2 py-0.5 rounded-lg bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 font-bold transition-colors cursor-pointer text-[11px] font-hanna font-pro"
+                  title="오늘 날짜로 달력 이동 및 상세 기록 조회"
+                >
+                  오늘
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">

@@ -259,6 +259,44 @@ export function SettingsView({
         if (h === null) await updateSettings({ [r.key]: false });
         else await updateSettings({ [r.key]: true, mute: { ...(settings.mute || {}), [r.key as string]: Date.now() + h * 3600000 } });
       }} />
+      {/* 1. 의견 섹션: 상단 여백 추가 */}
+      <section className="space-y-1.5 pt-4 sm:pt-6">
+        <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
+          의견
+        </h3>
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+          
+          <button 
+            type="button"
+            onClick={onOpenFeedback}
+            className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 active:bg-zinc-200/50 dark:active:bg-zinc-800 transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <MessageSquare className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">의견 보내기</p>
+                <p className="text-[11px] text-zinc-500">의견 · 버그 제보 · 데이터 요청</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />
+          </button>
+          <button
+            type="button"
+            onClick={() => { try { sessionStorage.setItem('uzuhama_feedback_tab', 'check'); } catch { /* */ } onOpenFeedback(); }}
+            className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 active:bg-zinc-200/50 dark:active:bg-zinc-800 transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <Stethoscope className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-zinc-900 dark:text-white">내 앱 점검하기</p>
+                <p className="text-[11px] text-zinc-500">이 기기에서 화면·기능이 잘 되는지 확인 (1~3분)</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />
+          </button>
+        </div>
+      </section>
+
       {/* 1. 관리자 전용 섹션 */}
       {isAdmin && (
         <section className="space-y-1.5">
@@ -367,12 +405,72 @@ export function SettingsView({
       )}
 
       {/* 3. 환경설정 섹션 */}
-      <section className="space-y-1.5 pt-4 sm:pt-6">
+      <section className="space-y-1.5">
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
           환경설정
         </h3>
         <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           
+          {/* 보기·정렬 기본값 */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setActiveSection(activeSection === 'viewPrefs' ? null : 'viewPrefs')}
+              data-settings-section="viewPrefs"
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <SlidersHorizontal className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <span className="text-sm font-semibold text-zinc-900 dark:text-white">보기·정렬·검색</span>
+              </div>
+              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'viewPrefs' && "rotate-90")} />
+            </button>
+            <AnimatePresence initial={false}>
+              {activeSection === 'viewPrefs' && (
+                <motion.div
+                  key="settings-accordion-viewPrefs"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                  className="overflow-hidden"
+                >
+                  <ViewPrefsPanel />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* 맞춤 추천·시청 기록 */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setActiveSection(activeSection === 'recommend' ? null : 'recommend')}
+              data-settings-section="recommend"
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <History className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <span className="text-sm font-semibold text-zinc-900 dark:text-white">맞춤 추천·시청 기록</span>
+              </div>
+              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'recommend' && "rotate-90")} />
+            </button>
+            <AnimatePresence initial={false}>
+              {activeSection === 'recommend' && (
+                <motion.div
+                  key="settings-accordion-recommend"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                  className="overflow-hidden"
+                >
+                  <RecommendPrefsPanel />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           {/* 알림 설정 */}
           <div data-tour="settings-notify">
             <button 
@@ -734,66 +832,6 @@ export function SettingsView({
             </AnimatePresence>
           </div>
 
-          {/* 보기·정렬 기본값 */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setActiveSection(activeSection === 'viewPrefs' ? null : 'viewPrefs')}
-              data-settings-section="viewPrefs"
-              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <SlidersHorizontal className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
-                <span className="text-sm font-semibold text-zinc-900 dark:text-white">보기·정렬·검색</span>
-              </div>
-              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'viewPrefs' && "rotate-90")} />
-            </button>
-            <AnimatePresence initial={false}>
-              {activeSection === 'viewPrefs' && (
-                <motion.div
-                  key="settings-accordion-viewPrefs"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-                  className="overflow-hidden"
-                >
-                  <ViewPrefsPanel />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* 맞춤 추천·시청 기록 */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setActiveSection(activeSection === 'recommend' ? null : 'recommend')}
-              data-settings-section="recommend"
-              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <History className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
-                <span className="text-sm font-semibold text-zinc-900 dark:text-white">맞춤 추천·시청 기록</span>
-              </div>
-              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'recommend' && "rotate-90")} />
-            </button>
-            <AnimatePresence initial={false}>
-              {activeSection === 'recommend' && (
-                <motion.div
-                  key="settings-accordion-recommend"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-                  className="overflow-hidden"
-                >
-                  <RecommendPrefsPanel />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
           {/* 기기 연결 (QR·코드) */}
           <div>
             <button
@@ -822,16 +860,6 @@ export function SettingsView({
             </AnimatePresence>
           </div>
 
-        </div>
-      </section>
-
-      {/* 3-2. 기타: 자주 안 쓰는 것 (토스식으로 자주 쓰는 걸 위에) */}
-      <section className="space-y-1.5">
-        <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
-          기타
-        </h3>
-        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
-          
           {/* 실험실: 아직 다듬는 중인 기능 켜고 끄기 */}
           <div>
             <button
@@ -855,6 +883,31 @@ export function SettingsView({
                     <LabToggle k="labAiCard" title="카드 펼쳐 요약과 함께 보기" desc="AI 요약이 끝난 영상 카드의 썸네일을 누르면 카드가 커지면서 위에서 바로 재생되고, 제목 아래에 요약이 펼쳐져요. 스포일러는 가릴 수 있어요. (쇼츠·목록 보기 제외)" />
                     <LabToggle k="labIntroTap" title="아이폰: 화면 눌러 인트로 소리 재생" desc="아이폰은 앱을 켤 때 소리를 막아요. 켜 두면 인트로가 화면을 누를 때까지 기다렸다가, 누르면 채널 인트로 노래와 함께 재생돼요." />
                     <LabToggle k="labCafeOld" title="과거 영상 생방 연동" desc="2020년 전 영상에 팬카페 정리 글을 보고 이어 붙인 생방송 다시보기·영상·쇼츠도 보여 줘요. 예전 기록이라 날짜나 짝이 조금 틀릴 수 있어요." />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* 이 기기 정보 (의견 보낼 때 붙는 기기 이름) */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setActiveSection(activeSection === 'deviceInfo' ? null : 'deviceInfo')}
+              data-settings-section="deviceInfo"
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Smartphone className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <span className="text-sm font-semibold text-zinc-900 dark:text-white">이 기기 정보</span>
+              </div>
+              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'deviceInfo' && "rotate-90")} />
+            </button>
+            <AnimatePresence initial={false}>
+              {activeSection === 'deviceInfo' && (
+                <motion.div key="settings-accordion-deviceInfo" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }} className="overflow-hidden">
+                  <div className="px-4 pb-4 pt-2 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
+                    <DeviceNameSetting />
                   </div>
                 </motion.div>
               )}
@@ -935,31 +988,6 @@ export function SettingsView({
             </AnimatePresence>
           </div>
 
-          {/* 이 기기 정보 (의견 보낼 때 붙는 기기 이름) */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setActiveSection(activeSection === 'deviceInfo' ? null : 'deviceInfo')}
-              data-settings-section="deviceInfo"
-              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Smartphone className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
-                <span className="text-sm font-semibold text-zinc-900 dark:text-white">이 기기 정보</span>
-              </div>
-              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'deviceInfo' && "rotate-90")} />
-            </button>
-            <AnimatePresence initial={false}>
-              {activeSection === 'deviceInfo' && (
-                <motion.div key="settings-accordion-deviceInfo" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }} className="overflow-hidden">
-                  <div className="px-4 pb-4 pt-2 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
-                    <DeviceNameSetting />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
           {/* 데이터 관리 */}
           <div className="p-3.5 sm:p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -987,44 +1015,6 @@ export function SettingsView({
             </div>
           </div>
 
-        </div>
-      </section>
-
-      {/* 의견: 아래쪽으로 (자주 쓰는 설정이 먼저) */}
-      <section className="space-y-1.5">
-        <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
-          의견
-        </h3>
-        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
-          
-          <button 
-            type="button"
-            onClick={onOpenFeedback}
-            className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 active:bg-zinc-200/50 dark:active:bg-zinc-800 transition-colors"
-          >
-            <div className="flex items-center gap-3 min-w-0 pr-2">
-              <MessageSquare className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-white">의견 보내기</p>
-                <p className="text-[11px] text-zinc-500">의견 · 버그 제보 · 데이터 요청</p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />
-          </button>
-          <button
-            type="button"
-            onClick={() => { try { sessionStorage.setItem('uzuhama_feedback_tab', 'check'); } catch { /* */ } onOpenFeedback(); }}
-            className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 active:bg-zinc-200/50 dark:active:bg-zinc-800 transition-colors"
-          >
-            <div className="flex items-center gap-3 min-w-0 pr-2">
-              <Stethoscope className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-white">내 앱 점검하기</p>
-                <p className="text-[11px] text-zinc-500">이 기기에서 화면·기능이 잘 되는지 확인 (1~3분)</p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />
-          </button>
         </div>
       </section>
 

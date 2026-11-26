@@ -1144,7 +1144,6 @@ function MainApp() {
                 onProbChange={setCurrentProb} 
                 system={data.system} 
                 onNavigateToRecommend={handleNavigateToRecommend}
-                onOpenNotifications={() => { setSettingsInitialSection('notification'); openSettings(); }}
               />
             </div>
 

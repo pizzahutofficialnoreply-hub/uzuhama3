@@ -45,7 +45,7 @@ await check('검색 탭 열기', async () => {
 await check('검색: 결과가 나온다 (공포)', async () => {
   await page.locator('input[name="search_query"]').fill('공포');
   await page.waitForTimeout(2500);
-  const n = Number((await page.evaluate(() => document.body.innerText.match(/검색 결과: (\d+)개/)?.[1])) || 0);
+  const n = Number((await page.evaluate(() => document.body.innerText.match(/총 (\d+)개 영상/)?.[1])) || 0);
   expect(n > 10, `결과 ${n}개`);
 });
 
