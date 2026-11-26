@@ -116,6 +116,9 @@ function play() {
     if (!unlocked) { a.muted = true; a.play().then(() => { a.pause(); a.muted = false; unlocked = true; }).catch(() => { a.muted = false; }); }
     return;
   }
+  // 아이폰 무음 스위치를 켜 두면 배경음은 안 들리게 ('ambient': 무음 모드를 따르고, 다른 앱 음악도 끊지 않음 · iOS 16.4+)
+  //  '앱을 내려도 계속 듣기' 를 켰을 때만 'playback' (무음이어도 들리고 앱 밖에서도 계속)
+  try { const as = (navigator as any).audioSession; if (as) as.type = p.bg ? 'playback' : 'ambient'; } catch { /* */ }
   const fadeIn = waitIntro; waitIntro = false;
   if (fadeIn) fade();
   a.play().then(() => { started = true; unlocked = true; emit(); }).catch(() => { /* 아직 터치 전 → 첫 터치 때 */ });
