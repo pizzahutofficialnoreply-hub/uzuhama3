@@ -4,6 +4,8 @@ import { ChevronRight } from 'lucide-react';
 import { VideoSwipe } from '../common/VideoSwipe';
 import { useAiDone } from '../common/AiSummaryHost';
 import { openAiCard } from '../common/AiCardExpand';
+import { CARD_SURFACE, CARD_CLOSED, CARD_THUMB_IMG, CARD_BODY, CARD_HEAD, CARD_TITLE, CARD_MENU, CARD_ACTION } from '../common/cardStyles';
+import { boostByRecs, hasRecCounts, loadRecCounts, onRecs } from '../../utils/videoRecs';
 import { ShortsPlayer } from '../common/ShortsPlayer';
 import { recommendShorts } from '../../utils/relatedShorts';
 import { useIsHeld } from '../../utils/held';
@@ -315,13 +317,13 @@ export const VideoCard = ({
     <div 
       ref={trackRef}
       data-video-card
-      data-ai-card={compExpand ? swipeId : aiDone ? video.id : undefined}
+      data-ai-card={compExpand ? swipeId : video.id}
       className={cn(
-        "group relative isolate flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all",
+        CARD_SURFACE,
         held && "video-held",
         isExpanded 
           ? "rounded-t-[24px] rounded-b-none border-b-0 shadow-md z-10" 
-          : "rounded-[24px] overflow-hidden hover:shadow-xl hover:-translate-y-1"
+          : CARD_CLOSED
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -361,23 +363,17 @@ export const VideoCard = ({
               noteInterest(interestItem, 'play');
               const cardEl = thumbRef.current?.closest('[data-video-card]') || thumbRef.current;
               if (compExpand) { expandCompilation(); return; }
-              if (aiDone) { openAiCard(video.id, video.videoTitle || '', cardEl, displayDate ? `${displayDate} 방송` : undefined); return; }
-              setIsPlayingInline(true);
+              // 모든 영상: 카드가 펼쳐지고 그 안에서 재생 (요약이 아직 없으면 영상만)
+              openAiCard(video.id, video.videoTitle || '', cardEl, displayDate ? `${displayDate} 방송` : undefined, { noSummary: !aiDone });
             }}
             className="group/thumb block w-full h-full relative text-left cursor-pointer border-0 p-0 m-0 bg-transparent"
-            title={aiDone ? '눌러서 AI 요약과 함께 보기' : '클릭하여 화면 내에서 바로 영상 재생'}
+            title={aiDone ? '눌러서 AI 요약과 함께 보기' : '눌러서 크게 보기'}
           >
             <img 
               src={`https://i.ytimg.com/vi/${extractYoutubeId(video.videoUrl || "") || video.id}/mqdefault.jpg`} 
               alt="" 
-              className="w-full h-full object-cover bg-zinc-200 dark:bg-zinc-800 group-hover:scale-105 transition-transform duration-500" 
+              className={cn(CARD_THUMB_IMG, 'bg-zinc-200 dark:bg-zinc-800')} 
             />
-            {/* 카드가 펼쳐지는 영상은 재생 버튼을 펼친 뒤에 보여 줌 */}
-            {!(compExpand || aiDone) && (
-              <div className="absolute inset-0 bg-black/10 group-hover/thumb:bg-black/0 transition-colors flex items-center justify-center">
-                <GlassPlayButton size={isCompact ? 'sm' : 'md'} />
-              </div>
-            )}
           </button>
         )}
 
@@ -449,9 +445,9 @@ export const VideoCard = ({
         )}
       </div>
       
-      <div className={cn("p-4 flex-1 flex flex-col", isCompact && "p-2.5 sm:p-4")}>
-        <div className="flex items-start justify-between gap-1.5 sm:gap-2">
-          <a href={withResume(video.videoUrl || '', video.id)} target="_blank" rel="noreferrer" onClick={() => noteInterest(interestItem, 'play')} className={cn("font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex-1", isCompact ? "text-xs sm:text-base" : "text-sm sm:text-base")}>
+      <div className={cn(CARD_BODY, isCompact && "p-2.5 sm:p-4")}>
+        <div className={CARD_HEAD}>
+          <a href={withResume(video.videoUrl || '', video.id)} target="_blank" rel="noreferrer" onClick={() => noteInterest(interestItem, 'play')} className={cn(CARD_TITLE, isCompact && "text-xs sm:text-base")}>
             {video.videoTitle}
           </a>
           <ItemMenu
@@ -459,7 +455,7 @@ export const VideoCard = ({
             kind={video.isLive ? 'live' : 'video'}
             title={video.videoTitle || ''}
             compact={isCompact}
-            className={isCompact ? '-mr-1' : '-mr-1.5 -mt-0.5'}
+            className={isCompact ? '-mr-1' : CARD_MENU}
             shareText={() => formatRecommendShareText(video, allLogs)}
             onShare={() => noteInterest(interestItem, 'engage')}
           />
@@ -486,10 +482,9 @@ export const VideoCard = ({
                 onOpenBroadcastModal?.(video);
               }}
               className={cn(
-                "w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs hover:scale-[1.01] font-hanna font-pro",
                 video.isCompilation
-                  ? "bg-purple-50 hover:bg-purple-100/90 dark:bg-purple-950/70 dark:hover:bg-purple-900/70 text-purple-700 dark:text-purple-300 border border-purple-200/90 dark:border-purple-800/90 shadow-purple-500/10"
-                  : "bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700/80"
+                  ? CARD_ACTION
+                  : "w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs hover:scale-[1.01] font-hanna font-pro bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700/80"
               )}
             >
               <div className="flex items-center gap-2">
@@ -2163,6 +2158,14 @@ export function RecommendTab({
   const interestEpoch = useMemo(() => Date.now(), [subTab, shuffleSeed]); // eslint-disable-line react-hooks/exhaustive-deps
   // 위쪽 카테고리 선택·새로고침도 그대로 따름: 고른 카테고리만, 새로고침하면 관심 상위 후보 안에서 다른 조합으로
   const catFilterActive = !selectedCategories.includes('전체');
+  // 다른 사람들이 '이 영상 추천하기' 누른 영상은 조금 더 앞으로 (추천 수는 탭에 들어올 때 한 번, 1시간마다만 받아 옴)
+  const [recsReady, setRecsReady] = useState(hasRecCounts);
+  useEffect(() => {
+    if (subTab !== 'recommend') return;
+    loadRecCounts();
+    return onRecs(() => { if (hasRecCounts()) setRecsReady(true); });
+  }, [subTab]);
+  const ytOf = (v: any) => extractYoutubeId(v?.videoUrl || '') || String(v?.id || '');
   const pickWithSeed = <T,>(list: T[], keyOf: (x: T) => string, n: number, poolSize: number) => {
     const rnd = (k: string) => { let t = (shuffleSeed + k.split('').reduce((a, c) => a + c.charCodeAt(0) * 31, 0)) >>> 0; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
     return list.slice(0, poolSize).map((x) => ({ x, r: rnd(keyOf(x)) })).sort((a, b) => a.r - b.r).slice(0, n).map((o) => o.x);
@@ -2172,17 +2175,17 @@ export function RecommendTab({
     const pool = catFilterActive
       ? allShortsLite.filter((x) => (x.interest?.tokens || []).some((t) => selectedCategories.includes(t.slice(2)) || selectedCategories.some((c) => c.toLowerCase() === t.slice(2))))
       : allShortsLite;
-    const ordered = personalize(pool, (x) => x.interest || { id: x.id || x.url, kind: 'short', tokens: [] });
+    const ordered = boostByRecs(personalize(pool, (x) => x.interest || { id: x.id || x.url, kind: 'short', tokens: [] }), (x) => x.id || '');
     return pickWithSeed(ordered, (x) => x.id || x.url, 12, hasInterestProfile(loadInterest()) ? 30 : ordered.length);
-  }, [subTab, allShortsLite, interestEpoch, shuffleSeed, selectedCategories]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [subTab, allShortsLite, interestEpoch, shuffleSeed, selectedCategories, recsReady]); // eslint-disable-line react-hooks/exhaustive-deps
   const recLives = useMemo(() => {
     if (subTab !== 'recommend') return [];
     const pool = catFilterActive
       ? liveVideos.filter((v) => categoryIndex.videoTokens(v).some((t) => selectedCategories.includes(t)))
       : liveVideos;
-    const ordered = personalize(pool, videoInterestItem);
+    const ordered = boostByRecs(personalize(pool, videoInterestItem), ytOf);
     return pickWithSeed(ordered, (v) => v.id, 4, hasInterestProfile(loadInterest()) ? 12 : ordered.length);
-  }, [subTab, liveVideos, interestEpoch, shuffleSeed, selectedCategories, categoryIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [subTab, liveVideos, interestEpoch, shuffleSeed, selectedCategories, categoryIndex, recsReady]); // eslint-disable-line react-hooks/exhaustive-deps
   const personalized = useMemo(() => hasInterestProfile(loadInterest()), [interestEpoch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 추천 탭: 이 기기에서 관심 보인 게임·장르 순으로 (이미 본 건 뒤로, 4개마다 새로운 쪽 하나)
@@ -2191,14 +2194,14 @@ export function RecommendTab({
     if (subTab !== 'recommend') return recommendedBase;
     const pinned = pinnedVideoId ? recommendedBase.filter((v) => v.id === pinnedVideoId) : [];
     const rest = recommendedBase.filter((v) => v.id !== pinnedVideoId);
-    const ordered = personalize(rest, videoInterestItem);
+    const ordered = boostByRecs(personalize(rest, videoInterestItem), ytOf);
     // 새로고침: 관심 순서는 유지하되 8개씩 묶음 안에서 섞어 매번 조금 다르게
     if (!hasInterestProfile(loadInterest())) return [...pinned, ...ordered];
     const rnd = (k: string) => { let t = (shuffleSeed + k.split('').reduce((a, c) => a + c.charCodeAt(0) * 31, 0)) >>> 0; t = Math.imul(t ^ (t >>> 15), t | 1); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
     const mixed: any[] = [];
     for (let i = 0; i < ordered.length; i += 8) mixed.push(...ordered.slice(i, i + 8).map((v) => ({ v, r: rnd(String(v.id)) })).sort((x, y) => x.r - y.r).map((o) => o.v));
     return [...pinned, ...mixed];
-  }, [recommendedBase, subTab, pinnedVideoId, interestEpoch, shuffleSeed]);
+  }, [recommendedBase, subTab, pinnedVideoId, interestEpoch, shuffleSeed, recsReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRefresh = () => {
     Object.keys(baseWeights.current).forEach(id => {

@@ -159,6 +159,38 @@ export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
 
+  // ── 시청자 추천 ('이 영상 추천하기') ──
+  //  GET ?recs=1 → {counts: {영상ID: 추천 수}} (문서 1개 · CDN 10분)
+  //  POST ?rec=1 {id, on, dev} → 기기마다 한 영상에 한 번만 (rec_votes/{기기}_{영상} 로 중복 막음)
+  if (req.query?.recs === '1' && req.method === 'GET') {
+    try {
+      const { db } = await import('../_firebase.js');
+      const d = await db.collection('public_stats').doc('recs').get();
+      res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600, stale-while-revalidate=3600');
+      return res.status(200).json({ counts: d.data()?.counts || {} });
+    } catch { return res.status(200).json({ counts: {} }); }
+  }
+  if (req.query?.rec === '1' && req.method === 'POST') {
+    res.setHeader('Cache-Control', 'no-store');
+    const b = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body || {});
+    const id = String(b.id || ''), dev = String(b.dev || ''), on = b.on !== false;
+    if (!/^[\w-]{11}$/.test(id) || !/^[\w-]{8,64}$/.test(dev)) return res.status(400).json({ error: 'bad' });
+    try {
+      const { db } = await import('../_firebase.js');
+      const { FieldValue: FV } = await import('firebase-admin/firestore');
+      const vote = db.collection('rec_votes').doc(`${dev}_${id}`);
+      const stat = db.collection('public_stats').doc('recs');
+      const changed = await db.runTransaction(async (tx: any) => {
+        const has = (await tx.get(vote)).exists;
+        if (on === has) return false;
+        if (on) tx.set(vote, { at: new Date().toISOString() }); else tx.delete(vote);
+        tx.set(stat, { counts: { [id]: FV.increment(on ? 1 : -1) }, updatedAt: new Date().toISOString() }, { merge: true });
+        return true;
+      });
+      return res.status(200).json({ ok: true, changed });
+    } catch (e: any) { return res.status(500).json({ error: String(e?.message || e).slice(0, 120) }); }
+  }
+
   // AI 정기 실행은 시간이 아니면 DB·모듈을 불러오기 전에 바로 끝냄 (부르기만 해도 CPU 를 쓰지 않게)
   if (String(req.query?.ai || '') === 'run') {
     const d = new Date();

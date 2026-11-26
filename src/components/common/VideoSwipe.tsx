@@ -1,6 +1,8 @@
+import { isRecommended } from '../../utils/videoRecs';
+import { recommendWithToast } from './ItemMenu';
 import { useEffect, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
-import { Bookmark, EyeOff, Flag, Share } from 'lucide-react';
+import { Bookmark, EyeOff, Flag, Share, ThumbsUp } from 'lucide-react';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
 import { requestReport } from './ItemMenu';
 import { requestSave, type MyItemKind } from '../../utils/myPlaylists';
@@ -24,7 +26,7 @@ export async function reportOrHide(t: { id: string; kind: MyItemKind; title: str
 
 /**
  * 영상 카드·목록 줄 감싸기
- *  ← 밀기: 신고 · 공유 (끝까지 = 공유)   → 밀기: 저장 (끝까지 = 저장)
+ *  ← 밀기: 신고 · 공유 (끝까지 = 공유)   → 밀기: 저장 · 추천 (끝까지 = 저장)
  *  가리면 10초 동안 흐리게 + 되돌리기, 그 뒤 흐려지며 접히고 아래 영상이 올라옴
  */
 export function VideoSwipe({ id, kind = 'video', title, shareText, radius = 24, className, children, onEngage, cell = false }: {
@@ -63,6 +65,8 @@ export function VideoSwipe({ id, kind = 'video', title, shareText, radius = 24, 
   ];
   const leftActs: SwipeAction[] = [
     { key: 'save', label: '저장', icon: <Bookmark />, tone: 'bg-purple-600 text-white', onRun: () => { onEngage?.(); requestSave({ id, kind, title }); } },
+    // 이 영상 추천하기: 다른 사람들 추천 탭에서 조금 더 앞으로 (다시 누르면 취소)
+    ...(/^[\w-]{11}$/.test(id) ? [{ key: 'rec', label: isRecommended(id) ? '추천 취소' : '추천', icon: <ThumbsUp />, tone: 'bg-amber-500 text-white', onRun: () => { onEngage?.(); recommendWithToast(id); } }] : []),
   ];
   const pending = h.state === 'pending';
   const leaving = h.state === 'leaving';

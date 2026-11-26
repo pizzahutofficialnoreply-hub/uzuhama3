@@ -1,4 +1,6 @@
 import { openAiCard } from '../../common/AiCardExpand';
+import { CARD, CARD_THUMB, CARD_THUMB_IMG, CARD_THUMB_TAG, CARD_BODY, CARD_HEAD, CARD_TITLE, CARD_MENU, CARD_SUB, CARD_ACTION } from '../../common/cardStyles';
+import { ItemMenu } from '../../common/ItemMenu';
 import { CardSkeleton } from '../../common/Skeleton';
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -53,32 +55,27 @@ export function useLogIndex(logs: any) {
 function PlaylistCard({ playlist, onOpen, onExpand, shareText }: { playlist: Playlist; onOpen: () => void; onExpand?: (el: Element | null) => void; shareText: () => string }) {
   const count = playlist.items.length;
   return (
-    <div data-ai-card={playlist.id} className="group relative isolate flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
-      <button type="button" onClick={(e) => (onExpand ? onExpand((e.currentTarget as HTMLElement).closest('[data-ai-card]')) : onOpen())} className="group/thumb relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800 cursor-pointer" title="재생목록 열기">
-        <img src={playlist.thumbnail} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-        {!onExpand && (
-          <span className="absolute inset-0 bg-black/10 flex items-center justify-center">
-            <GlassPlayButton />
-          </span>
-        )}
-        <span className="absolute bottom-2 left-2 text-xs px-2.5 py-1 font-semibold rounded-lg backdrop-blur-md flex items-center gap-1.5 shadow-md bg-purple-900/90 text-purple-100 border border-purple-400/50">
+    <div data-ai-card={playlist.id} className={CARD}>
+      <button type="button" onClick={(e) => (onExpand ? onExpand((e.currentTarget as HTMLElement).closest('[data-ai-card]')) : onOpen())} className={cn('group/thumb cursor-pointer', CARD_THUMB)} title="재생목록 열기">
+        <img src={playlist.thumbnail} alt="" loading="lazy" className={CARD_THUMB_IMG} />
+        <span className={cn(CARD_THUMB_TAG, 'bg-purple-900/90 text-purple-100 border border-purple-400/50')}>
           <ListVideo className="w-3.5 h-3.5 text-purple-300" />
           재생목록 ({count}개 영상)
         </span>
       </button>
-      <div className="p-4 flex-1 flex flex-col">
-        <div className="flex items-start justify-between gap-2">
-          <button type="button" onClick={(e) => (onExpand ? onExpand((e.currentTarget as HTMLElement).closest('[data-ai-card]')) : onOpen())} className="flex-1 text-left font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors text-sm sm:text-base cursor-pointer">
+      <div className={CARD_BODY}>
+        <div className={CARD_HEAD}>
+          <button type="button" onClick={(e) => (onExpand ? onExpand((e.currentTarget as HTMLElement).closest('[data-ai-card]')) : onOpen())} className={CARD_TITLE}>
             {playlist.title}
           </button>
-          <ShareButton className="-mr-1 -mt-0.5" title={`${playlist.title} 재생목록`} getText={shareText} />
+          <ItemMenu id={playlist.id} kind="video" variant="list" title={`${playlist.title} 재생목록`} shareText={shareText} className={CARD_MENU} />
         </div>
-        {playlist.description && <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">{playlist.description}</p>}
+        {playlist.description && <p className={cn(CARD_SUB, 'line-clamp-2')}>{playlist.description}</p>}
         <div className="mt-auto pt-3">
           <button
             type="button"
             onClick={(e) => (onExpand ? onExpand((e.currentTarget as HTMLElement).closest('[data-ai-card]')) : onOpen())}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs hover:scale-[1.01] bg-purple-50 hover:bg-purple-100/90 dark:bg-purple-950/70 dark:hover:bg-purple-900/70 text-purple-700 dark:text-purple-300 border border-purple-200/90 dark:border-purple-800/90"
+            className={CARD_ACTION}
           >
             <span className="flex items-center gap-2">
               <ListVideo className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />

@@ -1,10 +1,11 @@
+import { isRecommended, onRecs, toggleRecommend } from '../../utils/videoRecs';
 import { hideVideo } from '../../utils/hiddenVideos';
 import { EyeOff } from 'lucide-react';
 import { usePrefs } from '../../utils/userPrefs';
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bookmark, Flag, Link2, MoreVertical } from 'lucide-react';
+import { Bookmark, Flag, Link2, MoreVertical, ThumbsUp } from 'lucide-react';
 import { cn } from '../../utils';
 import { requestSave, useMyPlaylists, type MyItemKind } from '../../utils/myPlaylists';
 import { shareTextOrClipboard } from '../../utils/shareUtils';
@@ -29,7 +30,9 @@ export function requestReport(t: ReportTarget) {
   window.dispatchEvent(new CustomEvent(REPORT_EVENT, { detail: t }));
 }
 
-export function ItemMenu({ id, kind, title, className, compact = false, onSave, shareText, onShare, extraItems = [], noReport = false }: {
+export function ItemMenu({ id, kind, title, className, compact = false, onSave, shareText, onShare, extraItems = [], noReport = false, variant = 'item' }: {
+  /** list: 재생목록 카드 (공유·신고만) */
+  variant?: 'item' | 'list';
   id: string; kind: MyItemKind; title: string; className?: string; compact?: boolean; onSave?: () => void;
   /** 공유할 글 (있으면 메뉴에 '공유') */
   shareText?: () => string;
@@ -42,6 +45,10 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
   const search = useContext(SearchContext);
   const { lists } = useMyPlaylists();
   const saved = Boolean(id) && lists.some((l) => l.items.some((x) => x.id === id));
+  const isList = variant === 'list';
+  const isVid = !isList && /^[\w-]{11}$/.test(id);
+  const [recd, setRecd] = useState(() => isVid && isRecommended(id));
+  useEffect(() => (isVid ? onRecs(() => setRecd(isRecommended(id))) : undefined), [id, isVid]);
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -107,10 +114,14 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
                   </button>
                 ))}
                 {/* 'AI 영상 요약'은 카드 펼친 화면으로 합침 (영상을 누르면 펼쳐짐) */}
-                <button type="button" role="menuitem" className={cn(item, (extraItems.length > 0 || /^[\w-]{11}$/.test(id)) && 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); onSave?.(); requestSave({ id, kind, title }); }}>
+                {!isList && <button type="button" role="menuitem" className={cn(item, extraItems.length > 0 && 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); onSave?.(); requestSave({ id, kind, title }); }}>
                   <Bookmark className={cn('w-4 h-4', saved ? 'text-purple-600' : 'text-zinc-500')} fill={saved ? 'currentColor' : 'none'} />
                   {saved ? '저장됨 · 바꾸기' : '저장'}
-                </button>
+                </button>}
+                {isVid && <button type="button" role="menuitem" className={cn(item, 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); recommendWithToast(id); }}>
+                  <ThumbsUp className={cn('w-4 h-4', recd ? 'text-amber-500' : 'text-zinc-500')} fill={recd ? 'currentColor' : 'none'} />
+                  {recd ? '추천함 · 취소' : '이 영상 추천하기'}
+                </button>}
                 {shareText && (
                   <button type="button" role="menuitem" className={cn(item, 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => {
                     e.stopPropagation();
@@ -123,6 +134,7 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
                     공유
                   </button>
                 )}
+                {!isList && (<>
                 <button type="button" role="menuitem" className={cn(item, 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => {
                   e.stopPropagation();
                   setOpen(false);
@@ -138,6 +150,7 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
                   <EyeOff className="w-4 h-4 text-zinc-500" />
                   이 영상 가리기
                 </button>}
+                </>)}
                 {!noReport && <button type="button" role="menuitem" className={cn(item, 'border-t border-zinc-100 dark:border-zinc-700')} onClick={(e) => { e.stopPropagation(); setOpen(false); requestReport({ id, kind, title, search }); }}>
                   <Flag className="w-4 h-4 text-zinc-500" />
                   {search.query ? '이 결과 신고' : '신고'}
@@ -150,4 +163,10 @@ export function ItemMenu({ id, kind, title, className, compact = false, onSave, 
       )}
     </>
   );
+}
+
+/** 추천하기 · 취소 + 알림 (메뉴·밀기에서 같이 씀) */
+export function recommendWithToast(id: string) {
+  const on = toggleRecommend(id);
+  toast(on ? '추천했어요 · 다른 사람들에게 조금 더 먼저 보여요' : '추천을 취소했어요');
 }
