@@ -3,7 +3,8 @@ import { YearRecapBanner } from '../YearRecap';
 import { PatternAnalysis } from '../PatternAnalysis';
 import { WidgetShareButton } from '../common/WidgetShareButton';
 import { IllnessInfoModal } from '../IllnessInfoModal';
-import { AppData } from '../../types';
+import { AppData, Tab } from '../../types';
+import { TossHome } from '../home/TossHome';
 import { format, startOfMonth, endOfMonth, parseISO, startOfWeek, isSameDay, addDays } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, Cell, LabelList } from 'recharts';
 import { CustomTooltip, DottedBarCursor } from '../CustomTooltip';
@@ -15,9 +16,13 @@ interface SummaryTabProps {
   data: AppData;
   fetchLogs?: (startDate: string, endDate: string) => Promise<void>;
   isActive?: boolean;
+  /** 토스식 홈 카드에서 이동 */
+  onOpenDate?: (date: string) => void;
+  onGoTab?: (tab: Tab) => void;
+  onOpenSettings?: (section: 'notification' | 'theme') => void;
 }
 
-export function SummaryTab({ data, fetchLogs, isActive = true }: SummaryTabProps) {
+export function SummaryTab({ data, fetchLogs, isActive = true, onOpenDate, onGoTab, onOpenSettings }: SummaryTabProps) {
   // 가장 최근 연도의 데이터만 표시
   const latestYear = useMemo(() => {
     const dates = Object.values(data.logs || {}).map(l => l.date).filter(Boolean).sort();
@@ -308,6 +313,7 @@ export function SummaryTab({ data, fetchLogs, isActive = true }: SummaryTabProps
 
   return (
     <div className="space-y-6">
+      {onOpenDate && onGoTab && onOpenSettings && <TossHome data={data} onOpenDate={onOpenDate} onGoTab={onGoTab} onOpenSettings={onOpenSettings} />}
       <YearRecapBanner logs={data.logs} fetchLogs={fetchLogs} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div id="summary-weekly-trend-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative">

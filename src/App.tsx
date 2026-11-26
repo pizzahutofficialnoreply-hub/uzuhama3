@@ -1212,7 +1212,10 @@ function MainApp() {
             {/* Tab Content (한 번 연 탭은 계속 붙여 둬서 다시 열 때 바로 보임) */}
             <div ref={tabContentRef} id="tab-content-container" className="pb-24 sm:pb-8">
               <div id="summary-tab-view" className={activeTab === 'summary' ? 'block tab-enter' : 'hidden'}>
-                <SummaryTab data={data} fetchLogs={fetchLogsByDateRange} isActive={activeTab === 'summary'} />
+                <SummaryTab data={data} fetchLogs={fetchLogsByDateRange} isActive={activeTab === 'summary'}
+                  onOpenDate={handleNavigateToCalendar}
+                  onGoTab={(t) => handleTabChange(t)}
+                  onOpenSettings={(sec) => { setSettingsInitialSection(sec); openSettings(); }} />
               </div>
  {mountedTabs.has('calendar') && (
               <div id="calendar-tab-view" className={activeTab === 'calendar' ? 'block tab-enter' : 'hidden'}>
