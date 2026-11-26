@@ -50,13 +50,14 @@ const TrendTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
+import { chooseSheet } from '../../utils/ui';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList } from 'recharts';
 import { format, startOfYear, startOfMonth, endOfMonth, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, subDays, subYears, formatISO, addDays } from 'date-fns';
 import { AppData, BroadcastLog } from '../../types';
 import { CustomTooltip, DottedBarCursor } from '../CustomTooltip';
 import { parseTimeString, parseTimeTo24, cn, useBodyScrollLock, formatWeekTick } from '../../utils';
-import { Download, FileText, AlertCircle, X, HelpCircle } from 'lucide-react';
+import { Download, AlertCircle, X, HelpCircle, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BroadcastHeatmap } from '../stats/BroadcastHeatmap';
 import { CategoryStatsTab } from '../stats/CategoryStatsTab';
@@ -348,6 +349,8 @@ export function DetailedStatsTab({
 
   const previousRangeBeforePresetRef = useRef<{ start: string; end: string } | null>(null);
 
+  // 날짜 직접 입력·조회·비교는 '기간 바꾸기'를 눌렀을 때만 (토스식: 처음엔 결과부터)
+  const [showCustom, setShowCustom] = useState(false);
   const handleApplyPreset = (preset: 'ty' | '30d' | '1y' | '5y' | 'all') => {
     // 이미 선택된 프리셋을 한 번 더 클릭하면 프리셋 누르기 전 상태로 취소 복귀
     if (activePreset === preset) {
@@ -988,6 +991,11 @@ export function DetailedStatsTab({
             })}
           </div>
 
+          <button type="button" aria-expanded={showCustom} onClick={() => setShowCustom((v) => !v)}
+            className={cn("tap self-start sm:self-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap cursor-pointer", showCustom ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100" : "bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300")}>
+            <SlidersHorizontal className="w-3.5 h-3.5" /> 기간 바꾸기
+          </button>
+          {showCustom && (<>
           <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
             {range2 && <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ background: COLOR_A }} title="기간 1" aria-label="기간 1" />}
             <input 
@@ -1007,10 +1015,11 @@ export function DetailedStatsTab({
           <button onClick={handleFilter} className="w-full sm:w-auto px-5 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-sm font-semibold transition-colors shrink-0 cursor-pointer shadow-xs hover:shadow active:scale-[0.98]">
             조회
           </button>
+          </>)}
         </div>
 
         {/* 비교: + 로 기간 하나 더 → 아래 분석 위에 색을 달리해 겹쳐 보여 줌 */}
-        <div className="w-full xl:basis-full min-w-0">
+        {(showCustom || range2) && <div className="w-full xl:basis-full min-w-0">
           {!range2 ? (
             <button type="button" data-testid="stats-compare-add"
               onClick={() => {
@@ -1049,7 +1058,7 @@ export function DetailedStatsTab({
               </div>
             </div>
           )}
-        </div>
+        </div>}
       </div>
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -1133,22 +1142,11 @@ export function DetailedStatsTab({
           )}
         </div>
         
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button 
-            onClick={() => setDownloadConfirm('csv')}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-sm font-medium transition-colors border border-zinc-200 dark:border-zinc-700 whitespace-nowrap"
-          >
-            <Download className="w-4 h-4" />
-            CSV 내보내기
-          </button>
-          <button 
-            onClick={() => setDownloadConfirm('pdf')}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-sm font-medium transition-colors border border-zinc-200 dark:border-zinc-700 whitespace-nowrap"
-          >
-            <FileText className="w-4 h-4" />
-            PDF 리포트
-          </button>
-        </div>
+        <button type="button"
+          onClick={async () => { const v = await chooseSheet({ title: '내보내기', options: [{ value: 'csv', label: 'CSV 파일', desc: '엑셀·구글 시트에서 열 수 있어요' }, { value: 'pdf', label: 'PDF 리포트', desc: '그래프까지 한 장으로 정리해요' }] }); if (v === 'csv' || v === 'pdf') setDownloadConfirm(v); }}
+          className="tap self-end sm:self-auto shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-300 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 cursor-pointer">
+          <Download className="w-3.5 h-3.5" /> 내보내기
+        </button>
       </div>
 
       <div className="space-y-6 bg-transparent">

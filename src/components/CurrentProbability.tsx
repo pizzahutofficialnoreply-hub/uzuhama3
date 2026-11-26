@@ -70,7 +70,10 @@ export function CurrentProbability({
   onProbChange,
   system,
   onNavigateToRecommend,
+  onOpenNotifications,
 }: {
+  /** 알림을 아직 안 켠 사람에게 '켜지면 알려 드릴게요' 버튼 (설정 › 알림으로) */
+  onOpenNotifications?: () => void;
   logs?: BroadcastLog[];
   onProbChange?: (prob: number) => void;
   system?: SystemConfig;
@@ -234,7 +237,7 @@ export function CurrentProbability({
   // 관리자가 오늘을 예정일/휴방일로 지정한 경우 (공지 내용이 있으면 그대로)
   const dayOverride = dateOverrideFor(system, broadcastDayStr(currentTime));
   if (hasStreamedToday) {
-    patternMessage = "오늘 이미 방송을 진행했어요.";
+    patternMessage = "오늘 이미 방송했어요.";
   } else if (dayOverride?.type === 'off') {
     patternMessage = dayOverride.note?.trim() || "오늘은 휴방일로 공지됐어요.";
   } else if (dayOverride?.type === 'on') {
@@ -246,11 +249,12 @@ export function CurrentProbability({
       ? `${lead}${attachKoreanParticle(absenceDisplayReason, "으로/로")} 휴방 중이에요.${system?.absenceDuration ? ` (예상: ${system.absenceDuration})` : ""}`
       : `${lead}예정된 휴방 기간이에요.`;
   } else if (daysSinceLastStream >= 3) {
-    patternMessage = `${daysSinceLastStream}일 연속 미방송 중이에요.`;
+    // 확률이 왜 이런지 한 줄로 (펼치지 않아도 이해되게)
+    patternMessage = prob.next2hProb < 12 && finalProb < 20 ? `${daysSinceLastStream}일째 방송이 없어서 낮아요.` : `${daysSinceLastStream}일째 방송이 없어요.`;
   } else if (daysSinceLastStream === 2) {
-    patternMessage = "2일째 미방송: 평소엔 이 간격 뒤에 방송이 잦았어요.";
+    patternMessage = "이틀 쉬었어요. 평소엔 이쯤 방송이 잦았어요.";
   } else if (daysSinceLastStream === 1) {
-    patternMessage = "어제 방송을 진행했어요.";
+    patternMessage = "어제 방송했어요.";
   }
 
   useEffect(() => {
@@ -576,6 +580,10 @@ export function CurrentProbability({
           <span className="font-hanna font-pro font-bold tracking-tight [text-wrap:balance]">{messageContent}</span>
         </div>
 
+        {onOpenNotifications && needsAlertCta() && (
+          <AlertCta onOpen={onOpenNotifications} />
+        )}
+
         {recentInfo && (
           <div className="mt-3 text-xs sm:text-sm font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/50 px-4 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700/50">
             {recentInfo}
@@ -688,6 +696,40 @@ export function CurrentProbability({
           />
         )}
       </div>
+    </div>
+  );
+}
+
+const ALERT_CTA_HIDE = 'uzuhama_alert_cta_hide';
+/** 알림 권한을 아직 안 줬고, '다음에'를 누른 지 30일이 안 지났으면 보여 줌 */
+function needsAlertCta(): boolean {
+  try {
+    if (Number(localStorage.getItem(ALERT_CTA_HIDE) || 0) > Date.now()) return false;
+    return !('Notification' in window) || window.Notification.permission !== 'granted';
+  } catch { return false; }
+}
+
+/** 토스처럼 카드 안에 큰 버튼 하나 + 작은 '다음에' */
+function AlertCta({ onOpen }: { onOpen: () => void }) {
+  const [hidden, setHidden] = useState(false);
+  if (hidden) return null;
+  return (
+    <div className="mt-5 w-full max-w-[22rem] flex flex-col items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="tap w-full h-[52px] rounded-2xl bg-[#6B85C2] hover:bg-[#5f79b6] text-white text-[15px] font-bold font-hanna font-pro flex items-center justify-center gap-2 cursor-pointer"
+      >
+        <Bell className="w-[18px] h-[18px]" />
+        켜지면 알려 드릴게요
+      </button>
+      <button
+        type="button"
+        onClick={() => { try { localStorage.setItem(ALERT_CTA_HIDE, String(Date.now() + 30 * 86400000)); } catch { /* 저장 안 돼도 이번엔 숨김 */ } setHidden(true); }}
+        className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 px-3 py-1 cursor-pointer"
+      >
+        다음에
+      </button>
     </div>
   );
 }
