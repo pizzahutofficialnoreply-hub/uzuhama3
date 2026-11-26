@@ -925,7 +925,7 @@ function MainApp() {
   if (maintenanceStatus.isInProgress && !automationBypass) return <MaintenanceScreen system={data.system} maintSystem={maintSystem} onEnd={openWithIntro} />;
 
   return (
-    <div className="min-h-[100dvh] min-h-screen bg-[#f2f2f7] dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans selection:bg-purple-500/30 flex flex-col overflow-x-clip w-full">
+    <div className="min-h-[100dvh] min-h-screen bg-[#f2f4f6] dark:bg-[#0b0c0f] text-zinc-900 dark:text-zinc-100 font-sans selection:bg-purple-500/30 flex flex-col overflow-x-clip w-full">
       
       {/* System Big Notice Modal (개별 공지 type이 'big' 또는 'both'이거나, 전역 noticeType이 'big' 또는 'both'인 경우) */}
       {(() => {
@@ -1002,7 +1002,7 @@ function MainApp() {
         }}
         className={cn(
           "fixed inset-x-0 top-0 pointer-events-none z-40 transition-opacity duration-400 ease-out",
-          "bg-gradient-to-b from-[#f2f2f7]/85 via-[#f2f2f7]/45 to-transparent dark:from-zinc-950/90 dark:via-zinc-950/50 dark:to-transparent",
+          "bg-gradient-to-b from-[#f2f4f6]/85 via-[#f2f4f6]/45 to-transparent dark:from-zinc-950/90 dark:via-zinc-950/50 dark:to-transparent",
           isHeaderHidden && !isNoticeExpanded ? "opacity-100" : "opacity-0"
         )}
       />
@@ -1021,7 +1021,7 @@ function MainApp() {
           backdropFilter: 'blur(28px) saturate(180%)' 
         }}
         className={cn(
-          "border-b border-zinc-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-black/70 backdrop-blur-3xl backdrop-saturate-180 sticky top-0 z-50 pt-[calc(env(safe-area-inset-top,0px)+12px)] pb-1.5 sm:pt-3.5 sm:pb-1.5",
+          "border-b border-transparent bg-[#f2f4f6]/80 dark:bg-[#0b0c0f]/80 backdrop-blur-3xl backdrop-saturate-180 sticky top-0 z-50 pt-[calc(env(safe-area-inset-top,0px)+12px)] pb-1.5 sm:pt-3.5 sm:pb-1.5",
           isHeaderHidden && "pointer-events-none shadow-none border-b-transparent"
         )}
       >
@@ -1211,11 +1211,11 @@ function MainApp() {
 
             {/* Tab Content (한 번 연 탭은 계속 붙여 둬서 다시 열 때 바로 보임) */}
             <div ref={tabContentRef} id="tab-content-container" className="pb-24 sm:pb-8">
-              <div id="summary-tab-view" className={activeTab === 'summary' ? 'block' : 'hidden'}>
+              <div id="summary-tab-view" className={activeTab === 'summary' ? 'block tab-enter' : 'hidden'}>
                 <SummaryTab data={data} fetchLogs={fetchLogsByDateRange} isActive={activeTab === 'summary'} />
               </div>
  {mountedTabs.has('calendar') && (
-              <div id="calendar-tab-view" className={activeTab === 'calendar' ? 'block' : 'hidden'}>
+              <div id="calendar-tab-view" className={activeTab === 'calendar' ? 'block tab-enter' : 'hidden'}>
                 <Suspense fallback={<CalendarTabSkeleton />}>
                 <CalendarTab 
                   data={data} 
@@ -1228,7 +1228,7 @@ function MainApp() {
               </div>
               )}
               {mountedTabs.has('detailed') && (
-              <div id="detailed-tab-view" className={activeTab === 'detailed' ? 'block' : 'hidden'}>
+              <div id="detailed-tab-view" className={activeTab === 'detailed' ? 'block tab-enter' : 'hidden'}>
                 <Suspense fallback={<StatsTabSkeleton />}>
                 <DetailedStatsTab 
                   data={data} 
@@ -1241,7 +1241,7 @@ function MainApp() {
               </div>
               )}
               {mountedTabs.has('recommend') && (
-              <div id="recommend-tab-view" className={activeTab === 'recommend' ? 'block' : 'hidden'}>
+              <div id="recommend-tab-view" className={activeTab === 'recommend' ? 'block tab-enter' : 'hidden'}>
                 <Suspense fallback={<SearchTabSkeleton />}>
                 <RecommendTab 
                   data={data} 

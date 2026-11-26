@@ -122,6 +122,28 @@
   --color-violet-500: #7791c1;
   --color-violet-600: #7791c1;
   --color-violet-700: #5d76a6;
+
+  /* 토스식 회색: 살짝 푸른 차가운 회색 (zinc 이름을 그대로 덮어써서 모든 화면이 한 번에 바뀜)
+     50~700은 밝은 화면의 바탕·선·글씨, 800~950은 어두운 화면의 카드·바탕 */
+  --color-zinc-50: #f9fafb;
+  --color-zinc-100: #f2f4f6;
+  --color-zinc-200: #e5e8eb;
+  --color-zinc-300: #d1d6db;
+  --color-zinc-400: #b0b8c1;
+  --color-zinc-500: #8b95a1;
+  --color-zinc-600: #6b7684;
+  --color-zinc-700: #4e5968;
+  --color-zinc-800: #2c313a;
+  --color-zinc-900: #1b1e25;
+  --color-zinc-950: #121418;
+
+  /* 평평하게: 카드용 작은 그림자는 거의 없앰 (영역은 바탕색 차이로 나눔). 떠 있는 창(lg 이상)은 그대로 */
+  --shadow-2xs: 0 0 #0000;
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.03);
+
+  /* 움직임: 토스처럼 빠르게 시작해서 부드럽게 멈춤 */
+  --ease-toss: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -130,7 +152,7 @@ html, body {
   font-family: 'BMHANNAAir', '배달의민족 한나체 Air', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
   font-weight: 400;
   background-color: #ffffff;
-  color: #18181b;
+  color: #191f28;
   min-height: 100%;
   min-height: 100dvh;
   letter-spacing: 0.008em;
@@ -139,14 +161,14 @@ html, body {
   text-rendering: optimizeLegibility;
   user-select: none;
   /* 라이트 모드: 아이폰 설정 화면처럼 연한 회색 바탕 위에 흰 카드 (테두리 대신 그림자로 구분) */
-  background-color: #f2f2f7;
+  background-color: #f2f4f6;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
 
 html.dark, html.dark body {
-  background-color: #000000;
-  color: #f4f4f5;
+  background-color: #0b0c0f;
+  color: #f2f4f6;
 }
 
 /* 라이트 모드 카드: 회색 테두리를 없애고 아주 옅은 그림자만 (사진 액자처럼 보이지 않게) */
@@ -154,10 +176,14 @@ html:not(.dark) .bg-white.border-zinc-200[class*="rounded-[2"],
 html:not(.dark) .bg-white.border-zinc-200.rounded-2xl,
 html:not(.dark) .bg-white.border-zinc-200.rounded-3xl {
   border-color: transparent;
-  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.04), 0 6px 22px -12px rgba(0, 0, 0, 0.12);
+  box-shadow: none;
 }
-/* 카드 안의 카드(설정 묶음 등)는 그림자 없이 */
-html:not(.dark) .bg-white .bg-white.border-zinc-200[class*="rounded-[2"] { box-shadow: none; border-color: rgba(0, 0, 0, 0.06); }
+/* 카드 안의 카드(설정 묶음 등)는 옅은 회색 면으로 (선 대신) */
+html:not(.dark) .bg-white .bg-white.border-zinc-200[class*="rounded-[2"] { box-shadow: none; border-color: transparent; background-color: #f9fafb; }
+/* 어두운 화면 카드도 테두리 없이 면 색으로만 */
+html.dark .dark\:bg-zinc-900.dark\:border-zinc-800[class*="rounded-[2"],
+html.dark .dark\:bg-zinc-900.dark\:border-zinc-800.rounded-2xl,
+html.dark .dark\:bg-zinc-900.dark\:border-zinc-800.rounded-3xl { border-color: transparent; }
 
 #root {
   min-height: 100%;
@@ -733,3 +759,47 @@ html.pwa-gap .fixed.inset-0 { bottom: calc(-1 * var(--pwa-gap, 0px)); }
 @media (orientation: landscape) and (max-height: 32.4rem) {
   #root { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
 }
+
+/* ───────── 토스식 움직임 ───────── */
+/* 누르면 살짝 작아짐: 버튼·카드 버튼 전부 (scale 속성이라 기존 translate·hover와 겹치지 않음) */
+button:not(:disabled), a[role="button"], [role="button"], label.cursor-pointer, [data-testid="cal-day"] {
+  -webkit-tap-highlight-color: transparent;
+  transition-property: color, background-color, border-color, opacity, box-shadow, transform, translate, scale;
+  transition-duration: 0.18s;
+  transition-timing-function: var(--ease-toss);
+}
+button:not(:disabled):active, a[role="button"]:active, [role="button"]:active, label.cursor-pointer:active { scale: 0.96; transition-duration: 0.08s; }
+/* 큰 카드·줄은 덜 작아지게 (화면이 흔들려 보이지 않도록) */
+.w-full:is(button, [role="button"]):not(:disabled):active, [data-testid="cal-day"]:active { scale: 0.985; }
+
+/* 탭을 바꾸면 내용이 아래에서 살짝 올라오며 나타남 */
+.tab-enter { animation: tab-enter 0.36s var(--ease-toss) backwards; } /* backwards: 끝나면 translate가 남지 않아 안쪽 fixed 창이 안 밀림 */
+@keyframes tab-enter { from { opacity: 0; translate: 0 10px; } to { opacity: 1; translate: 0 0; } }
+
+/* 목록이 처음 뜰 때 위에서부터 차례로 */
+.stagger > * { animation: tab-enter 0.4s var(--ease-toss) backwards; }
+.stagger > *:nth-child(2) { animation-delay: 0.03s; } .stagger > *:nth-child(3) { animation-delay: 0.06s; }
+.stagger > *:nth-child(4) { animation-delay: 0.09s; } .stagger > *:nth-child(5) { animation-delay: 0.12s; }
+.stagger > *:nth-child(6) { animation-delay: 0.15s; } .stagger > *:nth-child(n+7) { animation-delay: 0.18s; }
+
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active, [role="button"]:active { scale: 1; opacity: 0.75; }
+  .tab-enter, .stagger > * { animation: none; }
+}
+
+/* ───────── 토스식 컨트롤: 선 대신 채운 면 ───────── */
+/* 칩·선택칸·작은 버튼: 회색 테두리를 없애고 옅은 회색 면으로 */
+html:not(.dark) :is(.rounded-xl, .rounded-lg, .rounded-full, .rounded-2xl, .rounded-md):is(.border-zinc-200, .border-zinc-300, [class*="border-zinc-200/"], [class*="border-zinc-300/"]):not(input[type="checkbox"]) {
+  border-color: transparent;
+}
+html:not(.dark) :is(.rounded-xl, .rounded-lg, .rounded-full, .rounded-md):is(.bg-white, .bg-zinc-50, [class*="bg-zinc-50/"]):is(.border-zinc-200, .border-zinc-300, [class*="border-zinc-200/"], [class*="border-zinc-300/"]) {
+  background-color: #f2f4f6;
+}
+html.dark :is(.rounded-xl, .rounded-lg, .rounded-full, .rounded-2xl, .rounded-md):is(.dark\:border-zinc-700, .dark\:border-zinc-800, [class*="dark:border-zinc-700/"], [class*="dark:border-zinc-800/"]) {
+  border-color: transparent;
+}
+/* 하마 색 약한 버튼: 테두리 없이 면 색만 */
+:is(.rounded-xl, .rounded-lg, .rounded-full, .rounded-2xl)[class*="border-purple-"] { border-color: transparent; }
+/* 입력칸·선택칸: 면 색으로 */
+html:not(.dark) :is(select, input[type="text"], input[type="search"], input[type="date"], input[type="month"], input[type="number"], textarea).border { border-color: transparent; background-color: #f2f4f6; }
+html.dark :is(select, input[type="text"], input[type="search"], input[type="date"], input[type="month"], input[type="number"], textarea).border { border-color: transparent; }

@@ -1,5 +1,5 @@
 import { useTestMode, testLiveData } from '../utils/testMode';
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { BroadcastLog, SystemConfig } from "../types";
@@ -432,7 +432,7 @@ export function CurrentProbability({
 
   if (liveData?.status === "OPEN") {
     return (
-      <div id="current-prob-live-card" className="bg-white dark:bg-zinc-900 border-2 border-red-500 dark:border-red-500/50 rounded-[24px] p-6 sm:p-8 shadow-xl dark:shadow-2xl relative overflow-hidden flex flex-col items-center justify-center text-center">
+      <div id="current-prob-live-card" className="bg-white dark:bg-zinc-900 border-2 border-red-500 dark:border-red-500/50 rounded-[28px] p-6 sm:p-8 relative overflow-hidden flex flex-col items-center justify-center text-center">
         <div className="absolute top-4 right-4 z-20">
           <WidgetShareButton targetId="current-prob-live-card" title="생방송 진행 중" />
         </div>
@@ -504,7 +504,7 @@ export function CurrentProbability({
             className="text-7xl sm:text-8xl font-black text-zinc-900 dark:text-white tracking-[0.02em] sm:tracking-[0.025em] pl-0.5"
             style={{ WebkitTextStroke: '0.95px currentColor' }}
           >
-            {finalProb.toFixed(1)}
+            <CountUp value={finalProb} />
             <span className="text-4xl sm:text-5xl ml-1 tracking-normal font-bold" style={{ WebkitTextStroke: '0.45px currentColor' }}>%</span>
           </div>
           {peakFormattedTime && prob.time.hasData && (
@@ -690,4 +690,23 @@ export function CurrentProbability({
       </div>
     </div>
   );
+}
+
+/** 숫자가 0에서 올라가며 멈춤 (토스식). 값이 바뀌면 이전 값에서 이어서, 움직임 줄이기 설정이면 바로 */
+function CountUp({ value }: { value: number }) {
+  const [shown, setShown] = useState(value);
+  const from = useRef(0);
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setShown(value); from.current = value; return; }
+    const start = from.current; const t0 = performance.now(); const dur = 650;
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / dur);
+      setShown(start + (value - start) * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) raf = requestAnimationFrame(step); else from.current = value;
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <span className="tabular-nums">{shown.toFixed(1)}</span>;
 }

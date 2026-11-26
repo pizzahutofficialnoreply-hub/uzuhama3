@@ -3,7 +3,7 @@
  * 카드 모양을 바꿀 땐 여기만 고치면 전부 같이 바뀜
  */
 export const CARD_SURFACE = 'group relative isolate flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all';
-export const CARD_CLOSED = 'rounded-[24px] overflow-hidden hover:shadow-xl hover:-translate-y-1';
+export const CARD_CLOSED = 'rounded-[24px] overflow-hidden';
 export const CARD = `${CARD_SURFACE} ${CARD_CLOSED}`;
 export const CARD_THUMB = 'relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800';
 export const CARD_THUMB_IMG = 'w-full h-full object-cover group-hover:scale-105 transition-transform duration-500';

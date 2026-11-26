@@ -768,7 +768,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
 
       days.push(
         !isSameMonth(cloneDay, monthStart) ? (
-          <div key={cloneDay.toString()} className="h-20 sm:h-28 border-r border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 pointer-events-none" />
+          <div key={cloneDay.toString()} className="h-[68px] sm:h-32 pointer-events-none" />
         ) : (
           <div
             key={cloneDay.toString()}
@@ -776,13 +776,18 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
             data-testid="cal-day"
             data-date={format(cloneDay, 'yyyy-MM-dd')}
             data-has-log={log ? '1' : '0'}
-            className="h-24 sm:h-32 p-1 border-r border-b border-zinc-100 dark:border-zinc-800/60 relative cursor-pointer bg-white dark:bg-zinc-900 transition-colors"
+            className="h-[68px] sm:h-32 p-[3px] sm:p-1 relative cursor-pointer"
             title={log ? `${formatTimeRange(log.time, log.endTime, log.durationHours)} - ${log.game}` : '방송 기록 없음'}
           >
-            <div className={cn(
-              "w-full h-full rounded-2xl p-1 sm:p-2 transition-all duration-200 flex flex-col relative",
-              selectedDate && isSameDay(cloneDay, selectedDate) ? "bg-purple-100/80 dark:bg-purple-900/40 shadow-inner ring-1 ring-purple-400 dark:ring-purple-500" : "hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
-            )}>
+            {/* 격자 대신 둥근 칸: 방송한 날은 하마 색으로 채우고, 오래 한 날일수록 진하게 */}
+            <div
+              className={cn(
+                "w-full h-full rounded-[14px] sm:rounded-2xl p-1 sm:p-2 transition-all duration-200 flex flex-col relative",
+                selectedDate && isSameDay(cloneDay, selectedDate) ? "ring-2 ring-purple-500 dark:ring-purple-400" : "",
+                !log && "hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
+              )}
+              style={log ? { backgroundColor: `rgb(119 145 193 / ${(0.13 + Math.min(1, (log.durationHours || 2) / 6) * 0.3).toFixed(2)})` } : undefined}
+            >
               {(() => {
                 const cloneDateStr = format(cloneDay, 'yyyy-MM-dd');
                 const isHoliday = isKoreanHoliday(cloneDateStr);
@@ -834,20 +839,21 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                       <ul className="space-y-0.5">
                         {log.games.map((g, idx) => (
                           <li key={idx} className="break-words mb-0.5 whitespace-pre-wrap flex items-start gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0 mt-1 inline-block" />
                             <span className="flex-1"><GameTitle text={g.name} /></span>
                           </li>
                         ))}
                       </ul>
                     ) : (
                       <div className="break-words whitespace-pre-wrap flex items-start gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0 mt-1 inline-block" />
                         <span className="flex-1"><GameTitle text={log.game} /></span>
                       </div>
                     )}
                   </div>
-                  <div className="flex sm:hidden justify-center items-center h-full w-full">
-                    <div className="w-2 h-2 rounded-full bg-purple-500 shadow-sm"></div>
+                  {/* 모바일: 점 대신 방송 시간 */}
+                  <div className="flex sm:hidden justify-center items-end h-full w-full pb-0.5">
+                    {log.durationHours > 0
+                      ? <span className="text-[10px] leading-none font-bold font-hanna font-pro text-purple-800 dark:text-purple-200 tabular-nums">{Math.round(log.durationHours * 10) / 10}h</span>
+                      : <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
                   </div>
 
                 </div>
@@ -927,7 +933,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
           onTouchEnd={handleCalendarTouchEnd}
           className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] overflow-hidden shadow-sm touch-pan-y transition-colors duration-200"
         >
-          <div className="p-5 sm:p-6 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="p-5 sm:p-6 pb-2 sm:pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
               <h3 className="text-xl font-bold text-zinc-900 dark:text-white shrink-0">방송 기록 달력</h3>
               
@@ -1027,10 +1033,10 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
             </div>
           </div>
           
-          <div className="grid grid-cols-7 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50">
+          <div className="grid grid-cols-7 px-2 sm:px-3 pt-1">
             {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
               <div key={d} className={cn(
-                "py-3 text-center text-sm font-semibold border-r border-zinc-200 dark:border-zinc-800 last:border-r-0",
+                "py-2 text-center text-xs sm:text-sm font-semibold",
                 d === '일' ? "text-red-500" : d === '토' ? "text-blue-500" : "text-zinc-500 dark:text-zinc-400"
               )}>
                 {d}
@@ -1097,7 +1103,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
             </div>
           )}
 
-          <div className="border-l border-t border-zinc-200 dark:border-zinc-800 flex flex-col">
+          <div className="flex flex-col px-2 sm:px-3 pb-3">
             {rows}
           </div>
         </div>
