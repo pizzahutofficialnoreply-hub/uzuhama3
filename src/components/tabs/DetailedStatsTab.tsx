@@ -974,9 +974,9 @@ export function DetailedStatsTab({
     <div className="space-y-6" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
       
       {/* Filters */}
-      <div id="detailed-main-card" className="w-full max-w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col xl:flex-row xl:flex-wrap justify-between items-stretch xl:items-center gap-4 xl:gap-6 box-border overflow-hidden relative">
+      <div id="detailed-main-card" className="w-full max-w-full bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 flex flex-col xl:flex-row xl:flex-wrap justify-between items-stretch xl:items-center gap-4 xl:gap-6 box-border overflow-hidden relative">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-zinc-900 dark:text-white">상세 분석</h3>
+          <h3 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">상세 분석</h3>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 text-sm w-full xl:w-auto min-w-0 max-w-full box-border">
           {/* 기간 프리셋 버튼 그룹 */}
@@ -1178,11 +1178,11 @@ export function DetailedStatsTab({
         {isLegacyRange ? (
           <>
             {activeSubTab !== 'category' && (
-              <div className="space-y-6">
+              <div className="space-y-3">
                 {/* 1. 주간 방송 횟수 추이 */}
-                <div id="detailed-legacy-trend-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative space-y-4">
+                <div id="detailed-legacy-trend-card" className="bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 relative space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold">주간 방송 횟수 추이</h4>
+                    <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">주간 방송 횟수 추이</h4>
                     <WidgetShareButton targetId="detailed-legacy-trend-card" title="주간 방송 횟수 추이" />
                   </div>
                   <StatInsightSummary>
@@ -1219,18 +1219,18 @@ export function DetailedStatsTab({
                 </div>
 
                 {/* 2. 요일별 방송 빈도 그래프 & 요일별 방송 확률 표 (그래프와 표 함께 캡처) */}
-                <div id="detailed-legacy-weekday-combo" className="bg-zinc-50/50 dark:bg-zinc-950/40 p-5 sm:p-6 rounded-[24px] border border-zinc-200/80 dark:border-zinc-800/80 relative space-y-4">
+                <div id="detailed-legacy-weekday-combo" className="relative space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-zinc-900 dark:text-white text-base">요일별 방송 분석 (그래프 및 통계표)</h4>
+                    <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">요일별 방송</h4>
                     <WidgetShareButton targetId="detailed-legacy-weekday-combo" title="요일별 방송 분석" />
                   </div>
                   <StatInsightSummary>
                     {insights.dailySummary}
                     {cmpNote?.daily && <span className="block mt-1.5 pl-3 border-l-2" style={{ borderColor: COLOR_B }}>{cmpNote.daily}</span>}
                   </StatInsightSummary>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
-                      <h4 className="font-bold mb-4">요일별 방송 빈도 그래프</h4>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 flex flex-col">
+                      <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em] mb-3">요일별 방송 빈도 그래프</h4>
                       <div className="h-[300px] w-full">
                         {isActive && (
                           <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
@@ -1258,8 +1258,8 @@ export function DetailedStatsTab({
                       </div>
                     </div>
 
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
-                      <h4 className="font-bold mb-4">요일별 방송 확률 표</h4>
+                    <div className="bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 flex flex-col">
+                      <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em] mb-3">요일별 방송 확률 표</h4>
                       <div className="overflow-x-auto custom-scrollbar flex-1 w-full">
                         <table className="w-full min-w-[280px] text-left text-xs sm:text-sm whitespace-nowrap table-auto lg:table-fixed">
                           <thead className="bg-zinc-50 dark:bg-zinc-950/50 text-zinc-500 dark:text-zinc-400 font-semibold border-y border-zinc-200 dark:border-zinc-800">
@@ -1291,7 +1291,7 @@ export function DetailedStatsTab({
             )}
 
             {activeSubTab === 'category' && showLegacyCategory && (
-<div className="space-y-6">
+<div className="space-y-3">
               <CategoryStatsTab 
                 logs={logsArray} 
                 compareLogs={range2 ? logs2 : null}
@@ -1306,10 +1306,10 @@ export function DetailedStatsTab({
           /* 기존 2026년 이후 데이터: 방송 추이 / 요일별 분석 / 카테고리 분석 개별 탭 */
           <>
             {activeSubTab === 'trend' && (
-              <div className="space-y-6">
-                <div id="detailed-trend-weekly-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative space-y-4">
+              <div className="space-y-3">
+                <div id="detailed-trend-weekly-card" className="bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 relative space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold">주간 방송 횟수 추이</h4>
+                    <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">주간 방송 횟수 추이</h4>
                     <WidgetShareButton targetId="detailed-trend-weekly-card" title="주간 방송 횟수 추이" />
                   </div>
                   <StatInsightSummary>
@@ -1343,10 +1343,10 @@ export function DetailedStatsTab({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div id="detailed-day-times-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm col-span-1 lg:col-span-2 relative space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <div id="detailed-day-times-card" className="bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 col-span-1 lg:col-span-2 relative space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-bold">요일별 자주 오는 시간</h4>
+                      <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">요일별 자주 오는 시간</h4>
                       <WidgetShareButton targetId="detailed-day-times-card" title="요일별 자주 오는 시간" />
                     </div>
                     <StatInsightSummary>
@@ -1368,9 +1368,9 @@ export function DetailedStatsTab({
                     </div>
                   </div>
                   
-                  <div id="detailed-start-hour-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col relative space-y-4">
+                  <div id="detailed-start-hour-card" className="bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 flex flex-col relative space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-bold">시작 시간대별 그래프 & 순위</h4>
+                      <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">시작 시간대별 그래프 & 순위</h4>
                       <WidgetShareButton targetId="detailed-start-hour-card" title="시작 시간대별 분석" />
                     </div>
                     <StatInsightSummary>
@@ -1423,9 +1423,9 @@ export function DetailedStatsTab({
                     </div>
                   </div>
 
-                  <div id="detailed-duration-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col relative space-y-4">
+                  <div id="detailed-duration-card" className="bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 flex flex-col relative space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-bold">1회당 방송 진행 시간(길이) 비율</h4>
+                      <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">1회당 방송 진행 시간(길이) 비율</h4>
                       <WidgetShareButton targetId="detailed-duration-card" title="방송 진행 시간 분석" />
                     </div>
                     <StatInsightSummary>
@@ -1460,7 +1460,7 @@ export function DetailedStatsTab({
             )}
 
             {activeSubTab === 'day' && (
-              <div className="space-y-6">
+              <div className="space-y-3">
                 {/* 방송 히트맵 (잔디) */}
                 <BroadcastHeatmap 
                   logs={logsArray} 
@@ -1476,18 +1476,18 @@ export function DetailedStatsTab({
                 )}
 
                 {/* 요일별 방송 빈도 그래프 & 요일별 방송 확률 표 (그래프와 표 함께 캡처) */}
-                <div id="detailed-weekday-combo" className="bg-zinc-50/50 dark:bg-zinc-950/40 p-5 sm:p-6 rounded-[24px] border border-zinc-200/80 dark:border-zinc-800/80 relative space-y-4">
+                <div id="detailed-weekday-combo" className="relative space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-zinc-900 dark:text-white text-base">요일별 방송 분석 (그래프 및 통계표)</h4>
+                    <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">요일별 방송</h4>
                     <WidgetShareButton targetId="detailed-weekday-combo" title="요일별 방송 분석" />
                   </div>
                   <StatInsightSummary>
                     {insights.dailySummary}
                     {cmpNote?.daily && <span className="block mt-1.5 pl-3 border-l-2" style={{ borderColor: COLOR_B }}>{cmpNote.daily}</span>}
                   </StatInsightSummary>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
-                      <h4 className="font-bold mb-4">요일별 방송 빈도 그래프</h4>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 flex flex-col">
+                      <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em] mb-3">요일별 방송 빈도 그래프</h4>
                       <div className="h-[300px] w-full">
                         {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                           <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -1514,8 +1514,8 @@ export function DetailedStatsTab({
                       </div>
                     </div>
 
-                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm flex flex-col">
-                      <h4 className="font-bold mb-4">요일별 방송 확률 표</h4>
+                    <div className="bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 flex flex-col">
+                      <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em] mb-3">요일별 방송 확률 표</h4>
                       <div className="overflow-x-auto custom-scrollbar flex-1 w-full">
                         <table className="w-full min-w-[280px] text-left text-xs sm:text-sm whitespace-nowrap table-auto lg:table-fixed">
                           <thead className="bg-zinc-50 dark:bg-zinc-950/50 text-zinc-500 dark:text-zinc-400 font-semibold border-y border-zinc-200 dark:border-zinc-800">
@@ -1547,7 +1547,7 @@ export function DetailedStatsTab({
             )}
 
             {activeSubTab === 'category' && (
-<div className="space-y-6">
+<div className="space-y-3">
               <CategoryStatsTab 
                 logs={logsArray} 
                 compareLogs={range2 ? logs2 : null}

@@ -314,7 +314,7 @@ export const VideoCard = ({
   const expandCompilation = () => openAiCard(swipeId, video.videoTitle || '', trackRef.current || thumbRef.current, video.isCompilation ? `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임` : `영상 연동 · 생방송 ${broadcastDates.length}개`, {
     compilation: Boolean(video.isCompilation),
     noSummary: !video.isCompilation && !aiDone,
-    extra: (close) => <CompilationDetail video={video} allLogs={allLogs} onClose={close} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} listOnly />,
+    extra: (close, pick) => <CompilationDetail video={video} allLogs={allLogs} onClose={close} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} listOnly onPick={pick} />,
   });
   return (
     <VideoSwipe id={isExpanded ? undefined : swipeId} kind={video.isLive ? 'live' : 'video'} title={video.videoTitle || ''} shareText={() => formatRecommendShareText(video, allLogs)} onEngage={() => noteInterest(interestItem, 'engage')} className="h-full">
@@ -680,13 +680,13 @@ export function RecommendTab({
     if (!prevIsActiveRef.current && isActive) {
       // 검색탭 나갔다 들어오면 몰아보기 연동 생방 펼치기 상태를 초기화(원래 카드 목록으로 복귀)
       setSelectedBroadcastModalVideo(null);
-
-      // 외부에서 건너온 임시 카테고리/검색어였다면 사용자가 선택했던 원래 상태로 복구
-      if (isNavigatedFromExternalRef.current) {
-        setSelectedCategories(userChosenCategoriesRef.current || ['전체']);
-        setSearchTerm('');
-        isNavigatedFromExternalRef.current = false;
-      }
+    }
+    // 다른 탭에서 건너와 잠깐 바꾼 카테고리·검색어는 '검색 탭을 떠날 때' 원래대로
+    // (예전엔 들어올 때 되돌려서, 넘겨받은 검색어·카테고리가 탭이 열리자마자 지워졌음)
+    if (prevIsActiveRef.current && !isActive && isNavigatedFromExternalRef.current) {
+      setSelectedCategories(userChosenCategoriesRef.current || ['전체']);
+      setSearchTerm('');
+      isNavigatedFromExternalRef.current = false;
     }
     prevIsActiveRef.current = isActive;
   }, [isActive]);
@@ -2710,7 +2710,7 @@ export function RecommendTab({
                           interest={videoInterestItem(video)}
                           onLiveClick={video.isCompilation ? (labCardOn ? () => openAiCard(ytId, video.videoTitle || '', document.querySelector(`[data-ai-card="${ytId}"]`), `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임`, {
                             compilation: true,
-                            extra: (close) => <CompilationDetail video={video} allLogs={data?.logs} onClose={close} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} listOnly />,
+                            extra: (close, pick) => <CompilationDetail video={video} allLogs={data?.logs} onClose={close} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} listOnly onPick={pick} />,
                           }) : toggle) : undefined}
                           liveActive={isExpanded}
                           shorts={mergeShorts(shortsByVideo.get(ytId), !isMulti ? video.parentLog?.shorts : [])}

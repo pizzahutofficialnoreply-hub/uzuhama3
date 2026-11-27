@@ -18,9 +18,10 @@ export const StatInsightSummary: React.FC<StatInsightSummaryProps> = ({ children
   return (
     <div 
       className={cn(
-        "px-3.5 py-2.5 rounded-2xl",
-        "bg-purple-50/80 dark:bg-purple-950/30 border border-purple-100/90 dark:border-purple-900/40",
-        "text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium transition-colors",
+        // 토스식: 테두리·보라 상자 대신 옅은 회색 면에 문장 하나
+        "px-4 py-3 rounded-2xl",
+        "bg-zinc-100/80 dark:bg-zinc-800/60",
+        "text-[length:calc(13px*var(--fs,1))] text-zinc-700 dark:text-zinc-300 leading-relaxed transition-colors",
         className
       )}
     >

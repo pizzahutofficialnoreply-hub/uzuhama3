@@ -2,7 +2,7 @@ import { GameLinkCard } from './GameLinkCard';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, animate, useMotionValue, useTransform } from 'motion/react';
-import { ChevronDown, EyeOff, Eye, X } from 'lucide-react';
+import { ChevronDown, EyeOff, Eye, X, ChevronLeft } from 'lucide-react';
 import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { useBackToClose } from '../../hooks/useBackToClose';
 import { SummaryBody, CompilationSummary, loadDetail, goSearch, useDetailUpdates } from './AiSummaryHost';
@@ -31,7 +31,8 @@ export type CardOpts = {
   /** 요약 칸 없이 (재생목록) */
   noSummary?: boolean;
   /** 요약 아래에 붙는 내용 (들어 있는 방송·재생목록 영상) */
-  extra?: (close: () => void) => ReactNode;
+  /** pick: 안쪽 영상을 누르면 이 카드가 그 영상의 통합 카드로 바뀜 (← 로 돌아오기) */
+  extra?: (close: () => void, pick: (id: string, title: string, sub?: string) => void) => ReactNode;
   /** 맨 위 플레이어 주소 (재생목록 등) */
   embed?: string;
   thumb?: string;
@@ -170,7 +171,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
     const on = (e: any) => {
       // 썸네일 자리에서 재생 중이던 같은 영상을 다시 펼치면 재생은 그대로
       const same = dockRef.current && dockRef.current.id === e.detail?.id;
-      setTo(finalRect()); setSafeTop(safeInsets().top); dragY.set(0); setT(e.detail); setClosing(false); setData(null); setOpen(true); setSettled(false); setBodyReady(false); back.current = null;
+      setTo(finalRect()); setSafeTop(safeInsets().top); dragY.set(0); setT(e.detail); setClosing(false); setData(null); setOpen(true); setSettled(false); setBodyReady(false); back.current = null; setParentT(null);
       if (!same) setPlay(typeof e.detail?.start === 'number' ? { t: e.detail.start } : null);
       setDock(null); keepPlay.current = false;
       // 원래 카드는 들려 올라간 것처럼 자리만 남김
@@ -292,6 +293,21 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
     } else setPlay({ t: s });
   };
   /** 비슷한 영상 누름: 펼친 채로 그 영상으로 바꿔 바로 재생 */
+  // 몰아보기·재생목록 안에서 고른 영상으로 바뀌었을 때 돌아갈 원래 카드
+  const [parentT, setParentT] = useState<any>(null);
+  const pickFromList = (id: string, title: string, sub?: string) => {
+    if (!t) return;
+    setParentT(t);
+    setT({ id, title, sub, from: t.from, src: null });
+    setData(null); setPlay({ t: 0 }); setBodyReady(true);
+    scrollEl.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const backToParent = () => {
+    if (!parentT) return;
+    const p = parentT; setParentT(null);
+    setT(p); setData(null); setPlay({ t: 0 }); setBodyReady(true);
+    scrollEl.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const switchTo = (id: string, title: string, start = 0) => {
     if (!t) return;
     try { if (t.src) t.src.style.visibility = ''; } catch { /* */ }
@@ -379,6 +395,11 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
             </div>}
             <motion.div ref={scrollEl} className="absolute inset-0 overflow-y-auto overscroll-contain" initial={{ opacity: 0.35 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: closing ? 0.14 : 0.24 }}>
               <div className={to.wide ? 'pl-5 pr-[calc(env(safe-area-inset-right,0px)+20px)] pt-12 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]' : 'px-5 pt-16 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]'}>
+                {parentT && (
+                  <button type="button" onClick={backToParent} className="press-row -ml-2 mb-2 inline-flex items-center gap-1 px-2 py-1.5 rounded-xl text-[length:calc(13px*var(--fs,1))] font-bold text-purple-700 dark:text-purple-300 cursor-pointer">
+                    <ChevronLeft className="w-4 h-4" />{parentT.compilation ? '몰아보기 목록으로' : '목록으로'}
+                  </button>
+                )}
                 {t.embed || t.compilation || !bodyReady ? (<>
                   <h2 className="text-[length:calc(16px*var(--fs,1))] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
                   {t.sub && <p className="mt-1 text-[length:calc(12px*var(--fs,1))] text-zinc-500 tabular-nums">{t.sub}</p>}
@@ -457,7 +478,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                 </div>}
                 {t.compilation && isLaugh ? (
                   <div className="-mx-1.5"><CompLives id={t.id} logs={logs} ranges={data?.ranges} onPick={(id, title) => switchTo(id, title)} onSeek={(s) => seek(s)} /></div>
-                ) : t.extra && <div className="mt-4 -mx-3">{t.extra(close)}</div>}
+                ) : t.extra && <div className="mt-4 -mx-3">{t.extra(close, pickFromList)}</div>}
                 {!t.compilation && !t.embed && (
                   <div className="-mx-1.5">
                     <SimilarVideos part="similar" id={t.id} title={data?.title || t.title} logs={logs} ai={ready ? data : null} onPick={(id, title) => switchTo(id, title)} onShorts={(items, i, games) => {

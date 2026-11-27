@@ -391,7 +391,7 @@ export function CategoryStatsTab({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* 4대 요약 카드 (모바일 폰트 최적화로 말줄임 최소화 & 클릭 시 추천 영상 탭 이동 연동) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         {/* 1위 최다 플레이 카테고리 -> 클릭 시 추천 영상 탭 해당 카테고리 선택 */}
@@ -402,7 +402,7 @@ export function CategoryStatsTab({
             }
           }}
           className={cn(
-            "col-span-2 sm:col-span-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between transition-all group",
+            "col-span-2 sm:col-span-1 bg-white dark:bg-zinc-900 rounded-[22px] p-4 flex flex-col justify-between transition-all group",
             topCategory ? "cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md" : ""
           )}
           title={topCategory ? `클릭 시 추천 영상 탭에서 "${topCategory.name}" 카테고리로 이동해요.` : undefined}
@@ -423,7 +423,7 @@ export function CategoryStatsTab({
           </span>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-zinc-900 rounded-[22px] p-4 flex flex-col justify-between">
           <span className="text-[length:calc(11px*var(--fs,1))] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
             분류된 게임 카테고리 수
           </span>
@@ -435,7 +435,7 @@ export function CategoryStatsTab({
           </span>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-zinc-900 rounded-[22px] p-4 flex flex-col justify-between">
           <span className="text-[length:calc(11px*var(--fs,1))] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
             플레이한 고유 게임 수
           </span>
@@ -454,11 +454,11 @@ export function CategoryStatsTab({
       <div 
         id="detailed-category-pie-card"
         onClick={handleClearCategory}
-        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm cursor-default relative"
+        className="bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 cursor-default relative"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 sm:mb-6">
           <div>
-            <h4 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white font-hanna font-pro">
+            <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">
               카테고리별 비중 원그래프
             </h4>
             <p className="no-share text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
@@ -644,7 +644,7 @@ export function CategoryStatsTab({
       </div>
 
       {/* 가장 많이 플레이한 게임 카테고리 순위표 (검색창이 순위표 상단에 통합, 카테고리 선택 제거) */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm">
+      <div className="bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6">
         {selectedCategory && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl text-xs text-purple-900 dark:text-purple-200">
             <div className="flex items-center gap-2">
@@ -676,7 +676,7 @@ export function CategoryStatsTab({
         {/* 순위표 헤더 + 통합 검색창 및 정렬 */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
           <div>
-            <h4 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white font-hanna font-pro">
+            <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">
               가장 많이 플레이한 게임 카테고리 순위표
             </h4>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">

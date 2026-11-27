@@ -21,6 +21,8 @@ import { openAiCard } from './AiCardExpand';
  * - 오른쪽 끝: 생방송 버튼(보라), 쇼츠가 있으면 쇼츠 버튼(빨강)
  */
 export interface VideoListRowProps {
+  /** 누르면 이 함수로 (펼친 카드 안에서: 그 카드를 이 영상으로 바꿈) */
+  onPick?: (videoId: string, title: string, sub?: string) => void;
   /** 사이트 안 재생이어도 오른쪽 생방송·쇼츠 버튼을 보여 줌 (몰아보기 안 목록) */
   actions?: boolean;
   videoId: string;
@@ -56,7 +58,7 @@ export interface VideoListRowProps {
 }
 
 export function VideoListRow({
-  actions, videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense, placeholder, subline, shareText, edits = [], interest, saveKind, lives = [],
+  actions, onPick, videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense, placeholder, subline, shareText, edits = [], interest, saveKind, lives = [],
 }: VideoListRowProps) {
   const trackRef = useInterestTracker<HTMLDivElement>(interest || null);
   const meta = useVideoMeta(videoId || null);
@@ -88,6 +90,7 @@ export function VideoListRow({
       {/* 줄 전체를 덮는 링크 (버튼들은 그 위에 따로) */}
       <a href={link} target="_blank" rel="noreferrer" onClick={(e) => {
         noteInterest(interest, 'play');
+        if (onPick && videoId) { e.preventDefault(); onPick(videoId, title, subline || upload || badge); return; }
         if (!sitePlay) return;
         e.preventDefault();
         openAiCard(videoId, title, thumbRef.current, subline || upload || badge);

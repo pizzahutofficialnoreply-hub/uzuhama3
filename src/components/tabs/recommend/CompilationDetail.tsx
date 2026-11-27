@@ -23,7 +23,9 @@ const dayLabel = (d: string) => {
   return `${m}월 ${dd}일 (${DAYS[new Date(y, m - 1, dd).getDay()]})`;
 };
 
-export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalendar, listOnly = false }: {
+export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalendar, listOnly = false, onPick }: {
+  /** 펼친 카드 안: 고르면 그 카드가 이 영상의 통합 카드로 */
+  onPick?: (videoId: string, title: string, sub?: string) => void;
   video: any;
   allLogs: any;
   onClose: () => void;
@@ -32,8 +34,8 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
   listOnly?: boolean;
 }) {
   const [savedStyle, setViewStyle] = useViewStyle('compilation');
-  // 펼친 카드 안(웃참 제외 몰아보기): 항상 카드 — 유튜브·생방송·쇼츠 버튼이 카드 안에 같이 있는 그 카드
-  const viewStyle = listOnly ? 'card' : savedStyle;
+  // 펼친 카드 안(웃참 제외 몰아보기): 짧은 목록 → 누르면 위 카드가 그 영상의 통합 카드(영상·쇼츠·게임·AI 요약)로
+  const viewStyle = listOnly ? 'list' : savedStyle;
   const [page, setPage] = useState(1);
   // 설정에서 조절, 목록 보기는 한 줄이 작아서 카드의 2배
   const basePerPage = usePrefs().collectionPageSize;
@@ -99,9 +101,10 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
             <VideoListRow
               key={r.date}
               dense
-              actions
+              actions={!onPick}
+              onPick={onPick}
               index={(page - 1) * PER_PAGE + i + 1}
-              videoId={r.videoId}
+              videoId={r.videoId || (onPick ? extractYoutubeId(r.liveUrl || '') || undefined : undefined)}
               placeholder={r.date.replace(/-/g, '.')}
               title={r.title}
               href={r.href}
