@@ -382,6 +382,15 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                 {/* AI 요약·스크립트가 있을 때만 찾기 칸 (없으면 찾을 게 없음) */}
                 {!t.embed && (ready || hasScript || compHas) && <CardFind key={`f-${t.id}`} id={t.id} onSeek={(x) => seek(x)} onOpen={(id, title, x) => switchTo(id, title, x)} />}
 
+                {/* 연결된 생방송·쇼츠를 AI 요약보다 먼저 (유튜브로 보기는 위 제목 칸에 그대로) */}
+                {!t.compilation && !t.embed && (
+                  <div className="-mx-1.5 -mt-2">
+                    <SimilarVideos part="linked" id={t.id} title={data?.title || t.title} logs={logs} onPick={(id, title) => switchTo(id, title)} onShorts={(items, i, games) => {
+                      try { frame.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*'); } catch { /* */ }
+                      setShortsView({ items: [...items, ...recommendShorts(logs, games, items.map((x) => x.url))], i });
+                    }} />
+                  </div>
+                )}
                 {(showSummary || hasScript) && <div className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
                   <div className="flex items-center gap-2 px-4 py-3">
                     {showSummary && hasScript ? (
@@ -434,7 +443,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                 ) : t.extra && <div className="mt-4 -mx-3">{t.extra(close)}</div>}
                 {!t.compilation && !t.embed && (
                   <div className="-mx-1.5">
-                    <SimilarVideos id={t.id} title={data?.title || t.title} logs={logs} ai={ready ? data : null} onPick={(id, title) => switchTo(id, title)} onShorts={(items, i, games) => {
+                    <SimilarVideos part="similar" id={t.id} title={data?.title || t.title} logs={logs} ai={ready ? data : null} onPick={(id, title) => switchTo(id, title)} onShorts={(items, i, games) => {
                       // 쇼츠 보기: 연결된 쇼츠를 다 보고 나면 추천 쇼츠로 이어서 (영상은 멈춤)
                       try { frame.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*'); } catch { /* */ }
                       setShortsView({ items: [...items, ...recommendShorts(logs, games, items.map((x) => x.url))], i });

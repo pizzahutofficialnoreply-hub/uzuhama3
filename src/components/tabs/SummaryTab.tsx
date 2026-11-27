@@ -18,7 +18,7 @@ interface SummaryTabProps {
   isActive?: boolean;
   /** 토스식 홈 카드에서 이동 */
   onOpenDate?: (date: string) => void;
-  onOpenStats?: (sub: 'trend' | 'day' | 'category', start: string, end: string) => void;
+  onOpenStats?: (sub: 'summary' | 'trend' | 'day' | 'category', start: string, end: string) => void;
   onOpenVideo?: (videoId: string | null) => void;
 }
 

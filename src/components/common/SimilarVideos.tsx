@@ -36,7 +36,10 @@ function candidates(logs: Record<string, BroadcastLog>): Cand[] {
   return cache.list;
 }
 
-export function SimilarVideos({ id, title, logs, ai, onPick, onShorts }: { id: string; title: string; logs?: Record<string, BroadcastLog>; ai?: any; onPick: (id: string, title: string, el: Element | null) => void; onShorts?: (items: { url: string; title?: string }[], index: number, games: string[]) => void }) {
+export function SimilarVideos({ id, title, logs, ai, onPick, onShorts, part }: {
+  /** linked: 연결된 생방송·쇼츠만 (AI 요약 위) / similar: 추천 영상만 (맨 아래) / 없으면 둘 다 */
+  part?: 'linked' | 'similar';
+  id: string; title: string; logs?: Record<string, BroadcastLog>; ai?: any; onPick: (id: string, title: string, el: Element | null) => void; onShorts?: (items: { url: string; title?: string }[], index: number, games: string[]) => void }) {
   const list = useMemo(() => {
     if (!logs) return [];
     const all = candidates(logs);
@@ -89,16 +92,17 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts }: { id: s
   const shorts = linked.filter((x) => x.kind === 'short');
   const others = linked.filter((x) => x.kind !== 'short');
 
-  if (!rest.length && !linked.length) return null;
+  const showLinked = part !== 'similar', showRest = part !== 'linked';
+  if (!(showRest && rest.length) && !(showLinked && linked.length)) return null;
   return (
     <>
-      {others.length > 0 && (
+      {showLinked && others.length > 0 && (
         <section className="mt-6" aria-label="연결된 영상">
           <h3 className="px-1 mb-2.5 text-[13px] font-black text-white">{others.some((x) => x.kind === 'live') ? '이 영상의 생방송' : '이 방송의 영상'}</h3>
           <div className="space-y-3">{others.map((c) => <Card key={c.id} c={{ ...c, cats: [] }} onPick={onPick} logs={logs} />)}</div>
         </section>
       )}
-      {shorts.length > 0 && (
+      {showLinked && shorts.length > 0 && (
         <section className="mt-6" aria-label="연결된 쇼츠">
           <h3 className="px-1 mb-2.5 text-[13px] font-black text-white">연결된 쇼츠</h3>
           <div className="flex gap-2.5 overflow-x-auto no-scrollbar -mx-1 px-1 pb-1" data-no-swipe>
@@ -112,7 +116,7 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts }: { id: s
           </div>
         </section>
       )}
-      {rest.length > 0 && (
+      {showRest && rest.length > 0 && (
         <section className="mt-6" aria-label="추천 영상">
           <h3 className="px-1 mb-2.5 text-[13px] font-black text-white">추천 영상</h3>
           <div className="space-y-3">{rest.map((c) => <Card key={c.id} c={c} onPick={onPick} logs={logs} />)}</div>

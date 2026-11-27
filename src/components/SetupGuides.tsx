@@ -62,7 +62,7 @@ function Hot({ on = true, children, className, round }: { on?: boolean; children
 /** 사이트 화면을 흉내 낸 배경 */
 function SitePage({ dim }: { dim?: boolean }) {
   return (
-    <div className={cn('absolute inset-0 bg-[#f2f4f6] dark:bg-[#0b0c0f] transition-opacity', dim && 'opacity-60')}>
+    <div className={cn('absolute inset-0 bg-[#f2f4f6] dark:bg-[#101012] transition-opacity', dim && 'opacity-60')}>
       <div className="px-[6cqw] pt-[3cqw] space-y-[3cqw]">
         <div className="flex items-center justify-between">
           <span className="text-[5cqw] font-black text-zinc-800 dark:text-zinc-100">우주하마 방송 예측</span>
@@ -92,7 +92,7 @@ function Phone({ os, children }: { os: 'ios' | 'android'; children: React.ReactN
       style={{ aspectRatio: `1 / ${ratio}` }}
       aria-hidden="true"
     >
-      <div className="relative w-full h-full overflow-hidden rounded-[9.5%/4.4%] bg-[#f2f4f6] dark:bg-[#0b0c0f]" style={{ containerType: 'inline-size' }}>
+      <div className="relative w-full h-full overflow-hidden rounded-[9.5%/4.4%] bg-[#f2f4f6] dark:bg-[#101012]" style={{ containerType: 'inline-size' }}>
         {/* 상태 표시줄 */}
         <div className="absolute top-0 inset-x-0 h-[10cqw] z-30 flex items-center justify-between px-[7cqw] text-[3.6cqw] font-bold text-zinc-800 dark:text-zinc-100 pointer-events-none">
           <span>9:41</span>
@@ -111,7 +111,7 @@ function Phone({ os, children }: { os: 'ios' | 'android'; children: React.ReactN
 function Desktop({ children }: { children: React.ReactNode }) {
   return (
     <div className="w-full max-w-[340px] aspect-[16/10] rounded-xl bg-zinc-200 dark:bg-zinc-800 p-[1.5%] shadow-[0_20px_40px_-20px_rgba(0,0,0,0.45)]" aria-hidden="true">
-      <div className="relative w-full h-full rounded-lg overflow-hidden bg-[#f2f4f6] dark:bg-[#0b0c0f]" style={{ containerType: 'inline-size' }}>{children}</div>
+      <div className="relative w-full h-full rounded-lg overflow-hidden bg-[#f2f4f6] dark:bg-[#101012]" style={{ containerType: 'inline-size' }}>{children}</div>
     </div>
   );
 }
@@ -1214,7 +1214,7 @@ export default function SetupGuides({ initial, mode, onClose }: { initial?: Guid
 
   return createPortal(
     <motion.div
-      className="fixed inset-0 z-[600] bg-[#f2f4f6] dark:bg-[#0b0c0f] text-zinc-900 dark:text-white flex flex-col"
+      className="fixed inset-0 z-[600] bg-[#f2f4f6] dark:bg-[#101012] text-zinc-900 dark:text-white flex flex-col"
       initial={{ y: '100%' }}
       animate={{ y: 0 }}
       exit={{ y: '100%' }}

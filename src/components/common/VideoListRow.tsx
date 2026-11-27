@@ -82,7 +82,7 @@ export function VideoListRow({
 
   return (
     <VideoSwipe id={videoId} kind={(saveKind || interest?.kind || 'video') as any} title={title} shareText={shareText} radius={16} cell onEngage={() => noteInterest(interest, 'engage')}>
-    <div ref={trackRef} data-ai-card={onLiveClick && isCompilation ? videoId : undefined} className={cn('press-row group relative flex items-center gap-3.5 rounded-[18px]', held && 'video-held', dense ? 'p-2' : 'px-2.5 py-2.5', highlighted && 'bg-purple-50 dark:bg-purple-950/40')}>
+    <div ref={trackRef} data-ai-card={onLiveClick && isCompilation ? videoId : undefined} className={cn('press-row group relative flex gap-3.5 rounded-[18px]', dense ? 'items-center' : 'items-start', held && 'video-held', dense ? 'p-2' : 'px-2.5 py-2', highlighted && 'bg-purple-50 dark:bg-purple-950/40')}>
       {/* 줄 전체를 덮는 링크 (버튼들은 그 위에 따로) */}
       <a href={link} target="_blank" rel="noreferrer" onClick={(e) => {
         noteInterest(interest, 'play');
@@ -95,7 +95,7 @@ export function VideoListRow({
         <span className="w-5 text-right text-[11px] text-zinc-400 tabular-nums shrink-0 pointer-events-none">{index}</span>
       )}
 
-      <div ref={thumbRef} data-thumb data-ai-card={onLiveClick && isCompilation ? undefined : videoId || undefined} className="relative w-[40%] max-w-[168px] sm:max-w-[196px] aspect-video rounded-[14px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 pointer-events-none">
+      <div ref={thumbRef} data-thumb data-ai-card={onLiveClick && isCompilation ? undefined : videoId || undefined} className={cn("relative aspect-video rounded-[14px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 pointer-events-none", dense ? 'w-[40%] max-w-[168px] sm:max-w-[196px]' : 'w-[44%] max-w-[240px] sm:max-w-[260px]')}>
         {videoId ? (
           <img src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
         ) : (
@@ -109,9 +109,9 @@ export function VideoListRow({
         {progress > 0.02 && <ProgressBar value={progress} />}
       </div>
 
-      <div className="min-w-0 flex-1 pointer-events-none">
+      <div className={cn("min-w-0 flex-1 pointer-events-none", !dense && 'pt-0.5')}>
         {held && <p className="mb-0.5 text-[11px] font-bold text-zinc-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3" />{HELD_TEXT}</p>}
-        <p className="text-[15px] sm:text-[16px] font-bold font-hanna font-pro leading-snug text-zinc-900 dark:text-zinc-100 line-clamp-2 break-keep">{title}</p>
+        <p className={cn("font-bold font-hanna font-pro leading-snug text-zinc-900 dark:text-zinc-100 line-clamp-2 break-keep", dense ? 'text-[15px] sm:text-[16px]' : 'text-[16px] sm:text-[17px]')}>{title}</p>
         {(badge || isCompilation) && (
           <p className="mt-1 text-[12px] font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1">
             {isCompilation && <Layers className="w-3 h-3" />}
@@ -122,7 +122,7 @@ export function VideoListRow({
       </div>
 
       {sitePlay && !onLiveClick ? (
-        <div className="relative z-10 shrink-0 -mr-1">
+        <div className={cn("relative z-10 shrink-0 -mr-1.5", !dense && '-mt-1')}>
           <ItemMenu id={videoId} kind={saveKind || interest?.kind || 'video'} title={title} className="w-9 h-9 rounded-full" shareText={shareText} onShare={() => noteInterest(interest, 'engage')} />
         </div>
       ) : (videoId || liveUrl || lives.length > 0 || onLiveClick || validShorts.length > 0 || shareText || edits.length > 0) && (

@@ -166,8 +166,22 @@ html, body {
   -webkit-touch-callout: none;
 }
 
+/* 어두운 화면은 토스 다크 그대로: 푸른 기 없는 회색 (바탕 #101012, 카드 #171719, 한 단계 위 #252527) */
+html.dark {
+  --color-zinc-50: #f9f9fa;
+  --color-zinc-100: #ececee;
+  --color-zinc-200: #d9d9de;
+  --color-zinc-300: #b8b8bf;
+  --color-zinc-400: #8f8f97;
+  --color-zinc-500: #6c6c73;
+  --color-zinc-600: #4d4d52;
+  --color-zinc-700: #3a3a3e;
+  --color-zinc-800: #252527;
+  --color-zinc-900: #171719;
+  --color-zinc-950: #101012;
+}
 html.dark, html.dark body {
-  background-color: #0b0c0f;
+  background-color: #101012;
   color: #f2f4f6;
 }
 

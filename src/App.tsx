@@ -925,7 +925,7 @@ function MainApp() {
   if (maintenanceStatus.isInProgress && !automationBypass) return <MaintenanceScreen system={data.system} maintSystem={maintSystem} onEnd={openWithIntro} />;
 
   return (
-    <div className="min-h-[100dvh] min-h-screen bg-[#f2f4f6] dark:bg-[#0b0c0f] text-zinc-900 dark:text-zinc-100 font-sans selection:bg-purple-500/30 flex flex-col overflow-x-clip w-full">
+    <div className="min-h-[100dvh] min-h-screen bg-[#f2f4f6] dark:bg-[#101012] text-zinc-900 dark:text-zinc-100 font-sans selection:bg-purple-500/30 flex flex-col overflow-x-clip w-full">
       
       {/* System Big Notice Modal (개별 공지 type이 'big' 또는 'both'이거나, 전역 noticeType이 'big' 또는 'both'인 경우) */}
       {(() => {
@@ -1021,7 +1021,7 @@ function MainApp() {
           backdropFilter: 'blur(28px) saturate(180%)' 
         }}
         className={cn(
-          "border-b border-transparent bg-[#f2f4f6]/80 dark:bg-[#0b0c0f]/80 backdrop-blur-3xl backdrop-saturate-180 sticky top-0 z-50 pt-[calc(env(safe-area-inset-top,0px)+12px)] pb-1.5 sm:pt-3.5 sm:pb-1.5",
+          "border-b border-transparent bg-[#f2f4f6]/80 dark:bg-[#101012]/80 backdrop-blur-3xl backdrop-saturate-180 sticky top-0 z-50 pt-[calc(env(safe-area-inset-top,0px)+12px)] pb-1.5 sm:pt-3.5 sm:pb-1.5",
           isHeaderHidden && "pointer-events-none shadow-none border-b-transparent"
         )}
       >
@@ -1213,7 +1213,7 @@ function MainApp() {
             <div ref={tabContentRef} id="tab-content-container" className="pb-24 sm:pb-8">
               <div id="summary-tab-view" className={activeTab === 'summary' ? 'block tab-enter' : 'hidden'}>
                 <SummaryTab data={data} fetchLogs={fetchLogsByDateRange} isActive={activeTab === 'summary'}
-                  onOpenDate={handleNavigateToCalendar}
+                  onOpenDate={(d) => { (window as unknown as { __uzuCalPanel?: boolean }).__uzuCalPanel = true; handleNavigateToCalendar(d); }}
                   onOpenStats={(sub, start, end) => { window.dispatchEvent(new CustomEvent('uzuhama:stats-open', { detail: { sub, start, end } })); handleTabChange('detailed'); }}
                   onOpenVideo={(id) => (id ? handleNavigateToRecommend(undefined, undefined, id) : handleTabChange('recommend'))} />
               </div>

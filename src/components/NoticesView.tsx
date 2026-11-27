@@ -68,7 +68,7 @@ export function NoticesView({ system, onClose }: { system?: SystemConfig; onClos
 
   return createPortal(
     <motion.div
-      className="fixed inset-0 z-[200] bg-[#f2f4f6] dark:bg-[#0b0c0f] overflow-y-auto"
+      className="fixed inset-0 z-[200] bg-[#f2f4f6] dark:bg-[#101012] overflow-y-auto"
       initial={{ x: '100%' }}
       animate={{ x: 0 }}
       exit={{ x: '100%' }}

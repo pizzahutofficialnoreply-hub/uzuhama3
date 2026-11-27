@@ -424,6 +424,15 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
         setAppliedEndDate(`${y}-12-31`);
         setHasCustomFilter(true);
 
+        // 요약 탭 '최근 방송'에서 온 경우: 그날을 누르면 열리는 상세 칸 시작으로
+        const w = window as unknown as { __uzuCalPanel?: boolean };
+        if (w.__uzuCalPanel) {
+          w.__uzuCalPanel = false;
+          setTimeout(() => {
+            const panel = document.getElementById('calendar-detail-panel');
+            if (panel) window.scrollTo({ top: panel.getBoundingClientRect().top + window.scrollY - 76, behavior: 'smooth' });
+          }, 520);
+        } else
         // 해당 날짜의 테이블 또는 달력으로 부드럽게 스크롤
         setTimeout(() => {
           const targetRow = document.getElementById(`table-row-${selectedDateStr}`);
@@ -756,6 +765,21 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
 
   const selectedLog = selectedDate ? getLogForDate(selectedDate) : null;
 
+  // 히트맵 진하기: 이 달 안에서 순위로 (방송 시간이 거의 비슷해도 칸마다 조금씩 달라 보이게)
+  const heatOf = (() => {
+    const hs: number[] = [];
+    for (let d = startDate; d <= endDate; d = addDays(d, 1)) { const l = getLogForDate(d); if (l && !l.isAbsence) hs.push(l.durationHours || 0); }
+    const sorted = [...new Set(hs)].sort((a, b) => a - b);
+    const lo = sorted[0] ?? 0, hi = sorted[sorted.length - 1] ?? 0;
+    return (h: number) => {
+      if (sorted.length <= 1) return 0.34;
+      const i = sorted.indexOf(h); if (i < 0) return 0.12;
+      const rank = i / (sorted.length - 1);
+      const lin = hi > lo ? (h - lo) / (hi - lo) : 0.5;
+      return 0.12 + (rank * 0.6 + lin * 0.4) * 0.5; // 0.12 ~ 0.62
+    };
+  })();
+
   const rows = [];
   let days = [];
   let day = startDate;
@@ -786,7 +810,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                 selectedDate && isSameDay(cloneDay, selectedDate) ? "ring-2 ring-purple-500 dark:ring-purple-400" : "",
                 !log && "hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
               )}
-              style={log ? { backgroundColor: `rgb(119 145 193 / ${(0.13 + Math.min(1, (log.durationHours || 2) / 6) * 0.3).toFixed(2)})` } : undefined}
+              style={log ? { backgroundColor: `rgb(119 145 193 / ${heatOf(log.durationHours || 0).toFixed(2)})` } : undefined}
             >
               {(() => {
                 const cloneDateStr = format(cloneDay, 'yyyy-MM-dd');

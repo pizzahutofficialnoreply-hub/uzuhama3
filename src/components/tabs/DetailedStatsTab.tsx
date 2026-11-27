@@ -50,6 +50,7 @@ const TrendTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
+import { StatsSummary } from '../stats/StatsSummary';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList } from 'recharts';
 import { format, startOfYear, startOfMonth, endOfMonth, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, subDays, subYears, formatISO, addDays } from 'date-fns';
@@ -324,15 +325,15 @@ export function DetailedStatsTab({
   const defaultStartDate = `${latestYear}-01-01`;
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [activeSubTab, setActiveSubTab] = useState<'trend' | 'day' | 'category'>('trend');
+  const [activeSubTab, setActiveSubTab] = useState<'summary' | 'trend' | 'day' | 'category'>('summary');
   // 비교: 날짜 옆 + 로 기간 하나를 더 고르면 지금 분석 위에 덧씌워 비교
   const [range2, setRange2] = useState<CmpRange | null>(null);
   const compare = false;
-  const selectSub = (t: 'trend' | 'day' | 'category') => setActiveSubTab(t);
+  const selectSub = (t: 'summary' | 'trend' | 'day' | 'category') => setActiveSubTab(t);
   // 요약 탭 카드에서 '분석 탭의 ○○로' 이동 (하위 탭 + 기간)
   useEffect(() => {
     const on = (e: Event) => {
-      const d = (e as CustomEvent<{ sub?: 'trend' | 'day' | 'category'; start?: string; end?: string }>).detail || {};
+      const d = (e as CustomEvent<{ sub?: 'summary' | 'trend' | 'day' | 'category'; start?: string; end?: string }>).detail || {};
       if (d.sub) setActiveSubTab(d.sub);
       if (d.start && d.end) { setStartDate(d.start); setEndDate(d.end); fetchLogs?.(d.start, d.end); }
     };
@@ -939,7 +940,7 @@ export function DetailedStatsTab({
 
   // 휴대폰: 화면을 옆으로 밀어 하위 탭 이동 (검색 탭과 같게, 차트·표·가로 스크롤 위에서는 안 함)
   const swipeRef = useRef<{ x: number; y: number; t: number; ok: boolean } | null>(null);
-  const subTabs: ('trend' | 'day' | 'category')[] = isLegacyRange ? (showLegacyCategory ? ['trend', 'category'] : ['trend']) : ['trend', 'day', 'category'];
+  const subTabs: ('summary' | 'trend' | 'day' | 'category')[] = isLegacyRange ? (showLegacyCategory ? ['summary', 'trend', 'category'] : ['summary', 'trend']) : ['summary', 'trend', 'day', 'category'];
   const onSwipeStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
     const target = e.target as HTMLElement;
@@ -1067,6 +1068,15 @@ export function DetailedStatsTab({
           {isLegacyRange ? (
             <>
               <button
+                onClick={() => selectSub('summary')} data-testid="stats-tab-summary"
+                className={cn(
+                  "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
+                  !compare && activeSubTab === 'summary' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+                )}
+              >
+                요약
+              </button>
+              <button
                 onClick={() => selectSub('trend')} data-testid="stats-tab-trend"
                 className={cn(
                   "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
@@ -1089,6 +1099,15 @@ export function DetailedStatsTab({
             </>
           ) : (
             <>
+              <button
+                onClick={() => selectSub('summary')} data-testid="stats-tab-summary"
+                className={cn(
+                  "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
+                  !compare && activeSubTab === 'summary' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+                )}
+              >
+                요약
+              </button>
               <button
                 onClick={() => selectSub('trend')} data-testid="stats-tab-trend"
                 className={cn(
@@ -1162,10 +1181,14 @@ export function DetailedStatsTab({
       </div>
 
       <div className="space-y-6 bg-transparent">
+        {activeSubTab === 'summary' && (
+          <StatsSummary logs={logsArray} start={startDate} end={endDate}
+            onGo={(t) => selectSub(isLegacyRange && t === 'day' ? 'trend' : isLegacyRange && t === 'category' && !showLegacyCategory ? 'trend' : t)} />
+        )}
         {/* ~2025 데이터일 때: 방송 추이와 요일별 분석을 합치고 히트맵은 숨김 */}
         {isLegacyRange ? (
           <>
-            {activeSubTab !== 'category' && (
+            {activeSubTab !== 'category' && activeSubTab !== 'summary' && (
               <div className="space-y-6">
                 {/* 1. 주간 방송 횟수 추이 */}
                 <div id="detailed-legacy-trend-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative space-y-4">

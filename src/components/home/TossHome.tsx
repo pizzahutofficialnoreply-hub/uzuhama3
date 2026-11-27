@@ -8,7 +8,8 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { format, parseISO, subDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ChevronRight, Gamepad2, CalendarDays, Clock, Film } from 'lucide-react';
+import { ChevronRight, ChevronDown, Gamepad2, CalendarDays, Clock, Film } from 'lucide-react';
+import { openAiCard } from '../common/AiCardExpand';
 import type { AppData, BroadcastLog } from '../../types';
 import { extractYoutubeId } from '../../utils/urlUtils';
 import { cn } from '../../utils';
@@ -21,9 +22,9 @@ function Thumb({ src, fallback }: { src: string | null; fallback: ReactNode }) {
 }
 const thumbOf = (url?: string) => { const id = extractYoutubeId(url || ''); return id ? `https://i.ytimg.com/vi/${id}/mqdefault.jpg` : null; };
 const gamesOf = (l: BroadcastLog) => (l.games?.length ? l.games.map((g) => g.name) : [l.game]).filter(Boolean).join(' · ');
-const hoursText = (h: number) => { if (!h) return ''; const m = Math.round(h * 60); return m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ` ${m % 60}분` : ''}` : `${m}분`; };
+export const hoursText = (h: number) => { if (!h) return ''; const m = Math.round(h * 60); return m >= 60 ? `${Math.floor(m / 60)}시간${m % 60 ? ` ${m % 60}분` : ''}` : `${m}분`; };
 
-function Section({ title, onMore, children }: { title: string; onMore?: () => void; children: ReactNode }) {
+export function Section({ title, onMore, children }: { title: string; onMore?: () => void; children: ReactNode }) {
   return (
     <section className="bg-white dark:bg-zinc-900 rounded-[26px] px-3 pt-3 pb-2.5">
       <button type="button" onClick={onMore} disabled={!onMore} className="press-row w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-left disabled:cursor-default">
@@ -35,9 +36,9 @@ function Section({ title, onMore, children }: { title: string; onMore?: () => vo
   );
 }
 
-function Row({ icon, caption, value, onClick, right }: { icon: ReactNode; caption: string; value: string; onClick?: () => void; right?: ReactNode }) {
+export function Row({ icon, caption, value, onClick, right }: { icon: ReactNode; caption: string; value: string; onClick?: (el: HTMLElement) => void; right?: ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className="press-row w-full flex items-center gap-3.5 px-3 py-2.5 rounded-2xl text-left">
+    <button type="button" onClick={(e) => onClick?.(e.currentTarget)} className="press-row w-full flex items-center gap-3.5 px-3 py-2.5 rounded-2xl text-left">
       <span className="w-11 h-11 rounded-full shrink-0 overflow-hidden flex items-center justify-center">{icon}</span>
       <span className="flex-1 min-w-0">
         <span className="block text-[13px] text-zinc-500 dark:text-zinc-400 truncate">{caption}</span>
@@ -48,7 +49,7 @@ function Row({ icon, caption, value, onClick, right }: { icon: ReactNode; captio
   );
 }
 
-const Tint = ({ children, tone }: { children: ReactNode; tone: 'purple' | 'amber' | 'emerald' | 'rose' | 'zinc' }) => (
+export const Tint = ({ children, tone }: { children: ReactNode; tone: 'purple' | 'amber' | 'emerald' | 'rose' | 'zinc' }) => (
   <span className={cn('w-full h-full flex items-center justify-center [&>svg]:w-[22px] [&>svg]:h-[22px]', {
     purple: 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
     amber: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300',
@@ -62,8 +63,8 @@ export function TossHome({ data, onOpenDate, onOpenStats, onOpenVideo }: {
   data: AppData;
   onOpenDate: (date: string) => void;
   /** 분석 탭: 하위 탭 + 기간 */
-  onOpenStats: (sub: 'trend' | 'day' | 'category', start: string, end: string) => void;
-  /** 검색 탭에서 그 영상 */
+  onOpenStats: (sub: 'summary' | 'trend' | 'day' | 'category', start: string, end: string) => void;
+  /** 검색 탭으로 */
   onOpenVideo: (videoId: string | null) => void;
 }) {
   const logs = useMemo(() => Object.values(data.logs || {}).filter((l) => l?.date && !l.isAbsence).sort((a, b) => (b.date + (b.time || '')).localeCompare(a.date + (a.time || ''))), [data.logs]);
@@ -86,9 +87,11 @@ export function TossHome({ data, onOpenDate, onOpenStats, onOpenVideo }: {
 
   const newVideos = useMemo(() => {
     const out: { url: string; title: string; date: string }[] = [];
-    for (const l of logs) { for (const v of l.edited || []) { if (v?.url && v.title) out.push({ url: v.url, title: v.title, date: l.date }); } if (out.length >= 6) break; }
-    return out.slice(0, 2);
+    for (const l of logs) { for (const v of l.edited || []) { if (v?.url && v.title) out.push({ url: v.url, title: v.title, date: l.date }); } if (out.length >= 8) break; }
+    return out.slice(0, 8);
   }, [logs]);
+  // 새 영상: 처음 3개 → '더보기'(흐린 끝 + 글자)를 누르면 카드가 늘어나며 8개까지 → 그다음은 '자세히 보기'(검색 탭)
+  const [moreVideos, setMoreVideos] = useState(false);
 
   if (!logs.length) return null;
   const dayText = (d: string) => format(parseISO(d), 'M월 d일 (E)', { locale: ko });
@@ -107,7 +110,7 @@ export function TossHome({ data, onOpenDate, onOpenStats, onOpenVideo }: {
         })}
       </Section>
 
-      <Section title={month.label} onMore={() => onOpenStats('trend', month.start, month.end)}>
+      <Section title={month.label} onMore={() => onOpenStats('summary', month.start, month.end)}>
         <Row onClick={() => onOpenStats('trend', month.start, month.end)} icon={<Tint tone="emerald"><CalendarDays /></Tint>} caption="방송한 날" value={month.n ? `${month.n}번` : '아직 없어요'} />
         {month.hours > 0 && <Row onClick={() => onOpenStats('day', month.start, month.end)} icon={<Tint tone="amber"><Clock /></Tint>} caption="방송한 시간" value={hoursText(month.hours)} />}
         {month.top && <Row onClick={() => onOpenStats('category', month.start, month.end)} icon={<Tint tone="rose"><Gamepad2 /></Tint>} caption="제일 많이 한 게임" value={month.top} />}
@@ -115,14 +118,29 @@ export function TossHome({ data, onOpenDate, onOpenStats, onOpenVideo }: {
 
       {newVideos.length > 0 && (
         <Section title="새 영상" onMore={() => onOpenVideo(null)}>
-          {newVideos.map((v) => {
-            const t = thumbOf(v.url);
-            return (
-              <Row key={v.url} onClick={() => onOpenVideo(extractYoutubeId(v.url))}
-                icon={<Thumb src={t} fallback={<Tint tone="zinc"><Film /></Tint>} />}
-                caption={dayText(v.date)} value={v.title} />
-            );
-          })}
+          <div className="relative overflow-hidden transition-[max-height] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]" style={{ maxHeight: moreVideos ? newVideos.length * 66 + 8 : (newVideos.length > 3 ? 3 * 66 - 22 : 999) }}>
+            {newVideos.map((v) => {
+              const id = extractYoutubeId(v.url);
+              return (
+                <Row key={v.url}
+                  onClick={(el) => (id ? openAiCard(id, v.title, el, `${dayText(v.date)} 영상`) : onOpenVideo(null))}
+                  icon={<Thumb src={thumbOf(v.url)} fallback={<Tint tone="zinc"><Film /></Tint>} />}
+                  caption={dayText(v.date)} value={v.title}
+                />
+              );
+            })}
+            {!moreVideos && newVideos.length > 3 && (
+              <button type="button" onClick={() => setMoreVideos(true)}
+                className="absolute inset-x-0 bottom-0 h-16 flex items-end justify-center pb-1.5 bg-gradient-to-b from-white/0 via-white/80 to-white dark:from-zinc-900/0 dark:via-zinc-900/80 dark:to-zinc-900 backdrop-blur-[1.5px] [mask-image:linear-gradient(to_bottom,transparent,black_45%)] cursor-pointer">
+                <span className="text-[14px] font-bold font-hanna font-pro text-zinc-600 dark:text-zinc-300 flex items-center gap-1">더보기<ChevronDown className="w-4 h-4" /></span>
+              </button>
+            )}
+          </div>
+          {moreVideos && (
+            <button type="button" onClick={() => onOpenVideo(null)} className="press-row w-full mt-1 py-3 rounded-2xl text-[14px] font-bold font-hanna font-pro text-zinc-600 dark:text-zinc-300 flex items-center justify-center gap-1">
+              자세히 보기<ChevronRight className="w-4 h-4" />
+            </button>
+          )}
         </Section>
       )}
 
