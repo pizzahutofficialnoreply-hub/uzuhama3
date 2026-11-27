@@ -105,7 +105,7 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
           href={ytId ? `https://www.youtube.com/shorts/${ytId}` : url}
           target="_blank"
           rel="noreferrer"
-          className="flex-1 min-w-0 px-0.5 text-[13px] font-bold leading-snug text-zinc-900 dark:text-white line-clamp-2 break-keep hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+          className="flex-1 min-w-0 px-0.5 text-[length:calc(13px*var(--fs,1))] font-bold leading-snug text-zinc-900 dark:text-white line-clamp-2 break-keep hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
           title={label}
         >
           {label}
@@ -120,12 +120,12 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
               <button
                 type="button"
                 onClick={onCaptionClick}
-                className="min-w-0 truncate text-left text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-purple-600 dark:hover:text-purple-400 tabular-nums cursor-pointer"
+                className="min-w-0 truncate text-left text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 hover:text-purple-600 dark:hover:text-purple-400 tabular-nums cursor-pointer"
               >
                 {caption}
               </button>
             ) : (
-              <span className="min-w-0 truncate text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">{caption}</span>
+              <span className="min-w-0 truncate text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 tabular-nums">{caption}</span>
             )
           ) : <span />}
           <span className="flex items-center gap-1 shrink-0">

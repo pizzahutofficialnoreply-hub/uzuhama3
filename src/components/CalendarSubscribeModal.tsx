@@ -214,7 +214,7 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
                   </button>
                 </div>
                 {copied && (
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  <p className="text-[length:calc(11px*var(--fs,1))] text-emerald-600 dark:text-emerald-400 font-medium">
                     ✓ 캘린더 구독 주소가 복사되었어요. 캘린더 앱의 [URL로 추가] 메뉴에 붙여넣어 주세요.
                   </p>
                 )}
@@ -232,7 +232,7 @@ export const CalendarSubscribeModal: React.FC<CalendarSubscribeModalProps> = ({
                     캘린더 파일(.ics) 직접 다운로드하여 열기
                   </span>
                 </div>
-                <span className="text-[11px] text-zinc-400">파일 저장</span>
+                <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-400">파일 저장</span>
               </a>
             </div>
 

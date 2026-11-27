@@ -529,7 +529,7 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
                             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-1">
                               {/* 다중 공지 번호 인디케이터 */}
                               {totalItems > 1 && (
-                                <span className="text-[10px] sm:text-xs font-bold opacity-60 mr-1 select-none">
+                                <span className="text-[length:calc(10px*var(--fs,1))] sm:text-xs font-bold opacity-60 mr-1 select-none">
                                   {idx + 1}/{totalItems}
                                 </span>
                               )}

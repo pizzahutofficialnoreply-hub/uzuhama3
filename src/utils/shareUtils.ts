@@ -473,20 +473,25 @@ export async function shareTextOrClipboard(
   title: string = '우주하마 정보',
   showToast?: (msg: string) => void
 ): Promise<boolean> {
-  // 1. 모바일 기기 네이티브 텍스트 공유 시도
+  // 1. 기기 공유 창 (모든 공유를 이걸로 통일)
+  //    밀기 끝·메뉴 닫힌 뒤처럼 '누른 순간'이 아니면 브라우저가 공유 창을 막음 → 조용히 복사하지 않고
+  //    작은 창에서 한 번 더 누르게 한 뒤 기기 공유 창을 엶
   if (typeof navigator !== 'undefined' && navigator.share) {
-    try {
-      await navigator.share({
-        title,
-        text,
-      });
-      return true;
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        return true; // 사용자가 공유창을 닫음
-      }
-      // 실패 시 클립보드 복사로 연속 진행
+    const nav = navigator as Navigator & { userActivation?: { isActive: boolean } };
+    const tryShare = async (): Promise<'ok' | 'blocked' | 'fail'> => {
+      try { await navigator.share({ title, text }); return 'ok'; }
+      catch (err: any) { if (err?.name === 'AbortError') return 'ok'; if (err?.name === 'NotAllowedError') return 'blocked'; return 'fail'; }
+    };
+    let r: 'ok' | 'blocked' | 'fail' = nav.userActivation && !nav.userActivation.isActive ? 'blocked' : await tryShare();
+    if (r === 'blocked') {
+      const { chooseSheet } = await import('./ui');
+      const v = await chooseSheet({ title, options: [{ value: 'share', label: '공유하기', desc: '기기 공유 창을 열어요' }, { value: 'copy', label: '복사하기', desc: '내용을 복사해요' }] });
+      if (!v) return true;
+      if (v === 'share') r = await tryShare();
+      else r = 'fail';
     }
+    if (r === 'ok') return true;
+    // 공유 창을 못 열면 아래 복사로
   }
 
   // 2. Clipboard API 복사

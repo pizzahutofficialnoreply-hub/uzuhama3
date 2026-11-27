@@ -923,7 +923,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                 </button>
               ))}
             </div>
-            {kind === 'multi' && <span className="text-[11px] text-zinc-500">몰아보기 표시 없이, 영상 카드에 '생방 N개'로만 보여요. 이미 있는 영상에도 쓸 수 있어요.</span>}
+            {kind === 'multi' && <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">몰아보기 표시 없이, 영상 카드에 '생방 N개'로만 보여요. 이미 있는 영상에도 쓸 수 있어요.</span>}
           </div>
 
           {kind === 'multi' && (
@@ -946,13 +946,13 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                       {extractYoutubeId(v.url) && <img src={`https://i.ytimg.com/vi/${extractYoutubeId(v.url)}/mqdefault.jpg`} alt="" className="w-20 aspect-video rounded-md object-cover shrink-0" />}
                       <span className="min-w-0">
                         <span className="block text-sm font-semibold truncate">{v.title || v.url}</span>
-                        <span className="block text-[11px] text-zinc-500">{v.dates.join(', ')} 방송에 연결됨</span>
+                        <span className="block text-[length:calc(11px*var(--fs,1))] text-zinc-500">{v.dates.join(', ')} 방송에 연결됨</span>
                       </span>
                     </button>
                   ))}
                 </div>
               )}
-              <p className="text-[11px] text-zinc-500">고르면 제목·링크가 채워지고 원래 연결된 방송이 미리 선택돼요. 아래에서 생방을 더 검색해 추가하세요.</p>
+              <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">고르면 제목·링크가 채워지고 원래 연결된 방송이 미리 선택돼요. 아래에서 생방을 더 검색해 추가하세요.</p>
             </div>
           )}
 
@@ -1068,7 +1068,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             {isSelected && orderNum !== undefined && (
-                              <span className="text-[11px] px-2 py-0.5 rounded-md bg-purple-600 text-white font-black shadow-2xs">
+                              <span className="text-[length:calc(11px*var(--fs,1))] px-2 py-0.5 rounded-md bg-purple-600 text-white font-black shadow-2xs">
                                 {orderNum}번 등록
                               </span>
                             )}
@@ -1147,7 +1147,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
 
                 {/* 순서 정렬 선택 버튼 (등록순, 최신순, 오래된순) */}
                 <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800">
-                  <span className="text-[11px] font-bold text-zinc-500 px-1.5">순서:</span>
+                  <span className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500 px-1.5">순서:</span>
                   {(['custom', 'latest', 'oldest'] as const).map(order => (
                     <button
                       key={order}
@@ -1216,7 +1216,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                   </div>
 
                   {customGroups.length === 0 ? (
-                    <p className="text-[11px] text-zinc-500">
+                    <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">
                       생성된 그룹이 없어요. 위에서 그룹명을 입력하고 그룹 생성을 눌러주세요.
                     </p>
                   ) : (
@@ -1231,7 +1231,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                             <button
                               type="button"
                               onClick={() => handleRemoveCustomGroup(grp.groupName)}
-                              className="text-red-500 hover:text-red-600 text-[11px]"
+                              className="text-red-500 hover:text-red-600 text-[length:calc(11px*var(--fs,1))]"
                             >
                               그룹 삭제
                             </button>
@@ -1244,7 +1244,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                                   key={game.name}
                                   type="button"
                                   onClick={() => handleToggleGameInGroup(grp.groupName, game.name)}
-                                  className={`px-2 py-0.5 rounded text-[11px] transition-colors ${
+                                  className={`px-2 py-0.5 rounded text-[length:calc(11px*var(--fs,1))] transition-colors ${
                                     isInGroup
                                       ? 'bg-purple-600 text-white font-bold'
                                       : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
@@ -1268,7 +1268,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                 <div className="flex items-center justify-between text-xs font-bold text-zinc-700 dark:text-zinc-300">
                   <span>게임 목록 순서 조정 ({customSortedGames.length}개)</span>
                   {gameSortOrder === 'custom' && (
-                    <span className="text-purple-600 dark:text-purple-400 text-[11px] font-normal">
+                    <span className="text-purple-600 dark:text-purple-400 text-[length:calc(11px*var(--fs,1))] font-normal">
                       * ▲ / ▼ 버튼을 눌러 자유롭게 순서를 변경할 수 있습니다.
                     </span>
                   )}
@@ -1281,14 +1281,14 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                       className="p-2 px-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 text-xs"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-5 text-center font-bold text-zinc-400 text-[11px]">
+                        <span className="w-5 text-center font-bold text-zinc-400 text-[length:calc(11px*var(--fs,1))]">
                           {idx + 1}
                         </span>
                         <div className="min-w-0">
                           <span className="font-bold text-zinc-900 dark:text-white truncate block">
                             {game.name}
                           </span>
-                          <span className="text-[10px] text-zinc-400 flex items-center gap-1.5">
+                          <span className="text-[length:calc(10px*var(--fs,1))] text-zinc-400 flex items-center gap-1.5">
                             <span>{game.date} 방송</span>
                             <span>·</span>
                             <span>{game.category || '종합'}</span>
@@ -1417,7 +1417,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                             <Film className="w-6 h-6" />
                           </div>
                         )}
-                        <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-purple-600 text-white">
+                        <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[length:calc(9px*var(--fs,1))] font-extrabold bg-purple-600 text-white">
                           몰아보기
                         </span>
                       </div>
@@ -1425,7 +1425,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                       <div className="flex-1 min-w-0 space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h5 className="font-bold text-sm text-zinc-900 dark:text-white truncate">
-                            {comp.kind === 'multi' && <span className="mr-1.5 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 text-[10px] font-bold align-middle">웃음참기</span>}{comp.title}
+                            {comp.kind === 'multi' && <span className="mr-1.5 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 text-[length:calc(10px*var(--fs,1))] font-bold align-middle">웃음참기</span>}{comp.title}
                           </h5>
                           <a
                             href={comp.url}
@@ -1439,7 +1439,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                         </div>
 
                         {/* 연동된 생방 날짜들 */}
-                        <div className="flex items-center gap-1 flex-wrap text-[11px] text-zinc-500">
+                        <div className="flex items-center gap-1 flex-wrap text-[length:calc(11px*var(--fs,1))] text-zinc-500">
                           <Calendar className="w-3 h-3 text-purple-600 dark:text-purple-400" />
                           <span>연동 생방 ({comp.allBroadcastDates.length}일):</span>
                           {comp.allBroadcastDates.map(date => (
@@ -1453,24 +1453,24 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
                         </div>
 
                         {/* 게임 태그 목록 */}
-                        <div className="flex items-center gap-1 flex-wrap text-[11px] text-zinc-600 dark:text-zinc-400">
+                        <div className="flex items-center gap-1 flex-wrap text-[length:calc(11px*var(--fs,1))] text-zinc-600 dark:text-zinc-400">
                           <Tag className="w-3 h-3 text-zinc-400" />
                           <span>포함 게임:</span>
                           {comp.games.slice(0, 4).map((g, idx) => (
                             <span
                               key={idx}
-                              className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-[10px]"
+                              className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-[length:calc(10px*var(--fs,1))]"
                             >
                               {g.name}
                             </span>
                           ))}
                           {comp.games.length > 4 && (
-                            <span className="text-[10px] text-zinc-400 font-medium">
+                            <span className="text-[length:calc(10px*var(--fs,1))] text-zinc-400 font-medium">
                               +{comp.games.length - 4}개
                             </span>
                           )}
                           {comp.gameSortOrder && (
-                            <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">
+                            <span className="ml-1 px-1.5 py-0.5 rounded text-[length:calc(9px*var(--fs,1))] bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">
                               {comp.gameSortOrder === 'latest' ? '최신순' : comp.gameSortOrder === 'oldest' ? '오래된순' : '자유순'}
                             </span>
                           )}

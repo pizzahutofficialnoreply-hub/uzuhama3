@@ -111,7 +111,7 @@ export function AdminVerificationModal({ onClose, onSuccess }: AdminVerification
             <ShieldCheck className="w-4 h-4 text-purple-500" />
             Google 관리자 계정 재인증
           </div>
-          <p className="text-[12px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+          <p className="text-[length:calc(12px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 leading-relaxed">
             관리자 보안 정책에 따라 관리자 페이지 진입 시마다 구글 계정 재인증이 필요해요.
           </p>
         </div>

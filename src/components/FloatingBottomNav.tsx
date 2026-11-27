@@ -489,7 +489,7 @@ export function FloatingBottomNav({
                         >
                           <div className="flex flex-col items-center justify-center pointer-events-none">
                             <Icon className={cn("w-5.5 h-5.5", isActive ? "scale-105" : "scale-100")} />
-                            <span className="text-[11.5px] font-bold tracking-tight mt-0.5">
+                            <span className="text-[length:calc(11.5px*var(--fs,1))] font-bold tracking-tight mt-0.5">
                               {tab.label}
                             </span>
                           </div>
@@ -590,7 +590,7 @@ export function FloatingBottomNav({
                         }
                       }}
                       placeholder="영상 및 방송 검색..."
-                      className="w-full bg-transparent px-2.5 py-1 text-[16px] text-zinc-900 dark:text-white placeholder:text-zinc-500 dark:placeholder:text-zinc-400 outline-none border-0 font-medium select-text font-hanna font-pro placeholder:font-hanna placeholder:font-pro"
+                      className="w-full bg-transparent px-2.5 py-1 text-[length:calc(16px*var(--fs,1))] text-zinc-900 dark:text-white placeholder:text-zinc-500 dark:placeholder:text-zinc-400 outline-none border-0 font-medium select-text font-hanna font-pro placeholder:font-hanna placeholder:font-pro"
                     />
                     {Boolean(searchTerm) && (
                       <button

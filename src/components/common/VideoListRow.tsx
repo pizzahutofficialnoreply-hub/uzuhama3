@@ -21,6 +21,8 @@ import { openAiCard } from './AiCardExpand';
  * - 오른쪽 끝: 생방송 버튼(보라), 쇼츠가 있으면 쇼츠 버튼(빨강)
  */
 export interface VideoListRowProps {
+  /** 사이트 안 재생이어도 오른쪽 생방송·쇼츠 버튼을 보여 줌 (몰아보기 안 목록) */
+  actions?: boolean;
   videoId: string;
   title: string;
   /** 줄을 눌렀을 때 열 주소 (기본: 유튜브 영상) */
@@ -54,7 +56,7 @@ export interface VideoListRowProps {
 }
 
 export function VideoListRow({
-  videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense, placeholder, subline, shareText, edits = [], interest, saveKind, lives = [],
+  actions, videoId, title, href, index, badge, isCompilation, liveUrl, onLiveClick, liveActive, shorts = [], highlighted, dense, placeholder, subline, shareText, edits = [], interest, saveKind, lives = [],
 }: VideoListRowProps) {
   const trackRef = useInterestTracker<HTMLDivElement>(interest || null);
   const meta = useVideoMeta(videoId || null);
@@ -92,7 +94,7 @@ export function VideoListRow({
       }} className="absolute inset-0 rounded-[18px]" aria-label={sitePlay ? `${title} 펼쳐서 보기` : `${title} 유튜브에서 보기`} />
 
       {typeof index === 'number' && (
-        <span className="w-5 text-right text-[11px] text-zinc-400 tabular-nums shrink-0 pointer-events-none">{index}</span>
+        <span className="w-5 text-right text-[length:calc(11px*var(--fs,1))] text-zinc-400 tabular-nums shrink-0 pointer-events-none">{index}</span>
       )}
 
       <div ref={thumbRef} data-thumb data-ai-card={onLiveClick && isCompilation ? undefined : videoId || undefined} className={cn("relative aspect-video rounded-[14px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 pointer-events-none", dense ? 'w-[40%] max-w-[168px] sm:max-w-[196px]' : 'w-[44%] max-w-[240px] sm:max-w-[260px]')}>
@@ -102,7 +104,7 @@ export function VideoListRow({
           <span className="w-full h-full flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-xs font-bold tabular-nums">{placeholder}</span>
         )}
         {typeof meta?.durationSec === 'number' && meta.durationSec > 0 && (
-          <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/75 text-white text-[11px] font-bold tabular-nums">
+          <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/75 text-white text-[length:calc(11px*var(--fs,1))] font-bold tabular-nums">
             {formatDuration(meta.durationSec)}
           </span>
         )}
@@ -110,18 +112,18 @@ export function VideoListRow({
       </div>
 
       <div className={cn("min-w-0 flex-1 pointer-events-none", !dense && 'pt-0.5')}>
-        {held && <p className="mb-0.5 text-[11px] font-bold text-zinc-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3" />{HELD_TEXT}</p>}
-        <p className={cn("font-bold font-hanna font-pro leading-snug text-zinc-900 dark:text-zinc-100 line-clamp-2 break-keep", dense ? 'text-[15px] sm:text-[16px]' : 'text-[16px] sm:text-[17px]')}>{title}</p>
+        {held && <p className="mb-0.5 text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500 flex items-center gap-1"><ShieldAlert className="w-3 h-3" />{HELD_TEXT}</p>}
+        <p className={cn("font-bold font-hanna font-pro leading-snug text-zinc-900 dark:text-zinc-100 line-clamp-2 break-keep", dense ? 'text-[length:calc(14px*var(--fs,1))] sm:text-[length:calc(15px*var(--fs,1))]' : 'text-[length:calc(14.5px*var(--fs,1))] sm:text-[length:calc(15.5px*var(--fs,1))]')}>{title}</p>
         {(badge || isCompilation) && (
-          <p className="mt-1 text-[12px] font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+          <p className="mt-1 text-[length:calc(12px*var(--fs,1))] font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1">
             {isCompilation && <Layers className="w-3 h-3" />}
             {badge}
           </p>
         )}
-        {(subline || upload) && <p className="mt-0.5 text-[12.5px] sm:text-[13px] text-zinc-500 dark:text-zinc-400 tabular-nums">{subline || upload}</p>}
+        {(subline || upload) && <p className="mt-0.5 text-[length:calc(12.5px*var(--fs,1))] sm:text-[length:calc(13px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 tabular-nums">{subline || upload}</p>}
       </div>
 
-      {sitePlay && !onLiveClick ? (
+      {sitePlay && !onLiveClick && !actions ? (
         <div className={cn("relative z-10 shrink-0 -mr-1.5", !dense && '-mt-1')}>
           <ItemMenu id={videoId} kind={saveKind || interest?.kind || 'video'} title={title} className="w-9 h-9 rounded-full" shareText={shareText} onShare={() => noteInterest(interest, 'engage')} />
         </div>

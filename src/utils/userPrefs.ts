@@ -37,6 +37,8 @@ export interface UserPrefs {
   labIntroTap: boolean;
   /** 목록 보기에서 영상을 누르면: 사이트 안에서 펼쳐 재생 / 유튜브 링크로 */
   listPlay: 'site' | 'link';
+  /** 글자 크기 배율 (설정 › 화면) */
+  fontScale: number;
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -59,7 +61,20 @@ export const DEFAULT_PREFS: UserPrefs = {
   labCafeOld: true,
   labIntroTap: false,
   listPlay: 'site',
+  fontScale: 1,
 };
+
+export const FONT_SCALES = [
+  { v: 0.9, label: '작게' },
+  { v: 1, label: '보통' },
+  { v: 1.12, label: '크게' },
+  { v: 1.25, label: '아주 크게' },
+] as const;
+
+/** 글자 크기 반영: 모든 글자 크기에 곱하는 --fs (index.html 에서도 첫 화면 전에 한 번 읽음) */
+export function applyFontScale(v: number) {
+  try { document.documentElement.style.setProperty('--fs', String(v || 1)); } catch { /* */ }
+}
 
 export const PAGE_SIZE_OPTIONS = [8, 12, 20, 30];
 
@@ -82,6 +97,7 @@ export function setPref<K extends keyof UserPrefs>(key: K, value: UserPrefs[K]) 
   const next = { ...getPrefs(), [key]: value, labCafeOldV: 2 };
   try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* 저장 공간 없음 */ }
   try { window.dispatchEvent(new CustomEvent(EVENT)); } catch { /* 무시 */ }
+  if (key === 'fontScale') applyFontScale(value as number);
 }
 
 export function usePrefs(): UserPrefs {

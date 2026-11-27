@@ -325,15 +325,15 @@ export function DetailedStatsTab({
   const defaultStartDate = `${latestYear}-01-01`;
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [activeSubTab, setActiveSubTab] = useState<'summary' | 'trend' | 'day' | 'category'>('summary');
+  const [activeSubTab, setActiveSubTab] = useState<'trend' | 'day' | 'category'>('trend');
   // 비교: 날짜 옆 + 로 기간 하나를 더 고르면 지금 분석 위에 덧씌워 비교
   const [range2, setRange2] = useState<CmpRange | null>(null);
   const compare = false;
-  const selectSub = (t: 'summary' | 'trend' | 'day' | 'category') => setActiveSubTab(t);
+  const selectSub = (t: 'trend' | 'day' | 'category') => setActiveSubTab(t);
   // 요약 탭 카드에서 '분석 탭의 ○○로' 이동 (하위 탭 + 기간)
   useEffect(() => {
     const on = (e: Event) => {
-      const d = (e as CustomEvent<{ sub?: 'summary' | 'trend' | 'day' | 'category'; start?: string; end?: string }>).detail || {};
+      const d = (e as CustomEvent<{ sub?: 'trend' | 'day' | 'category'; start?: string; end?: string }>).detail || {};
       if (d.sub) setActiveSubTab(d.sub);
       if (d.start && d.end) { setStartDate(d.start); setEndDate(d.end); fetchLogs?.(d.start, d.end); }
     };
@@ -940,7 +940,7 @@ export function DetailedStatsTab({
 
   // 휴대폰: 화면을 옆으로 밀어 하위 탭 이동 (검색 탭과 같게, 차트·표·가로 스크롤 위에서는 안 함)
   const swipeRef = useRef<{ x: number; y: number; t: number; ok: boolean } | null>(null);
-  const subTabs: ('summary' | 'trend' | 'day' | 'category')[] = isLegacyRange ? (showLegacyCategory ? ['summary', 'trend', 'category'] : ['summary', 'trend']) : ['summary', 'trend', 'day', 'category'];
+  const subTabs: ('trend' | 'day' | 'category')[] = isLegacyRange ? (showLegacyCategory ? ['trend', 'category'] : ['trend']) : ['trend', 'day', 'category'];
   const onSwipeStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
     const target = e.target as HTMLElement;
@@ -1068,15 +1068,6 @@ export function DetailedStatsTab({
           {isLegacyRange ? (
             <>
               <button
-                onClick={() => selectSub('summary')} data-testid="stats-tab-summary"
-                className={cn(
-                  "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-                  !compare && activeSubTab === 'summary' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
-                )}
-              >
-                요약
-              </button>
-              <button
                 onClick={() => selectSub('trend')} data-testid="stats-tab-trend"
                 className={cn(
                   "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
@@ -1099,15 +1090,6 @@ export function DetailedStatsTab({
             </>
           ) : (
             <>
-              <button
-                onClick={() => selectSub('summary')} data-testid="stats-tab-summary"
-                className={cn(
-                  "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-                  !compare && activeSubTab === 'summary' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
-                )}
-              >
-                요약
-              </button>
               <button
                 onClick={() => selectSub('trend')} data-testid="stats-tab-trend"
                 className={cn(
@@ -1140,7 +1122,7 @@ export function DetailedStatsTab({
 
           {isLegacyRange && (
             <div className="flex items-center gap-1.5 ml-1 sm:ml-2 shrink-0">
-              <span className="text-[11px] font-bold px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+              <span className="text-[length:calc(11px*var(--fs,1))] font-bold px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
                 ~2025 포함 데이터
               </span>
               <button
@@ -1181,14 +1163,12 @@ export function DetailedStatsTab({
       </div>
 
       <div className="space-y-6 bg-transparent">
-        {activeSubTab === 'summary' && (
-          <StatsSummary logs={logsArray} start={startDate} end={endDate}
-            onGo={(t) => selectSub(isLegacyRange && t === 'day' ? 'trend' : isLegacyRange && t === 'category' && !showLegacyCategory ? 'trend' : t)} />
-        )}
+        {/* 각 하위 탭 맨 위: 그 탭 요약 (예전 기록은 추이 탭이 요일까지 합쳐 보여 줌) */}
+        {!compare && <StatsSummary logs={logsArray} start={startDate} end={endDate} part={activeSubTab} withDay={isLegacyRange} />}
         {/* ~2025 데이터일 때: 방송 추이와 요일별 분석을 합치고 히트맵은 숨김 */}
         {isLegacyRange ? (
           <>
-            {activeSubTab !== 'category' && activeSubTab !== 'summary' && (
+            {activeSubTab !== 'category' && (
               <div className="space-y-6">
                 {/* 1. 주간 방송 횟수 추이 */}
                 <div id="detailed-legacy-trend-card" className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-6 shadow-sm relative space-y-4">
@@ -1836,7 +1816,7 @@ export function DetailedStatsTab({
                       key={idx}
                       style={{ height: '18px' }}
                       className={cn(
-                        "flex items-center justify-center text-[11px] leading-none",
+                        "flex items-center justify-center text-[length:calc(11px*var(--fs,1))] leading-none",
                         day.color
                       )}
                     >
@@ -1867,13 +1847,13 @@ export function DetailedStatsTab({
               </div>
 
               {/* 하단 월 라벨 */}
-              <div className="flex pl-8 mt-2.5 text-[11px] font-medium text-zinc-500 select-none h-4">
+              <div className="flex pl-8 mt-2.5 text-[length:calc(11px*var(--fs,1))] font-medium text-zinc-500 select-none h-4">
                 {pdfHeatmap.weeks.map((_, idx) => {
                   const matched = pdfHeatmap.monthLabels.find(l => l.weekIndex === idx);
                   return (
                     <div key={idx} className="flex-1 text-center max-w-[20px] mr-[3px]">
                       {matched ? (
-                        <span className="whitespace-nowrap font-semibold text-zinc-500 text-[10px]">
+                        <span className="whitespace-nowrap font-semibold text-zinc-500 text-[length:calc(10px*var(--fs,1))]">
                           {matched.monthName}
                         </span>
                       ) : null}
@@ -1892,8 +1872,8 @@ export function DetailedStatsTab({
                     style={{ backgroundColor: HEATMAP_LEVEL_COLORS[0].lightBg, borderColor: HEATMAP_LEVEL_COLORS[0].lightBorder }}
                     title="휴방"
                   />
-                  <span className="text-zinc-400 text-[11px] mx-1">|</span>
-                  <span className="text-zinc-400 text-[11px]">20분 단위</span>
+                  <span className="text-zinc-400 text-[length:calc(11px*var(--fs,1))] mx-1">|</span>
+                  <span className="text-zinc-400 text-[length:calc(11px*var(--fs,1))]">20분 단위</span>
                   {Array.from({ length: 16 }, (_, i) => i + 1).map((lvl) => {
                     const info = HEATMAP_LEVEL_COLORS[lvl];
                     return (

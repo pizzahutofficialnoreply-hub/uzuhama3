@@ -475,7 +475,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
             <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white truncate">
               {getTitle()}
             </h2>
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
+            <span className="text-[length:calc(11px*var(--fs,1))] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
               총 {totalCount}건
             </span>
           </div>
@@ -553,7 +553,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
               <button
                 type="button"
                 onClick={handleClearAutoDraft}
-                className="text-[11px] underline text-purple-600 dark:text-purple-400 hover:text-purple-800 cursor-pointer ml-2"
+                className="text-[length:calc(11px*var(--fs,1))] underline text-purple-600 dark:text-purple-400 hover:text-purple-800 cursor-pointer ml-2"
               >
                 새로 쓰기
               </button>
@@ -762,10 +762,10 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
                               >
                                 <div>
                                   <p className="text-xs font-bold text-zinc-900 dark:text-white">{log.date}</p>
-                                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{log.game || '게임 정보 없음'}</p>
+                                  <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400">{log.game || '게임 정보 없음'}</p>
                                 </div>
                                 {isSelected && (
-                                  <span className="text-[10px] font-bold text-purple-600 bg-purple-100 dark:bg-purple-900/50 px-2 py-0.5 rounded">
+                                  <span className="text-[length:calc(10px*var(--fs,1))] font-bold text-purple-600 bg-purple-100 dark:bg-purple-900/50 px-2 py-0.5 rounded">
                                     선택됨
                                   </span>
                                 )}
@@ -780,7 +780,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
                           {block.linkedLogIds.map(id => {
                             const log = logs?.[id];
                             return log ? (
-                              <span key={id} className="text-[10px] bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-lg flex items-center gap-1 border border-purple-200 dark:border-purple-800">
+                              <span key={id} className="text-[length:calc(10px*var(--fs,1))] bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-lg flex items-center gap-1 border border-purple-200 dark:border-purple-800">
                                 <span>{log.date} {log.game}</span>
                                 <button type="button" onClick={() => handleToggleBlockLinkedLog(block.id, id)}>
                                   <X className="w-3 h-3" />
@@ -806,7 +806,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
                             className="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700/80 space-y-2.5"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">
+                              <span className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500 dark:text-zinc-400">
                                 {currentType === 'shorts' ? '쇼츠' : '영상'} #{vIdx + 1}
                               </span>
                               {block.videos.length > 1 && (
@@ -822,7 +822,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
                             </div>
 
                             <div>
-                              <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                              <label className="block text-[length:calc(11px*var(--fs,1))] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
                                 URL (링크) *
                               </label>
                               <input 
@@ -842,7 +842,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
                                       className="w-full h-auto max-h-28 object-cover rounded"
                                     />
                                   ) : (
-                                    <div className="text-zinc-400 flex items-center gap-1.5 py-1 text-[11px]">
+                                    <div className="text-zinc-400 flex items-center gap-1.5 py-1 text-[length:calc(11px*var(--fs,1))]">
                                       <ImageIcon className="w-3.5 h-3.5" />
                                       <span>미리보기를 지원하지 않는 URL이에요.</span>
                                     </div>
@@ -852,7 +852,7 @@ export function UserContributeModal({ type = 'live', onClose, logs }: UserContri
                             </div>
 
                             <div>
-                              <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                              <label className="block text-[length:calc(11px*var(--fs,1))] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
                                 {currentType === 'shorts' ? '쇼츠 제목 *' : '영상 제목 *'}
                               </label>
                               <input 

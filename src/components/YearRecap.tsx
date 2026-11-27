@@ -32,11 +32,11 @@ export function YearRecapBanner({ logs, fetchLogs }: { logs?: Record<string, Bro
     <>
       <button type="button" onClick={() => setOpen(true)} data-testid="recap-banner"
         className="w-full text-left rounded-[26px] p-5 bg-zinc-900 dark:bg-zinc-900 flex items-center gap-4 cursor-pointer active:scale-[0.99] transition-transform">
-        <span className="text-[44px] shrink-0"><EventArt kind="popper" label={`${year} 결산`} /></span>
+        <span className="text-[length:calc(44px*var(--fs,1))] shrink-0"><EventArt kind="popper" label={`${year} 결산`} /></span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[12px] font-bold text-zinc-400">올해도 수고했어요</span>
-          <span className="block text-[20px] font-hanna font-pro text-white leading-tight">{year} 우주하마 결산</span>
-          <span className="block mt-0.5 text-[12.5px] text-zinc-400 break-keep">한 해 방송을 한 장씩 돌아봐요</span>
+          <span className="block text-[length:calc(12px*var(--fs,1))] font-bold text-zinc-400">올해도 수고했어요</span>
+          <span className="block text-[length:calc(20px*var(--fs,1))] font-hanna font-pro text-white leading-tight">{year} 우주하마 결산</span>
+          <span className="block mt-0.5 text-[length:calc(12.5px*var(--fs,1))] text-zinc-400 break-keep">한 해 방송을 한 장씩 돌아봐요</span>
         </span>
         <ChevronRight className="w-5 h-5 text-zinc-500 shrink-0" />
       </button>
@@ -56,9 +56,9 @@ function Count({ to, dec = 0 }: { to: number; dec?: number }) {
   return <>{v.toLocaleString('ko-KR', { maximumFractionDigits: dec, minimumFractionDigits: 0 })}</>;
 }
 
-const Big = ({ children }: { children: React.ReactNode }) => <div className="font-hanna font-pro text-[52px] leading-none text-white tabular-nums">{children}</div>;
-const Head = ({ children }: { children: React.ReactNode }) => <h2 className="font-hanna font-pro text-[26px] leading-tight text-white break-keep">{children}</h2>;
-const Sub = ({ children }: { children: React.ReactNode }) => <p className="text-[14px] text-white/75 leading-relaxed break-keep">{children}</p>;
+const Big = ({ children }: { children: React.ReactNode }) => <div className="font-hanna font-pro text-[length:calc(52px*var(--fs,1))] leading-none text-white tabular-nums">{children}</div>;
+const Head = ({ children }: { children: React.ReactNode }) => <h2 className="font-hanna font-pro text-[length:calc(26px*var(--fs,1))] leading-tight text-white break-keep">{children}</h2>;
+const Sub = ({ children }: { children: React.ReactNode }) => <p className="text-[length:calc(14px*var(--fs,1))] text-white/75 leading-relaxed break-keep">{children}</p>;
 const Bars = ({ values, labels, hi }: { values: number[]; labels: string[]; hi: number | null }) => {
   const max = Math.max(1, ...values);
   return (
@@ -67,7 +67,7 @@ const Bars = ({ values, labels, hi }: { values: number[]; labels: string[]; hi: 
         <div key={i} className="flex-1 h-full flex flex-col justify-end items-center gap-1 min-w-0">
           <motion.div initial={{ height: 0 }} animate={{ height: `${(v / max) * 82}%` }} transition={{ duration: 0.6, delay: i * 0.03 }}
             className={`w-full rounded-md ${i === hi ? 'bg-white' : 'bg-white/30'}`} style={{ minHeight: v ? 4 : 0 }} />
-          <span className={`text-[10px] font-bold ${i === hi ? 'text-white' : 'text-white/50'}`}>{labels[i]}</span>
+          <span className={`text-[length:calc(10px*var(--fs,1))] font-bold ${i === hi ? 'text-white' : 'text-white/50'}`}>{labels[i]}</span>
         </div>
       ))}
     </div>
@@ -81,8 +81,8 @@ function slides(r: YearRecap, play: Play): { key: string; body: React.ReactNode 
   const out: { key: string; body: React.ReactNode }[] = [];
   out.push({ key: 'cover', body: (
     <div className="space-y-5 text-center">
-      <div className="mx-auto text-[96px] w-fit"><EventArt kind="popper" label="결산" /></div>
-      <div className="font-hanna font-pro text-[44px] leading-none text-white">{r.year}</div>
+      <div className="mx-auto text-[length:calc(96px*var(--fs,1))] w-fit"><EventArt kind="popper" label="결산" /></div>
+      <div className="font-hanna font-pro text-[length:calc(44px*var(--fs,1))] leading-none text-white">{r.year}</div>
       <Head>우주하마 결산</Head>
       <Sub>올해 방송을 한 장씩 돌아봐요. 오른쪽을 누르면 다음으로 가요.</Sub>
     </div>
@@ -107,7 +107,7 @@ function slides(r: YearRecap, play: Play): { key: string; body: React.ReactNode 
       <ol className="space-y-3">
         {r.topGames.map((g, i) => (
           <motion.li key={g.name} initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 + i * 0.08 }} className="flex items-center gap-3">
-            <span className="w-7 font-hanna font-pro text-[24px] text-white/60 tabular-nums">{i + 1}</span>
+            <span className="w-7 font-hanna font-pro text-[length:calc(24px*var(--fs,1))] text-white/60 tabular-nums">{i + 1}</span>
             {g.video ? (
               <button type="button" data-thumb onClick={(e) => { e.stopPropagation(); play(g.video!, g.name, e.currentTarget, `${r.year} 결산`); }} aria-label={`${g.name} 영상 보기`}
                 className="relative w-20 aspect-video rounded-lg overflow-hidden bg-white/10 shrink-0 pointer-events-auto cursor-pointer z-[6]">
@@ -116,8 +116,8 @@ function slides(r: YearRecap, play: Play): { key: string; body: React.ReactNode 
               </button>
             ) : <span className="w-20 aspect-video rounded-lg bg-white/10 shrink-0" />}
             <span className="min-w-0 flex-1">
-              <span className="block text-[15px] font-bold text-white truncate">{g.name}</span>
-              <span className="block text-[12px] text-white/70">{g.count}번{g.hours > 0 ? ` · 약 ${g.hours}시간` : ''}</span>
+              <span className="block text-[length:calc(15px*var(--fs,1))] font-bold text-white truncate">{g.name}</span>
+              <span className="block text-[length:calc(12px*var(--fs,1))] text-white/70">{g.count}번{g.hours > 0 ? ` · 약 ${g.hours}시간` : ''}</span>
             </span>
           </motion.li>
         ))}
@@ -133,7 +133,7 @@ function slides(r: YearRecap, play: Play): { key: string; body: React.ReactNode 
           <Sub>많이 한 장르</Sub>
           {r.categories.map((c, i) => (
             <div key={c.name} className="space-y-1">
-              <div className="flex justify-between text-[13px] font-bold text-white"><span>{c.name}</span><span className="tabular-nums">{c.share}%</span></div>
+              <div className="flex justify-between text-[length:calc(13px*var(--fs,1))] font-bold text-white"><span>{c.name}</span><span className="tabular-nums">{c.share}%</span></div>
               <div className="h-2 rounded-full bg-white/20 overflow-hidden"><motion.div initial={{ width: 0 }} animate={{ width: `${c.share}%` }} transition={{ duration: 0.7, delay: i * 0.08 }} className="h-full rounded-full bg-white" /></div>
             </div>
           ))}
@@ -156,7 +156,7 @@ function slides(r: YearRecap, play: Play): { key: string; body: React.ReactNode 
   out.push({ key: 'records', body: (
     <div className="space-y-7">
       {r.longest && <div className="space-y-1"><Sub>가장 긴 방송 · {md(r.longest.date)}</Sub><Big><Count to={r.longest.hours} dec={1} />시간</Big>{r.longest.games.length > 0 && <Sub>{r.longest.games.slice(0, 3).join(', ')}</Sub>}
-        {r.longest.video && <button type="button" data-thumb data-no-share="true" onClick={(e) => { e.stopPropagation(); play(r.longest!.video!, `${md(r.longest!.date)} 생방송`, e.currentTarget, '가장 긴 방송'); }} className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/25 text-white text-[12.5px] font-bold pointer-events-auto cursor-pointer relative z-[6]"><Play className="w-3.5 h-3.5 fill-white" />이 방송 보기</button>}</div>}
+        {r.longest.video && <button type="button" data-thumb data-no-share="true" onClick={(e) => { e.stopPropagation(); play(r.longest!.video!, `${md(r.longest!.date)} 생방송`, e.currentTarget, '가장 긴 방송'); }} className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/25 text-white text-[length:calc(12.5px*var(--fs,1))] font-bold pointer-events-auto cursor-pointer relative z-[6]"><Play className="w-3.5 h-3.5 fill-white" />이 방송 보기</button>}</div>}
       {r.streak && <div className="space-y-1"><Sub>가장 오래 이어서 켠 기간</Sub><Big><Count to={r.streak.days} />일 연속</Big><Sub>{md(r.streak.from)} ~ {md(r.streak.to)}</Sub></div>}
       {r.rest && r.rest.days >= 7 && <div className="space-y-1"><Sub>가장 오래 쉰 기간</Sub><Big><Count to={r.rest.days} />일</Big><Sub>{md(r.rest.from)} ~ {md(r.rest.to)}</Sub></div>}
     </div>
@@ -170,7 +170,7 @@ function slides(r: YearRecap, play: Play): { key: string; body: React.ReactNode 
   ) });
   out.push({ key: 'end', body: (
     <div className="space-y-5 text-center">
-      <div className="mx-auto text-[96px] w-fit"><EventArt kind="balloon" label="내년에도" /></div>
+      <div className="mx-auto text-[length:calc(96px*var(--fs,1))] w-fit"><EventArt kind="balloon" label="내년에도" /></div>
       <Head>{r.year + 1}년에도 같이 봐요</Head>
       <Sub>{r.year}년 우주하마 방송을 함께해 줘서 고마워요.</Sub>
     </div>
@@ -239,7 +239,7 @@ export function YearRecapModal({ initialYear, logs, fetchLogs, onClose }: { init
           </div>
           <div className="flex items-center justify-between">
             <select value={year} onChange={(e) => { setYear(Number(e.target.value)); setI(0); }} aria-label="결산할 해"
-              className="h-8 px-2.5 rounded-full bg-black/25 text-white text-[12.5px] font-bold border-0 focus:outline-none">
+              className="h-8 px-2.5 rounded-full bg-black/25 text-white text-[length:calc(12.5px*var(--fs,1))] font-bold border-0 focus:outline-none">
               {[...new Set([initialYear, ...years])].sort((a, b) => b - a).map((y) => <option key={y} value={y} className="text-black">{y}년 결산</option>)}
             </select>
             <span className="flex items-center gap-2 relative" data-no-share="true">
@@ -249,8 +249,8 @@ export function YearRecapModal({ initialYear, logs, fetchLogs, onClose }: { init
                 {menu && (
                   <motion.div initial={{ opacity: 0, y: -6, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }}
                     className="absolute right-0 top-11 z-20 w-56 rounded-2xl overflow-hidden bg-white dark:bg-zinc-800 shadow-xl ring-1 ring-black/10" role="menu">
-                    <button type="button" role="menuitem" onClick={() => void saveImage()} className="w-full px-4 py-3 flex items-center gap-2.5 text-left text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"><Share className="w-4 h-4" />이 장 사진으로 공유·저장</button>
-                    <button type="button" role="menuitem" onClick={report} className="w-full px-4 py-3 flex items-center gap-2.5 text-left text-[13.5px] font-semibold text-red-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 border-t border-zinc-100 dark:border-zinc-700 cursor-pointer"><Flag className="w-4 h-4" />잘못된 정보 신고</button>
+                    <button type="button" role="menuitem" onClick={() => void saveImage()} className="w-full px-4 py-3 flex items-center gap-2.5 text-left text-[length:calc(13.5px*var(--fs,1))] font-semibold text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"><Share className="w-4 h-4" />이 장 사진으로 공유·저장</button>
+                    <button type="button" role="menuitem" onClick={report} className="w-full px-4 py-3 flex items-center gap-2.5 text-left text-[length:calc(13.5px*var(--fs,1))] font-semibold text-red-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 border-t border-zinc-100 dark:border-zinc-700 cursor-pointer"><Flag className="w-4 h-4" />잘못된 정보 신고</button>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -267,7 +267,7 @@ export function YearRecapModal({ initialYear, logs, fetchLogs, onClose }: { init
             </motion.div>
           </AnimatePresence>
         </div>
-        <div className="absolute bottom-5 left-6 text-[11px] font-bold text-white/60 pointer-events-none">uzuhama.vercel.app · {year} 결산</div>
+        <div className="absolute bottom-5 left-6 text-[length:calc(11px*var(--fs,1))] font-bold text-white/60 pointer-events-none">uzuhama.vercel.app · {year} 결산</div>
         <div className="absolute bottom-4 inset-x-0 z-10 flex justify-center gap-2 pointer-events-none" style={{ marginBottom: 'env(safe-area-inset-bottom)' }} data-no-share="true">
           <span className="pointer-events-auto flex gap-2">
             <button type="button" onClick={() => go(-1)} disabled={i === 0} className="w-9 h-9 rounded-full bg-black/25 text-white flex items-center justify-center disabled:opacity-30 cursor-pointer" aria-label="이전 장"><ChevronLeft className="w-5 h-5" /></button>

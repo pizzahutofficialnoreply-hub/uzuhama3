@@ -114,12 +114,12 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
         {groups.map((g) => (
           <div key={g.g}>
             <div className="px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 flex items-center justify-between gap-2">
-              <div className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300 break-keep">
+              <div className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300 break-keep">
                 {g.name} <span className="font-normal text-zinc-400">· 남은 것 {g.rows.length}{g.done ? ` · 됨 ${g.done}` : ''}</span>
                 {g.note && <div className="font-normal text-zinc-400">{g.note}</div>}
               </div>
               {g.rows.length > 0 && (
-                <button type="button" onClick={() => toggleGroup(g.g, !g.rows.every((r) => picked.has(r.key)))} className="shrink-0 text-[11px] font-bold text-purple-600 cursor-pointer">
+                <button type="button" onClick={() => toggleGroup(g.g, !g.rows.every((r) => picked.has(r.key)))} className="shrink-0 text-[length:calc(11px*var(--fs,1))] font-bold text-purple-600 cursor-pointer">
                   {g.rows.every((r) => picked.has(r.key)) ? '전부 해제' : '전부 고르기'}
                 </button>
               )}
@@ -135,7 +135,7 @@ export function AdminCafeFix({ data, onUpdateLog }: { data: AppData; onUpdateLog
               ))}
             </ul>
             {g.rows.length > 30 && !open.has(g.g) && (
-              <button type="button" onClick={() => setOpen((p) => new Set([...p, g.g]))} className="w-full py-2 text-[11px] font-bold text-purple-600 cursor-pointer">나머지 {g.rows.length - 30}개 더 보기</button>
+              <button type="button" onClick={() => setOpen((p) => new Set([...p, g.g]))} className="w-full py-2 text-[length:calc(11px*var(--fs,1))] font-bold text-purple-600 cursor-pointer">나머지 {g.rows.length - 30}개 더 보기</button>
             )}
           </div>
         ))}

@@ -39,7 +39,7 @@ export function RecommendPrefsPanel() {
       <div className="mt-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 px-3.5 py-3 text-xs text-zinc-600 dark:text-zinc-300 space-y-1">
         <div className="flex items-center justify-between gap-2">
           <p>본 영상 <b className="text-zinc-900 dark:text-white">{Math.max(summary.watched, history.length)}</b>개</p>
-          <button type="button" onClick={openWatchHistory} className="px-2.5 py-1 rounded-lg bg-purple-600 text-white text-[11px] font-bold cursor-pointer">기록 전체 보기</button>
+          <button type="button" onClick={openWatchHistory} className="px-2.5 py-1 rounded-lg bg-purple-600 text-white text-[length:calc(11px*var(--fs,1))] font-bold cursor-pointer">기록 전체 보기</button>
         </div>
         <p>관심 장르: {summary.genres.length ? summary.genres.join(', ') : <span className="text-zinc-400">아직 없음</span>}</p>
         <p className="truncate">관심 게임: {summary.games.length ? summary.games.join(', ') : <span className="text-zinc-400">아직 없음</span>}</p>

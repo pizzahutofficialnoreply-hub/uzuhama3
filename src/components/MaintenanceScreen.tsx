@@ -111,7 +111,7 @@ export function MaintenanceScreen({ system, maintSystem, onEnd }: { system?: Par
         <>
       {/* 아래로 내리면: 연장 공지 · 점검 공지 · 바뀌는 것 · 링크 */}
       <div id="maint-detail" className="w-full max-w-2xl mx-auto px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+24px)] pb-[calc(100lvh-100svh+env(safe-area-inset-bottom,0px)+64px)] space-y-5 text-left">
-        <p className="text-center text-[11px] text-zinc-400">맨 위에서 아래로 끌면 처음 화면으로 돌아가요</p>
+        <p className="text-center text-[length:calc(11px*var(--fs,1))] text-zinc-400">맨 위에서 아래로 끌면 처음 화면으로 돌아가요</p>
         {extended && (
           <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 space-y-1.5">
             <h2 className="text-base font-extrabold text-amber-800 dark:text-amber-200">⏰ 점검 연장 안내</h2>
@@ -157,7 +157,7 @@ export function MaintenanceScreen({ system, maintSystem, onEnd }: { system?: Par
         </div>
 
         {scheduleFullText && (
-          <p className="text-center text-[11px] text-zinc-500 dark:text-zinc-400">점검 시간: {scheduleFullText}</p>
+          <p className="text-center text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400">점검 시간: {scheduleFullText}</p>
         )}
 
         {links.length > 0 && (

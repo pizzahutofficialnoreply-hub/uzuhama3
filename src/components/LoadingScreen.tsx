@@ -31,7 +31,7 @@ export function LoadingScreen({ progress = 25, statusText = '불러오는 중', 
         transition={{ type: 'spring', stiffness: 260, damping: 24 }}
         className="w-[84px] h-[84px] rounded-[22px] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.35)] ring-1 ring-black/5 dark:ring-white/10"
       />
-      <h1 className="mt-5 text-[17px] font-bold tracking-tight text-zinc-900 dark:text-white">우주하마 방송 예측</h1>
+      <h1 className="mt-5 text-[length:calc(17px*var(--fs,1))] font-bold tracking-tight text-zinc-900 dark:text-white">우주하마 방송 예측</h1>
 
       <div className="mt-6 w-36 h-[3px] rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
         <motion.div
@@ -41,7 +41,7 @@ export function LoadingScreen({ progress = 25, statusText = '불러오는 중', 
           transition={{ duration: 0.4, ease: 'easeOut' }}
         />
       </div>
-      <p className="mt-3 h-4 text-[11px] text-zinc-400 dark:text-zinc-500">
+      <p className="mt-3 h-4 text-[length:calc(11px*var(--fs,1))] text-zinc-400 dark:text-zinc-500">
         {isFirstRun ? '처음 한 번만 기록을 받아 와요' : statusText}
       </p>
     </div>

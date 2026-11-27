@@ -108,8 +108,8 @@ function Chip({ label, onClick, tone = 'purple' }: { label: string; onClick: () 
       type="button"
       onClick={onClick}
       className={tone === 'purple'
-        ? 'px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[11.5px] font-bold cursor-pointer active:scale-95 hover:bg-purple-100 dark:hover:bg-purple-900/50'
-        : 'px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-[11.5px] font-bold cursor-pointer active:scale-95 hover:bg-zinc-200 dark:hover:bg-zinc-700'}
+        ? 'px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[length:calc(11.5px*var(--fs,1))] font-bold cursor-pointer active:scale-95 hover:bg-purple-100 dark:hover:bg-purple-900/50'
+        : 'px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-[length:calc(11.5px*var(--fs,1))] font-bold cursor-pointer active:scale-95 hover:bg-zinc-200 dark:hover:bg-zinc-700'}
       title={`'${label}' 검색`}
     >
       {label}
@@ -119,7 +119,7 @@ function Chip({ label, onClick, tone = 'purple' }: { label: string; onClick: () 
 
 function TimeBtn({ t, onClick, to }: { t: number; to?: number; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="shrink-0 px-1.5 py-0.5 rounded-md bg-purple-600/10 text-purple-700 dark:text-purple-300 text-[11px] font-black tabular-nums cursor-pointer active:scale-95">
+    <button type="button" onClick={onClick} className="shrink-0 px-1.5 py-0.5 rounded-md bg-purple-600/10 text-purple-700 dark:text-purple-300 text-[length:calc(11px*var(--fs,1))] font-black tabular-nums cursor-pointer active:scale-95">
       {fmtTime(t)}{to && to > t ? `~${fmtTime(to)}` : ''}
     </button>
   );
@@ -128,7 +128,7 @@ function TimeBtn({ t, onClick, to }: { t: number; to?: number; onClick: () => vo
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
-      <h3 className="text-[12px] font-black text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">{icon} {title}</h3>
+      <h3 className="text-[length:calc(12px*var(--fs,1))] font-black text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">{icon} {title}</h3>
       {children}
     </section>
   );
@@ -141,12 +141,12 @@ export function CompilationSummary({ data, onSeek: seek, onSearch: search, spoil
                 <div className="space-y-4">
                   {data.overview && (data.overview.opening || data.overview.theme) && (
                     <div className="rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 p-3.5 space-y-2">
-                      {data.overview.theme && <p className="text-[13px] font-bold text-zinc-900 dark:text-white break-keep">{pk(data.overview.theme)}</p>}
-                      {data.overview.opening && <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 break-keep leading-relaxed"><b className="text-purple-600">오프닝</b> {pk(data.overview.opening)}</p>}
+                      {data.overview.theme && <p className="text-[length:calc(13px*var(--fs,1))] font-bold text-zinc-900 dark:text-white break-keep">{pk(data.overview.theme)}</p>}
+                      {data.overview.opening && <p className="text-[length:calc(12.5px*var(--fs,1))] text-zinc-700 dark:text-zinc-300 break-keep leading-relaxed"><b className="text-purple-600">오프닝</b> {pk(data.overview.opening)}</p>}
                       {(data.topics || []).length > 0 && (
                         <div className="flex flex-wrap gap-1.5 pt-1">
                           {(data.topics || []).map((t: any, i: number) => (
-                            <button key={i} type="button" onClick={() => (t.t != null ? seek(t.t) : search(t.title))} className="px-2 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-purple-200/70 dark:border-purple-900/60 text-[11.5px] font-semibold text-zinc-700 dark:text-zinc-200 cursor-pointer">
+                            <button key={i} type="button" onClick={() => (t.t != null ? seek(t.t) : search(t.title))} className="px-2 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-purple-200/70 dark:border-purple-900/60 text-[length:calc(11.5px*var(--fs,1))] font-semibold text-zinc-700 dark:text-zinc-200 cursor-pointer">
                               {t.t != null && <b className="text-purple-600 tabular-nums mr-1">{fmtTime(t.t)}</b>}{t.title}
                             </button>
                           ))}
@@ -158,7 +158,7 @@ export function CompilationSummary({ data, onSeek: seek, onSearch: search, spoil
                   {!(data.sources || []).length && <p className="text-xs font-bold text-amber-600">아직 원본 영상을 AI가 다 보지 않았어요.</p>}
                   {(data.sources || []).map((src: any) => (
                     <div key={src.id} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 p-3.5 space-y-3">
-                      <button type="button" onClick={() => seek(0, src.id)} className="text-left text-[13px] font-black text-zinc-900 dark:text-white line-clamp-2 cursor-pointer">{src.title}</button>
+                      <button type="button" onClick={() => seek(0, src.id)} className="text-left text-[length:calc(13px*var(--fs,1))] font-black text-zinc-900 dark:text-white line-clamp-2 cursor-pointer">{src.title}</button>
                       <SummaryBody d={src} spoil={spoil} onSeek={(t) => seek(t, src.id)} onSearch={search} />
                     </div>
                   ))}
@@ -176,7 +176,7 @@ function Spoiler({ on, children, inline }: { on?: boolean; children: React.React
     <Tag role="button" tabIndex={0} aria-label="스포일러 보기" onClick={(e: any) => { e.stopPropagation(); setShown(true); }} onKeyDown={(e: any) => { if (e.key === 'Enter') setShown(true); }}
       className={`relative cursor-pointer select-none ${inline ? 'inline-block' : 'block'}`}>
       <span className="block blur-[6px] opacity-70 pointer-events-none" aria-hidden>{children}</span>
-      <span className="absolute inset-0 flex items-center justify-center"><span className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[10.5px] font-black">스포 · 눌러서 보기</span></span>
+      <span className="absolute inset-0 flex items-center justify-center"><span className="px-2 py-0.5 rounded-full bg-zinc-900/80 text-white text-[length:calc(10.5px*var(--fs,1))] font-black">스포 · 눌러서 보기</span></span>
     </Tag>
   );
 }
@@ -191,22 +191,22 @@ function Flow({ from, to, shownTo, title, game, summary, scenes, spoil, dot, onS
       {/* 시간은 위에 한 줄로 (옆에 두면 글 칸이 너무 좁아짐) */}
       <div className="flex items-center gap-1.5 flex-wrap">
         <TimeBtn t={from} to={shownTo} onClick={() => onSeek(from)} />
-        {game && <button type="button" onClick={() => onSearch(game)} className="text-[10.5px] font-semibold text-zinc-400 hover:text-purple-600 cursor-pointer truncate max-w-[60%]">#{game}</button>}
+        {game && <button type="button" onClick={() => onSearch(game)} className="text-[length:calc(10.5px*var(--fs,1))] font-semibold text-zinc-400 hover:text-purple-600 cursor-pointer truncate max-w-[60%]">#{game}</button>}
       </div>
       <div className="mt-1">
         <div className="min-w-0">
           <Spoiler on={spoil}>
             <button type="button" disabled={!inside.length} onClick={() => setOpen((v) => !v)} aria-expanded={open}
               className="w-full text-left cursor-pointer disabled:cursor-default group">
-              {title && <span className="text-[13px] font-bold text-zinc-900 dark:text-white break-keep">{pk(title)}</span>}
-              {summary && <span className={`block ${title ? 'mt-0.5' : ''} text-[12.5px] text-zinc-600 dark:text-zinc-300 leading-relaxed break-keep`}>{pk(summary)}</span>}
-              {inside.length > 0 && <span className="mt-0.5 inline-flex items-center gap-0.5 text-[11px] font-semibold text-zinc-400 group-hover:text-purple-600">{open ? '접기' : `자세히 ${inside.length}`}<ChevronRight className={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`} /></span>}
+              {title && <span className="text-[length:calc(13px*var(--fs,1))] font-bold text-zinc-900 dark:text-white break-keep">{pk(title)}</span>}
+              {summary && <span className={`block ${title ? 'mt-0.5' : ''} text-[length:calc(12.5px*var(--fs,1))] text-zinc-600 dark:text-zinc-300 leading-relaxed break-keep`}>{pk(summary)}</span>}
+              {inside.length > 0 && <span className="mt-0.5 inline-flex items-center gap-0.5 text-[length:calc(11px*var(--fs,1))] font-semibold text-zinc-400 group-hover:text-purple-600">{open ? '접기' : `자세히 ${inside.length}`}<ChevronRight className={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`} /></span>}
             </button>
           </Spoiler>
           {open && (
             <ul className="mt-1.5 space-y-1 border-l border-zinc-200 dark:border-zinc-700 pl-2.5">
               {inside.map((x, j) => (
-                <li key={j} className={`flex items-start gap-2 text-[12px] break-keep ${x.vague ? 'text-zinc-400' : 'text-zinc-600 dark:text-zinc-300'}`}>
+                <li key={j} className={`flex items-start gap-2 text-[length:calc(12px*var(--fs,1))] break-keep ${x.vague ? 'text-zinc-400' : 'text-zinc-600 dark:text-zinc-300'}`}>
                   <TimeBtn t={x.t} onClick={() => onSeek(Math.max(0, x.t - 3))} />
                   <span className="min-w-0">{pk(x.d)}{x.q && <span className="block text-zinc-500 dark:text-zinc-400">“{x.q}”</span>}</span>
                 </li>
@@ -304,12 +304,12 @@ function SummaryView({ d, onSeek, onSearch, spoil = false, date }: { d: any; onS
   const chips = [...new Set([...(d.mood || []), ...(d.keywords || [])].map((x: string) => String(x).trim()).filter((x) => x && !/^오팬.$/.test(x)))].slice(0, 18);
   return (
     <div className="space-y-5">
-      {d.summary && <p className="text-[14px] text-zinc-800 dark:text-zinc-100 leading-relaxed break-keep">{pk(d.summary)}</p>}
+      {d.summary && <p className="text-[length:calc(14px*var(--fs,1))] text-zinc-800 dark:text-zinc-100 leading-relaxed break-keep">{pk(d.summary)}</p>}
 
       {/* 생방송에만 (편집 영상·쇼츠에는 오팬무 같은 게 없음) · 누르면 그 얘기를 한 시간으로 */}
       {d.kind === 'live' && (pan || sheet?.eum || sheet?.jeo) && <div className="flex flex-wrap gap-1.5">
       {pan && (
-        <button type="button" onClick={() => void seekMention(d.id, 'pan', onSeek)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer" title={sheet?.pan ? '생방송 아카이브 시트에 적힌 것' : 'AI 가 방송에서 들은 것'}>
+        <button type="button" onClick={() => void seekMention(d.id, 'pan', onSeek)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[length:calc(12.5px*var(--fs,1))] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer" title={sheet?.pan ? '생방송 아카이브 시트에 적힌 것' : 'AI 가 방송에서 들은 것'}>
           {(() => { const o = opanmuOf(pan); return (<>
             <span className="text-purple-600 dark:text-purple-400">오팬무</span>
             <span className="text-zinc-400 font-semibold">오늘 팬티 무슨 색?</span>
@@ -318,19 +318,19 @@ function SummaryView({ d, onSeek, onSearch, spoil = false, date }: { d: any; onS
           </>); })()}
         </button>
       )}
-      {sheet?.eum && <button type="button" onClick={() => void seekMention(d.id, 'eum', onSeek)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer"><span className="text-purple-600 dark:text-purple-400">오음무</span><span className="text-zinc-400 font-semibold">오늘 음료 무엇?</span>{sheet.eum}</button>}
-      {sheet?.jeo && <button type="button" onClick={() => void seekMention(d.id, 'jeo', onSeek)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer"><span className="text-purple-600 dark:text-purple-400">오저무</span><span className="text-zinc-400 font-semibold">오늘 저녁 무엇?</span>{sheet.jeo}</button>}
+      {sheet?.eum && <button type="button" onClick={() => void seekMention(d.id, 'eum', onSeek)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[length:calc(12.5px*var(--fs,1))] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer"><span className="text-purple-600 dark:text-purple-400">오음무</span><span className="text-zinc-400 font-semibold">오늘 음료 무엇?</span>{sheet.eum}</button>}
+      {sheet?.jeo && <button type="button" onClick={() => void seekMention(d.id, 'jeo', onSeek)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[length:calc(12.5px*var(--fs,1))] font-bold text-zinc-800 dark:text-zinc-100 cursor-pointer"><span className="text-purple-600 dark:text-purple-400">오저무</span><span className="text-zinc-400 font-semibold">오늘 저녁 무엇?</span>{sheet.jeo}</button>}
       </div>}
 
       {d.nogari && (
         <Section icon={<MessageCircle className="w-3.5 h-3.5" />} title="노가리">
-          <p className="text-[13px] text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep whitespace-pre-line">{pk(d.nogari)}</p>
+          <p className="text-[length:calc(13px*var(--fs,1))] text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep whitespace-pre-line">{pk(d.nogari)}</p>
         </Section>
       )}
 
       {chapters.length > 0 ? (
         <Section icon={<BookOpen className="w-3.5 h-3.5" />} title="흐름 · 이야기별 요약">
-          <p className="text-[11px] text-zinc-400 -mt-1 break-keep">글을 누르면 그 사이에 있었던 일을 정확한 시간과 함께 볼 수 있어요.</p>
+          <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-400 -mt-1 break-keep">글을 누르면 그 사이에 있었던 일을 정확한 시간과 함께 볼 수 있어요.</p>
           <ol className="relative space-y-2.5 pl-4 before:absolute before:left-[5px] before:top-2 before:bottom-2 before:w-px before:bg-zinc-200 dark:before:bg-zinc-700">
             {chapters.map((c, i) => (
               <Flow key={i} from={c.from} to={chapters[i + 1]?.from ?? c.to} shownTo={c.to} title={c.title} game={c.game} summary={c.summary} scenes={scenes} spoil={spoil && i > 0} dot onSeek={onSeek} onSearch={onSearch} />
@@ -354,13 +354,13 @@ function SummaryView({ d, onSeek, onSearch, spoil = false, date }: { d: any; onS
               <div key={`${g.name}-${i}`} className="rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 p-3.5 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <button type="button" onClick={() => onSearch(g.name || g.ko)} className="flex-1 text-left min-w-0 cursor-pointer group">
-                    <p className="text-[13.5px] font-black text-zinc-900 dark:text-white group-hover:text-purple-600 break-keep">{g.name || g.ko}</p>
+                    <p className="text-[length:calc(13.5px*var(--fs,1))] font-black text-zinc-900 dark:text-white group-hover:text-purple-600 break-keep">{g.name || g.ko}</p>
                   </button>
                   {/* 카테고리는 AI 짐작이 아니라 방송 기록에 적힌 값 그대로 */}
-                  {(() => { const c = gameCategoryOf(g.name || g.ko || ''); return c ? <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-black ${/공포|호러/.test(c) ? 'bg-red-500/10 text-red-600' : 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-300'}`}>{c}</span> : null; })()}
+                  {(() => { const c = gameCategoryOf(g.name || g.ko || ''); return c ? <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[length:calc(10px*var(--fs,1))] font-black ${/공포|호러/.test(c) ? 'bg-red-500/10 text-red-600' : 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-300'}`}>{c}</span> : null; })()}
                 </div>
-                {s?.result && <Spoiler on={spoil}><p className="text-[11.5px] font-bold text-emerald-700 dark:text-emerald-400 break-keep">결과 · {pk(s.result)}</p></Spoiler>}
-                {s?.story ? <Spoiler on={spoil}><p className="text-[12.5px] text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep">{pk(s.story)}</p></Spoiler> : g.about ? <p className="text-[12.5px] text-zinc-600 dark:text-zinc-300 leading-relaxed break-keep">{pk(g.about)}</p> : null}
+                {s?.result && <Spoiler on={spoil}><p className="text-[length:calc(11.5px*var(--fs,1))] font-bold text-emerald-700 dark:text-emerald-400 break-keep">결과 · {pk(s.result)}</p></Spoiler>}
+                {s?.story ? <Spoiler on={spoil}><p className="text-[length:calc(12.5px*var(--fs,1))] text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep">{pk(s.story)}</p></Spoiler> : g.about ? <p className="text-[length:calc(12.5px*var(--fs,1))] text-zinc-600 dark:text-zinc-300 leading-relaxed break-keep">{pk(g.about)}</p> : null}
                 {/* 별표 장면 목록은 뺌 (흐름·이야기별 요약에 시간과 함께 있고, 게임 카드 쪽은 의미 없는 순간이 많았음) */}
                 {((g.tags || []).length > 0) && (
                   <div className="flex flex-wrap gap-1">
@@ -455,7 +455,7 @@ export function AiSummaryHost() {
             <div className="sticky top-0 z-10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur border-b border-zinc-100 dark:border-zinc-800">
               <div className="px-5 pt-4 pb-3 flex items-start gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-black text-purple-600 dark:text-purple-400">AI 영상 요약</p>
+                  <p className="text-[length:calc(11px*var(--fs,1))] font-black text-purple-600 dark:text-purple-400">AI 영상 요약</p>
                   <h2 className="text-sm font-bold text-zinc-900 dark:text-white line-clamp-2">{data?.title || target.title}</h2>
                 </div>
                 <button type="button" onClick={() => setTarget(null)} className="p-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
@@ -480,18 +480,18 @@ export function AiSummaryHost() {
               {/* 모든 AI 요약에서 찾기 */}
               <form onSubmit={(e) => { e.preventDefault(); runFind(); }} className="flex items-center gap-2 h-10 px-3 rounded-full bg-zinc-100 dark:bg-zinc-800">
                 <Search className="w-4 h-4 text-zinc-400 shrink-0" />
-                <input value={q} onChange={(e) => setQ(e.target.value)} enterKeyHint="search" placeholder="AI 요약에서 찾기 (예: 소녀가 실종되는 스토리)" className="flex-1 min-w-0 bg-transparent text-[14px] outline-none text-zinc-900 dark:text-white placeholder:text-zinc-400" />
+                <input value={q} onChange={(e) => setQ(e.target.value)} enterKeyHint="search" placeholder="AI 요약에서 찾기 (예: 소녀가 실종되는 스토리)" className="flex-1 min-w-0 bg-transparent text-[length:calc(14px*var(--fs,1))] outline-none text-zinc-900 dark:text-white placeholder:text-zinc-400" />
                 {searching ? <Loader2 className="w-4 h-4 animate-spin text-purple-500" /> : q && <button type="button" onClick={() => { setQ(''); setFound(null); }} className="text-zinc-400 cursor-pointer" aria-label="지우기"><X className="w-4 h-4" /></button>}
               </form>
               {found && (
                 <div className="space-y-1.5 -mt-2">
-                  {found.r.length === 0 && <p className="text-[12px] text-zinc-500 px-1">'{found.q}'에 맞는 요약을 아직 못 찾았어요.</p>}
+                  {found.r.length === 0 && <p className="text-[length:calc(12px*var(--fs,1))] text-zinc-500 px-1">'{found.q}'에 맞는 요약을 아직 못 찾았어요.</p>}
                   {found.r.map((r) => (
                     <button key={r.id} type="button" onClick={() => { open({ id: r.id, title: r.title, kind: r.kind, t: r.scenes[0] ? Math.max(0, r.scenes[0].t - 5) : undefined }); }} className="w-full flex items-center gap-3 p-2 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-800/60 text-left cursor-pointer">
                       <img src={`https://i.ytimg.com/vi/${r.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-24 aspect-video rounded-lg object-cover shrink-0 bg-zinc-100" />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[12.5px] font-bold text-zinc-900 dark:text-white line-clamp-2">{r.title}</span>
-                        {r.scenes[0] && <span className="block text-[11px] text-zinc-500 line-clamp-1"><b className="text-purple-600 tabular-nums">{fmtTime(r.scenes[0].t)}</b> {pk(r.scenes[0].d)}</span>}
+                        <span className="block text-[length:calc(12.5px*var(--fs,1))] font-bold text-zinc-900 dark:text-white line-clamp-2">{r.title}</span>
+                        {r.scenes[0] && <span className="block text-[length:calc(11px*var(--fs,1))] text-zinc-500 line-clamp-1"><b className="text-purple-600 tabular-nums">{fmtTime(r.scenes[0].t)}</b> {pk(r.scenes[0].d)}</span>}
                       </span>
                       <ChevronRight className="w-4 h-4 text-zinc-300 shrink-0" />
                     </button>
@@ -522,7 +522,7 @@ export function AiSummaryHost() {
                   {data.duration > 0 && (
                     <div className="h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden"><div className="h-full bg-purple-500 rounded-full" style={{ width: `${Math.min(100, Math.round(((data.pos || 0) / data.duration) * 100))}%` }} /></div>
                   )}
-                  <p className="text-[12px] text-zinc-500 break-keep">{data.status === 'finishing' ? '다 보고 이야기별로 정리하는 중이에요.' : `${fmtTime(data.pos || 0)}${data.duration ? ` / ${fmtTime(data.duration)}` : ''}까지 봤어요.`} 다 보면 요약이 나와요.</p>
+                  <p className="text-[length:calc(12px*var(--fs,1))] text-zinc-500 break-keep">{data.status === 'finishing' ? '다 보고 이야기별로 정리하는 중이에요.' : `${fmtTime(data.pos || 0)}${data.duration ? ` / ${fmtTime(data.duration)}` : ''}까지 봤어요.`} 다 보면 요약이 나와요.</p>
                 </div>
               )}
 
@@ -532,11 +532,11 @@ export function AiSummaryHost() {
                 <>
                   <SummaryBody d={data} onSeek={(t) => seek(t)} onSearch={search} />
                   <div className="flex items-center justify-between gap-2 pt-1">
-                    <p className="text-[10.5px] text-zinc-400 break-keep">AI가 영상을 보고 정리한 내용이라 틀릴 수 있어요.</p>
+                    <p className="text-[length:calc(10.5px*var(--fs,1))] text-zinc-400 break-keep">AI가 영상을 보고 정리한 내용이라 틀릴 수 있어요.</p>
                     <button
                       type="button"
                       onClick={() => requestReport({ id: target.id, kind: (target.kind === 'short' ? 'short' : 'video') as any, title: data.title || target.title, search: { query: '', concepts: [], understood: '' }, aiSummary: true, reason: 'wrong_ai_summary' })}
-                      className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                      className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300 cursor-pointer"
                     >
                       <Flag className="w-3 h-3" /> 요약이 틀려요
                     </button>

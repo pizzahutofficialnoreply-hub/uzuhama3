@@ -235,7 +235,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
               </div>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <span className={cn(
-                  "text-[11px] font-semibold px-2.5 py-0.5 rounded-md border font-hanna font-pro",
+                  "text-[length:calc(11px*var(--fs,1))] font-semibold px-2.5 py-0.5 rounded-md border font-hanna font-pro",
                   isCompilation
                     ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800"
                     : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/70 dark:border-zinc-700/70"
@@ -513,7 +513,7 @@ export const BroadcastDetailModal: React.FC<BroadcastDetailModalProps> = ({
                             const hasSeparateCategory = g.category && g.category.trim() !== '' && g.category.trim().toLowerCase() !== g.name.trim().toLowerCase() && g.category !== '종합';
                             const gameContent = (
                               <span className={cn(
-                                "px-2 py-0.5 text-[10px] rounded-full select-none inline-flex items-center gap-1 font-hanna font-pro",
+                                "px-2 py-0.5 text-[length:calc(10px*var(--fs,1))] rounded-full select-none inline-flex items-center gap-1 font-hanna font-pro",
                                 g.link
                                   ? "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors cursor-pointer"
                                   : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"

@@ -274,12 +274,12 @@ export function AdminSuggestionsTab({
                     <div className="mb-3 p-3 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 space-y-2 text-xs">
                       {item.selectedSubItems && item.selectedSubItems.length > 0 && (
                         <div className="pb-1.5 border-b border-indigo-100/80 dark:border-indigo-900/40">
-                          <span className="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 block mb-1">
+                          <span className="text-[length:calc(11px*var(--fs,1))] font-bold text-indigo-800 dark:text-indigo-300 block mb-1">
                             선택된 수정 대상 항목 ({item.selectedSubItems.length}개):
                           </span>
                           <div className="flex flex-wrap gap-1.5">
                             {item.selectedSubItems.map((sub, sIdx) => (
-                              <span key={sIdx} className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 border border-indigo-200 dark:border-indigo-800 text-[11px] text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
+                              <span key={sIdx} className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 border border-indigo-200 dark:border-indigo-800 text-[length:calc(11px*var(--fs,1))] text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
                                 <span className="font-bold text-indigo-600 dark:text-indigo-400">{sub.label}:</span>
                                 <span className="truncate max-w-[200px]">{sub.value}</span>
                               </span>
@@ -362,15 +362,15 @@ export function AdminSuggestionsTab({
                   )}
                   
                   <h4 className="font-bold text-zinc-900 dark:text-white text-sm sm:text-base mb-1">{item.title}</h4>
-                  {(item as any).feedbackKind && <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400">{(item as any).feedbackKind}{(item as any).problemArea ? ` · ${(item as any).problemArea}` : ''}</p>}
+                  {(item as any).feedbackKind && <p className="text-[length:calc(11px*var(--fs,1))] font-bold text-purple-600 dark:text-purple-400">{(item as any).feedbackKind}{(item as any).problemArea ? ` · ${(item as any).problemArea}` : ''}</p>}
                   <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">{item.content}</p>
                   {(item as any).attachments && (() => {
                     const at = (item as any).attachments;
                     return (
-                      <div className="mt-2 space-y-1.5 text-[11px]">
+                      <div className="mt-2 space-y-1.5 text-[length:calc(11px*var(--fs,1))]">
                         {at.device && <p className="text-zinc-500">📱 {at.device.device} · {at.device.os} · {at.device.browser} · {at.device.app}</p>}
-                        {at.diagnose && <details className="rounded-lg bg-zinc-50 dark:bg-zinc-950 px-2 py-1"><summary className="cursor-pointer font-semibold">앱 진단</summary><pre className="whitespace-pre-wrap break-all text-[10.5px] text-zinc-600 dark:text-zinc-300 mt-1 max-h-64 overflow-auto">{at.diagnose}</pre></details>}
-                        {at.selftest && <details className="rounded-lg bg-zinc-50 dark:bg-zinc-950 px-2 py-1"><summary className="cursor-pointer font-semibold">앱 점검 결과 · {String(at.selftest).split('\n')[0]}</summary><pre className="whitespace-pre-wrap break-all text-[10.5px] text-zinc-600 dark:text-zinc-300 mt-1 max-h-64 overflow-auto">{at.selftest}</pre></details>}
+                        {at.diagnose && <details className="rounded-lg bg-zinc-50 dark:bg-zinc-950 px-2 py-1"><summary className="cursor-pointer font-semibold">앱 진단</summary><pre className="whitespace-pre-wrap break-all text-[length:calc(10.5px*var(--fs,1))] text-zinc-600 dark:text-zinc-300 mt-1 max-h-64 overflow-auto">{at.diagnose}</pre></details>}
+                        {at.selftest && <details className="rounded-lg bg-zinc-50 dark:bg-zinc-950 px-2 py-1"><summary className="cursor-pointer font-semibold">앱 점검 결과 · {String(at.selftest).split('\n')[0]}</summary><pre className="whitespace-pre-wrap break-all text-[length:calc(10.5px*var(--fs,1))] text-zinc-600 dark:text-zinc-300 mt-1 max-h-64 overflow-auto">{at.selftest}</pre></details>}
                         {Array.isArray(at.images) && at.images.length > 0 && (
                           <div className="flex gap-1.5 flex-wrap">{at.images.map((src: string, i: number) => <img key={i} src={src} alt={`첨부 ${i + 1}`} onClick={(e) => (e.currentTarget as HTMLImageElement).classList.toggle('w-20')} className="w-20 max-w-full rounded-lg object-cover border border-zinc-200 dark:border-zinc-700 cursor-zoom-in" />)}</div>
                         )}

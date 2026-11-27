@@ -31,15 +31,15 @@ export function DataCheckCard() {
         <h3 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-500" /> 데이터 검증</h3>
         <button type="button" disabled={!!busy} onClick={() => act('run')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer disabled:opacity-50">{busy === 'run' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} 지금 검증 (1~4분)</button>
       </div>
-      <p className="text-[11px] text-zinc-500 leading-relaxed break-keep">
+      <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 leading-relaxed break-keep">
         하루 한 번 자동: ① 다시보기가 유튜브 생방송 기록이면 실제 시작·끝 시각과 방송 기록 비교 ② 영상 제목·설명란·AI가 영상에서 본 게임과 기록된 게임 이름 비교 (안 맞으면 AI가 판단) ③ 게임 링크를 실제로 열어 없는 페이지·다른 게임 페이지인지 확인.
         자동으로 고치지는 않아요. '적용'을 누르면 고치고, 고치기 전 모습은 수정 기록에 남아요. 치지직은 다시보기를 남기지 않고, 옛 트위치 기록은 공식 API로 볼 수 없어서 비교하지 않아요.
       </p>
-      {d?.at && <p className="text-[11px] text-zinc-400">마지막 검증 {new Date(d.at).toLocaleString('ko-KR')} · 기록 {d.stats?.logs ?? '-'}개 · 유튜브 영상 {d.stats?.videos ?? '-'}개 · 시간 비교 {d.stats?.timeChecked ?? '-'} · 게임 비교 {d.stats?.gameChecked ?? '-'} (AI {d.stats?.ai ?? 0}번) · 링크 확인 {d.stats?.linksChecked ?? "-"} · 빈 시간 자동 채움 {d.stats?.autoFilled ?? 0}</p>}
+      {d?.at && <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-400">마지막 검증 {new Date(d.at).toLocaleString('ko-KR')} · 기록 {d.stats?.logs ?? '-'}개 · 유튜브 영상 {d.stats?.videos ?? '-'}개 · 시간 비교 {d.stats?.timeChecked ?? '-'} · 게임 비교 {d.stats?.gameChecked ?? '-'} (AI {d.stats?.ai ?? 0}번) · 링크 확인 {d.stats?.linksChecked ?? "-"} · 빈 시간 자동 채움 {d.stats?.autoFilled ?? 0}</p>}
       {msg && <p className="text-xs font-semibold text-purple-600">{msg}</p>}
       <div className="flex flex-wrap gap-1.5">
         {['all', ...Object.keys(TYPE)].map((k) => (
-          <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${filter === k ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>
+          <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)} className={`px-2.5 py-1 rounded-full text-[length:calc(11px*var(--fs,1))] font-bold cursor-pointer ${filter === k ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>
             {k === 'all' ? `전체 ${(d?.issues || []).length}` : `${TYPE[k].label} ${d?.counts?.[k] || 0}`}
           </button>
         ))}
@@ -58,13 +58,13 @@ export function DataCheckCard() {
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-zinc-800 dark:text-zinc-100">{i.date} · {T.label}</p>
                     <p className="text-zinc-600 dark:text-zinc-300 break-all">{i.msg}</p>
-                    {i.fix?.length > 0 && <p className="mt-0.5 text-[11px] text-emerald-700 dark:text-emerald-400">제안: {i.fix.map((f: any) => `${f.field === 'time' ? '시작' : f.field === 'endTime' ? '끝' : f.field === 'game' ? '게임' : f.field} ${f.from || '-'} → ${f.to}`).join(' · ')}</p>}
+                    {i.fix?.length > 0 && <p className="mt-0.5 text-[length:calc(11px*var(--fs,1))] text-emerald-700 dark:text-emerald-400">제안: {i.fix.map((f: any) => `${f.field === 'time' ? '시작' : f.field === 'endTime' ? '끝' : f.field === 'game' ? '게임' : f.field} ${f.from || '-'} → ${f.to}`).join(' · ')}</p>}
                   </div>
                   {i.video && <a href={`https://www.youtube.com/watch?v=${i.video}`} target="_blank" rel="noreferrer" className="p-1 text-zinc-400 hover:text-zinc-700" aria-label="영상 보기"><ExternalLink className="w-3.5 h-3.5" /></a>}
                 </div>
                 <div className="flex gap-1.5 mt-2 justify-end">
-                  {i.fix?.length > 0 && <button type="button" disabled={!!busy} onClick={() => act('apply', i.id)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-bold cursor-pointer disabled:opacity-50">{busy === i.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} 적용</button>}
-                  <button type="button" disabled={!!busy} onClick={() => act('ignore', i.id)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-200 dark:bg-zinc-700 text-[11px] font-bold cursor-pointer disabled:opacity-50"><X className="w-3 h-3" /> 무시</button>
+                  {i.fix?.length > 0 && <button type="button" disabled={!!busy} onClick={() => act('apply', i.id)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[length:calc(11px*var(--fs,1))] font-bold cursor-pointer disabled:opacity-50">{busy === i.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} 적용</button>}
+                  <button type="button" disabled={!!busy} onClick={() => act('ignore', i.id)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-200 dark:bg-zinc-700 text-[length:calc(11px*var(--fs,1))] font-bold cursor-pointer disabled:opacity-50"><X className="w-3 h-3" /> 무시</button>
                 </div>
               </li>
             );

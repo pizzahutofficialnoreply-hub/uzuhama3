@@ -35,9 +35,9 @@ export function HiddenVideosRow() {
                           <img src={`https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-20 aspect-video rounded-lg object-cover bg-zinc-200 dark:bg-zinc-800 shrink-0 blur-[1px] grayscale" />
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-100 line-clamp-2 break-keep">{v.title || v.id}</p>
-                            <p className="text-[10.5px] text-zinc-400">{new Date(v.at).toLocaleDateString('ko-KR')} 숨김</p>
+                            <p className="text-[length:calc(10.5px*var(--fs,1))] text-zinc-400">{new Date(v.at).toLocaleDateString('ko-KR')} 숨김</p>
                           </div>
-                          <button type="button" onClick={() => show(v.id)} className="shrink-0 px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-[11px] font-bold text-zinc-700 dark:text-zinc-200 cursor-pointer">다시 보이기</button>
+                          <button type="button" onClick={() => show(v.id)} className="shrink-0 px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-700 dark:text-zinc-200 cursor-pointer">다시 보이기</button>
                         </div>
                       </SwipeRow>
                     </motion.li>

@@ -78,11 +78,11 @@ const CategoryMultiSelector = ({
   return (
     <div className="flex flex-col gap-1.5 mt-1 pt-1.5 border-t border-zinc-100 dark:border-zinc-800/60">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+        <span className="text-[length:calc(11px*var(--fs,1))] font-medium text-zinc-500 dark:text-zinc-400">
           카테고리 선택 (복수 선택 가능):
         </span>
         {selectedList.length > 0 && (
-          <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
+          <span className="text-[length:calc(10px*var(--fs,1))] text-purple-600 dark:text-purple-400 font-medium">
             {selectedList.length}개 선택됨: {selectedList.join(', ')}
           </span>
         )}
@@ -128,7 +128,7 @@ const CategoryMultiSelector = ({
             <button
               type="button"
               onClick={handleAddCustom}
-              className="px-1.5 py-0.5 bg-purple-600 text-white rounded text-[11px] font-medium hover:bg-purple-700"
+              className="px-1.5 py-0.5 bg-purple-600 text-white rounded text-[length:calc(11px*var(--fs,1))] font-medium hover:bg-purple-700"
             >
               추가
             </button>
@@ -144,7 +144,7 @@ const CategoryMultiSelector = ({
           <button
             type="button"
             onClick={() => setShowInput(true)}
-            className="px-1.5 py-0.5 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-md text-[11px] text-zinc-500 hover:text-purple-600 hover:border-purple-400 dark:hover:text-purple-400 transition-colors"
+            className="px-1.5 py-0.5 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-md text-[length:calc(11px*var(--fs,1))] text-zinc-500 hover:text-purple-600 hover:border-purple-400 dark:hover:text-purple-400 transition-colors"
           >
             + 직접 입력
           </button>
@@ -488,7 +488,7 @@ export const LogEditorForm = ({
                   </label>
                   <button
                     onClick={() => addLink(type)}
-                    className="text-[10px] text-zinc-500 hover:text-purple-600 flex items-center gap-1"
+                    className="text-[length:calc(10px*var(--fs,1))] text-zinc-500 hover:text-purple-600 flex items-center gap-1"
                   >
                     <Plus className="w-3 h-3" /> 추가
                   </button>
@@ -516,7 +516,7 @@ export const LogEditorForm = ({
                         {type === "edited" && (
                           <button
                             onClick={() => moveToShorts(linkIndex)}
-                            className="text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-2 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors shrink-0"
+                            className="text-[length:calc(10px*var(--fs,1))] bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-2 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors shrink-0"
                           >
                             쇼츠로 이동
                           </button>

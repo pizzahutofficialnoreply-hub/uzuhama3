@@ -44,17 +44,17 @@ export function TitleDecorCard({ value, onChange }: { value: TitleDecor[]; onCha
 
       <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 p-3 space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] font-bold text-zinc-500">미리 보기 날짜</span>
+          <span className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500">미리 보기 날짜</span>
           <input type="date" value={preview} onChange={(e) => setPreview(e.target.value)} className={`${input} py-1.5`} />
-          <span className="text-[11px] text-zinc-500">{auto.length ? `자동: ${auto.map((t) => t.label).join(' · ')}` : '이날은 자동 꾸미기 없음'}</span>
+          <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">{auto.length ? `자동: ${auto.map((t) => t.label).join(' · ')}` : '이날은 자동 꾸미기 없음'}</span>
         </div>
         <div className="px-1"><HeaderTitle decor={value} previewDay={preview} /></div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-[auto_auto_1fr_auto] gap-2 items-end">
-        <label className="space-y-1"><span className="text-[11px] font-bold text-zinc-500">첫날</span><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={`${input} w-full`} /></label>
-        <label className="space-y-1"><span className="text-[11px] font-bold text-zinc-500">마지막 날</span><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${input} w-full`} /></label>
-        <label className="space-y-1"><span className="text-[11px] font-bold text-zinc-500">설명 (눌렀을 때)</span><input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={30} placeholder="예: 10주년" className={`${input} w-full`} /></label>
+        <label className="space-y-1"><span className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500">첫날</span><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={`${input} w-full`} /></label>
+        <label className="space-y-1"><span className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500">마지막 날</span><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${input} w-full`} /></label>
+        <label className="space-y-1"><span className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500">설명 (눌렀을 때)</span><input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={30} placeholder="예: 10주년" className={`${input} w-full`} /></label>
         <label className={`h-[38px] px-4 rounded-xl bg-purple-600 text-white text-sm font-bold flex items-center gap-1 cursor-pointer ${busy ? 'opacity-60 pointer-events-none' : ''}`}>
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />} 그림·GIF 올리기
           <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="hidden" onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />

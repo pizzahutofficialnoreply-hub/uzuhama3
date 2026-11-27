@@ -93,8 +93,8 @@ export function VideoSwipe({ id, kind = 'video', title, shareText, radius = 24, 
               </svg>
               <span className="absolute inset-0 flex items-center justify-center text-white"><EyeOff className="w-4.5 h-4.5" /></span>
             </span>
-            <p className="px-3 py-1 rounded-full bg-zinc-900/80 text-white text-[12px] font-bold">가렸어요 · {left}초 뒤 사라져요</p>
-            <button type="button" onClick={(e) => { e.stopPropagation(); unhideVideo(id); toast('다시 보이게 했어요'); }} className="px-4 py-1.5 rounded-full bg-white text-zinc-900 text-[12.5px] font-black shadow-md cursor-pointer">되돌리기</button>
+            <p className="px-3 py-1 rounded-full bg-zinc-900/80 text-white text-[length:calc(12px*var(--fs,1))] font-bold">가렸어요 · {left}초 뒤 사라져요</p>
+            <button type="button" onClick={(e) => { e.stopPropagation(); unhideVideo(id); toast('다시 보이게 했어요'); }} className="px-4 py-1.5 rounded-full bg-white text-zinc-900 text-[length:calc(12.5px*var(--fs,1))] font-black shadow-md cursor-pointer">되돌리기</button>
           </div>
         </div>
       )}

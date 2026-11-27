@@ -126,6 +126,8 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
   const layerRef = useRef<HTMLDivElement | null>(null);
   /** 다 펼쳐진 뒤에 재생 버튼 */
   const [settled, setSettled] = useState(false);
+  /** 펼치는 움직임이 끝난 뒤에야 내용 그리기·불러오기 (움직임과 로딩을 겹치지 않게 → 안 끊김). 닫는 동안엔 그대로 둠 */
+  const [bodyReady, setBodyReady] = useState(false);
   const frame = useRef<HTMLIFrameElement | null>(null);
   const back = useRef<Rect | null>(null);
   const [safeTop, setSafeTop] = useState(0);
@@ -167,7 +169,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
     const on = (e: any) => {
       // 썸네일 자리에서 재생 중이던 같은 영상을 다시 펼치면 재생은 그대로
       const same = dockRef.current && dockRef.current.id === e.detail?.id;
-      setTo(finalRect()); setSafeTop(safeInsets().top); dragY.set(0); setT(e.detail); setClosing(false); setData(null); setOpen(true); setSettled(false); back.current = null;
+      setTo(finalRect()); setSafeTop(safeInsets().top); dragY.set(0); setT(e.detail); setClosing(false); setData(null); setOpen(true); setSettled(false); setBodyReady(false); back.current = null;
       if (!same) setPlay(typeof e.detail?.start === 'number' ? { t: e.detail.start } : null);
       setDock(null); keepPlay.current = false;
       // 원래 카드는 들려 올라간 것처럼 자리만 남김
@@ -183,11 +185,11 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
   useDetailUpdates(t?.id, setData);
   useEffect(() => {
     setScript(null); setTab('sum'); setNow(0);
-    if (!t || t.compilation || t.embed) return;
+    if (!t || t.compilation || t.embed || !bodyReady) return;
     let alive = true;
     loadScript(t.id).then((s) => { if (alive) setScript(s); });
     return () => { alive = false; };
-  }, [t?.id]);
+  }, [t?.id, bodyReady]);
   const hasScript = Boolean(script?.lines?.length);
   const subLine = subOn && hasScript && play ? (script!.lines[lineAt(script!.lines, now)] || null) : null;
   // 재생기 자리 맞추기: 펼친 동안엔 위 영상 칸, 닫힌 뒤엔 원래 썸네일 위 (매 프레임)
@@ -224,11 +226,11 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
     window.dispatchEvent(new CustomEvent(AI_CARD_EVENT, { detail: { ...dock, from: r ? { top: r.top, left: r.left, width: r.width, height: r.height } : dock.from, src: card } }));
   };
   useEffect(() => {
-    if (!t || t.noSummary) return;
+    if (!t || t.noSummary || !bodyReady) return;
     let alive = true;
     loadDetail(t.id).then((j) => { if (alive) setData(j); }).catch(() => { if (alive) setData({ found: false }); });
     return () => { alive = false; };
-  }, [t]);
+  }, [t, bodyReady]);
 
   const close = () => {
     if (!t || closing) return;
@@ -317,8 +319,9 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
       window.dispatchEvent(new Event(AI_CARD_CLOSED));
     } else {
       setSettled(true);
-      // 펼쳐지면 바로 재생
-      setPlay((p) => p || { t: 0 });
+      setBodyReady(true);
+      // 펼쳐지면 재생 (내용 그리기와 겹치지 않게 한 박자 뒤에)
+      setTimeout(() => setPlay((p) => p || { t: 0 }), 120);
     }
   };
 
@@ -362,8 +365,8 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
             </div>
 
             {subOn && hasScript && (
-              <div className="shrink-0 min-h-[40px] px-4 py-2 bg-black text-center text-[13.5px] font-semibold text-white leading-snug break-keep" aria-live="polite" data-testid="ai-subtitle">
-                {subLine ? <>{subLine.w && <span className="mr-1 text-[11px] text-zinc-400">{subLine.w}</span>}{subLine.s}</> : <span className="text-zinc-500 text-[12px]">{play ? '…' : '재생하면 여기에 대사가 나와요'}</span>}
+              <div className="shrink-0 min-h-[40px] px-4 py-2 bg-black text-center text-[length:calc(13.5px*var(--fs,1))] font-semibold text-white leading-snug break-keep" aria-live="polite" data-testid="ai-subtitle">
+                {subLine ? <>{subLine.w && <span className="mr-1 text-[length:calc(11px*var(--fs,1))] text-zinc-400">{subLine.w}</span>}{subLine.s}</> : <span className="text-zinc-500 text-[length:calc(12px*var(--fs,1))]">{play ? '…' : '재생하면 여기에 대사가 나와요'}</span>}
               </div>
             )}
             </div>
@@ -375,10 +378,11 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
             </div>}
             <motion.div ref={scrollEl} className="absolute inset-0 overflow-y-auto overscroll-contain" initial={{ opacity: 0.35 }} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: closing ? 0.14 : 0.24 }}>
               <div className={to.wide ? 'pl-5 pr-[calc(env(safe-area-inset-right,0px)+20px)] pt-12 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]' : 'px-5 pt-16 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]'}>
-                {t.embed || t.compilation ? (<>
-                  <h2 className="text-[16px] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
-                  {t.sub && <p className="mt-1 text-[12px] text-zinc-500 tabular-nums">{t.sub}</p>}
+                {t.embed || t.compilation || !bodyReady ? (<>
+                  <h2 className="text-[length:calc(16px*var(--fs,1))] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
+                  {t.sub && <p className="mt-1 text-[length:calc(12px*var(--fs,1))] text-zinc-500 tabular-nums">{t.sub}</p>}
                 </>) : <VideoCardInfo key={t.id} id={t.id} title={data?.title || t.title} sub={t.sub} logs={logs} />}
+                {bodyReady && <>
                 {/* AI 요약·스크립트가 있을 때만 찾기 칸 (없으면 찾을 게 없음) */}
                 {!t.embed && (ready || hasScript || compHas) && <CardFind key={`f-${t.id}`} id={t.id} onSeek={(x) => seek(x)} onOpen={(id, title, x) => switchTo(id, title, x)} />}
 
@@ -397,21 +401,21 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                       <div className="flex-1 min-w-0 flex items-center gap-1" role="tablist">
                         {([['sum', 'AI 영상 요약'], ['script', '스크립트']] as const).map(([k, l]) => (
                           <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => { setTab(k); setOpen(true); }}
-                            className={`px-2.5 py-1 rounded-full text-[12.5px] font-black cursor-pointer ${tab === k ? 'bg-purple-600 text-white' : 'text-purple-700 dark:text-purple-300'}`}>{l}</button>
+                            className={`px-2.5 py-1 rounded-full text-[length:calc(12.5px*var(--fs,1))] font-black cursor-pointer ${tab === k ? 'bg-purple-600 text-white' : 'text-purple-700 dark:text-purple-300'}`}>{l}</button>
                         ))}
                         <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label={open ? '접기' : '펼치기'} className="ml-0.5 text-purple-400 cursor-pointer"><motion.span animate={{ rotate: open ? 180 : 0 }} className="inline-block"><ChevronDown className="w-4 h-4" /></motion.span></button>
                       </div>
                     ) : (
                     <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex-1 min-w-0 flex items-center gap-1.5 text-left cursor-pointer">
-                      <span className="text-[13px] font-black text-purple-700 dark:text-purple-300">{showSummary ? 'AI 영상 요약' : '스크립트'}</span>
+                      <span className="text-[length:calc(13px*var(--fs,1))] font-black text-purple-700 dark:text-purple-300">{showSummary ? 'AI 영상 요약' : '스크립트'}</span>
                       <motion.span animate={{ rotate: open ? 180 : 0 }} className="ml-0.5 text-purple-400"><ChevronDown className="w-4 h-4" /></motion.span>
                       <span className="sr-only">{open ? '접기' : '펼치기'}</span>
                     </button>
                     )}
                     {(tab === 'script' || !showSummary) ? (
-                      <button type="button" onClick={() => { setSubOn((v) => !v); if (!play) setPlay({ t: 0 }); }} aria-pressed={subOn} className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${subOn ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'}`}>자막처럼 보기</button>
+                      <button type="button" onClick={() => { setSubOn((v) => !v); if (!play) setPlay({ t: 0 }); }} aria-pressed={subOn} className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[length:calc(11px*var(--fs,1))] font-bold cursor-pointer ${subOn ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'}`}>자막처럼 보기</button>
                     ) : (
-                    <button type="button" onClick={toggleSpoil} aria-pressed={spoil} className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${spoil ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'}`}>
+                    <button type="button" onClick={toggleSpoil} aria-pressed={spoil} className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[length:calc(11px*var(--fs,1))] font-bold cursor-pointer ${spoil ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'}`}>
                       {spoil ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />} 스포 가리기
                     </button>
                     )}
@@ -432,7 +436,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                           ) : compHas ? (
                             <CompilationSummary data={data} spoil={spoil} onSeek={(s, id) => seek(s, id)} onSearch={(q) => { close(); goSearch(q); }} />
                           ) : null}
-                          {tab === 'sum' && showSummary && <p className="mt-4 text-[10.5px] text-zinc-400 break-keep">AI가 영상을 보고 정리한 내용이라 틀릴 수 있어요. 시간을 누르면 위에서 그 장면부터 재생돼요.</p>}
+                          {tab === 'sum' && showSummary && <p className="mt-4 text-[length:calc(10.5px*var(--fs,1))] text-zinc-400 break-keep">AI가 영상을 보고 정리한 내용이라 틀릴 수 있어요. 시간을 누르면 위에서 그 장면부터 재생돼요.</p>}
                         </div>
                       </motion.div>
                     )}
@@ -450,6 +454,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                     }} />
                   </div>
                 )}
+                </>}
               </div>
             </motion.div>
             </div>

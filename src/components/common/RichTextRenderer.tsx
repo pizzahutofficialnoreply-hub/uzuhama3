@@ -166,7 +166,7 @@ export function RichTextRenderer({ content, className = '' }: RichTextRendererPr
     parsed = parsed.replace(/<del>(.*?)<\/del>/gi, '<del class="line-through opacity-70">$1</del>');
 
     // Font size: <span style="font-size: ..."> 또는 <small>
-    parsed = parsed.replace(/<small>(.*?)<\/small>/gi, '<span class="text-[11px] opacity-80">$1</span>');
+    parsed = parsed.replace(/<small>(.*?)<\/small>/gi, '<span class="text-[length:calc(11px*var(--fs,1))] opacity-80">$1</span>');
 
     parsed = parsed.replace(/\u0000(\d+)\u0000/g, (_m, i) => anchors[Number(i)] || '');
     // Safe direct dangerouslySetInnerHTML

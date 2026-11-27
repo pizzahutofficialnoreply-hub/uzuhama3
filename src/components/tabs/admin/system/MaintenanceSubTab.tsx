@@ -433,8 +433,8 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               점검 시간에 자동 점검·테스트 돌리기
             </label>
             <details className="pl-6">
-              <summary className="cursor-pointer text-[11px]">무엇을 하나요?</summary>
-              <p className="mt-1 text-[11px] leading-relaxed break-keep">
+              <summary className="cursor-pointer text-[length:calc(11px*var(--fs,1))]">무엇을 하나요?</summary>
+              <p className="mt-1 text-[length:calc(11px*var(--fs,1))] leading-relaxed break-keep">
                 위 요일·시간(점검 중)에 한 번: 타입 검사 · 로직 테스트 · 빌드 · 보안 취약점 · e2e · 실제 사이트 화면(휴대폰·PC, 밝게·어둡게) · 개발자 콘솔 · UI/UX(가로 넘침·깨진 이미지·작은 버튼·로딩 속도) · API(Vercel) · DB 데이터·보안 규칙 · 관리자 API 잠금 · 지난 7일 피드백 AI 총정리 · 방문자 화면 오류.
                 점검 화면이 켜져 있어도 자동 점검은 실제 화면을 시험해요. 결과는 <b>시스템 › 자동화 › 주간 점검 보고서</b>, 고칠 게 있으면 GitHub 이슈 '주간 점검'에도 남아요. 요일·시간을 바꾸면 다음 회차부터 그 시간에 돌아요 (저장 필요, 시작 후 1시간 안쪽으로 시작).
               </p>
@@ -471,7 +471,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-zinc-900 dark:text-white">점검 중 공지 상세 항목 사전 설정</h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
+                <span className="px-2 py-0.5 rounded-full text-[length:calc(10px*var(--fs,1))] font-bold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
                   사전 설정 지원
                 </span>
               </div>
@@ -503,7 +503,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               onChange={e => handleChange('maintenanceStart', e.target.value)}
               className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white font-medium"
             />
-            <p className="text-[11px] text-zinc-500 mt-1">
+            <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 mt-1">
               당일 0시 (KST)부터 일반 사용자 화면 상단에 점검 사전 안내가 자동 표시돼요.
             </p>
           </div>
@@ -518,7 +518,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               onChange={e => handleChange('maintenanceEnd', e.target.value)}
               className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white font-medium"
             />
-            <p className="text-[11px] text-zinc-500 mt-1">
+            <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 mt-1">
               점검 완료 후 완료 익일 0시 (KST)까지 점검 완료 공지가 유지된 뒤 자동 삭제돼요.
             </p>
           </div>
@@ -537,7 +537,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               placeholder="예: (상황에 따라 변동/연장될 수 있어요)"
               className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white font-medium"
             />
-            <p className="text-[11px] text-zinc-500 mt-1">
+            <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 mt-1">
               계산된 시간({durationText || '예: 약 6시간'}) 뒤에 붙을 안내 문구예요.
             </p>
           </div>
@@ -624,7 +624,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
               <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
                 변경 이력(History) 타임라인 사전 등록
               </label>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">
                 점검 시작/연장/종료 시점의 예상 또는 실제 이력을 등록해요.
               </p>
             </div>
@@ -753,7 +753,7 @@ export const MaintenanceSubTab: React.FC<MaintenanceSubTabProps> = ({
           </div>
         ) : (
           <div className="bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 text-xs space-y-3">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+            <div className="text-[length:calc(11px*var(--fs,1))] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
               <Eye className="w-3.5 h-3.5" /> 점검 진행 중 사용자 화면 실시간 렌더링 미리보기
             </div>
 
@@ -960,18 +960,18 @@ function OneTimeSchedule({ startStr, endStr, onApply }: { startStr: string; endS
           <input type="datetime-local" value={e} onChange={(x) => setE(x.target.value)} className={input} />
         </div>
       </div>
-      {bad && <p className="text-[11px] text-red-500">끝나는 시간이 시작보다 뒤여야 해요.</p>}
+      {bad && <p className="text-[length:calc(11px*var(--fs,1))] text-red-500">끝나는 시간이 시작보다 뒤여야 해요.</p>}
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" disabled={bad} onClick={() => onApply(s, e)} className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs cursor-pointer disabled:opacity-50">
           {new Date(s).getTime() <= Date.now() ? '이 시간으로 바로 점검 시작' : '이 일정으로 예약'}
         </button>
-        <span className="text-[11px] text-zinc-500">지금부터:</span>
+        <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">지금부터:</span>
         {[1, 2, 3, 6].map((h) => (
           <button key={h} type="button" onClick={() => { const a = local(Date.now()); const b = local(Date.now() + h * 3600000); setS(a); setE(b); onApply(a, b); }}
             className="px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 font-bold text-xs cursor-pointer">{h}시간</button>
         ))}
       </div>
-      <p className="text-[11px] text-zinc-500 leading-relaxed">예약하면 당일 0시부터 사용자 화면 위쪽에 미리 알려 줘요. 누른 뒤 아래 <b>저장</b>을 눌러야 적용돼요.</p>
+      <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 leading-relaxed">예약하면 당일 0시부터 사용자 화면 위쪽에 미리 알려 줘요. 누른 뒤 아래 <b>저장</b>을 눌러야 적용돼요.</p>
     </div>
   );
 }

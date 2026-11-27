@@ -508,7 +508,7 @@ export function CurrentProbability({
             <span className="text-4xl sm:text-5xl ml-1 tracking-normal font-bold" style={{ WebkitTextStroke: '0.45px currentColor' }}>%</span>
           </div>
           {peakFormattedTime && prob.time.hasData && (
-            <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 mt-1.5 font-medium font-hanna font-pro">
+            <p className="text-[length:calc(12.5px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 mt-1.5 font-medium font-hanna font-pro">
               {prob.time.peakIsToday ? "오늘 가장 유력한 시간" : "다음 유력 시간 · 내일"}{" "}
               <span className="font-bold text-purple-600 dark:text-purple-400">{peakFormattedTime}</span>
             </p>
@@ -522,7 +522,7 @@ export function CurrentProbability({
           if (activeIllness && patternMessage.includes(activeIllness)) {
             const parts = patternMessage.split(activeIllness);
             return (
-              <p className="max-w-[19rem] mx-auto text-[14px] font-hanna font-pro text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep [text-wrap:balance]">
+              <p className="max-w-[19rem] mx-auto text-[length:calc(14px*var(--fs,1))] font-hanna font-pro text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep [text-wrap:balance]">
                 <span aria-hidden className="inline-block w-1.5 h-1.5 rounded-full bg-purple-400/80 align-middle mr-1.5 -mt-0.5" />
                 {keepParen(parts[0])}
                 <button
@@ -539,7 +539,7 @@ export function CurrentProbability({
           }
 
           return (
-            <p className="max-w-[19rem] mx-auto text-[14px] font-hanna font-pro text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep [text-wrap:balance]">
+            <p className="max-w-[19rem] mx-auto text-[length:calc(14px*var(--fs,1))] font-hanna font-pro text-zinc-500 dark:text-zinc-400 mt-0.5 mb-3 text-center leading-relaxed break-keep [text-wrap:balance]">
               <span aria-hidden className="inline-block w-1.5 h-1.5 rounded-full bg-purple-400/80 align-middle mr-1.5 -mt-0.5" />
               {keepParen(patternMessage)}
             </p>
@@ -612,7 +612,7 @@ export function CurrentProbability({
                     const d = Math.round((to - from) * 10) / 10;
                     if (Math.abs(d) < 0.1) return null;
                     return (
-                      <span className={cn("text-[11px] font-semibold tabular-nums", d > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400")}>
+                      <span className={cn("text-[length:calc(11px*var(--fs,1))] font-semibold tabular-nums", d > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400")}>
                         {d > 0 ? "+" : ""}{d.toFixed(1)}%p
                       </span>
                     );
@@ -654,11 +654,11 @@ export function CurrentProbability({
                           return (
                             <div key={r.label} className={cn("flex items-center gap-3 px-4 py-3", isLast && "bg-purple-50/80 dark:bg-purple-950/30")}>
                               <div className="min-w-0 flex-1">
-                                <p className={cn("text-[13px] font-semibold", isLast ? "text-purple-700 dark:text-purple-300" : "text-zinc-900 dark:text-zinc-100")}>{r.label}</p>
-                                <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 leading-snug break-keep">{r.sub}</p>
+                                <p className={cn("text-[length:calc(13px*var(--fs,1))] font-semibold", isLast ? "text-purple-700 dark:text-purple-300" : "text-zinc-900 dark:text-zinc-100")}>{r.label}</p>
+                                <p className="text-[length:calc(11.5px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 leading-snug break-keep">{r.sub}</p>
                               </div>
                               <div className="flex flex-col items-end shrink-0">
-                                <span className={cn("text-[16px] font-black tabular-nums", isLast ? "text-purple-600 dark:text-purple-400" : "text-zinc-900 dark:text-white")}>
+                                <span className={cn("text-[length:calc(16px*var(--fs,1))] font-black tabular-nums", isLast ? "text-purple-600 dark:text-purple-400" : "text-zinc-900 dark:text-white")}>
                                   {!isLast && r.value < 0.1 ? "0.1% 미만" : `${r.value.toFixed(1)}%`}
                                 </span>
                                 {r.prev !== undefined && delta(r.deltaValue ?? r.value, r.prev)}
@@ -667,7 +667,7 @@ export function CurrentProbability({
                           );
                         })}
                       </div>
-                      <p className="px-1 pt-2.5 text-[11px] text-zinc-400 leading-relaxed break-keep">
+                      <p className="px-1 pt-2.5 text-[length:calc(11px*var(--fs,1))] text-zinc-400 leading-relaxed break-keep">
                         위에서부터 차례로 반영한 결과이며, 마지막 값이 지금 이후 오늘(오전 6시 기준) 방송이 켜질 확률이에요.
                       </p>
                     </>

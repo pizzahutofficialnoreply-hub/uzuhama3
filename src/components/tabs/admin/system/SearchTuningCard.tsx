@@ -62,7 +62,7 @@ export function SearchTuningCard() {
         <Sparkles className="w-4 h-4 text-purple-500" />
         <h3 className="text-sm font-bold text-zinc-900 dark:text-white">검색 조정 (신고·만족도 → 하루 한 번)</h3>
       </div>
-      <p className="text-[11px] text-zinc-500 leading-relaxed">
+      <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 leading-relaxed">
         방문자가 카드의 ⋮ › 신고, 검색 아래 '만족하시나요?'로 남긴 걸 매일 오전 5시 이후 첫 점검 때 모아 반영해요. 같은 검색어에 '안 맞아요'가 오면 그 검색어에서 빼고, 같은 느낌(수면방송 등)에서 2번 넘게 신고되면 그 느낌 전체에서 빼요.
         불만족 검색과 의견은 AI가 하루 한 번 읽고 같은 뜻 말·느낌 단어·뺄 장르를 보강해요. 검색할 때는 AI를 부르지 않아요.
       </p>
@@ -70,7 +70,7 @@ export function SearchTuningCard() {
         {[['뺀 영상(검색어)', count(t?.demote)], ['뺀 영상(느낌)', count(t?.conceptDemote)], ['같은 뜻 말', Object.keys(t?.synonyms || {}).length], ['보강한 느낌', Object.keys(t?.conceptAdd || {}).length]].map(([k, v]) => (
           <div key={String(k)} className="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 py-2">
             <p className="text-lg font-black text-zinc-900 dark:text-white tabular-nums">{v as number}</p>
-            <p className="text-[10px] text-zinc-500">{k}</p>
+            <p className="text-[length:calc(10px*var(--fs,1))] text-zinc-500">{k}</p>
           </div>
         ))}
       </div>
@@ -119,7 +119,7 @@ export function SearchTuningCard() {
             {adds.slice(0, 20).map((x) => (
               <li key={x.id} className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 p-2">
                 <img src={`https://i.ytimg.com/vi/${x.videoId}/default.jpg`} alt="" className="w-16 rounded" />
-                <div className="min-w-0 flex-1 text-[11px] text-zinc-600 dark:text-zinc-300">
+                <div className="min-w-0 flex-1 text-[length:calc(11px*var(--fs,1))] text-zinc-600 dark:text-zinc-300">
                   <p><b>'{x.query}'</b> → <a className="underline" href={`https://youtu.be/${x.videoId}${x.t ? `?t=${x.t}` : ''}`} target="_blank" rel="noreferrer">{x.videoId}{x.t ? ` (${fmtTime(x.t)})` : ''}</a></p>
                   {x.note && <p className="text-zinc-500">{x.note}</p>}
                   {x.sourceUrl && <a className="text-purple-600 underline break-all" href={x.sourceUrl} target="_blank" rel="noreferrer">{x.sourceUrl}</a>}
@@ -157,8 +157,8 @@ export function SearchTuningCard() {
 
       <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-1.5">
         <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">유튜브 재생목록 저장 (OAuth 클라이언트 ID)</p>
-        <p className="text-[11px] text-purple-600 dark:text-purple-300">Vercel 환경 변수 <code>YOUTUBE_OAUTH_CLIENT_ID</code> 에 넣어 두면 그 값이 먼저 쓰여요 (여기는 비워 둬도 돼요).</p>
-        <p className="text-[11px] text-zinc-500 leading-relaxed">넣어 두면 저장 창에 '내 유튜브 재생목록에 바로 저장'이 생겨요. 구글 클라우드 콘솔 › API 및 서비스 › 사용자 인증 정보 › OAuth 클라이언트 ID(웹 애플리케이션)에서 만들고, 승인된 자바스크립트 원본에 사이트 주소를 넣으세요. 비워 두면 지금처럼 유튜브로 열어 줘요.</p>
+        <p className="text-[length:calc(11px*var(--fs,1))] text-purple-600 dark:text-purple-300">Vercel 환경 변수 <code>YOUTUBE_OAUTH_CLIENT_ID</code> 에 넣어 두면 그 값이 먼저 쓰여요 (여기는 비워 둬도 돼요).</p>
+        <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 leading-relaxed">넣어 두면 저장 창에 '내 유튜브 재생목록에 바로 저장'이 생겨요. 구글 클라우드 콘솔 › API 및 서비스 › 사용자 인증 정보 › OAuth 클라이언트 ID(웹 애플리케이션)에서 만들고, 승인된 자바스크립트 원본에 사이트 주소를 넣으세요. 비워 두면 지금처럼 유튜브로 열어 줘요.</p>
         <div className="flex gap-1.5">
           <input value={clientId} onChange={(e) => setClientId(e.target.value.trim())} placeholder="xxxxxxxx.apps.googleusercontent.com" className="flex-1 min-w-0 px-3 py-2 text-xs rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 font-mono" />
           <button type="button" disabled={!!busy} onClick={() => run('cid', async () => { await setDoc(doc(db, 'config', 'system'), { youtubeOAuthClientId: clientId }, { merge: true }); return { summary: '저장했어요.' }; })} className={`${btn} bg-zinc-900 dark:bg-white text-white dark:text-zinc-900`}>저장</button>
@@ -206,7 +206,7 @@ function AiVideoPanel() {
   return (
     <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
       <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">AI 영상 상세 분석 (AI 검색)</p>
-      <p className="text-[11px] text-zinc-500 leading-relaxed break-keep">
+      <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 leading-relaxed break-keep">
         최신 영상부터 일반 영상·생방송 다시보기·쇼츠를 AI가 직접 보고 장면마다 정리해요. 긴 영상은 10분씩 나눠 보고, 다 보면 나온 게임을 구글 검색(공식 소개·다른 유튜버 플레이 반응)으로 알아봐요.
         무료 한도(유튜브 영상 하루 약 8시간) 안에서 하루 {Math.round((st?.dailySec || 25200) / 3600)}시간까지만 보고 쉬어요. 검색할 때는 AI를 부르지 않아요.
       </p>
@@ -215,13 +215,13 @@ function AiVideoPanel() {
           {[['분석 끝', `${st.done ?? 0} / ${st.total ?? 0}`], ['보는 중', st.partial ?? 0], ['오늘 본 시간', `${usedMin}분`], ['오늘 요청', st.day === today ? st.calls || 0 : 0]].map(([k, v]) => (
             <div key={String(k)} className="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 py-2">
               <p className="text-base font-black text-zinc-900 dark:text-white tabular-nums">{v as any}</p>
-              <p className="text-[10px] text-zinc-500">{k}</p>
+              <p className="text-[length:calc(10px*var(--fs,1))] text-zinc-500">{k}</p>
             </div>
           ))}
         </div>
       )}
       {st && (
-        <div className="text-[11px] text-zinc-500 space-y-1">
+        <div className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 space-y-1">
           <p>
             영상 목록 {st.total ?? 0}개{st.kinds ? ` (영상 ${st.kinds.video || 0} · 생방송 ${st.kinds.live || 0} · 쇼츠 ${st.kinds.short || 0}${st.kinds.comp ? ` · 몰아보기 ${st.kinds.comp}개는 분석 안 함` : ''})` : ''}
             {st.channelCount ? ` · 유튜브 채널 표시 ${st.channelCount}개` : ''}{st.paused ? ' · 멈춤' : ''}
@@ -283,8 +283,8 @@ function AiVideoPanel() {
         <input value={tq} onChange={(e) => setTq(e.target.value)} placeholder="AI 검색 시험 (예: 비명 지르는 장면)" className="flex-1 min-w-0 px-3 py-2 text-xs rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" />
         <button type="submit" className={`${btn} bg-zinc-900 dark:bg-white text-white dark:text-zinc-900`}>찾기</button>
       </form>
-      {tr && (tr.length === 0 ? <p className="text-[11px] text-zinc-500">아직 분석된 영상 중엔 없어요.</p> : (
-        <ul className="space-y-1.5 text-[11px] text-zinc-600 dark:text-zinc-300">
+      {tr && (tr.length === 0 ? <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">아직 분석된 영상 중엔 없어요.</p> : (
+        <ul className="space-y-1.5 text-[length:calc(11px*var(--fs,1))] text-zinc-600 dark:text-zinc-300">
           {tr.map((r) => (
             <li key={r.id} className="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 p-2">
               <a className="font-bold underline" href={`https://youtu.be/${r.id}`} target="_blank" rel="noreferrer">{r.title}</a> <span className="text-zinc-400">점수 {r.score.toFixed(1)}{r.partial ? ' · 분석 중' : ''}</span>

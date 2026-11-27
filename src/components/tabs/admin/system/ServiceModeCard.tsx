@@ -44,34 +44,34 @@ export function ServiceModeCard({ system, onUpdateSystemConfig }: { system: Part
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3">
       <div>
         <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2"><Rocket className="w-4 h-4 text-purple-600 dark:text-purple-400" /> 서비스 단계</h3>
-        <p className="text-[11px] text-zinc-500 mt-0.5 break-keep">런칭 전·잠시 중지·종료 때 방문자 화면 전체를 앱 아이콘이 있는 안내 화면으로 바꿔요 (점검 화면과 같은 모양). 관리자 페이지는 그대로 쓸 수 있어요.</p>
+        <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 mt-0.5 break-keep">런칭 전·잠시 중지·종료 때 방문자 화면 전체를 앱 아이콘이 있는 안내 화면으로 바꿔요 (점검 화면과 같은 모양). 관리자 페이지는 그대로 쓸 수 있어요.</p>
       </div>
       <div className="grid grid-cols-2 gap-2">
         {MODES.map(([k, l, d]) => (
           <button key={k} type="button" onClick={() => setMode(k)} aria-pressed={mode === k}
             className={`text-left p-3 rounded-xl border cursor-pointer ${mode === k ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40' : 'border-zinc-200 dark:border-zinc-700'}`}>
             <p className="text-xs font-black text-zinc-900 dark:text-white">{l}</p>
-            <p className="text-[10.5px] text-zinc-500 break-keep mt-0.5">{d}</p>
+            <p className="text-[length:calc(10.5px*var(--fs,1))] text-zinc-500 break-keep mt-0.5">{d}</p>
           </button>
         ))}
       </div>
       {gm && (
         <div className="space-y-2">
           {gm === 'prelaunch' && (
-            <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-300">오픈 시각 (한국 시간 · 이 시각이 지나면 저절로 열려요)
+            <label className="block text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">오픈 시각 (한국 시간 · 이 시각이 지나면 저절로 열려요)
               <input type="datetime-local" value={launchAt} onChange={(e) => setLaunchAt(e.target.value)} className={`${input} mt-1`} />
             </label>
           )}
-          <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-300">큰 제목
+          <label className="block text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">큰 제목
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={def!.title} className={`${input} mt-1`} />
           </label>
-          <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-300">한 줄 안내
+          <label className="block text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">한 줄 안내
             <input value={message} onChange={(e) => setMessage(e.target.value)} placeholder={def!.message} className={`${input} mt-1`} />
           </label>
-          <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-300">{gm === 'prelaunch' ? '아래 장: 사이트 소개 (마크다운)' : gm === 'ended' ? '아래 장: 편지 (마크다운)' : '아래 장: 안내 글 (마크다운)'}
+          <label className="block text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">{gm === 'prelaunch' ? '아래 장: 사이트 소개 (마크다운)' : gm === 'ended' ? '아래 장: 편지 (마크다운)' : '아래 장: 안내 글 (마크다운)'}
             <textarea value={letter} onChange={(e) => setLetter(e.target.value)} placeholder={def!.letter} rows={7} className={`${input} mt-1 font-mono`} />
           </label>
-          <p className="text-[10.5px] text-zinc-400">비워 두면 회색 글씨(기본 글)로 나가요.</p>
+          <p className="text-[length:calc(10.5px*var(--fs,1))] text-zinc-400">비워 두면 회색 글씨(기본 글)로 나가요.</p>
         </div>
       )}
       <div className="flex gap-2">

@@ -148,13 +148,13 @@ export function AdminRoute() {
               <Tv className="w-4.5 h-4.5 text-white" />
             </span>
             <span className="text-left min-w-0">
-              <span className="block text-[15px] font-black tracking-tight text-zinc-900 dark:text-white leading-tight">우주하마 관리자</span>
-              <span className="block text-[10.5px] font-semibold text-emerald-600 dark:text-emerald-400 leading-tight">● 보안 인증됨</span>
+              <span className="block text-[length:calc(15px*var(--fs,1))] font-black tracking-tight text-zinc-900 dark:text-white leading-tight">우주하마 관리자</span>
+              <span className="block text-[length:calc(10.5px*var(--fs,1))] font-semibold text-emerald-600 dark:text-emerald-400 leading-tight">● 보안 인증됨</span>
             </span>
           </button>
           <button
             onClick={() => setShowLogoutConfirm(true)}
-            className="flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/10 text-[13px] font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shadow-sm"
+            className="flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/10 text-[length:calc(13px*var(--fs,1))] font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shadow-sm"
           >
             <LogOut className="w-4 h-4" />
             로그아웃

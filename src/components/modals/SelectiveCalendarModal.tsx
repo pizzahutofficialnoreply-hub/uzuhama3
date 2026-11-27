@@ -113,7 +113,7 @@ export const SelectiveCalendarModal: React.FC<SelectiveCalendarModalProps> = ({
                 <HelpCircle className="w-4 h-4 shrink-0" />
                 <span>캘린더 구독과 선택 등록의 차이점</span>
               </div>
-              <ul className="list-disc list-inside space-y-1 pl-1 text-[11.5px] text-zinc-600 dark:text-zinc-400">
+              <ul className="list-disc list-inside space-y-1 pl-1 text-[length:calc(11.5px*var(--fs,1))] text-zinc-600 dark:text-zinc-400">
                 <li>
                   <strong className="text-purple-700 dark:text-purple-300 font-bold">선택 등록 (현재 기능):</strong> 지금 체크한 <strong>{selectedLogs.length}개 일정만</strong> 캘린더 앱에 1회성으로 등록해요.
                 </li>
@@ -134,7 +134,7 @@ export const SelectiveCalendarModal: React.FC<SelectiveCalendarModalProps> = ({
                       onClearSelection();
                       onClose();
                     }}
-                    className="text-zinc-400 hover:text-red-500 text-[11px] font-semibold transition-colors"
+                    className="text-zinc-400 hover:text-red-500 text-[length:calc(11px*var(--fs,1))] font-semibold transition-colors"
                   >
                     선택 초기화
                   </button>
@@ -149,7 +149,7 @@ export const SelectiveCalendarModal: React.FC<SelectiveCalendarModalProps> = ({
                         <div className="flex items-center gap-1.5 mb-0.5">
                           <span className="font-bold text-purple-600 dark:text-purple-400">{log.date}</span>
                           {log.time && (
-                            <span className="text-[10px] text-zinc-400">({log.time})</span>
+                            <span className="text-[length:calc(10px*var(--fs,1))] text-zinc-400">({log.time})</span>
                           )}
                         </div>
                         <p className="font-medium text-zinc-800 dark:text-zinc-200 truncate">
@@ -161,7 +161,7 @@ export const SelectiveCalendarModal: React.FC<SelectiveCalendarModalProps> = ({
                         href={getGoogleCalendarUrl(log)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-2 py-1 rounded bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 text-[10px] font-semibold shrink-0 flex items-center gap-1"
+                        className="px-2 py-1 rounded bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 text-[length:calc(10px*var(--fs,1))] font-semibold shrink-0 flex items-center gap-1"
                         title="이 방송만 구글 캘린더에 바로 등록"
                       >
                         <span>구글</span>
@@ -199,7 +199,7 @@ export const SelectiveCalendarModal: React.FC<SelectiveCalendarModalProps> = ({
               </button>
 
               {isExported && (
-                <p className="text-[11px] text-center text-emerald-600 dark:text-emerald-400 font-medium animate-in fade-in">
+                <p className="text-[length:calc(11px*var(--fs,1))] text-center text-emerald-600 dark:text-emerald-400 font-medium animate-in fade-in">
                   ✓ 다운로드된 .ics 파일을 실행하시면 기기 캘린더(아이폰, 갤럭시, 맥, 윈도우 등)에 선택한 일정만 깔끔하게 등록돼요.
                 </p>
               )}

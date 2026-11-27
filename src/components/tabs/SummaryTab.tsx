@@ -18,7 +18,7 @@ interface SummaryTabProps {
   isActive?: boolean;
   /** 토스식 홈 카드에서 이동 */
   onOpenDate?: (date: string) => void;
-  onOpenStats?: (sub: 'summary' | 'trend' | 'day' | 'category', start: string, end: string) => void;
+  onOpenStats?: (sub: 'trend' | 'day' | 'category', start: string, end: string) => void;
   onOpenVideo?: (videoId: string | null) => void;
 }
 
@@ -318,9 +318,9 @@ export function SummaryTab({ data, fetchLogs, isActive = true, onOpenDate, onOpe
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div id="summary-weekly-trend-card" className="bg-white dark:bg-zinc-900 rounded-[26px] px-6 pt-5 pb-5 relative">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[20px] sm:text-[22px] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">최근 주간 방송 횟수</h3>
+            <h3 className="text-[length:calc(20px*var(--fs,1))] sm:text-[length:calc(22px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">최근 주간 방송 횟수</h3>
             <div className="flex items-center gap-1.5">
-              <span className="text-[13px] text-zinc-500 dark:text-zinc-400">{latestYear}년</span>
+              <span className="text-[length:calc(13px*var(--fs,1))] text-zinc-500 dark:text-zinc-400">{latestYear}년</span>
               <WidgetShareButton targetId="summary-weekly-trend-card" title="최근 주간 방송 횟수" />
             </div>
           </div>
@@ -339,7 +339,7 @@ export function SummaryTab({ data, fetchLogs, isActive = true, onOpenDate, onOpe
                         <p className="font-bold text-zinc-900 dark:text-zinc-100">{dataItem?.weekFull || label} 주간</p>
                         <p className="text-purple-600 dark:text-purple-400 font-extrabold">{payload[0].value}회 방송</p>
                         {dataItem?.datesDesc && (
-                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{dataItem.datesDesc}</p>
+                          <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400">{dataItem.datesDesc}</p>
                         )}
                       </div>
                     );
@@ -367,9 +367,9 @@ export function SummaryTab({ data, fetchLogs, isActive = true, onOpenDate, onOpe
 
         <div id="summary-daily-density-card" className="bg-white dark:bg-zinc-900 rounded-[26px] px-6 pt-5 pb-5 relative">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[20px] sm:text-[22px] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">요일별 방송</h3>
+            <h3 className="text-[length:calc(20px*var(--fs,1))] sm:text-[length:calc(22px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">요일별 방송</h3>
             <div className="flex items-center gap-1.5">
-              <span className="text-[13px] text-zinc-500 dark:text-zinc-400">{latestYear}년</span>
+              <span className="text-[length:calc(13px*var(--fs,1))] text-zinc-500 dark:text-zinc-400">{latestYear}년</span>
               <WidgetShareButton targetId="summary-daily-density-card" title="최근 요일별 집중도" />
             </div>
           </div>

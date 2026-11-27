@@ -38,18 +38,18 @@ function Report({ r }: { r: any }) {
         <Row ok={r.results?.selftest ? !r.results.selftest.summary?.failed && !r.results.selftest.error : null} name="화면·기능 전체 점검" detail={r.results?.selftest ? `${(r.results.selftest.summary?.total || 0) - (r.results.selftest.summary?.failed || 0)}/${r.results.selftest.summary?.total || 0}${r.results.selftest.error ? ` · ${r.results.selftest.error}` : ''}` : ''} />
       </ul>
       {(r.results?.selftest?.results || []).some((x: any) => !x.ok || x.warn) && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-950/30 p-2.5 text-[11px] space-y-0.5">
+        <div className="rounded-xl bg-red-50 dark:bg-red-950/30 p-2.5 text-[length:calc(11px*var(--fs,1))] space-y-0.5">
           {r.results.selftest.results.filter((x: any) => !x.ok || x.warn).map((x: any, i: number) => <p key={i}>{x.ok ? '⚠️' : '❌'} [{x.group}] {x.name} <span className="text-zinc-500">{x.err}</span></p>)}
         </div>
       )}
 
       {(r.results?.api?.checks || []).some((c: any) => !c.ok) && (
-        <div className="rounded-xl bg-red-50 dark:bg-red-950/30 p-2.5 text-[11px] space-y-0.5">
+        <div className="rounded-xl bg-red-50 dark:bg-red-950/30 p-2.5 text-[length:calc(11px*var(--fs,1))] space-y-0.5">
           {(r.results.api.checks || []).filter((c: any) => !c.ok).map((c: any, i: number) => <p key={i}>❌ [{c.group}] {c.name} <span className="text-zinc-500">{c.detail}</span></p>)}
         </div>
       )}
       {(r.results?.live?.problems || []).length > 0 && (
-        <details className="text-[11px]">
+        <details className="text-[length:calc(11px*var(--fs,1))]">
           <summary className="cursor-pointer font-bold text-zinc-600 dark:text-zinc-300">화면 문제 {r.results.live.problems.length}곳</summary>
           <ul className="mt-1 space-y-1">
             {r.results.live.problems.map((p: any, i: number) => (
@@ -61,7 +61,7 @@ function Report({ r }: { r: any }) {
         </details>
       )}
       {(r.server?.clientErrors?.top || []).length > 0 && (
-        <details className="text-[11px]">
+        <details className="text-[length:calc(11px*var(--fs,1))]">
           <summary className="cursor-pointer font-bold text-zinc-600 dark:text-zinc-300">방문자 화면 오류 많은 순</summary>
           <ul className="mt-1 space-y-0.5">{r.server.clientErrors.top.map(([m, n]: any, i: number) => <li key={i} className="break-all"><b>{n}회</b> {m}</li>)}</ul>
         </details>
@@ -69,32 +69,32 @@ function Report({ r }: { r: any }) {
 
       <div className="rounded-xl bg-purple-50 dark:bg-purple-950/30 p-3 space-y-1.5">
         <p className="text-xs font-black text-purple-700 dark:text-purple-300">피드백 총정리 (지난 7일 {fb.total || 0}건 · 처리 안 됨 {fb.pending || 0}){ai?.model ? <span className="font-medium text-purple-400"> · AI</span> : null}</p>
-        {fb.byType && <p className="text-[11px] text-zinc-500">{Object.entries(fb.byType).map(([k, v]) => `${k} ${v}`).join(' · ')} · 검색 만족 👍{fb.searchGood || 0} 👎{fb.searchBad || 0}</p>}
+        {fb.byType && <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">{Object.entries(fb.byType).map(([k, v]) => `${k} ${v}`).join(' · ')} · 검색 만족 👍{fb.searchGood || 0} 👎{fb.searchBad || 0}</p>}
         {ai?.summary && <p className="text-xs text-zinc-700 dark:text-zinc-200 break-keep">{ai.summary}</p>}
         {(ai?.urgent || []).length > 0 && <ul className="text-xs text-red-600 dark:text-red-400 space-y-0.5">{ai.urgent.map((u: string, i: number) => <li key={i}>⚠️ {u}</li>)}</ul>}
         {(ai?.themes || []).length > 0 && (
           <ul className="space-y-1">
             {ai.themes.map((t: any, i: number) => (
-              <li key={i} className="text-[11px] text-zinc-600 dark:text-zinc-300"><b>{t.title}</b>{t.count ? ` (${t.count})` : ''} — {t.detail} <span className="text-purple-600 dark:text-purple-400">→ {t.action}</span></li>
+              <li key={i} className="text-[length:calc(11px*var(--fs,1))] text-zinc-600 dark:text-zinc-300"><b>{t.title}</b>{t.count ? ` (${t.count})` : ''} — {t.detail} <span className="text-purple-600 dark:text-purple-400">→ {t.action}</span></li>
             ))}
           </ul>
         )}
         {(fb.list || []).length > 0 && (
-          <details className="text-[11px]">
+          <details className="text-[length:calc(11px*var(--fs,1))]">
             <summary className="cursor-pointer text-zinc-500">원문 {fb.list.length}건</summary>
             <ul className="mt-1 space-y-1 max-h-60 overflow-y-auto">{fb.list.map((x: any) => <li key={x.id} className="break-all"><b>[{x.type}] {x.title}</b> <span className="text-zinc-500">{x.content}</span></li>)}</ul>
           </details>
         )}
       </div>
 
-      <p className="text-[11px] text-zinc-500">
+      <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">
         DB: {Object.entries(r.server?.db || {}).map(([k, v]) => `${k} ${v}`).join(' · ')}
         {r.server?.aiVideo ? ` · AI 분석 ${r.server.aiVideo.done}/${r.server.aiVideo.total}` : ''}
         {r.server?.deadVideos ? ` · 끊긴 영상 ${r.server.deadVideos.count}` : ''}
         {r.server?.adminAudit ? ` · 관리자 작업 ${r.server.adminAudit.total}` : ''}
         {r.results?.api?.stats ? ` · 방송 기록 ${r.results.api.stats.logs}개 (마지막 ${r.results.api.stats.lastLogDate})` : ''}
       </p>
-      {r.runUrl && <a href={r.runUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-purple-600 font-bold">GitHub 실행 결과·화면 사진 <ExternalLink className="w-3 h-3" /></a>}
+      {r.runUrl && <a href={r.runUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[length:calc(11px*var(--fs,1))] text-purple-600 font-bold">GitHub 실행 결과·화면 사진 <ExternalLink className="w-3 h-3" /></a>}
     </div>
   );
 }
@@ -110,13 +110,13 @@ function RulesRow() {
   return (
     <div className={`rounded-xl p-3 text-xs space-y-1.5 ${st.same ? 'bg-emerald-50 dark:bg-emerald-950/30' : 'bg-red-50 dark:bg-red-950/30'}`}>
       <p className="font-bold">{st.error ? `보안 규칙 확인 실패: ${st.error}` : st.same ? '✅ DB 보안 규칙: 최신이에요' : '❌ DB 보안 규칙: 지금 적용된 규칙이 예전 것이라 방문자가 푸시 알림 구독 목록을 읽고 지울 수 있어요'}</p>
-      {st.deployedAt && <p className="text-[11px] text-zinc-500">지금 적용된 규칙: {String(st.deployedAt).slice(0, 19).replace('T', ' ')}</p>}
+      {st.deployedAt && <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">지금 적용된 규칙: {String(st.deployedAt).slice(0, 19).replace('T', ' ')}</p>}
       {!st.same && !st.error && (
         <button type="button" disabled={busy} onClick={async () => { if (!await confirmSheet('저장소의 최신 보안 규칙(firestore.rules)을 바로 적용할까요?')) return; setBusy(true); try { const r = await mutate('deployRules'); setMsg(r.summary || '적용했어요'); await load(); } catch (e: any) { setMsg('오류: ' + (e?.message || e)); } finally { setBusy(false); } }}
           className="px-3 py-1.5 rounded-xl bg-red-600 text-white font-bold cursor-pointer disabled:opacity-60">{busy ? '적용 중…' : '최신 보안 규칙 적용'}</button>
       )}
       {msg && <p className="font-bold">{msg}</p>}
-      {st.deployedPreview && !st.same && <details><summary className="cursor-pointer text-[11px] text-zinc-500">지금 적용된 규칙 보기</summary><pre className="mt-1 text-[10px] whitespace-pre-wrap max-h-60 overflow-y-auto">{st.deployedPreview}</pre></details>}
+      {st.deployedPreview && !st.same && <details><summary className="cursor-pointer text-[length:calc(11px*var(--fs,1))] text-zinc-500">지금 적용된 규칙 보기</summary><pre className="mt-1 text-[length:calc(10px*var(--fs,1))] whitespace-pre-wrap max-h-60 overflow-y-auto">{st.deployedPreview}</pre></details>}
     </div>
   );
 }
@@ -137,7 +137,7 @@ export function WeeklyReportCard() {
         <h3 className="text-sm font-bold text-zinc-900 dark:text-white flex-1">주간 점검 보고서</h3>
         <button type="button" onClick={load} className="text-zinc-400 cursor-pointer" aria-label="새로 고침"><RotateCcw className="w-3.5 h-3.5" /></button>
       </div>
-      <p className="text-[11px] text-zinc-500 leading-relaxed break-keep">
+      <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 leading-relaxed break-keep">
         시스템 › 점검 탭에서 정한 요일·시간(점검 중)마다 자동으로 타입 검사·로직 테스트·빌드·보안 취약점·e2e·실제 사이트 화면(휴대폰·PC, 밝게·어둡게)·개발자 콘솔·UI/UX·API·DB·보안을 돌리고, 지난 7일 피드백을 AI로 총정리해요. 고칠 게 있으면 GitHub 이슈 '주간 점검'에도 남겨서 정기 버그 수정 때 고쳐요.
       </p>
       <RulesRow />
@@ -150,7 +150,7 @@ export function WeeklyReportCard() {
             <button type="button" onClick={() => setOpen(open === i ? -1 : i)} className="w-full flex items-center gap-2 px-3 py-2.5 text-left cursor-pointer">
               <span>{r.ok ? '✅' : '⚠️'}</span>
               <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100">{new Date(r.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-              <span className="text-[11px] text-zinc-500 flex-1 truncate">{r.ok ? '문제 없음' : r.fails.join(' · ')}</span>
+              <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 flex-1 truncate">{r.ok ? '문제 없음' : r.fails.join(' · ')}</span>
               <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${open === i ? 'rotate-180' : ''}`} />
             </button>
             {open === i && <div className="px-3 pb-3"><Report r={r} /></div>}

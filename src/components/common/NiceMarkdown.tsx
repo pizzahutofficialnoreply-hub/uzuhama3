@@ -12,9 +12,9 @@ const safeUrl = (u: string) => (/^(https?:\/\/|app:\/\/|redirect:\/\/|\/)/i.test
 const isInternal = (u: string) => /^(app:\/\/|redirect:\/\/|\/(?!\/))/i.test(u || '');
 
 export const NICE_MD: Record<string, any> = {
-  h1: ({ node, ...p }: any) => <h2 className="text-[16px] font-black text-zinc-900 dark:text-white mt-4 mb-2 break-keep" {...p} />,
-  h2: ({ node, ...p }: any) => <h2 className="text-[15px] font-black text-zinc-900 dark:text-white mt-4 mb-2 break-keep" {...p} />,
-  h3: ({ node, ...p }: any) => <h3 className="text-[13.5px] font-black text-purple-600 dark:text-purple-400 mt-3 mb-1.5 break-keep" {...p} />,
+  h1: ({ node, ...p }: any) => <h2 className="text-[length:calc(16px*var(--fs,1))] font-black text-zinc-900 dark:text-white mt-4 mb-2 break-keep" {...p} />,
+  h2: ({ node, ...p }: any) => <h2 className="text-[length:calc(15px*var(--fs,1))] font-black text-zinc-900 dark:text-white mt-4 mb-2 break-keep" {...p} />,
+  h3: ({ node, ...p }: any) => <h3 className="text-[length:calc(13.5px*var(--fs,1))] font-black text-purple-600 dark:text-purple-400 mt-3 mb-1.5 break-keep" {...p} />,
   p: ({ node, ...p }: any) => <p className="my-1.5 leading-relaxed text-zinc-700 dark:text-zinc-200 break-keep" {...p} />,
   ul: ({ node, ...p }: any) => <ul className="my-2 pl-5 space-y-1.5 list-disc marker:text-purple-500" {...p} />,
   ol: ({ node, ...p }: any) => <ol className="my-2 pl-5 space-y-1.5 list-decimal marker:text-purple-500 marker:font-bold" {...p} />,
@@ -37,7 +37,7 @@ export const NICE_MD: Record<string, any> = {
 
 export function NiceMarkdown({ children, className = '' }: { children: string; className?: string }) {
   return (
-    <div className={`text-[13px] sm:text-sm ${className}`}>
+    <div className={`text-[length:calc(13px*var(--fs,1))] sm:text-sm ${className}`}>
       <ReactMarkdown components={NICE_MD} urlTransform={(u) => safeUrl(u)}>{children}</ReactMarkdown>
     </div>
   );

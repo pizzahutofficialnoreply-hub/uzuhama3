@@ -54,7 +54,7 @@ export const DataOptionsSubTab: React.FC<DataOptionsSubTabProps> = ({
               placeholder="예: v1.0.0, v0.0.0+00"
               className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-zinc-900 dark:text-white"
             />
-            <p className="text-[11px] text-zinc-400 mt-1">버전 뒤에 빌드 번호(예: +00, +01, -beta)를 붙여 v0.0.0+00 형식으로 자유롭게 표기 가능해요.</p>
+            <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-400 mt-1">버전 뒤에 빌드 번호(예: +00, +01, -beta)를 붙여 v0.0.0+00 형식으로 자유롭게 표기 가능해요.</p>
           </div>
           <div>
             <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">약관 동의 버전 (termsVersion)</label>
@@ -64,7 +64,7 @@ export const DataOptionsSubTab: React.FC<DataOptionsSubTabProps> = ({
               onChange={e => handleChange('termsVersion', Number(e.target.value))}
               className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white"
             />
-            <p className="text-[11px] text-zinc-400 mt-1">숫자를 올리면 사용자들에게 재동의 팝업이 노출돼요.</p>
+            <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-400 mt-1">숫자를 올리면 사용자들에게 재동의 팝업이 노출돼요.</p>
           </div>
         </div>
 
@@ -73,11 +73,11 @@ export const DataOptionsSubTab: React.FC<DataOptionsSubTabProps> = ({
           <div className="space-y-0.5">
             <div className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-2">
               <span>처음 방문자 사이트 둘러보기</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${systemEdit.tutorialEnabled !== false ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+              <span className={`px-2 py-0.5 rounded-full text-[length:calc(10px*var(--fs,1))] font-bold ${systemEdit.tutorialEnabled !== false ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'}`}>
                 {systemEdit.tutorialEnabled !== false ? '켜짐' : '전체 차단'}
               </span>
             </div>
-            <p className="text-[11px] text-zinc-500">끄면 처음 들어온 사람에게도 둘러보기가 뜨지 않고, 설정의 '다시 보기' 버튼도 사라져요.</p>
+            <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">끄면 처음 들어온 사람에게도 둘러보기가 뜨지 않고, 설정의 '다시 보기' 버튼도 사라져요.</p>
           </div>
           <button
             type="button"

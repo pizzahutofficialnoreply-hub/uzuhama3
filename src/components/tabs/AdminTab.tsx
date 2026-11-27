@@ -56,7 +56,7 @@ export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAll
       <header className="space-y-3">
         <div className="flex items-end justify-between gap-3 px-1">
           <div className="min-w-0">
-            <p className="text-[11px] font-bold tracking-wide text-purple-600 dark:text-purple-400">관리자</p>
+            <p className="text-[length:calc(11px*var(--fs,1))] font-bold tracking-wide text-purple-600 dark:text-purple-400">관리자</p>
             <h2 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white tracking-tight truncate">{adminNavTabs.find((t) => t.id === viewMode)?.fullLabel}</h2>
           </div>
         </div>
@@ -166,7 +166,7 @@ export function AdminTab({ data, onAddLog, onUpdateLog, onDeleteLog, onDeleteAll
                   />
                 )}
                 <Icon className={cn('relative w-[19px] h-[19px]', isActive ? 'stroke-[2.4]' : 'stroke-[2]')} />
-                <span className={cn('relative text-[10px] leading-none mt-1 truncate max-w-full', isActive ? 'font-bold' : 'font-medium')}>{tab.label}</span>
+                <span className={cn('relative text-[length:calc(10px*var(--fs,1))] leading-none mt-1 truncate max-w-full', isActive ? 'font-bold' : 'font-medium')}>{tab.label}</span>
               </button>
             );
           })}

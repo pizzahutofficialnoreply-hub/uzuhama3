@@ -93,7 +93,7 @@ export function LicensePage() {
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-zinc-900 dark:text-white text-sm">배달의민족 한나체 Pro & 한나체 Air</h3>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-200/60 dark:bg-purple-800/60 text-purple-800 dark:text-purple-200 font-bold">서체</span>
+                      <span className="text-[length:calc(10px*var(--fs,1))] px-1.5 py-0.5 rounded bg-purple-200/60 dark:bg-purple-800/60 text-purple-800 dark:text-purple-200 font-bold">서체</span>
                     </div>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">저작권자: (주)우아한형제들 | 라이선스: SIL Open Font License (OFL-1.1)</p>
                   </div>
@@ -190,7 +190,7 @@ export function LicensePage() {
                         {details.licenseFile && (
                           <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                             <p className="font-semibold mb-2">라이선스 파일 경로:</p>
-                            <p className="text-[10px] break-all bg-zinc-50 dark:bg-zinc-900 p-2 rounded">{details.licenseFile}</p>
+                            <p className="text-[length:calc(10px*var(--fs,1))] break-all bg-zinc-50 dark:bg-zinc-900 p-2 rounded">{details.licenseFile}</p>
                           </div>
                         )}
                       </div>

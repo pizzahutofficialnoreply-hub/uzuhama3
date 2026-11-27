@@ -77,14 +77,14 @@ function Paper({ msg, sub }: { msg: string; sub?: string }) {
   return (
     <div className="relative w-[280px] rounded-[6px] bg-[#fffef8] text-zinc-900 shadow-[0_18px_40px_-10px_rgba(0,0,0,.55)] overflow-hidden" style={{ transform: 'rotate(-2deg)' }}>
       <div className="px-4 py-2 bg-[#dbe9ff] border-b-2 border-[#1f1a24] flex items-center justify-between">
-        <span className="text-[11px] font-black tracking-tight">대학수학능력시험 · 응원 영역</span>
-        <span className="text-[10px] font-bold text-zinc-500">제 1 교시</span>
+        <span className="text-[length:calc(11px*var(--fs,1))] font-black tracking-tight">대학수학능력시험 · 응원 영역</span>
+        <span className="text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-500">제 1 교시</span>
       </div>
       <div className="relative px-5 pt-4 pb-6" style={{ backgroundImage: 'repeating-linear-gradient(transparent 0 27px, #c9d6ea 27px 28px)' }}>
-        <p className="text-[34px] leading-[56px] text-[#1f3f8f] break-keep" style={{ fontFamily: "'Nanum Pen Script', cursive" }}>{msg}</p>
-        {sub && <p className="text-[20px] leading-[28px] text-zinc-600 break-keep" style={{ fontFamily: "'Nanum Pen Script', cursive" }}>{sub}</p>}
+        <p className="text-[length:calc(34px*var(--fs,1))] leading-[56px] text-[#1f3f8f] break-keep" style={{ fontFamily: "'Nanum Pen Script', cursive" }}>{msg}</p>
+        {sub && <p className="text-[length:calc(20px*var(--fs,1))] leading-[28px] text-zinc-600 break-keep" style={{ fontFamily: "'Nanum Pen Script', cursive" }}>{sub}</p>}
         <motion.span initial={{ scale: 2.4, opacity: 0, rotate: -30 }} animate={{ scale: 1, opacity: 1, rotate: -14 }} transition={{ delay: 0.45, type: 'spring', stiffness: 380, damping: 14 }}
-          className="absolute right-3 bottom-3 w-[66px] h-[66px] rounded-full border-[3px] border-[#e8344f] text-[#e8344f] flex items-center justify-center text-[20px] font-black" style={{ fontFamily: "'Black Han Sans', sans-serif" }}>합격</motion.span>
+          className="absolute right-3 bottom-3 w-[66px] h-[66px] rounded-full border-[3px] border-[#e8344f] text-[#e8344f] flex items-center justify-center text-[length:calc(20px*var(--fs,1))] font-black" style={{ fontFamily: "'Black Han Sans', sans-serif" }}>합격</motion.span>
       </div>
     </div>
   );
@@ -109,7 +109,7 @@ export function EggPopup({ kind, message, sub, hero, onClose }: { kind: EggKind;
         {kind === 'pumpkin' && (
           <button type="button" onClick={() => setLit((v) => !v)} className="flex flex-col items-center cursor-pointer" aria-label={lit ? '호박등 불 끄기' : '호박등 불 켜기'}>
             <Pumpkin lit={lit} className="w-44 h-44 drop-shadow-xl" />
-            <span className="mt-1 px-3 py-1 rounded-full bg-zinc-900/85 text-white text-[13px] font-bold">{lit ? msg : '불이 꺼졌어요… 다시 눌러 보세요'}</span>
+            <span className="mt-1 px-3 py-1 rounded-full bg-zinc-900/85 text-white text-[length:calc(13px*var(--fs,1))] font-bold">{lit ? msg : '불이 꺼졌어요… 다시 눌러 보세요'}</span>
           </button>
         )}
         {kind === 'moon' && (
@@ -121,7 +121,7 @@ export function EggPopup({ kind, message, sub, hero, onClose }: { kind: EggKind;
                   className="absolute top-20 text-[#fff3b0] text-xl" aria-hidden="true">✦</motion.span>
               ))}
             </AnimatePresence>
-            <span className="mt-1 px-3 py-1 rounded-full bg-zinc-900/85 text-white text-[13px] font-bold break-keep">{wish ? '소원이 달에 닿았어요' : `${msg} · 달을 눌러 소원 빌기`}</span>
+            <span className="mt-1 px-3 py-1 rounded-full bg-zinc-900/85 text-white text-[length:calc(13px*var(--fs,1))] font-bold break-keep">{wish ? '소원이 달에 닿았어요' : `${msg} · 달을 눌러 소원 빌기`}</span>
           </button>
         )}
         {kind === 'party' && (
@@ -130,8 +130,8 @@ export function EggPopup({ kind, message, sub, hero, onClose }: { kind: EggKind;
               <motion.i key={i} initial={{ x: 0, y: 0, opacity: 1, rotate: 0 }} animate={{ x: Math.cos((i / 24) * Math.PI * 2) * (90 + (i % 3) * 30), y: Math.sin((i / 24) * Math.PI * 2) * (60 + (i % 4) * 20) + 40, opacity: 0, rotate: 360 }} transition={{ duration: 1.6, ease: 'easeOut' }}
                 className="absolute top-10 w-2.5 h-1.5 rounded-sm" style={{ background: ['#ff5c93', '#3fb6ff', '#ffcf3a', '#7ed957', '#a78bfa'][i % 5] }} />
             ))}
-            {hero && <motion.span initial={{ y: 20, scale: 0.6 }} animate={{ y: 0, scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 12 }} className="mb-2 text-[72px] leading-none">{hero}</motion.span>}
-            <span className="px-5 py-3 rounded-2xl bg-white text-zinc-900 text-[22px] shadow-xl break-keep" style={{ fontFamily: "'Jua', sans-serif" }}>{msg}</span>
+            {hero && <motion.span initial={{ y: 20, scale: 0.6 }} animate={{ y: 0, scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 12 }} className="mb-2 text-[length:calc(72px*var(--fs,1))] leading-none">{hero}</motion.span>}
+            <span className="px-5 py-3 rounded-2xl bg-white text-zinc-900 text-[length:calc(22px*var(--fs,1))] shadow-xl break-keep" style={{ fontFamily: "'Jua', sans-serif" }}>{msg}</span>
           </div>
         )}
       </motion.div>

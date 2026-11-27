@@ -51,8 +51,8 @@ export function CleanupReview({ data, onUpdateLog }: { data: AppData; onUpdateLo
   return (
     <div className="bg-white dark:bg-zinc-900 border border-purple-300/60 dark:border-purple-700/50 rounded-2xl p-5 shadow-sm space-y-3">
       <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2"><Wand2 className="w-4 h-4 text-purple-500" /> 정리 확인 (스팀·카페 대조에서 보낸 것) <span className="text-xs font-bold text-purple-600">{open.length}개 남음</span></h3>
-      <p className="text-[11px] text-zinc-500 break-keep">확실한 것은 이미 고쳤고, 겹치거나 애매한 것만 여기 모았어요. 제안이 맞으면 '제안대로', 다르면 직접 적어서 '고치기', 지금이 맞으면 '그대로 두기'.</p>
-      <button type="button" onClick={() => setShowDone((v) => !v)} className="text-[11px] font-bold text-zinc-500 underline cursor-pointer">{showDone ? '남은 것만 보기' : `끝난 것도 보기 (${items.length - open.length}개)`}</button>
+      <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 break-keep">확실한 것은 이미 고쳤고, 겹치거나 애매한 것만 여기 모았어요. 제안이 맞으면 '제안대로', 다르면 직접 적어서 '고치기', 지금이 맞으면 '그대로 두기'.</p>
+      <button type="button" onClick={() => setShowDone((v) => !v)} className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500 underline cursor-pointer">{showDone ? '남은 것만 보기' : `끝난 것도 보기 (${items.length - open.length}개)`}</button>
       <ul className="space-y-2">
         {list.slice(0, 200).map((it) => {
           const e = edit[it.id] || { name: it.suggest?.name || it.name || '', link: it.suggest?.link ?? it.link ?? '' };
@@ -81,7 +81,7 @@ export function CleanupReview({ data, onUpdateLog }: { data: AppData; onUpdateLo
           );
         })}
       </ul>
-      {list.length > 200 && <p className="text-[11px] text-zinc-500">처음 200개만 보여요. 처리하면 다음 것이 나와요.</p>}
+      {list.length > 200 && <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">처음 200개만 보여요. 처리하면 다음 것이 나와요.</p>}
     </div>
   );
 }

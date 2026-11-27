@@ -116,7 +116,7 @@ const CategoryPieTooltip = ({ active, payload }: any) => {
         <div className="text-zinc-300">
           누적 시간: <span className="text-zinc-100 font-bold">{d.hours}시간</span>
         </div>
-        <div className="pt-1 text-[11px] text-purple-300 font-medium border-t border-zinc-700/60">
+        <div className="pt-1 text-[length:calc(11px*var(--fs,1))] text-purple-300 font-medium border-t border-zinc-700/60">
           클릭: 선택 / 재클릭: 추천 영상 이동
         </div>
       </div>
@@ -407,7 +407,7 @@ export function CategoryStatsTab({
           title={topCategory ? `클릭 시 추천 영상 탭에서 "${topCategory.name}" 카테고리로 이동해요.` : undefined}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="text-[length:calc(11px*var(--fs,1))] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
               1위 최다 플레이 카테고리
             </span>
             {topCategory && (
@@ -417,31 +417,31 @@ export function CategoryStatsTab({
           <span className="text-sm sm:text-lg lg:text-xl font-bold text-zinc-900 dark:text-white truncate my-1">
             {topCategory ? topCategory.name : '없음'}
           </span>
-          <span className="text-[11px] sm:text-xs text-purple-600 dark:text-purple-400 font-medium truncate">
+          <span className="text-[length:calc(11px*var(--fs,1))] sm:text-xs text-purple-600 dark:text-purple-400 font-medium truncate">
             {topCategory ? `${topCategory.count}회 (${topCategory.share.toFixed(1)}%)` : '-'}
           </span>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          <span className="text-[length:calc(11px*var(--fs,1))] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
             분류된 게임 카테고리 수
           </span>
           <span className="text-sm sm:text-lg lg:text-xl font-bold text-zinc-900 dark:text-white my-1">
             {categories.length}개
           </span>
-          <span className="text-[11px] sm:text-xs text-zinc-400 dark:text-zinc-500 truncate">
+          <span className="text-[length:calc(11px*var(--fs,1))] sm:text-xs text-zinc-400 dark:text-zinc-500 truncate">
             총 {totalPlays}회 장르 플레이
           </span>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between">
-          <span className="text-[11px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          <span className="text-[length:calc(11px*var(--fs,1))] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
             플레이한 고유 게임 수
           </span>
           <span className="text-sm sm:text-lg lg:text-xl font-bold text-zinc-900 dark:text-white my-1">
             {totalGamesCount}개
           </span>
-          <span className="text-[11px] sm:text-xs text-zinc-400 dark:text-zinc-500 truncate">
+          <span className="text-[length:calc(11px*var(--fs,1))] sm:text-xs text-zinc-400 dark:text-zinc-500 truncate">
             다양한 장르 진행
           </span>
         </div>
@@ -460,7 +460,7 @@ export function CategoryStatsTab({
           title={topIndividualGames[0] ? `클릭 시 추천 영상 탭에서 "${topIndividualGames[0].name}" 검색 결과로 이동해요.` : undefined}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="text-[length:calc(11px*var(--fs,1))] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
               가장 자주 등장한 게임
             </span>
             {topIndividualGames[0] && (
@@ -470,7 +470,7 @@ export function CategoryStatsTab({
           <span className="text-sm sm:text-lg lg:text-xl font-bold text-zinc-900 dark:text-white truncate my-1">
             {topIndividualGames[0]?.name || '없음'}
           </span>
-          <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 truncate">
+          <span className="text-[length:calc(11px*var(--fs,1))] sm:text-xs text-zinc-500 dark:text-zinc-400 truncate">
             {topIndividualGames[0] ? `${topIndividualGames[0].count}회 방송 진행` : '-'}
           </span>
         </div>
@@ -586,7 +586,7 @@ export function CategoryStatsTab({
                   className="pointer-events-auto flex flex-col items-center justify-center p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/50 transition-colors group cursor-pointer max-w-[140px]"
                   title="다시 클릭하면 해당 카테고리 추천 영상 목록으로 이동해요"
                 >
-                  <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold block animate-pulse">
+                  <span className="text-[length:calc(10px*var(--fs,1))] text-purple-600 dark:text-purple-400 font-bold block animate-pulse">
                     선택됨 (재클릭 시 이동)
                   </span>
                   <span className="text-base sm:text-lg font-black text-zinc-900 dark:text-white truncate px-1 block group-hover:underline">
@@ -598,7 +598,7 @@ export function CategoryStatsTab({
                 </button>
               ) : (
                 <div className="text-center pointer-events-none">
-                  <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium">
+                  <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-400 dark:text-zinc-500 font-medium">
                     주요 카테고리
                   </span>
                   <span className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white max-w-[130px] truncate px-1 block">
@@ -619,7 +619,7 @@ export function CategoryStatsTab({
                 주요 카테고리 비중 순위
               </h5>
               {selectedCategory && (
-                <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium font-hanna font-pro">
+                <span className="text-[length:calc(11px*var(--fs,1))] text-purple-600 dark:text-purple-400 font-medium font-hanna font-pro">
                   재클릭 시 추천 탭 이동
                 </span>
               )}
@@ -685,7 +685,7 @@ export function CategoryStatsTab({
                 className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg text-xs transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <span>추천 영상 보기</span>
-                <span className="text-[10px]">➔</span>
+                <span className="text-[length:calc(10px*var(--fs,1))]">➔</span>
               </button>
               <button
                 type="button"
@@ -755,7 +755,7 @@ export function CategoryStatsTab({
         </div>
 
         {cmp && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-zinc-500 break-keep">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[length:calc(11px*var(--fs,1))] font-semibold text-zinc-500 break-keep">
             <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-1.5 rounded-full" style={{ background: COMPARE_A }} />지금 기간</span>
             <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-1.5 rounded-full" style={{ background: COMPARE_B }} />비교 기간</span>
             {(() => { const only = [...cmp.m.entries()].filter(([k]) => !categories.some((c) => c.name === k)); return only.length ? <span>비교 기간에만: {only.map(([k, v]) => `${k} ${v.count}회`).join(' · ')}</span> : null; })()}
@@ -765,7 +765,7 @@ export function CategoryStatsTab({
         {/* 순위표 테이블 (PC에서는 넉넉한 칸 띄움과 정렬, 모바일에서는 최소 스크롤 최적화) */}
         <div className="overflow-x-auto rounded-2xl border border-zinc-200 dark:border-zinc-800 custom-scrollbar">
           <table className="w-full text-left text-xs sm:text-sm whitespace-nowrap table-auto lg:table-fixed">
-            <thead className="bg-zinc-50 dark:bg-zinc-950 text-zinc-500 dark:text-zinc-400 font-semibold border-b border-zinc-200 dark:border-zinc-800 text-[11px] sm:text-xs">
+            <thead className="bg-zinc-50 dark:bg-zinc-950 text-zinc-500 dark:text-zinc-400 font-semibold border-b border-zinc-200 dark:border-zinc-800 text-[length:calc(11px*var(--fs,1))] sm:text-xs">
               <tr>
                 <th className="px-3 sm:px-5 lg:px-6 py-3.5 sm:py-4 w-12 sm:w-16 lg:w-20 text-center">순위</th>
                 <th className="px-3 sm:px-5 lg:px-6 py-3.5 sm:py-4 lg:w-44">카테고리</th>
@@ -824,19 +824,19 @@ export function CategoryStatsTab({
                       {/* 순위: 금은동 심플 뱃지 */}
                       <td className="px-3 sm:px-5 lg:px-6 py-3.5 sm:py-4 text-center">
                         {rank === 1 ? (
-                          <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold text-[10px] sm:text-xs border border-amber-500/30">
+                          <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold text-[length:calc(10px*var(--fs,1))] sm:text-xs border border-amber-500/30">
                             1
                           </span>
                         ) : rank === 2 ? (
-                          <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-md bg-zinc-400/15 text-zinc-600 dark:text-zinc-300 font-bold text-[10px] sm:text-xs border border-zinc-400/30">
+                          <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-md bg-zinc-400/15 text-zinc-600 dark:text-zinc-300 font-bold text-[length:calc(10px*var(--fs,1))] sm:text-xs border border-zinc-400/30">
                             2
                           </span>
                         ) : rank === 3 ? (
-                          <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-md bg-amber-700/15 text-amber-700 dark:text-amber-500 font-bold text-[10px] sm:text-xs border border-amber-700/30">
+                          <span className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-md bg-amber-700/15 text-amber-700 dark:text-amber-500 font-bold text-[length:calc(10px*var(--fs,1))] sm:text-xs border border-amber-700/30">
                             3
                           </span>
                         ) : (
-                          <span className="text-zinc-400 dark:text-zinc-500 font-medium text-[10px] sm:text-xs">
+                          <span className="text-zinc-400 dark:text-zinc-500 font-medium text-[length:calc(10px*var(--fs,1))] sm:text-xs">
                             {rank}
                           </span>
                         )}
@@ -856,7 +856,7 @@ export function CategoryStatsTab({
                       {/* 플레이 횟수 및 게이지 바 */}
                       <td className="px-3 sm:px-5 lg:px-6 py-3.5 sm:py-4">
                         <div className="flex flex-col gap-1 w-24 sm:w-44">
-                          <div className="flex items-center justify-between text-[11px] sm:text-xs">
+                          <div className="flex items-center justify-between text-[length:calc(11px*var(--fs,1))] sm:text-xs">
                             <span className="font-bold text-emerald-600 dark:text-emerald-400" style={cmp ? { color: COMPARE_A } : undefined}>
                               {cat.count}회
                             </span>
@@ -881,7 +881,7 @@ export function CategoryStatsTab({
                                 <div className="h-1.5 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                                   <div className="h-full rounded-full" style={{ width: `${n && cmp.total ? Math.max(8, ((n / cmp.total) * 100 / maxShare) * 100) : 0}%`, backgroundColor: COMPARE_B }} />
                                 </div>
-                                <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-semibold" style={{ color: COMPARE_B }}>
+                                <div className="flex items-center justify-between text-[length:calc(10px*var(--fs,1))] sm:text-[length:calc(11px*var(--fs,1))] font-semibold" style={{ color: COMPARE_B }}>
                                   <span>{n}회</span>
                                   <span>{cmp.total ? ((n / cmp.total) * 100).toFixed(1) : '0.0'}%</span>
                                 </div>
@@ -896,7 +896,7 @@ export function CategoryStatsTab({
                         <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm">
                           {cat.estimatedHours}시간
                         </span>
-                        {cmp && <div className="text-[10px] sm:text-[11px] font-semibold mt-0.5" style={{ color: COMPARE_B }}>{Math.round((cmp.m.get(cat.name)?.hours || 0) * 10) / 10}시간</div>}
+                        {cmp && <div className="text-[length:calc(10px*var(--fs,1))] sm:text-[length:calc(11px*var(--fs,1))] font-semibold mt-0.5" style={{ color: COMPARE_B }}>{Math.round((cmp.m.get(cat.name)?.hours || 0) * 10) / 10}시간</div>}
                       </td>
 
                       {/* 대표 플레이 게임 목록: 여러 번 한 게임은 검색으로 그 게임 영상 전체, 한 번만 한 게임은 그 방송일 달력으로 */}
@@ -912,11 +912,11 @@ export function CategoryStatsTab({
                                 if (onNavigateToRecommend) onNavigateToRecommend(undefined, g.name);
                                 else if (g.latestDate && onNavigateToCalendar) onNavigateToCalendar(g.latestDate);
                               }}
-                              className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700 truncate max-w-[140px] sm:max-w-[180px] transition-colors cursor-pointer group/btn"
+                              className="inline-flex items-center gap-1.5 text-[length:calc(10px*var(--fs,1))] sm:text-xs px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700 truncate max-w-[140px] sm:max-w-[180px] transition-colors cursor-pointer group/btn"
                               title={`${g.name} (${g.count}회) - 누르면 검색 탭에서 이 게임 영상 보기`}
                             >
                               <span className="truncate">{g.name}</span>
-                              <span className="text-[9px] sm:text-[10px] font-bold text-zinc-900 dark:text-white">
+                              <span className="text-[length:calc(9px*var(--fs,1))] sm:text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-900 dark:text-white">
                                 {g.count}
                               </span>
                               {g.count > 1
@@ -929,7 +929,7 @@ export function CategoryStatsTab({
                           {cat.games.length > 3 && (
                             <button
                               onClick={() => toggleExpand(cat.name)}
-                              className="inline-flex items-center text-[10px] sm:text-xs px-2 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 font-medium border border-zinc-200/80 dark:border-zinc-700 transition-colors cursor-pointer"
+                              className="inline-flex items-center text-[length:calc(10px*var(--fs,1))] sm:text-xs px-2 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 font-medium border border-zinc-200/80 dark:border-zinc-700 transition-colors cursor-pointer"
                             >
                               {isExpanded ? '접기' : `+${hiddenCount}개`}
                             </button>

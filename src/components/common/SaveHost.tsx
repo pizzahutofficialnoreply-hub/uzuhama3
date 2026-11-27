@@ -117,8 +117,8 @@ function ReportSheet({ target, onClose }: { target: ReportTarget; onClose: () =>
               ))}
             </div>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={300} placeholder="더 알려 주실 게 있으면 (선택)" className="mt-3 w-full px-3 py-2 text-sm rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 outline-none focus:ring-2 focus:ring-purple-500" />
-            {reason === 'not_match' && <p className="mt-1.5 text-[11px] text-zinc-500">모인 신고는 하루 한 번 검색에 반영돼요. 이 검색어에서는 이 영상이 빠지게 돼요.</p>}
-            {reason.startsWith('wrong_') && <p className="mt-1.5 text-[11px] text-zinc-500">확인하고 고칠게요. 맞는 링크나 이름을 알면 위에 적어 주세요.</p>}
+            {reason === 'not_match' && <p className="mt-1.5 text-[length:calc(11px*var(--fs,1))] text-zinc-500">모인 신고는 하루 한 번 검색에 반영돼요. 이 검색어에서는 이 영상이 빠지게 돼요.</p>}
+            {reason.startsWith('wrong_') && <p className="mt-1.5 text-[length:calc(11px*var(--fs,1))] text-zinc-500">확인하고 고칠게요. 맞는 링크나 이름을 알면 위에 적어 주세요.</p>}
             <button type="button" disabled={busy} onClick={send} className="mt-3 w-full h-11 rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-bold cursor-pointer disabled:opacity-60">보내기</button>
           </>
         )}
@@ -261,7 +261,7 @@ function SaveSheetHost() {
               </div>
               <p className="mt-0.5 text-xs text-zinc-500 line-clamp-1">{item.title}</p>
 
-              <p className="mt-4 mb-1.5 text-[11px] font-bold text-zinc-500">이 사이트의 내 재생목록 (이 기기에 저장)</p>
+              <p className="mt-4 mb-1.5 text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500">이 사이트의 내 재생목록 (이 기기에 저장)</p>
               <div className="max-h-56 overflow-y-auto -mx-1 px-1 space-y-1">
                 {store.lists.map((l) => {
                   const on = inLists.includes(l.id);
@@ -269,7 +269,7 @@ function SaveSheetHost() {
                     <button key={l.id} type="button" onClick={() => toggle(l.id)} className={cn('w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left cursor-pointer transition-colors', on ? 'bg-purple-50 dark:bg-purple-950/40' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800')}>
                       <span className={cn('w-5 h-5 rounded-md border flex items-center justify-center shrink-0', on ? 'bg-purple-600 border-purple-600' : 'border-zinc-300 dark:border-zinc-600')}>{on && <Check className="w-3.5 h-3.5 text-white" />}</span>
                       <span className="flex-1 min-w-0 text-sm font-semibold text-zinc-800 dark:text-zinc-100 truncate">{l.name}</span>
-                      <span className="text-[11px] text-zinc-400">{l.items.length}</span>
+                      <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-400">{l.items.length}</span>
                     </button>
                   );
                 })}
@@ -288,7 +288,7 @@ function SaveSheetHost() {
                 {ytOn && item.kind !== 'short' ? (
                   yt.state === 'list' ? (
                     <div>
-                      <p className="mb-1.5 text-[11px] font-bold text-zinc-500 flex items-center gap-1"><YoutubeLogo className="w-3.5 h-3.5 text-red-600" /> 내 유튜브 재생목록</p>
+                      <p className="mb-1.5 text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500 flex items-center gap-1"><YoutubeLogo className="w-3.5 h-3.5 text-red-600" /> 내 유튜브 재생목록</p>
                       <div className="max-h-44 overflow-y-auto -mx-1 px-1 space-y-1">
                         {(yt.lists || []).map((p) => {
                           const on = yt.done?.has(p.id);
@@ -296,7 +296,7 @@ function SaveSheetHost() {
                             <button key={p.id} type="button" disabled={on} onClick={() => addYt(p)} className={cn('w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left cursor-pointer', on ? 'bg-red-50 dark:bg-red-950/30' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800')}>
                               <span className={cn('w-5 h-5 rounded-md border flex items-center justify-center shrink-0', on ? 'bg-red-600 border-red-600' : 'border-zinc-300 dark:border-zinc-600')}>{on && <Check className="w-3.5 h-3.5 text-white" />}</span>
                               <span className="flex-1 min-w-0 text-sm font-semibold truncate">{p.title}</span>
-                              <span className="text-[11px] text-zinc-400">{p.count}</span>
+                              <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-400">{p.count}</span>
                             </button>
                           );
                         })}
@@ -305,14 +305,14 @@ function SaveSheetHost() {
                         <input value={ytNew} onChange={(e) => setYtNew(e.target.value)} placeholder="새 유튜브 재생목록 (비공개)" className="flex-1 min-w-0 px-3 py-2 text-sm rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" />
                         <button type="button" onClick={newYt} className="shrink-0 px-3 py-2 rounded-xl bg-red-600 text-white text-xs font-bold flex items-center gap-1 cursor-pointer"><Plus className="w-3.5 h-3.5" /> 만들기</button>
                       </div>
-                      {yt.error && <p className="mt-1.5 text-[11px] text-red-600">{yt.error}</p>}
+                      {yt.error && <p className="mt-1.5 text-[length:calc(11px*var(--fs,1))] text-red-600">{yt.error}</p>}
                     </div>
                   ) : (
                     <button type="button" onClick={openYoutube} disabled={yt.state === 'loading'} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left cursor-pointer">
                       <YoutubeLogo className="w-5 h-5 text-red-600 shrink-0" />
                       <span className="flex-1 min-w-0">
                         <span className="block text-sm font-semibold text-zinc-800 dark:text-zinc-100">{yt.state === 'loading' ? '유튜브 재생목록 불러오는 중…' : '내 유튜브 재생목록에 저장'}</span>
-                        <span className={cn('block text-[11px]', yt.state === 'error' ? 'text-red-600' : 'text-zinc-500')}>{yt.state === 'error' ? yt.error : '구글 계정으로 로그인하면 바로 담아요'}</span>
+                        <span className={cn('block text-[length:calc(11px*var(--fs,1))]', yt.state === 'error' ? 'text-red-600' : 'text-zinc-500')}>{yt.state === 'error' ? yt.error : '구글 계정으로 로그인하면 바로 담아요'}</span>
                       </span>
                     </button>
                   )
@@ -321,7 +321,7 @@ function SaveSheetHost() {
                     <YoutubeLogo className="w-5 h-5 text-red-600 shrink-0" />
                     <span className="flex-1 min-w-0">
                       <span className="block text-sm font-semibold text-zinc-800 dark:text-zinc-100">유튜브에서 저장</span>
-                      <span className="block text-[11px] text-zinc-500">유튜브가 열리면 '저장'을 눌러 주세요</span>
+                      <span className="block text-[length:calc(11px*var(--fs,1))] text-zinc-500">유튜브가 열리면 '저장'을 눌러 주세요</span>
                     </span>
                   </a>
                 )}

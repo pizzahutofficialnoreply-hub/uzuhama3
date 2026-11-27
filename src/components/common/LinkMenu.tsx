@@ -84,7 +84,7 @@ export function LinkMenu({
             <ChevronDown className={cn('w-3 h-3 opacity-70 transition-transform duration-200', open && 'rotate-180')} />
           </>
         ) : (
-          <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center">{valid.length}</span>
+          <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-600 text-white text-[length:calc(9px*var(--fs,1))] font-bold flex items-center justify-center">{valid.length}</span>
         )}
       </button>
       {createPortal(
@@ -101,7 +101,7 @@ export function LinkMenu({
               style={{ position: 'fixed', left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom, transformOrigin: pos.up ? 'bottom center' : 'top center' }}
               className={cn('z-[380] flex flex-col max-h-80 overflow-y-auto', POPOVER_CLS)}
             >
-              <div className="px-3.5 pt-2.5 pb-1.5 text-[11px] font-bold text-zinc-500">{menuTitle} 선택</div>
+              <div className="px-3.5 pt-2.5 pb-1.5 text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500">{menuTitle} 선택</div>
               {valid.map((s, idx) => (
                 <motion.a
                   key={`${s.url}-${idx}`}

@@ -137,7 +137,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
 
   const totalPages = Math.max(1, Math.ceil(list.length / PER_PAGE));
   const pageItems = list.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-  const chip = 'shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50';
+  const chip = 'shrink-0 px-2.5 py-1 rounded-lg text-[length:calc(11px*var(--fs,1))] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50';
 
   // 방송 기록 한 줄
   const LogLine = ({ log, slot, right }: { log: BroadcastLog; slot?: Slot; right?: React.ReactNode }) => (
@@ -146,7 +146,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
         <CalendarDays className="w-3.5 h-3.5 text-purple-500 shrink-0" />
         <span className="font-bold text-zinc-800 dark:text-zinc-100 shrink-0">{log.date} {log.time ? formatTo12Hour(log.time) || log.time : ''}</span>
         <span className="text-zinc-500 truncate">{gamesOf(log)}</span>
-        {slot && <span className="shrink-0 px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[10px] font-bold">{SLOT_LABEL[slot]}</span>}
+        {slot && <span className="shrink-0 px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[length:calc(10px*var(--fs,1))] font-bold">{SLOT_LABEL[slot]}</span>}
       </div>
       {right}
     </div>
@@ -169,7 +169,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
         <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
           <Link2 className="w-4 h-4 text-purple-600 dark:text-purple-400" /> 영상·쇼츠 연동
         </h3>
-        <p className="text-[11px] text-zinc-500 leading-relaxed">
+        <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 leading-relaxed">
           유튜브 채널의 영상·쇼츠가 어느 방송 기록에 들어 있는지 보고 고칠 수 있어요. 쇼츠는 아래 '관련 동영상'으로 본영상과 자동으로 이어지는데, 틀렸으면 끊거나 직접 지정하세요.
           방송과 관계없는 영상은 숨기면 '연동 안 됨'에 더 안 떠요.
         </p>
@@ -214,7 +214,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-zinc-900 dark:text-white line-clamp-2">{kind === 'short' ? cleanShortsTitle(v.title) : v.title}</p>
-                  <p className="text-[11px] text-zinc-500">{kstDate(v.publishedAt)} 업로드 · {id}</p>
+                  <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">{kstDate(v.publishedAt)} 업로드 · {id}</p>
                 </div>
                 {status === 'hidden' ? (
                   <button type="button" disabled={busy === id} onClick={() => run(id, () => setIgnored(id, false), '다시 보이게 했어요.')} className={cn(chip, 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200')}><Eye className="w-3.5 h-3.5" /> 다시 보이기</button>
@@ -226,7 +226,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
               {/* 지금 이어진 것 */}
               {(myRefs.length > 0 || relVid || ov === '' || linkedShorts.length > 0) && (
                 <div className="space-y-1.5">
-                  <p className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300">지금 연결된 곳</p>
+                  <p className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">지금 연결된 곳</p>
                   {myRefs.map((r) => (
                     <LogLine key={r.log.id + r.slot} log={r.log} slot={r.slot} right={
                       <button type="button" disabled={busy === `${id}:${r.log.id}:${r.slot}`} onClick={() => unlinkFromLog(id, r)} className={cn(chip, 'text-red-600 bg-red-50 dark:bg-red-950/30')}><Unlink className="w-3.5 h-3.5" /> 해제</button>
@@ -238,7 +238,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
                       <div className="flex items-center gap-2">
                         <Thumb id={relVid} k="video" />
                         <div className="min-w-0 flex-1 text-xs">
-                          <p className="text-[10px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1"><Film className="w-3 h-3" /> 본영상 {ov ? '(직접 지정)' : '(자동)'}</p>
+                          <p className="text-[length:calc(10px*var(--fs,1))] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1"><Film className="w-3 h-3" /> 본영상 {ov ? '(직접 지정)' : '(자동)'}</p>
                           <p className="font-semibold text-zinc-800 dark:text-zinc-100 line-clamp-2">{videoTitle.get(relVid) || relVid}</p>
                         </div>
                         <div className="flex flex-col gap-1">
@@ -247,11 +247,11 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
                         </div>
                       </div>
                       {(refs.get(relVid) || []).map((r) => <LogLine key={r.log.id + r.slot} log={r.log} slot={r.slot} />)}
-                      {!(refs.get(relVid) || []).length && <p className="text-[11px] text-amber-600">이 본영상은 아직 방송 기록에 없어요.</p>}
+                      {!(refs.get(relVid) || []).length && <p className="text-[length:calc(11px*var(--fs,1))] text-amber-600">이 본영상은 아직 방송 기록에 없어요.</p>}
                     </div>
                   )}
                   {kind === 'short' && ov === '' && (
-                    <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
+                    <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-[length:calc(11px*var(--fs,1))] text-amber-700 dark:text-amber-300">
                       <span>자동 연결을 끊어 둔 쇼츠예요{autoVid ? ` (자동: 「${videoTitle.get(autoVid) || autoVid}」)` : ''}.</span>
                       <button type="button" disabled={busy === id} onClick={() => run(id, () => setShortsLink(id, null), '자동 연결로 되돌렸어요.')} className={cn(chip, 'bg-white dark:bg-zinc-800 text-zinc-600')}><Undo2 className="w-3.5 h-3.5" /> 되돌리기</button>
                     </div>
@@ -259,7 +259,7 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
 
                   {kind === 'video' && linkedShorts.length > 0 && (
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-zinc-500 flex items-center gap-1"><Clapperboard className="w-3 h-3" /> 이 영상에 이어진 쇼츠 {linkedShorts.length}개</p>
+                      <p className="text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-500 flex items-center gap-1"><Clapperboard className="w-3 h-3" /> 이 영상에 이어진 쇼츠 {linkedShorts.length}개</p>
                       {linkedShorts.map((sid) => (
                         <div key={sid} className="flex items-center gap-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 px-2 py-1.5">
                           <Thumb id={sid} k="short" />
@@ -283,20 +283,20 @@ export function AdminUnlinkedTab({ data, onUpdateLog }: { data: AppData; onUpdat
               {/* 방송 기록에 넣기 */}
               {status !== 'hidden' && (
                 <details open={status === 'unlinked'} className="group">
-                  <summary className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300 cursor-pointer select-none">{status === 'unlinked' ? '방송 기록에 넣기' : '다른 방송 기록에도 넣기'}</summary>
+                  <summary className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300 cursor-pointer select-none">{status === 'unlinked' ? '방송 기록에 넣기' : '다른 방송 기록에도 넣기'}</summary>
                   <div className="mt-1.5 space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <label className="text-[11px] font-bold text-zinc-500">방송일</label>
+                      <label className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500">방송일</label>
                       <input type="date" value={date} onChange={(e) => setDates((d) => ({ ...d, [id]: e.target.value }))} className="px-2 py-1.5 text-xs rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" />
-                      {g.why ? <span className="text-[10.5px] text-emerald-600 truncate">추천: {g.why}</span> : dates[id] === undefined && <span className="text-[10.5px] text-zinc-400">게임 이름으로 못 찾았어요 · 날짜를 골라 주세요</span>}
+                      {g.why ? <span className="text-[length:calc(10.5px*var(--fs,1))] text-emerald-600 truncate">추천: {g.why}</span> : dates[id] === undefined && <span className="text-[length:calc(10.5px*var(--fs,1))] text-zinc-400">게임 이름으로 못 찾았어요 · 날짜를 골라 주세요</span>}
                     </div>
                     {date && (dayLogs.length ? dayLogs.map((l) => (
                       <LogLine key={l.id} log={l} right={
                         myRefs.some((r) => r.log.id === l.id)
-                          ? <span className="text-[11px] font-bold text-emerald-600 shrink-0">연결됨</span>
+                          ? <span className="text-[length:calc(11px*var(--fs,1))] font-bold text-emerald-600 shrink-0">연결됨</span>
                           : <button type="button" disabled={busy === id} onClick={() => link(v, l)} className={cn(chip, 'bg-purple-600 hover:bg-purple-700 text-white')}>{busy === id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} 연결</button>
                       } />
-                    )) : <p className="text-[11px] text-amber-600">이 날짜에는 방송 기록이 없어요.</p>)}
+                    )) : <p className="text-[length:calc(11px*var(--fs,1))] text-amber-600">이 날짜에는 방송 기록이 없어요.</p>)}
                   </div>
                 </details>
               )}
@@ -333,14 +333,14 @@ function ReportedIssues({ onFind }: { onFind: (videoId: string, kind?: string) =
   return (
     <div className="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 space-y-2">
       <p className="text-sm font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5"><Flag className="w-4 h-4" /> 고쳐 달라는 제보 {items.length}건</p>
-      <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">카드의 ⋮ › 신고, 그리고 피드백 탭 제보 중 연결·게임 문제로 분류된 것이에요 (하루 한 번 분류).</p>
+      <p className="text-[length:calc(11px*var(--fs,1))] text-amber-800/80 dark:text-amber-300/80">카드의 ⋮ › 신고, 그리고 피드백 탭 제보 중 연결·게임 문제로 분류된 것이에요 (하루 한 번 분류).</p>
       <ul className="space-y-1.5 max-h-80 overflow-y-auto">
         {items.map((x) => (
           <li key={x.id} className="rounded-xl bg-white dark:bg-zinc-900 border border-amber-100 dark:border-zinc-800 px-3 py-2 text-xs">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-bold text-zinc-800 dark:text-zinc-100">
-                  <span className="mr-1.5 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-[10px]">{x.type === 'search_report' ? REASON_LABEL[x.reason] || x.reason : x.route === 'game' ? '게임 (피드백)' : '연결 (피드백)'}</span>
+                  <span className="mr-1.5 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-[length:calc(10px*var(--fs,1))]">{x.type === 'search_report' ? REASON_LABEL[x.reason] || x.reason : x.route === 'game' ? '게임 (피드백)' : '연결 (피드백)'}</span>
                   {String(x.title || '').replace('[검색 신고] ', '')}
                 </p>
                 <p className="mt-0.5 text-zinc-500 whitespace-pre-line line-clamp-4">{x.content}</p>
@@ -378,16 +378,16 @@ function DeadVideos({ logs, onUpdateLog }: { logs: BroadcastLog[]; onUpdateLog: 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-bold text-zinc-900 dark:text-white">사라진 영상 {items.length}개 <span className="text-[11px] font-normal text-zinc-500">{d?.checkedAt ? `· ${new Date(d.checkedAt).toLocaleString('ko-KR')} 확인 (링크 ${d.total}개 중)` : '· 아직 확인 전'}</span></p>
+        <p className="text-sm font-bold text-zinc-900 dark:text-white">사라진 영상 {items.length}개 <span className="text-[length:calc(11px*var(--fs,1))] font-normal text-zinc-500">{d?.checkedAt ? `· ${new Date(d.checkedAt).toLocaleString('ko-KR')} 확인 (링크 ${d.total}개 중)` : '· 아직 확인 전'}</span></p>
         <button type="button" disabled={!!busy} onClick={async () => { setBusy('check'); try { const { mutate } = await import('./system/SearchTuningCard'); await mutate('checkDeadVideos'); await load(); } catch (e: any) { alert('오류: ' + (e?.message || e)); } finally { setBusy(''); } }} className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer disabled:opacity-50">{busy === 'check' ? '확인 중…' : '지금 확인'}</button>
       </div>
-      <p className="text-[11px] text-zinc-500">방송 기록에 들어 있는 유튜브 링크 중 삭제됐거나 비공개로 바뀐 것이에요. 매일 한 번 자동으로 확인해요.</p>
+      <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">방송 기록에 들어 있는 유튜브 링크 중 삭제됐거나 비공개로 바뀐 것이에요. 매일 한 번 자동으로 확인해요.</p>
       {items.length > 0 && (
         <ul className="space-y-1 max-h-64 overflow-y-auto">
           {items.map(([id, info]) => (
             <li key={id} className="flex items-center justify-between gap-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-xs">
               <span className="min-w-0">
-                <span className="mr-1.5 px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 text-[10px] font-bold">{info.reason}</span>
+                <span className="mr-1.5 px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 text-[length:calc(10px*var(--fs,1))] font-bold">{info.reason}</span>
                 <b>{info.date}</b> · {info.slot === 'edited' ? '편집본' : info.slot === 'shorts' ? '쇼츠' : '다시보기'} · <span className="text-zinc-500">{info.title || id}</span>
               </span>
               <button type="button" disabled={busy === id} onClick={() => removeFromLog(id, info)} className="shrink-0 px-2 py-1 rounded-lg text-red-600 bg-red-50 dark:bg-red-950/30 font-bold cursor-pointer">기록에서 빼기</button>
@@ -448,7 +448,7 @@ function AutoLinkReview({ data, onUpdateLog }: { data: AppData; onUpdateLog: (lo
   return (
     <div className="bg-white dark:bg-zinc-900 border border-amber-300/60 dark:border-amber-700/50 rounded-2xl p-5 shadow-sm space-y-3">
       <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2"><Link2 className="w-4 h-4 text-amber-500" /> 연결 확인 (자동 연결 · 대조에서 보낸 것) <span className="text-xs font-bold text-amber-600">{items.length}개</span></h3>
-      <p className="text-[11px] text-zinc-500 break-keep">새 편집 영상을 설명창 게임 이름으로 방송 기록에 자동으로 넣은 것, 그리고 '게임 이름·링크 대조'에서 고르고 보낸 것이에요. 지금 연결은 이미 사이트에 보이고 있어요. 맞으면 승인, 다른 방송이면 아래 후보(설명창 게임을 한 방송, 가까운 날짜 순)를 골라 '바꾸기'. 영상 연결은 맞는데 기록의 게임 이름이 틀린 거면 등록 탭에서 그 기록을 고쳐 주세요.</p>
+      <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 break-keep">새 편집 영상을 설명창 게임 이름으로 방송 기록에 자동으로 넣은 것, 그리고 '게임 이름·링크 대조'에서 고르고 보낸 것이에요. 지금 연결은 이미 사이트에 보이고 있어요. 맞으면 승인, 다른 방송이면 아래 후보(설명창 게임을 한 방송, 가까운 날짜 순)를 골라 '바꾸기'. 영상 연결은 맞는데 기록의 게임 이름이 틀린 거면 등록 탭에서 그 기록을 고쳐 주세요.</p>
       <ul className="space-y-3">
         {items.map((it) => {
           const chosen = sel[it.id] ?? (it.source === 'ai' ? (it.candidates || []).slice(0, 1).map((c: any) => c.id) : (it.logs || []).map((l: any) => l.id));

@@ -351,7 +351,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
                   key={tag}
                   type="button"
                   onClick={() => setNoticeForm(p => ({ ...p, prefix: tag }))}
-                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${(noticeForm.prefix || '') === tag ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'}`}
+                  className={`px-2.5 py-1.5 rounded-lg text-[length:calc(11px*var(--fs,1))] font-bold border transition-colors ${(noticeForm.prefix || '') === tag ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'}`}
                 >
                   {tag}
                 </button>
@@ -359,12 +359,12 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
               <button
                 type="button"
                 onClick={() => setNoticeForm(p => ({ ...p, prefix: '' }))}
-                className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+                className="px-2.5 py-1.5 rounded-lg text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
               >
                 기본값
               </button>
             </div>
-            <div className="flex items-center gap-2 mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <div className="flex items-center gap-2 mt-2 text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400">
               <span>전체 기본 앞머리</span>
               <input
                 type="text"
@@ -372,7 +372,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
                 onChange={e => handleChange('defaultNoticePrefix', e.target.value)}
                 placeholder="[공지]"
                 maxLength={12}
-                className="w-28 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 text-[11px] text-zinc-900 dark:text-white"
+                className="w-28 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 text-[length:calc(11px*var(--fs,1))] text-zinc-900 dark:text-white"
               />
               <span>(공지별 앞머리가 비어 있을 때 사용 · 아래 저장 버튼으로 반영)</span>
             </div>
@@ -406,7 +406,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
               </button>
             </div>
 
-            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mb-2">
+            <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-400 dark:text-zinc-500 mb-2">
               💡 외부 URL(https://...)뿐만 아니라 사이트 내 화면으로 펼쳐져 이동하는 <b>redirect://설정/일러두기</b>, <b>redirect://패치노트</b>, <b>redirect://기록</b>, <b>redirect://분석</b> 등을 입력할 수 있어요.
             </p>
 
@@ -516,7 +516,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                    <span className={`text-[length:calc(10px*var(--fs,1))] px-2 py-0.5 rounded-full font-bold ${
                       (!notice.type || notice.type === 'both')
                         ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' 
                         : notice.type === 'big' 
@@ -525,16 +525,16 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
                     }`}>
                       {(!notice.type || notice.type === 'both') ? '팝업+띠배너' : notice.type === 'big' ? '팝업' : '띠배너'}
                     </span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                    <span className={`text-[length:calc(10px*var(--fs,1))] px-2 py-0.5 rounded-full font-bold ${
                       (notice.dismissMode || 'session') === 'session'
                         ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
                         : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300'
                     }`}>
                       {(notice.dismissMode || 'session') === 'session' ? '영구 표시' : '일회성'}
                     </span>
-                    {notice.pinned && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300">📌 고정</span>}
+                    {notice.pinned && <span className="text-[length:calc(10px*var(--fs,1))] px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300">📌 고정</span>}
                     <h4 className="font-bold text-xs text-zinc-900 dark:text-white truncate">{notice.title}</h4>
-                    <span className="text-[11px] text-zinc-400">{notice.date}</span>
+                    <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-400">{notice.date}</span>
                   </div>
                   <p className="text-xs text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap">{notice.content}</p>
                   
@@ -546,7 +546,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
                           href={link.url} 
                           target="_blank" 
                           rel="noopener noreferrer" 
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline bg-white dark:bg-zinc-800 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800"
+                          className="inline-flex items-center gap-1 text-[length:calc(11px*var(--fs,1))] font-bold text-purple-600 dark:text-purple-400 hover:underline bg-white dark:bg-zinc-800 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800"
                         >
                           <ExternalLink className="w-3 h-3" />
                           <span>{link.title || '자세히 보기'}</span>
@@ -576,7 +576,7 @@ export const NoticesSubTab: React.FC<NoticesSubTabProps> = ({
                   <button 
                     type="button"
                     onClick={() => handleToggleNotice(notice.id)}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg cursor-pointer ${notice.active ? 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'}`}
+                    className={`px-2.5 py-1 text-[length:calc(11px*var(--fs,1))] font-bold rounded-lg cursor-pointer ${notice.active ? 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'}`}
                   >
                     {notice.active ? '비활성' : '활성'}
                   </button>

@@ -115,13 +115,13 @@ export function UiHost() {
                     try { await fn(); window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: { text: '되돌렸어요', kind: 'success' } })); }
                     catch (err: any) { window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: { text: `되돌리지 못했어요: ${err?.message || err}`, kind: 'error' } })); }
                   }}
-                  className="ml-1 shrink-0 px-2.5 py-1 rounded-xl bg-white/15 hover:bg-white/25 text-[12.5px] font-black text-purple-200 cursor-pointer"
+                  className="ml-1 shrink-0 px-2.5 py-1 rounded-xl bg-white/15 hover:bg-white/25 text-[length:calc(12.5px*var(--fs,1))] font-black text-purple-200 cursor-pointer"
                 >
                   되돌리기
                 </button>
               )}
               {t.action && (
-                <button type="button" onClick={(e) => { e.stopPropagation(); dismissToast(t.id); t.action!.onClick(); }} className="ml-1 shrink-0 px-2.5 py-1 rounded-xl bg-white/15 hover:bg-white/25 text-[12.5px] font-black text-purple-200 cursor-pointer">
+                <button type="button" onClick={(e) => { e.stopPropagation(); dismissToast(t.id); t.action!.onClick(); }} className="ml-1 shrink-0 px-2.5 py-1 rounded-xl bg-white/15 hover:bg-white/25 text-[length:calc(12.5px*var(--fs,1))] font-black text-purple-200 cursor-pointer">
                   {t.action.label}
                 </button>
               )}
@@ -143,7 +143,7 @@ export function UiHost() {
               <div className="flex items-start gap-3">
                 {confirm.danger && <span className="w-9 h-9 rounded-full bg-red-50 dark:bg-red-950/40 flex items-center justify-center shrink-0"><AlertTriangle className="w-4.5 h-4.5 text-red-500" /></span>}
                 <div className="min-w-0">
-                  {confirm.title && <p className="text-[17px] font-bold text-zinc-900 dark:text-white break-keep">{confirm.title}</p>}
+                  {confirm.title && <p className="text-[length:calc(17px*var(--fs,1))] font-bold text-zinc-900 dark:text-white break-keep">{confirm.title}</p>}
                   {confirm.message && <p className={cn('text-sm text-zinc-600 dark:text-zinc-300 whitespace-pre-line break-keep leading-relaxed', confirm.title && 'mt-1')}>{confirm.message}</p>}
                 </div>
               </div>
@@ -166,7 +166,7 @@ export function UiHost() {
               className="sheet-fill relative w-full sm:max-w-sm bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] p-4 pb-[calc(16px+env(safe-area-inset-bottom))] sm:pb-4 shadow-2xl"
             >
               <SheetHandle onClose={() => pick(null)} />
-              {choose.title && <p className="px-1 text-[15px] font-bold text-zinc-900 dark:text-white line-clamp-2 break-keep">{choose.title}</p>}
+              {choose.title && <p className="px-1 text-[length:calc(15px*var(--fs,1))] font-bold text-zinc-900 dark:text-white line-clamp-2 break-keep">{choose.title}</p>}
               {choose.message && <p className="px-1 mt-0.5 text-xs text-zinc-500 break-keep">{choose.message}</p>}
               <div className="mt-3 space-y-1.5">
                 {choose.options.map((o) => {
@@ -176,7 +176,7 @@ export function UiHost() {
                       {I && <span className={cn('w-9 h-9 rounded-full flex items-center justify-center shrink-0', o.danger ? 'bg-red-100 dark:bg-red-950/50' : 'bg-white dark:bg-zinc-900')}><I className="w-4 h-4" /></span>}
                       <span className="min-w-0">
                         <span className="block text-sm font-bold">{o.label}</span>
-                        {o.desc && <span className="block text-[11.5px] text-zinc-500 break-keep">{o.desc}</span>}
+                        {o.desc && <span className="block text-[length:calc(11.5px*var(--fs,1))] text-zinc-500 break-keep">{o.desc}</span>}
                       </span>
                     </button>
                   );

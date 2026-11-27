@@ -213,7 +213,7 @@ function SwipeBtn({ a, height, radius, width, opacity, scale, tabbable, onPress 
       data-swipe-btn
       tabIndex={tabbable ? 0 : -1}
       onClick={(e) => { e.stopPropagation(); onPress(); }}
-      className={cn('shrink-0 flex flex-col items-center justify-center gap-1 overflow-hidden font-bold text-[12px] shadow-sm cursor-pointer', a.tone)}
+      className={cn('shrink-0 flex flex-col items-center justify-center gap-1 overflow-hidden font-bold text-[length:calc(12px*var(--fs,1))] shadow-sm cursor-pointer', a.tone)}
       style={{ height, width: w, opacity: o, scale: sc, borderRadius: radius }}
       aria-label={a.label}
     >

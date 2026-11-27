@@ -39,7 +39,7 @@ export function SearchRating({ query, understood, resultCount }: { query: string
     } catch { /* 못 보내도 조용히 */ }
   };
 
-  if (state === 'done') return <p className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">고마워요! 검색을 고칠 때 참고할게요.</p>;
+  if (state === 'done') return <p className="text-[length:calc(11px*var(--fs,1))] text-purple-600 dark:text-purple-400 font-semibold">고마워요! 검색을 고칠 때 참고할게요.</p>;
   if (state === 'note') {
     return (
       <div className="flex items-center gap-1.5">
@@ -51,7 +51,7 @@ export function SearchRating({ query, understood, resultCount }: { query: string
   }
   const b = 'p-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer';
   return (
-    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
+    <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
       검색 결과에 만족하시나요?
       <button type="button" onClick={() => send(true)} className={cn(b, 'ml-0.5')} aria-label="만족해요"><ThumbsUp className="w-3.5 h-3.5" /></button>
       <button type="button" onClick={() => setState('note')} className={b} aria-label="아쉬워요"><ThumbsDown className="w-3.5 h-3.5" /></button>

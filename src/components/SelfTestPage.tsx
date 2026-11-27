@@ -111,15 +111,15 @@ export function SelfTestRunner({ auto = false, embedded = false, user = false, o
                 {results.filter((r) => r.group === g).map((r, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs">
                     {r.ok ? (r.warn ? <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />) : <XCircle className="w-4 h-4 text-red-500 shrink-0" />}
-                    <span className="flex-1 break-keep">{r.name}{r.err && <span className="block text-[11px] text-zinc-500 break-all">{r.err}</span>}
+                    <span className="flex-1 break-keep">{r.name}{r.err && <span className="block text-[length:calc(11px*var(--fs,1))] text-zinc-500 break-all">{r.err}</span>}
                       {r.details && r.details.length > 0 && (
-                        <details className="mt-1 text-[11px] text-zinc-500">
+                        <details className="mt-1 text-[length:calc(11px*var(--fs,1))] text-zinc-500">
                           <summary className="cursor-pointer font-semibold">{r.details[0]} · 자세히</summary>
                           <ul className="mt-1 space-y-0.5 max-h-48 overflow-auto">{r.details.slice(1).map((d, j) => <li key={j} className="break-all">{d}</li>)}</ul>
                         </details>
                       )}
                     </span>
-                    <span className="text-[10px] text-zinc-400 tabular-nums">{r.ms}ms</span>
+                    <span className="text-[length:calc(10px*var(--fs,1))] text-zinc-400 tabular-nums">{r.ms}ms</span>
                   </li>
                 ))}
               </ul>

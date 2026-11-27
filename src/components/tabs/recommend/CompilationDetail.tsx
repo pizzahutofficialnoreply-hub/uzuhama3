@@ -31,7 +31,9 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
   /** 위쪽 큰 영상 부분 없이 목록만 */
   listOnly?: boolean;
 }) {
-  const [viewStyle, setViewStyle] = useViewStyle('compilation');
+  const [savedStyle, setViewStyle] = useViewStyle('compilation');
+  // 펼친 카드 안(웃참 제외 몰아보기): 항상 목록 — 줄마다 생방송·쇼츠 버튼
+  const viewStyle = listOnly ? 'list' : savedStyle;
   const [page, setPage] = useState(1);
   // 설정에서 조절, 목록 보기는 한 줄이 작아서 카드의 2배
   const basePerPage = usePrefs().collectionPageSize;
@@ -85,6 +87,7 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
       playLabel="재생"
       showPublisher={false}
       listOnly={listOnly}
+      fixedList={listOnly}
       onClose={onClose}
       countLabel={`${dates.length}개 생방송`}
       viewStyle={viewStyle}
@@ -96,6 +99,7 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
             <VideoListRow
               key={r.date}
               dense
+              actions
               index={(page - 1) * PER_PAGE + i + 1}
               videoId={r.videoId}
               placeholder={r.date.replace(/-/g, '.')}

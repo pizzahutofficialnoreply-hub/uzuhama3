@@ -54,7 +54,7 @@ export function VideoCardInfo({ id, title, sub, logs, card, onTitle }: { id: str
         {card ? (
           <button type="button" onClick={(e) => onTitle?.(e.currentTarget)} className="flex-1 min-w-0 text-left font-bold text-sm sm:text-base text-zinc-900 dark:text-white line-clamp-2 leading-snug hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer">{title}</button>
         ) : (
-          <h2 className="flex-1 min-w-0 text-[16px] font-black leading-snug text-zinc-900 dark:text-white break-keep">{title}</h2>
+          <h2 className="flex-1 min-w-0 text-[length:calc(16px*var(--fs,1))] font-black leading-snug text-zinc-900 dark:text-white break-keep">{title}</h2>
         )}
         <ItemMenu id={id} kind={isLive ? 'live' : 'video'} title={title} className="-mr-1.5 -mt-0.5" />
       </div>
@@ -63,14 +63,14 @@ export function VideoCardInfo({ id, title, sub, logs, card, onTitle }: { id: str
           <span>{toKstDate(meta.publishedAt)}</span><span aria-hidden className="mx-1">·</span><span>{formatRelativeTime(meta.publishedAt)}</span>
           {found?.log?.date && !isLive && !card && <><span aria-hidden className="mx-1">·</span><span>생방일 {found.log.date}</span></>}
         </p>
-      ) : sub ? <p className="mt-1 text-[12px] text-zinc-500 tabular-nums">{sub}</p> : null}
+      ) : sub ? <p className="mt-1 text-[length:calc(12px*var(--fs,1))] text-zinc-500 tabular-nums">{sub}</p> : null}
 
       {games.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {shown.map((g: any, i: number) => {
             const cat = g.category && key(g.category) !== key(g.name) && g.category !== '종합' ? g.category : '';
             const chip = (
-              <span className={`px-2 py-0.5 text-[10px] rounded-full select-none inline-flex items-center gap-1 font-hanna font-pro ${g.link ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors cursor-pointer' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'}`}>
+              <span className={`px-2 py-0.5 text-[length:calc(10px*var(--fs,1))] rounded-full select-none inline-flex items-center gap-1 font-hanna font-pro ${g.link ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors cursor-pointer' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'}`}>
                 <span><GameTitle text={g.name} link={g.link} /></span>
                 {cat && <span className="opacity-60 font-normal border-l border-current pl-1 font-hanna font-pro">{cat}</span>}
               </span>
@@ -78,7 +78,7 @@ export function VideoCardInfo({ id, title, sub, logs, card, onTitle }: { id: str
             return g.link ? <a key={i} href={g.link} target="_blank" rel="noopener noreferrer">{chip}</a> : <div key={i}>{chip}</div>;
           })}
           {games.length > 2 && (
-            <button type="button" onClick={() => setAll((v) => !v)} className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer font-hanna font-pro">
+            <button type="button" onClick={() => setAll((v) => !v)} className="px-2 py-0.5 text-[length:calc(10px*var(--fs,1))] font-medium rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer font-hanna font-pro">
               {all ? '접기' : `+${games.length - 2}개 더보기`}
             </button>
           )}

@@ -96,7 +96,7 @@ export function OnboardingSubTab({ systemEdit, handleChange, onSave, saving, onU
             <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" /> 처음 시작 화면
             </h3>
-            <p className="text-[11px] text-zinc-500 mt-0.5">처음 온 사람에게 전체 화면으로 환영 → 약관 동의 → 안내 → 자판 → 소개 순서로 보여 주고, 끝나면 사이트 둘러보기가 이어져요.</p>
+            <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 mt-0.5">처음 온 사람에게 전체 화면으로 환영 → 약관 동의 → 안내 → 자판 → 소개 순서로 보여 주고, 끝나면 사이트 둘러보기가 이어져요.</p>
           </div>
           <button
             type="button"
@@ -111,7 +111,7 @@ export function OnboardingSubTab({ systemEdit, handleChange, onSave, saving, onU
             {saving ? '저장 중…' : '켜기/끄기 저장'}
           </button>
         )}
-        <p className="text-[11px] text-zinc-500">현재 버전 {Number(systemEdit.onboardingVersion) || 1} · 내용에 <code>{'{{termsOfService}}'}</code>, <code>{'{{privacyPolicy}}'}</code> 를 쓰면 '약관 & 전자고지'에 등록한 글이 들어가요. 굵게 **글자**, 목록 - 항목 같은 마크다운을 쓸 수 있어요.</p>
+        <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">현재 버전 {Number(systemEdit.onboardingVersion) || 1} · 내용에 <code>{'{{termsOfService}}'}</code>, <code>{'{{privacyPolicy}}'}</code> 를 쓰면 '약관 & 전자고지'에 등록한 글이 들어가요. 굵게 **글자**, 목록 - 항목 같은 마크다운을 쓸 수 있어요.</p>
       </div>
 
       {cfg.steps.map((st, i) => (
@@ -134,12 +134,12 @@ export function OnboardingSubTab({ systemEdit, handleChange, onSave, saving, onU
 
           {st.type === 'terms' && (
             <div className="space-y-2 pt-1">
-              <p className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300">동의 항목 (누르면 펼쳐지는 내용)</p>
+              <p className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">동의 항목 (누르면 펼쳐지는 내용)</p>
               {(st.sections || []).map((sec, k) => (
                 <div key={sec.id} className="rounded-xl border border-zinc-200 dark:border-zinc-700 p-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <input value={sec.title} onChange={(e) => updateSection(i, k, { title: e.target.value })} placeholder="항목 이름" className={input} />
-                    <label className="flex items-center gap-1 text-[11px] font-bold shrink-0 cursor-pointer">
+                    <label className="flex items-center gap-1 text-[length:calc(11px*var(--fs,1))] font-bold shrink-0 cursor-pointer">
                       <input type="checkbox" checked={sec.required} onChange={(e) => updateSection(i, k, { required: e.target.checked })} /> 필수
                     </label>
                     <button type="button" onClick={() => update(i, { sections: (st.sections || []).filter((_, j) => j !== k) })} className="p-1.5 text-red-500 cursor-pointer" aria-label="항목 삭제"><Trash2 className="w-4 h-4" /></button>
@@ -173,13 +173,13 @@ export function OnboardingSubTab({ systemEdit, handleChange, onSave, saving, onU
           </div>
           {reshowMode === 'terms' && (
             <div className="space-y-2 pt-1">
-              <p className="text-[11px] text-zinc-500">이미 본 사람에게는 '약관이 바뀌었어요' 한 장만 보여요. 바뀐 내용·적용일과 '적용일까지 거부 의사가 없으면 동의한 것으로 봐요' 안내가 함께 나오고, 동의하거나 건너뛸 수 있어요. 처음 오는 사람은 원래 처음 화면을 봐요.</p>
+              <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">이미 본 사람에게는 '약관이 바뀌었어요' 한 장만 보여요. 바뀐 내용·적용일과 '적용일까지 거부 의사가 없으면 동의한 것으로 봐요' 안내가 함께 나오고, 동의하거나 건너뛸 수 있어요. 처음 오는 사람은 원래 처음 화면을 봐요.</p>
               <textarea value={tu.summary} onChange={(e) => setTu({ ...tu, summary: e.target.value })} rows={3} placeholder={'바뀐 내용 (마크다운)\n- 제3조: 알림 보내는 시간 추가'} className={input} />
               <div className="grid grid-cols-2 gap-2">
-                <label className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300">알린 날<input type="date" value={tu.noticeDate} onChange={(e) => setTu({ ...tu, noticeDate: e.target.value })} className={input + ' mt-1'} /></label>
-                <label className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300">적용일<input type="date" value={tu.effectiveDate} onChange={(e) => setTu({ ...tu, effectiveDate: e.target.value })} className={input + ' mt-1'} /></label>
+                <label className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">알린 날<input type="date" value={tu.noticeDate} onChange={(e) => setTu({ ...tu, noticeDate: e.target.value })} className={input + ' mt-1'} /></label>
+                <label className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">적용일<input type="date" value={tu.effectiveDate} onChange={(e) => setTu({ ...tu, effectiveDate: e.target.value })} className={input + ' mt-1'} /></label>
               </div>
-              <p className={`text-[11px] ${noticeGap >= 7 ? 'text-zinc-500' : 'text-amber-600 font-bold'}`}>알린 날부터 {noticeGap}일 뒤 적용 · 보통 7일 전, 이용자에게 불리하게 바뀌면 30일 전에 알려야 해요.</p>
+              <p className={`text-[length:calc(11px*var(--fs,1))] ${noticeGap >= 7 ? 'text-zinc-500' : 'text-amber-600 font-bold'}`}>알린 날부터 {noticeGap}일 뒤 적용 · 보통 7일 전, 이용자에게 불리하게 바뀌면 30일 전에 알려야 해요.</p>
               <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(ONBOARDING_START_EVENT, { detail: { ...cfg, termsUpdatePreview: { version: 0, ...tu } } }))} className="text-xs font-bold text-purple-600 dark:text-purple-400 underline cursor-pointer">이 안내 미리보기</button>
             </div>
           )}

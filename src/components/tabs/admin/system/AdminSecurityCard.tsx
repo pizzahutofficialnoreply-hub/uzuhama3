@@ -31,7 +31,7 @@ export function AdminSecurityCard() {
         <h3 className="text-sm font-bold text-zinc-900 dark:text-white flex-1">관리자 보안</h3>
         <button type="button" onClick={load} className="text-zinc-400 cursor-pointer" aria-label="새로 고침"><RotateCcw className="w-3.5 h-3.5" /></button>
       </div>
-      <ul className="text-[11px] text-zinc-600 dark:text-zinc-300 space-y-1 leading-relaxed break-keep">
+      <ul className="text-[length:calc(11px*var(--fs,1))] text-zinc-600 dark:text-zinc-300 space-y-1 leading-relaxed break-keep">
         <li>① 구글 로그인 — 관리자 계정·이메일 인증·구글 로그인인 경우만</li>
         <li>② 2단계 인증 — 인증 앱 6자리 코드 (같은 코드 재사용 불가, 5번 틀리면 15분→1시간→6시간 잠금, 복구 코드 10개)</li>
         <li>③ 서버 API와 DB 보안 규칙이 둘 다 ②를 확인 — 화면을 건너뛰거나 구글 계정만 뺏겨도 데이터는 못 바꿈</li>
@@ -48,10 +48,10 @@ export function AdminSecurityCard() {
       <div className="space-y-1.5">
         <div className="flex items-center gap-2">
           <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200 flex-1">기억된 기기 (코드 없이 들어가는 기기 · 30일)</p>
-          {(devices || []).length > 1 && <button type="button" onClick={() => revoke('all', '')} className="text-[11px] font-bold text-red-500 cursor-pointer">모두 지우기</button>}
+          {(devices || []).length > 1 && <button type="button" onClick={() => revoke('all', '')} className="text-[length:calc(11px*var(--fs,1))] font-bold text-red-500 cursor-pointer">모두 지우기</button>}
         </div>
-        <p className="text-[10.5px] text-zinc-500 break-keep">기기는 브라우저마다 따로예요. 같은 아이폰이라도 사파리와 홈 화면 앱은 각각 한 번씩 코드를 넣어야 해요.</p>
-        {devices === null ? <p className="text-[11px] text-zinc-400">불러오는 중…</p> : devices.length === 0 ? <p className="text-[11px] text-zinc-400">없어요. 코드를 넣을 때 '이 기기 기억하기'를 켜 두면 여기 생겨요.</p> : (
+        <p className="text-[length:calc(10.5px*var(--fs,1))] text-zinc-500 break-keep">기기는 브라우저마다 따로예요. 같은 아이폰이라도 사파리와 홈 화면 앱은 각각 한 번씩 코드를 넣어야 해요.</p>
+        {devices === null ? <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-400">불러오는 중…</p> : devices.length === 0 ? <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-400">없어요. 코드를 넣을 때 '이 기기 기억하기'를 켜 두면 여기 생겨요.</p> : (
           <ul className="space-y-1.5">
             {devices.map((d) => {
               const me = d.id === trustedId();
@@ -59,8 +59,8 @@ export function AdminSecurityCard() {
                 <li key={d.id} className="flex items-center gap-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
                   <Smartphone className="w-4 h-4 text-zinc-400 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100 truncate">{d.name}{me && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-md bg-purple-600/10 text-purple-600 dark:text-purple-300">이 기기</span>}</p>
-                    <p className="text-[10.5px] text-zinc-500">마지막 사용 {ago(d.lastUsedAt)} · {ago(d.expiresAt)}까지</p>
+                    <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100 truncate">{d.name}{me && <span className="ml-1.5 text-[length:calc(10px*var(--fs,1))] px-1.5 py-0.5 rounded-md bg-purple-600/10 text-purple-600 dark:text-purple-300">이 기기</span>}</p>
+                    <p className="text-[length:calc(10.5px*var(--fs,1))] text-zinc-500">마지막 사용 {ago(d.lastUsedAt)} · {ago(d.expiresAt)}까지</p>
                   </div>
                   <button type="button" onClick={() => revoke(d.id, d.name)} aria-label={`${d.name} 지우기`} className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 cursor-pointer"><X className="w-4 h-4" /></button>
                 </li>
@@ -70,7 +70,7 @@ export function AdminSecurityCard() {
         )}
       </div>
       {(st?.recentLogins || []).length > 0 && (
-        <details className="text-[11px]">
+        <details className="text-[length:calc(11px*var(--fs,1))]">
           <summary className="cursor-pointer font-bold text-zinc-600 dark:text-zinc-300">최근 관리자 로그인 (모르는 기록이 있으면 바로 '모든 기기에서 로그아웃' 하고 구글 비밀번호를 바꾸세요)</summary>
           <ul className="mt-1 space-y-0.5">
             {st.recentLogins.map((l: any, i: number) => <li key={i} className="break-all text-zinc-500"><b className="text-zinc-700 dark:text-zinc-200">{new Date(l.at).toLocaleString('ko-KR')}</b> · {l.how} · {l.ip} · {l.ua}</li>)}
@@ -84,7 +84,7 @@ export function AdminSecurityCard() {
       </div>
       {codes.length > 0 && (
         <div className="rounded-xl border border-emerald-300/60 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-3 space-y-2">
-          <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 break-keep">새 복구 코드예요. 지금 한 번만 보여요. 휴대폰을 잃어버렸을 때 6자리 코드 대신 쓰고, 코드마다 한 번씩만 쓸 수 있어요.</p>
+          <p className="text-[length:calc(11px*var(--fs,1))] font-bold text-emerald-700 dark:text-emerald-300 break-keep">새 복구 코드예요. 지금 한 번만 보여요. 휴대폰을 잃어버렸을 때 6자리 코드 대신 쓰고, 코드마다 한 번씩만 쓸 수 있어요.</p>
           <div className="grid grid-cols-2 gap-1.5 font-mono text-sm font-bold text-zinc-800 dark:text-zinc-100">
             {codes.map((c) => <span key={c} className="py-1.5 text-center rounded-lg bg-white dark:bg-zinc-800 select-all">{c}</span>)}
           </div>

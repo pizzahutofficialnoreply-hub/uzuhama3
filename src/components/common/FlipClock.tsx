@@ -57,8 +57,8 @@ export function FlipCountdown({ seconds }: { seconds: number }) {
     <div className="flex items-start justify-center gap-2.5" aria-label="남은 시간">
       {parts.map(([v, u]) => (
         <div key={u} className="flex flex-col items-center gap-1">
-          <FlipClock text={pad(v)} className="text-[30px] sm:text-[36px] leading-none" />
-          <span className="text-[12px] font-bold text-zinc-600 dark:text-zinc-300">{u}</span>
+          <FlipClock text={pad(v)} className="text-[length:calc(30px*var(--fs,1))] sm:text-[length:calc(36px*var(--fs,1))] leading-none" />
+          <span className="text-[length:calc(12px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">{u}</span>
         </div>
       ))}
     </div>

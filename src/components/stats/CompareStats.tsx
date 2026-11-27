@@ -193,7 +193,7 @@ export function CompareSection({ logs, a, b, parts }: { logs: BroadcastLog[]; a:
     <div className="space-y-5 min-w-0" data-testid="stats-compare">
       {/* 비교 한눈에 */}
       {has('summary') && <div className={card}>
-        <h3 className="flex items-center gap-1.5 text-[15px] font-black text-zinc-900 dark:text-white"><ListChecks className="w-4 h-4 text-indigo-500" /> 이렇게 달라졌어요</h3>
+        <h3 className="flex items-center gap-1.5 text-[length:calc(15px*var(--fs,1))] font-black text-zinc-900 dark:text-white"><ListChecks className="w-4 h-4 text-indigo-500" /> 이렇게 달라졌어요</h3>
         <ul className="mt-3 space-y-2">
           {lines.map((s, i) => <li key={i} className="text-sm text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep flex gap-2"><span className="mt-2 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />{s}</li>)}
         </ul>
@@ -201,7 +201,7 @@ export function CompareSection({ logs, a, b, parts }: { logs: BroadcastLog[]; a:
 
       {/* 표: 나란히 */}
       {has('summary') && <div className={card}>
-        <h3 className="text-[15px] font-black text-zinc-900 dark:text-white">숫자로 보기</h3>
+        <h3 className="text-[length:calc(15px*var(--fs,1))] font-black text-zinc-900 dark:text-white">숫자로 보기</h3>
         <table className="mt-3 w-full text-sm">
           <thead>
             <tr className="text-xs text-zinc-500">
@@ -220,7 +220,7 @@ export function CompareSection({ logs, a, b, parts }: { logs: BroadcastLog[]; a:
 
       {/* 그래프: 겹쳐서 (기간 길이가 달라도 비교되게 % 로) */}
       {has('charts') && <div className={card}>
-        <h3 className="text-[15px] font-black text-zinc-900 dark:text-white">요일별 방송 비중</h3>
+        <h3 className="text-[length:calc(15px*var(--fs,1))] font-black text-zinc-900 dark:text-white">요일별 방송 비중</h3>
         <p className="text-xs text-zinc-500 mt-0.5">각 기간 방송 중 그 요일 비율 (%)</p>
         <div className="h-56 mt-3 -ml-3">
           <ResponsiveContainer width="100%" height="100%">
@@ -238,7 +238,7 @@ export function CompareSection({ logs, a, b, parts }: { logs: BroadcastLog[]; a:
       </div>}
 
       {has('charts') && <div className={card}>
-        <h3 className="text-[15px] font-black text-zinc-900 dark:text-white">시작 시간대</h3>
+        <h3 className="text-[length:calc(15px*var(--fs,1))] font-black text-zinc-900 dark:text-white">시작 시간대</h3>
         <p className="text-xs text-zinc-500 mt-0.5">시작 시각이 있는 방송 중 그 시간대 비율 (%) · 지금 {A.timed}개 · 비교 {B.timed}개</p>
         {A.timed + B.timed === 0 ? <p className="mt-4 text-sm text-zinc-400">두 기간 모두 시작 시각 기록이 없어요.</p> : (
         <div className="h-56 mt-3 -ml-3">
@@ -261,7 +261,7 @@ export function CompareSection({ logs, a, b, parts }: { logs: BroadcastLog[]; a:
       {has('category') && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
         {([['지금 기간', A, COLOR_A, a], ['비교 기간', B, COLOR_B, b]] as const).map(([name, S, color, r]) => (
           <div key={name} className={card}>
-            <h3 className="text-[15px] font-black flex items-center gap-1.5" style={{ color }}><span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} /> {name} 장르 · 게임</h3>
+            <h3 className="text-[length:calc(15px*var(--fs,1))] font-black flex items-center gap-1.5" style={{ color }}><span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} /> {name} 장르 · 게임</h3>
             <p className="text-xs text-zinc-500 mt-0.5 tabular-nums">{r.start} ~ {r.end}</p>
             {S.cats.length === 0 ? <p className="mt-3 text-sm text-zinc-400">기록이 없어요.</p> : (
               <ul className="mt-3 space-y-2">
@@ -275,7 +275,7 @@ export function CompareSection({ logs, a, b, parts }: { logs: BroadcastLog[]; a:
             )}
             {S.games.length > 0 && (
               <div className="mt-4 flex flex-wrap gap-1.5">
-                {S.games.map((g) => <span key={g.name} className="px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">{g.name} <b className="text-zinc-900 dark:text-white">{g.n}</b></span>)}
+                {S.games.map((g) => <span key={g.name} className="px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-[length:calc(11px*var(--fs,1))] font-semibold text-zinc-700 dark:text-zinc-300">{g.name} <b className="text-zinc-900 dark:text-white">{g.n}</b></span>)}
               </div>
             )}
           </div>

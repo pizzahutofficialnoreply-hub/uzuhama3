@@ -376,7 +376,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                       {format(activeDisplay.date, 'yyyy.MM.dd (eee)', { locale: ko })}
                     </span>
                     <span className={cn(
-                      "px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold",
+                      "px-2 py-0.5 rounded-full text-[length:calc(10px*var(--fs,1))] sm:text-[length:calc(11px*var(--fs,1))] font-semibold",
                       activeDisplay.hasBroadcast
                         ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
                         : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400"
@@ -399,7 +399,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                   )}
                 </div>
               ) : (
-                <div className="text-zinc-400 dark:text-zinc-500 text-[11px] sm:text-xs">
+                <div className="text-zinc-400 dark:text-zinc-500 text-[length:calc(11px*var(--fs,1))] sm:text-xs">
                   날짜 칸을 1번 누르면 정보가 표시되고, 한 번 더 누르면 달력 기록으로 이동해요.
                 </div>
               )}
@@ -455,7 +455,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                     key={idx}
                     className={cn(
                       "flex items-center justify-center leading-none",
-                      isZoomed ? "h-6 sm:h-7 text-xs font-semibold" : "h-2.5 sm:h-[18px] text-[7.5px] sm:text-[10px]",
+                      isZoomed ? "h-6 sm:h-7 text-xs font-semibold" : "h-2.5 sm:h-[18px] text-[length:calc(7.5px*var(--fs,1))] sm:text-[length:calc(10px*var(--fs,1))]",
                       day.color
                     )}
                   >
@@ -559,7 +559,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
 
             {/* 하단 월 라벨 (1월~12월 등) */}
             <div className={cn(
-              "flex mt-1 sm:mt-2 text-[7.5px] sm:text-[11px] font-medium text-zinc-400 dark:text-zinc-500 select-none h-3 sm:h-4",
+              "flex mt-1 sm:mt-2 text-[length:calc(7.5px*var(--fs,1))] sm:text-[length:calc(11px*var(--fs,1))] font-medium text-zinc-400 dark:text-zinc-500 select-none h-3 sm:h-4",
               isZoomed ? "pl-5 sm:pl-7" : "pl-2.5 sm:pl-5 w-full justify-between"
             )}>
               {weeks.map((_, idx) => {
@@ -587,7 +587,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
 
         {/* 하단 범례: 20분 단위 (최대 5시간) 채도 스케일 안내 & 클릭 시 윤곽선 강조 */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+          <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400">
             {selectedLegendLevel !== null ? (
               <span className="text-purple-600 dark:text-purple-400 font-semibold">
                 {getLegendLevelText(selectedLegendLevel)} 색상 칸 표시 중 (다시 클릭 시 해제)
@@ -597,7 +597,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
             )}
           </span>
 
-          <div className="flex items-center gap-1 sm:gap-1.5 text-[11px] flex-wrap">
+          <div className="flex items-center gap-1 sm:gap-1.5 text-[length:calc(11px*var(--fs,1))] flex-wrap">
             <span className="text-zinc-500 dark:text-zinc-400 mr-0.5">휴방</span>
             <button
               type="button"
@@ -609,8 +609,8 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
               )}
               title="휴방 (0시간) - 클릭 시 히트맵 윤곽선 강조"
             />
-            <span className="text-zinc-400 dark:text-zinc-600 text-[10px] mx-0.5">|</span>
-            <span className="text-zinc-400 text-[10px]">20분 단위</span>
+            <span className="text-zinc-400 dark:text-zinc-600 text-[length:calc(10px*var(--fs,1))] mx-0.5">|</span>
+            <span className="text-zinc-400 text-[length:calc(10px*var(--fs,1))]">20분 단위</span>
             {Array.from({ length: 16 }, (_, i) => i + 1).map((lvl) => {
               const info = HEATMAP_LEVEL_COLORS[lvl];
               const isSelected = selectedLegendLevel === lvl;

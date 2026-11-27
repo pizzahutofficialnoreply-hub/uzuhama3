@@ -57,9 +57,9 @@ export function PolicyHistory({ type, system, prose }: { type: 'terms' | 'privac
             <button type="button" onClick={() => toggle(it)} aria-expanded={open === it.key} className="w-full flex items-center gap-3 px-3.5 py-3 text-left cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
               <span className="flex-1 min-w-0">
                 <span className="block text-sm font-bold text-zinc-800 dark:text-zinc-100 break-keep">{it.label}</span>
-                {it.sub && <span className="block text-[11.5px] text-zinc-500 tabular-nums">{it.sub}</span>}
+                {it.sub && <span className="block text-[length:calc(11.5px*var(--fs,1))] text-zinc-500 tabular-nums">{it.sub}</span>}
               </span>
-              <span className="text-[11px] font-bold text-purple-600 dark:text-purple-300 shrink-0">{open === it.key ? '접기' : '이전 문서 보기'}</span>
+              <span className="text-[length:calc(11px*var(--fs,1))] font-bold text-purple-600 dark:text-purple-300 shrink-0">{open === it.key ? '접기' : '이전 문서 보기'}</span>
               <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${open === it.key ? 'rotate-180' : ''}`} />
             </button>
             {open === it.key && (

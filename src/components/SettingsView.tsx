@@ -26,7 +26,7 @@ import { useTabGlass } from '../hooks/useTabGlass';
 import { RichTextRenderer } from './common/RichTextRenderer';
 import { DEFAULT_PREFACE_TEMPLATE } from './tabs/admin/system/NoticesSubTab';
 import { isAdminUser } from '../utils/adminAuth';
-import { usePrefs, setPref, PAGE_SIZE_OPTIONS, KEYBOARD_OPTIONS, type UserPrefs } from '../utils/userPrefs';
+import { usePrefs, setPref, PAGE_SIZE_OPTIONS, KEYBOARD_OPTIONS, FONT_SCALES, type UserPrefs } from '../utils/userPrefs';
 import { useAppVersion } from '../utils/appVersion';
 import { createPortal } from 'react-dom';
 import { squash } from '../utils/smartSearch';
@@ -68,6 +68,7 @@ export function SettingsView({
   notifyChoices,
   initialSection
 }: SettingsViewProps) {
+  const prefs = usePrefs();
   const appVersion = useAppVersion(system?.appVersion);
   const { 
     isSupported, 
@@ -275,7 +276,7 @@ export function SettingsView({
               <MessageSquare className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">의견 보내기</p>
-                <p className="text-[11px] text-zinc-500">의견 · 버그 제보 · 데이터 요청</p>
+                <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">의견 · 버그 제보 · 데이터 요청</p>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />
@@ -289,7 +290,7 @@ export function SettingsView({
               <Stethoscope className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">내 앱 점검하기</p>
-                <p className="text-[11px] text-zinc-500">이 기기에서 화면·기능이 잘 되는지 확인 (1~3분)</p>
+                <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">이 기기에서 화면·기능이 잘 되는지 확인 (1~3분)</p>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />
@@ -326,7 +327,7 @@ export function SettingsView({
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
                     관리자 대시보드
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-600 text-white font-semibold">인앱 이동</span>
+                    <span className="text-[length:calc(10px*var(--fs,1))] px-2 py-0.5 rounded-full bg-purple-600 text-white font-semibold">인앱 이동</span>
                   </p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">시스템 설정 및 방송 데이터 관리 대시보드로 이동해요.</p>
                 </div>
@@ -379,7 +380,7 @@ export function SettingsView({
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
                     관리자 모드 (새 페이지로 열기)
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 font-semibold">PWA 지원</span>
+                    <span className="text-[length:calc(10px*var(--fs,1))] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 font-semibold">PWA 지원</span>
                   </p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">새 브라우저 탭 또는 독립 창에서 /admin 관리자 페이지를 열어요.</p>
                 </div>
@@ -397,7 +398,7 @@ export function SettingsView({
                   <LogOut className="w-4 h-4" />
                   <span>관리자 계정 로그아웃</span>
                 </div>
-                <span className="text-[10px] text-zinc-400 font-normal">{user.email}</span>
+                <span className="text-[length:calc(10px*var(--fs,1))] text-zinc-400 font-normal">{user.email}</span>
               </button>
             )}
           </div>
@@ -498,7 +499,7 @@ export function SettingsView({
                 >
                   <div className="px-4 pb-4 pt-1.5 space-y-3 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
                     {Object.keys(settings.mute || {}).filter((k) => muteLeft(k) > 0).map((k) => (
-                      <div key={k} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-[12px] text-amber-800 dark:text-amber-200">
+                      <div key={k} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-[length:calc(12px*var(--fs,1))] text-amber-800 dark:text-amber-200">
                         <span className="flex-1 break-keep">{PUSH_LABEL[k] || '알림'}: {Math.ceil(muteLeft(k) / 3600000)}시간 뒤 다시 켜져요</span>
                         <button type="button" onClick={() => handleTogglePush(k as keyof PushSettings)} className="shrink-0 px-2 py-1 rounded-lg bg-white/70 dark:bg-white/10 font-bold cursor-pointer">지금 켜기</button>
                       </div>
@@ -628,7 +629,7 @@ export function SettingsView({
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">내 기기 테스트 알림</p>
-                          <p className="text-[11px] text-zinc-400">현재 브라우저에 알림이 제대로 뜨는지 즉시 확인</p>
+                          <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-400">현재 브라우저에 알림이 제대로 뜨는지 즉시 확인</p>
                         </div>
                         <button
                           type="button"
@@ -648,7 +649,7 @@ export function SettingsView({
                         </button>
                       </div>
 
-                      <div className="p-2.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-800/50 text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1 leading-relaxed">
+                      <div className="p-2.5 rounded-xl bg-zinc-100/70 dark:bg-zinc-800/50 text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 space-y-1 leading-relaxed">
                         <p className="font-semibold text-zinc-700 dark:text-zinc-300">알림이 오지 않는 경우 체크리스트:</p>
                         <p>• <strong>아이폰(iOS)</strong>: 사파리 공유 버튼 &gt; <strong>'홈 화면에 추가'</strong> 후 실행해야 웹 푸시가 작동해요.</p>
                         <p>• <strong>안드로이드/PC</strong>: 브라우저 주소창 좌측 자물쇠(설정) 아이콘에서 <strong>알림 '허용'</strong>인지 확인해주세요.</p>
@@ -742,6 +743,24 @@ export function SettingsView({
                       </button>
                     </div>
 
+                    {/* 글자 크기: 사이트 모든 글자에 곱함 (여백·그림은 그대로) */}
+                    <div className="mt-4 pt-3.5 border-t border-zinc-200/60 dark:border-zinc-800/60">
+                      <div className="flex items-center gap-1.5 mb-2.5">
+                        <Type className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        <span className="text-xs font-bold text-zinc-900 dark:text-white">글자 크기</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-800" role="radiogroup" aria-label="글자 크기">
+                        {FONT_SCALES.map((o) => (
+                          <button key={o.v} type="button" role="radio" aria-checked={prefs.fontScale === o.v} onClick={() => setPref('fontScale', o.v)}
+                            className={cn("py-2 rounded-xl font-bold font-hanna font-pro cursor-pointer transition-colors", prefs.fontScale === o.v ? "bg-white dark:bg-zinc-600 text-zinc-900 dark:text-white shadow-sm" : "text-zinc-500 dark:text-zinc-400")}
+                            style={{ fontSize: `${Math.round(13 * o.v)}px` }}>
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400">가 나 다 라 마 바 사 · 바꾸면 바로 적용돼요</p>
+                    </div>
+
                     {/* 하단 탭바 글래스모피즘 (투명도 및 블러) 슬라이더 */}
                     <div className="mt-4 pt-3.5 border-t border-zinc-200/60 dark:border-zinc-800/60 space-y-2.5">
                       <div className="flex items-center justify-between">
@@ -752,14 +771,14 @@ export function SettingsView({
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-800/60">
+                          <span className="text-[length:calc(11px*var(--fs,1))] font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-800/60">
                             {tabGlass.sliderValue === 30 ? '기본값' : `${tabGlass.sliderValue}%`}
                           </span>
                           {tabGlass.sliderValue !== 30 && (
                             <button
                               type="button"
                               onClick={tabGlass.resetToDefault}
-                              className="text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 underline cursor-pointer"
+                              className="text-[length:calc(11px*var(--fs,1))] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 underline cursor-pointer"
                             >
                               기본값 복원
                             </button>
@@ -768,7 +787,7 @@ export function SettingsView({
                       </div>
 
                       {/* 안내 문구 */}
-                      <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      <p className="text-[length:calc(11.5px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 leading-relaxed">
                         왼쪽으로 갈수록 블러가 많아지고 더 투명해지며, 오른쪽으로 갈수록 블러가 적어지고 더 불투명해져요.
                       </p>
 
@@ -783,7 +802,7 @@ export function SettingsView({
                           onChange={(e) => tabGlass.updateGlassValue(parseInt(e.target.value, 10))}
                           className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-purple-600 dark:accent-purple-500 focus:outline-none"
                         />
-                        <div className="flex items-center justify-between text-[10.5px] font-medium text-zinc-500 dark:text-zinc-400">
+                        <div className="flex items-center justify-between text-[length:calc(10.5px*var(--fs,1))] font-medium text-zinc-500 dark:text-zinc-400">
                           <span className="flex items-center gap-1">
                             ← 블러 많음 · 더 투명
                           </span>
@@ -1508,8 +1527,8 @@ function ViewPrefsPanel() {
               <button key={k} type="button" aria-pressed={k === 'custom' ? detail || mode === 'custom' : mode === k && !detail}
                 onClick={() => { if (k === 'custom') setDetail(true); else { setAll(k === 'all'); setDetail(false); } }}
                 className={cn('p-2 rounded-xl border text-left cursor-pointer', (k === 'custom' ? detail || mode === 'custom' : mode === k && !detail) ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40' : 'border-zinc-200 dark:border-zinc-700')}>
-                <span className="block text-[12.5px] font-bold text-zinc-900 dark:text-white">{l}</span>
-                <span className="block text-[10.5px] text-zinc-500">{d}</span>
+                <span className="block text-[length:calc(12.5px*var(--fs,1))] font-bold text-zinc-900 dark:text-white">{l}</span>
+                <span className="block text-[length:calc(10.5px*var(--fs,1))] text-zinc-500">{d}</span>
               </button>
             ))}
           </div>
@@ -1519,8 +1538,8 @@ function ViewPrefsPanel() {
           return (
             <div key={k} className="flex items-center justify-between gap-3 py-1.5">
               <div className="min-w-0">
-                <p className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200">{title}</p>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 break-keep">{desc}</p>
+                <p className="text-[length:calc(13px*var(--fs,1))] font-semibold text-zinc-800 dark:text-zinc-200">{title}</p>
+                <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 break-keep">{desc}</p>
               </div>
               <button type="button" role="switch" aria-checked={on} aria-label={title} onClick={() => setPref(k, !on as any)}
                 className={cn('relative shrink-0 w-11 h-6 rounded-full transition-colors cursor-pointer', on ? 'bg-purple-600' : 'bg-zinc-300 dark:bg-zinc-700')}>
@@ -1542,7 +1561,7 @@ function LabToggle({ k, title, desc }: { k: 'labAiSummary' | 'labAiCard' | 'labC
     <button type="button" role="switch" aria-checked={on} onClick={() => setPref(k, !on)} className="w-full flex items-center justify-between gap-3 p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-left cursor-pointer">
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-zinc-900 dark:text-white">{title}</span>
-        <span className="block text-[11.5px] text-zinc-500 break-keep">{desc}</span>
+        <span className="block text-[length:calc(11.5px*var(--fs,1))] text-zinc-500 break-keep">{desc}</span>
       </span>
       <span className={cn('relative shrink-0 w-11 h-6 rounded-full transition-colors', on ? 'bg-purple-600' : 'bg-zinc-300 dark:bg-zinc-700')}>
         <span className={cn('absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all', on ? 'left-[22px]' : 'left-0.5')} />

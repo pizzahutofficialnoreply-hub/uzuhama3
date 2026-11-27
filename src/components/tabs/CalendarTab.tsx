@@ -174,7 +174,7 @@ const VideoLinkCard = ({
           {catList.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {catList.map((cat, idx) => (
-                <span key={idx} className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-medium">
+                <span key={idx} className="text-[length:calc(10px*var(--fs,1))] px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-medium">
                   {cat}
                 </span>
               ))}
@@ -257,7 +257,7 @@ const VideoLinkCard = ({
                   </button>
                   {showShortsMenu && (
                     <div className="absolute bottom-full left-0 right-0 mb-1.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-[0_14px_36px_-6px_rgba(0,0,0,0.28),0_3px_8px_rgba(0,0,0,0.10)] dark:shadow-[0_18px_44px_-6px_rgba(0,0,0,0.85),0_3px_10px_rgba(0,0,0,0.5)] ring-1 ring-black/5 dark:ring-white/10 overflow-hidden z-30 flex flex-col">
-                      <div className="px-3 py-1.5 text-[10px] font-bold text-zinc-500 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-700">
+                      <div className="px-3 py-1.5 text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-500 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-700">
                         쇼츠 선택
                       </div>
                       {shortsList.map((s, idx) => (
@@ -824,7 +824,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                   <div className="flex items-center justify-between mb-0.5 sm:mb-1 overflow-hidden">
                     <div className="flex items-center gap-1">
                       <span className={cn(
-                        "text-[11px] sm:text-sm font-semibold w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full shrink-0",
+                        "text-[length:calc(11px*var(--fs,1))] sm:text-sm font-semibold w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full shrink-0",
                         isToday ? "bg-purple-600 text-white" : "",
                         !isToday && (isSun || isHoliday) ? "text-red-500 font-bold" : "",
                         !isToday && !isHoliday && isSat ? "text-blue-500" : ""
@@ -858,7 +858,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
               {log && (
                 <div className="h-full w-full overflow-y-auto overflow-x-hidden flex flex-col justify-start custom-scrollbar">
                   
-                  <div className="hidden sm:block text-[11px] sm:text-sm font-bold text-zinc-900 dark:text-zinc-100 px-1 py-1 leading-tight break-words w-full">
+                  <div className="hidden sm:block text-[length:calc(11px*var(--fs,1))] sm:text-sm font-bold text-zinc-900 dark:text-zinc-100 px-1 py-1 leading-tight break-words w-full">
                     {log.games && log.games.length > 0 ? (
                       <ul className="space-y-0.5">
                         {log.games.map((g, idx) => (
@@ -876,7 +876,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                   {/* 모바일: 점 대신 방송 시간 */}
                   <div className="flex sm:hidden justify-center items-end h-full w-full pb-0.5">
                     {log.durationHours > 0
-                      ? <span className="text-[10px] leading-none font-bold font-hanna font-pro text-purple-800 dark:text-purple-200 tabular-nums">{Math.round(log.durationHours * 10) / 10}h</span>
+                      ? <span className="text-[length:calc(10px*var(--fs,1))] leading-none font-bold font-hanna font-pro text-purple-800 dark:text-purple-200 tabular-nums">{Math.round(log.durationHours * 10) / 10}h</span>
                       : <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />}
                   </div>
 
@@ -989,7 +989,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                     setCurrentDate(today);
                     handleDayClick(today);
                   }}
-                  className="px-2 py-0.5 rounded-lg bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 font-bold transition-colors cursor-pointer text-[11px] font-hanna font-pro"
+                  className="px-2 py-0.5 rounded-lg bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 font-bold transition-colors cursor-pointer text-[length:calc(11px*var(--fs,1))] font-hanna font-pro"
                   title="오늘 날짜로 달력 이동 및 상세 기록 조회"
                 >
                   오늘
@@ -1257,7 +1257,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                         {selectedLog.games && selectedLog.games.length > 0 ? (
                           selectedLog.games.map((g, idx) => (
                             <div key={idx} className="bg-zinc-50 dark:bg-zinc-800/50 p-3 sm:p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex flex-col items-start gap-1">
-                              <span className="inline-block px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 font-hanna font-pro">
+                              <span className="inline-block px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[length:calc(10px*var(--fs,1))] sm:text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 font-hanna font-pro">
                                 {g.category || selectedLog.category || '종합'}
                               </span>
                               <div className="w-full mt-1 text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-tight font-hanna font-pro">
@@ -1276,7 +1276,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                           ))
                         ) : (
                           <div className="bg-zinc-50 dark:bg-zinc-800/50 p-3 sm:p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex flex-col items-start gap-1">
-                            <span className="inline-block px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 font-hanna font-pro">
+                            <span className="inline-block px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[length:calc(10px*var(--fs,1))] sm:text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 font-hanna font-pro">
                               {selectedLog.category}
                             </span>
                             <div className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-tight font-hanna font-pro">
@@ -1457,7 +1457,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                       const hasSeparateCat = g.category && g.category.trim() !== '' && g.category.trim().toLowerCase() !== g.name.trim().toLowerCase() && g.category !== '종합';
                                       const badge = (
                                         <span className={cn(
-                                          "px-2 py-0.5 text-[10px] rounded-full select-none inline-flex items-center gap-1 transition-colors",
+                                          "px-2 py-0.5 text-[length:calc(10px*var(--fs,1))] rounded-full select-none inline-flex items-center gap-1 transition-colors",
                                           g.link
                                             ? "bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 cursor-pointer font-medium"
                                             : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
@@ -1494,7 +1494,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                     {resolvedGames.map((g, idx) => {
                                       const badge = (
                                         <span className={cn(
-                                          "px-1.5 py-0.5 text-[9px] rounded-full select-none inline-flex items-center gap-1 transition-colors",
+                                          "px-1.5 py-0.5 text-[length:calc(9px*var(--fs,1))] rounded-full select-none inline-flex items-center gap-1 transition-colors",
                                           g.link
                                             ? "bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 cursor-pointer font-medium"
                                             : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
@@ -1549,7 +1549,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                     href={video.url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="w-full flex justify-center items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all bg-red-50 hover:bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200/80 dark:border-red-800/60 shadow-2xs hover:scale-[1.01]"
+                                    className="w-full flex justify-center items-center gap-1 px-2.5 py-1.5 rounded-lg text-[length:calc(11px*var(--fs,1))] sm:text-xs font-bold transition-all bg-red-50 hover:bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200/80 dark:border-red-800/60 shadow-2xs hover:scale-[1.01]"
                                   >
                                     <ShortsIcon className="w-3.5 h-3.5 text-red-500" />
                                     <span>쇼츠 보기</span>
@@ -1569,7 +1569,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                               <h4 className="text-xs sm:text-sm font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
                                 <PlaySquare className="w-4 h-4 shrink-0" />
                                 <span>생방송 다시보기</span>
-                                <span className="text-[11px] font-normal text-zinc-400">({validVods.length})</span>
+                                <span className="text-[length:calc(11px*var(--fs,1))] font-normal text-zinc-400">({validVods.length})</span>
                               </h4>
                               <div className="flex flex-col gap-3">
                                 {validVods.map((v, i) => (
@@ -1587,7 +1587,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                               <h4 className="text-xs sm:text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-1.5">
                                 <VideoIcon className="w-4 h-4 shrink-0 text-red-500" />
                                 <span>유튜브 편집본 (영상)</span>
-                                <span className="text-[11px] font-normal text-zinc-400">({validEdited.length})</span>
+                                <span className="text-[length:calc(11px*var(--fs,1))] font-normal text-zinc-400">({validEdited.length})</span>
                               </h4>
                               <div className="flex flex-col gap-3">
                                 {validEdited.map((v, i) => (
@@ -1605,7 +1605,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                               <h4 className="text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
                                 <ShortsIcon className="w-4 h-4 text-red-500 shrink-0" />
                                 <span>쇼츠 영상</span>
-                                <span className="text-[11px] font-normal text-zinc-400">({validShorts.length})</span>
+                                <span className="text-[length:calc(11px*var(--fs,1))] font-normal text-zinc-400">({validShorts.length})</span>
                               </h4>
                               <div className="grid grid-cols-2 gap-2.5">
                                 {validShorts.map((v, i) => (
@@ -1649,7 +1649,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                 id="btn-calendar-subscribe-table"
                 data-tour="calendar-export"
                 onClick={() => { triggerHaptic(12); setIsSubscribeModalOpen(true); }}
-                className="ml-auto sm:ml-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 cursor-pointer"
+                className="ml-auto sm:ml-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[length:calc(11px*var(--fs,1))] font-bold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 cursor-pointer"
                 title="스마트폰 캘린더에 방송 일정 자동 동기화"
               >
                 <Bell className="w-3 h-3 text-purple-600 dark:text-purple-400" />
@@ -1899,7 +1899,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                       <div className="flex flex-col gap-2.5">
                         {log.games.map((g, idx) => (
                           <div key={idx} className="flex flex-col gap-1">
-                            <span className="inline-block self-start px-2 py-0.5 rounded text-[10px] border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-hanna font-pro">
+                            <span className="inline-block self-start px-2 py-0.5 rounded text-[length:calc(10px*var(--fs,1))] border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-hanna font-pro">
                               {g.category || log.category || '종합'}
                             </span>
                             {g.link ? (
@@ -1924,7 +1924,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                     ) : (
                       <>
                         <div className="flex items-center gap-2 mb-1.5">
-                          <span className="px-2 py-0.5 rounded text-[10px] border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-hanna font-pro">
+                          <span className="px-2 py-0.5 rounded text-[length:calc(10px*var(--fs,1))] border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-hanna font-pro">
                             {log.category}
                           </span>
                         </div>
@@ -1986,12 +1986,12 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                   const matched = log.games?.find(g => g.name && (g.name.toLowerCase() === c.toLowerCase() || c.toLowerCase().includes(g.name.toLowerCase()) || g.name.toLowerCase().includes(c.toLowerCase())));
                                   return matched?.link ? (
                                     <a key={cIdx} href={matched.link} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 font-medium cursor-pointer">
+                                      <span className="text-[length:calc(10px*var(--fs,1))] px-1.5 py-0.2 rounded bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 font-medium cursor-pointer">
                                         {c}
                                       </span>
                                     </a>
                                   ) : (
-                                    <span key={cIdx} className="text-[10px] px-1.5 py-0.2 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 font-medium">
+                                    <span key={cIdx} className="text-[length:calc(10px*var(--fs,1))] px-1.5 py-0.2 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 font-medium">
                                       {c}
                                     </span>
                                   );
@@ -2046,12 +2046,12 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                     const matched = log.games?.find(g => g.name && (g.name.toLowerCase() === c.toLowerCase() || c.toLowerCase().includes(g.name.toLowerCase()) || g.name.toLowerCase().includes(c.toLowerCase())));
                                     return matched?.link ? (
                                       <a key={cIdx} href={matched.link} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium cursor-pointer">
+                                        <span className="text-[length:calc(10px*var(--fs,1))] px-1.5 py-0.2 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium cursor-pointer">
                                           {c}
                                         </span>
                                       </a>
                                     ) : (
-                                      <span key={cIdx} className="text-[10px] px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium">
+                                      <span key={cIdx} className="text-[length:calc(10px*var(--fs,1))] px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-medium">
                                         {c}
                                       </span>
                                     );
@@ -2103,12 +2103,12 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                   const matched = log.games?.find(g => g.name && (g.name.toLowerCase() === c.toLowerCase() || c.toLowerCase().includes(g.name.toLowerCase()) || g.name.toLowerCase().includes(c.toLowerCase())));
                                   return matched?.link ? (
                                     <a key={cIdx} href={matched.link} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-medium cursor-pointer">
+                                      <span className="text-[length:calc(10px*var(--fs,1))] px-1.5 py-0.2 rounded bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-medium cursor-pointer">
                                         {c}
                                       </span>
                                     </a>
                                   ) : (
-                                    <span key={cIdx} className="text-[10px] px-1.5 py-0.2 rounded bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-medium">
+                                    <span key={cIdx} className="text-[length:calc(10px*var(--fs,1))] px-1.5 py-0.2 rounded bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-medium">
                                       {c}
                                     </span>
                                   );

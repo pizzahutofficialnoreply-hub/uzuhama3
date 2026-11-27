@@ -82,7 +82,7 @@ function PlaylistCard({ playlist, onOpen, onExpand, shareText }: { playlist: Pla
               <span className="font-bold text-purple-900 dark:text-purple-200">{onExpand ? '자세히 보기' : '재생목록 영상 펼치기'}</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-200/90 dark:bg-purple-900/90 text-purple-800 dark:text-purple-200">{count}개 영상</span>
+              <span className="text-[length:calc(10px*var(--fs,1))] font-bold px-2 py-0.5 rounded-md bg-purple-200/90 dark:bg-purple-900/90 text-purple-800 dark:text-purple-200">{count}개 영상</span>
               <ChevronDown className="w-3.5 h-3.5 opacity-70" />
             </span>
           </button>

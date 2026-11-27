@@ -12,7 +12,7 @@ import type { ViewStyle } from '../../hooks/useViewStyle';
  */
 export function CollectionPanel({
   thumbnail, title, metaLine, description, channelTitle = '우주하마', channelThumbnail, embedSrc, playLabel, onClose, countLabel,
-  viewStyle, onViewStyleChange, children, ariaLabel, showPublisher = true, listOnly = false,
+  viewStyle, onViewStyleChange, children, ariaLabel, showPublisher = true, listOnly = false, fixedList = false,
 }: {
   thumbnail: string;
   title: string;
@@ -26,6 +26,8 @@ export function CollectionPanel({
   onClose: () => void;
   countLabel: string;
   viewStyle: ViewStyle;
+  /** 목록 보기로 고정 (카드/목록 바꾸기 숨김) */
+  fixedList?: boolean;
   onViewStyleChange: (v: ViewStyle) => void;
   children: React.ReactNode;
   ariaLabel: string;
@@ -58,7 +60,7 @@ export function CollectionPanel({
       <section aria-label={ariaLabel} className="px-1.5 sm:px-3 py-2">
         <div className="flex items-center justify-between gap-2 px-1.5 mb-2">
           <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">{countLabel}</span>
-          <ViewStyleToggle value={viewStyle} onChange={onViewStyleChange} />
+          {!fixedList && <ViewStyleToggle value={viewStyle} onChange={onViewStyleChange} />}
         </div>
         {children}
       </section>
@@ -105,7 +107,7 @@ export function CollectionPanel({
               )}
               <span>게시자: <b className="font-semibold text-white">{channelTitle}</b></span>
             </div>}
-            <p className="mt-2 text-xs sm:text-[13px] text-white/70">{metaLine}</p>
+            <p className="mt-2 text-xs sm:text-[length:calc(13px*var(--fs,1))] text-white/70">{metaLine}</p>
             {description && <p className="mt-2 text-xs text-white/70 line-clamp-3 whitespace-pre-line">{description}</p>}
             <button
               type="button"

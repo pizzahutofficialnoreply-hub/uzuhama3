@@ -142,6 +142,20 @@
   --shadow-xs: 0 0 #0000;
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.03);
 
+  /* 글자 크기 설정: 모든 글자 크기에 --fs(설정 › 화면 › 글자 크기)를 곱함 (여백·그림은 그대로) */
+  --text-xs: calc(0.75rem * var(--fs, 1));
+  --text-sm: calc(0.875rem * var(--fs, 1));
+  --text-base: calc(1rem * var(--fs, 1));
+  --text-lg: calc(1.125rem * var(--fs, 1));
+  --text-xl: calc(1.25rem * var(--fs, 1));
+  --text-2xl: calc(1.5rem * var(--fs, 1));
+  --text-3xl: calc(1.875rem * var(--fs, 1));
+  --text-4xl: calc(2.25rem * var(--fs, 1));
+  --text-5xl: calc(3rem * var(--fs, 1));
+  --text-6xl: calc(3.75rem * var(--fs, 1));
+  --text-7xl: calc(4.5rem * var(--fs, 1));
+  --text-8xl: calc(6rem * var(--fs, 1));
+
   /* 움직임: 토스처럼 빠르게 시작해서 부드럽게 멈춤 */
   --ease-toss: cubic-bezier(0.2, 0.8, 0.2, 1);
 }

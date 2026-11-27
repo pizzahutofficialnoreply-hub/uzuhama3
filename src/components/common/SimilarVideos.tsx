@@ -98,19 +98,19 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts, part }: {
     <>
       {showLinked && others.length > 0 && (
         <section className="mt-6" aria-label="연결된 영상">
-          <h3 className="px-1 mb-2.5 text-[13px] font-black text-white">{others.some((x) => x.kind === 'live') ? '이 영상의 생방송' : '이 방송의 영상'}</h3>
+          <h3 className="px-1 mb-2.5 text-[length:calc(13px*var(--fs,1))] font-black text-white">{others.some((x) => x.kind === 'live') ? '이 영상의 생방송' : '이 방송의 영상'}</h3>
           <div className="space-y-3">{others.map((c) => <Card key={c.id} c={{ ...c, cats: [] }} onPick={onPick} logs={logs} />)}</div>
         </section>
       )}
       {showLinked && shorts.length > 0 && (
         <section className="mt-6" aria-label="연결된 쇼츠">
-          <h3 className="px-1 mb-2.5 text-[13px] font-black text-white">연결된 쇼츠</h3>
+          <h3 className="px-1 mb-2.5 text-[length:calc(13px*var(--fs,1))] font-black text-white">연결된 쇼츠</h3>
           <div className="flex gap-2.5 overflow-x-auto no-scrollbar -mx-1 px-1 pb-1" data-no-swipe>
             {shorts.map((x, i) => (
               <button key={x.id} type="button" onClick={() => onShorts?.(shorts.map((y) => ({ url: `https://www.youtube.com/shorts/${y.id}`, title: y.title })), i, x.games)}
                 className="shrink-0 w-[110px] text-left cursor-pointer">
                 <span className="block aspect-[9/16] rounded-2xl overflow-hidden bg-zinc-800"><img src={`https://i.ytimg.com/vi/${x.id}/oardefault.jpg`} onError={(e) => { (e.currentTarget as HTMLImageElement).src = `https://i.ytimg.com/vi/${x.id}/hqdefault.jpg`; }} alt="" loading="lazy" className="w-full h-full object-cover" /></span>
-                <span className="mt-1.5 block text-[12px] font-bold text-zinc-100 leading-snug line-clamp-2 break-keep">{x.title || '쇼츠'}</span>
+                <span className="mt-1.5 block text-[length:calc(12px*var(--fs,1))] font-bold text-zinc-100 leading-snug line-clamp-2 break-keep">{x.title || '쇼츠'}</span>
               </button>
             ))}
           </div>
@@ -118,7 +118,7 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts, part }: {
       )}
       {showRest && rest.length > 0 && (
         <section className="mt-6" aria-label="추천 영상">
-          <h3 className="px-1 mb-2.5 text-[13px] font-black text-white">추천 영상</h3>
+          <h3 className="px-1 mb-2.5 text-[length:calc(13px*var(--fs,1))] font-black text-white">추천 영상</h3>
           <div className="space-y-3">{rest.map((c) => <Card key={c.id} c={c} onPick={onPick} logs={logs} />)}</div>
         </section>
       )}
@@ -143,7 +143,7 @@ function Card({ c, onPick, logs, below }: { c: Cand | (Omit<Cand, 'kind'> & { ki
           <span className="absolute bottom-2 right-2 z-20 bg-black/80 text-white font-bold rounded backdrop-blur-sm shadow-sm select-none tabular-nums pointer-events-none text-xs px-1.5 py-1">{formatDuration(meta.durationSec)}</span>
         )}
         {c.kind === 'live' ? (
-          <span className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10.5px] font-bold pointer-events-none">생방송</span>
+          <span className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded-full bg-black/60 text-white text-[length:calc(10.5px*var(--fs,1))] font-bold pointer-events-none">생방송</span>
         ) : c.date ? (
           <span className="absolute bottom-2 left-2 z-20 bg-black/80 text-white font-normal rounded backdrop-blur-sm shadow-sm select-none whitespace-nowrap text-xs px-2 py-1 pointer-events-none">생방일: {c.date}</span>
         ) : null}
@@ -167,12 +167,12 @@ function Row({ c, onPick }: { c: Cand; onPick: (id: string, title: string, el: E
         <span data-thumb className="relative w-[44%] max-w-[180px] aspect-video rounded-lg overflow-hidden bg-zinc-800 shrink-0">
           <img src={`https://i.ytimg.com/vi/${c.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
           {typeof meta?.durationSec === 'number' && meta.durationSec > 0 && (
-            <span className="absolute bottom-1 right-1 px-1 py-px rounded bg-black/80 text-white text-[10.5px] font-bold tabular-nums">{formatDuration(meta.durationSec)}</span>
+            <span className="absolute bottom-1 right-1 px-1 py-px rounded bg-black/80 text-white text-[length:calc(10.5px*var(--fs,1))] font-bold tabular-nums">{formatDuration(meta.durationSec)}</span>
           )}
         </span>
         <span className="min-w-0 flex-1 pt-0.5">
-          <span className="block text-[13px] font-bold text-zinc-100 leading-snug line-clamp-2 break-keep">{title}</span>
-          {sub && <span className="block mt-1 text-[11.5px] text-zinc-400 truncate">{sub}</span>}
+          <span className="block text-[length:calc(13px*var(--fs,1))] font-bold text-zinc-100 leading-snug line-clamp-2 break-keep">{title}</span>
+          {sub && <span className="block mt-1 text-[length:calc(11.5px*var(--fs,1))] text-zinc-400 truncate">{sub}</span>}
         </span>
       </button>
     </li>
@@ -203,17 +203,17 @@ export function CompLives({ id, logs, ranges, onPick, onSeek }: { id: string; lo
   const fmt = (t: number) => { const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = Math.floor(t % 60); return `${h ? `${h}:${String(m).padStart(2, '0')}` : m}:${String(s).padStart(2, '0')}`; };
   return (
     <section className="mt-6" aria-label="들어 있는 생방송">
-      <h3 className="px-1 mb-1 text-[13px] font-black text-white">들어 있는 생방송 {lives.length}개</h3>
-      <p className="px-1 mb-2.5 text-[11px] text-zinc-400 break-keep">{(ranges || []).length ? '시간을 누르면 위 영상에서 그 방송 장면부터 재생돼요. AI가 맞춘 거라 틀릴 수 있어요.' : '생방송 AI 요약이 끝나면 이 영상의 어디에 나오는지도 보여 드려요.'}</p>
+      <h3 className="px-1 mb-1 text-[length:calc(13px*var(--fs,1))] font-black text-white">들어 있는 생방송 {lives.length}개</h3>
+      <p className="px-1 mb-2.5 text-[length:calc(11px*var(--fs,1))] text-zinc-400 break-keep">{(ranges || []).length ? '시간을 누르면 위 영상에서 그 방송 장면부터 재생돼요. AI가 맞춘 거라 틀릴 수 있어요.' : '생방송 AI 요약이 끝나면 이 영상의 어디에 나오는지도 보여 드려요.'}</p>
       <div className="space-y-3">
         {lives.map((c) => {
           const rs = (ranges || []).filter((r) => r.id === c.id);
           return (
             <Card key={c.id} c={c} onPick={onPick} logs={logs} below={rs.length > 0 && (
               <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-bold text-zinc-500">이 영상에서</span>
+                <span className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500">이 영상에서</span>
                 {rs.map((r, i) => (
-                  <button key={i} type="button" onClick={() => onSeek(r.from)} className="px-2 py-0.5 rounded-md bg-purple-600/15 text-purple-300 text-[11px] font-black tabular-nums cursor-pointer active:scale-95">{fmt(r.from)}~{fmt(r.to)}</button>
+                  <button key={i} type="button" onClick={() => onSeek(r.from)} className="px-2 py-0.5 rounded-md bg-purple-600/15 text-purple-300 text-[length:calc(11px*var(--fs,1))] font-black tabular-nums cursor-pointer active:scale-95">{fmt(r.from)}~{fmt(r.to)}</button>
                 ))}
               </div>
             )} />

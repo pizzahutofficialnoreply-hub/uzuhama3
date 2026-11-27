@@ -49,10 +49,10 @@ export function TestModeCard() {
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3">
       <div>
         <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2"><FlaskConical className="w-4 h-4 text-amber-500" /> 테스트 모드 (이 기기에서만)</h3>
-        <p className="text-[11px] text-zinc-500 mt-0.5 break-keep">생방송이 켜졌다고 가정하거나 확률·오늘 기록을 바꿔서 사이트가 어떻게 보이는지 확인해요. 서버 DB 는 바꾸지 않아서 다른 방문자 화면이나 실제 알림에는 영향이 없고, 정한 시간이 지나거나 '끝내기'를 누르면 아무것도 안 남아요.</p>
+        <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 mt-0.5 break-keep">생방송이 켜졌다고 가정하거나 확률·오늘 기록을 바꿔서 사이트가 어떻게 보이는지 확인해요. 서버 DB 는 바꾸지 않아서 다른 방문자 화면이나 실제 알림에는 영향이 없고, 정한 시간이 지나거나 '끝내기'를 누르면 아무것도 안 남아요.</p>
       </div>
       {cur ? (
-        <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-[12px] text-amber-800 dark:text-amber-200">
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-[length:calc(12px*var(--fs,1))] text-amber-800 dark:text-amber-200">
           <span className="flex-1">테스트 중 · {Math.max(0, Math.ceil((cur.until - Date.now()) / 60000))}분 남음</span>
           <button type="button" onClick={endTestMode} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-900 text-white font-bold cursor-pointer"><Square className="w-3.5 h-3.5" /> 끝내기</button>
         </div>
@@ -62,11 +62,11 @@ export function TestModeCard() {
         <div className="grid grid-cols-2 gap-2">
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="방송 제목" className={input} />
           <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="카테고리(게임)" className={input} />
-          <label className="col-span-2 text-[11px] text-zinc-500">시작한 지 {minAgo}분 <input type="range" min={0} max={300} value={minAgo} onChange={(e) => setMinAgo(+e.target.value)} className="w-full" /></label>
+          <label className="col-span-2 text-[length:calc(11px*var(--fs,1))] text-zinc-500">시작한 지 {minAgo}분 <input type="range" min={0} max={300} value={minAgo} onChange={(e) => setMinAgo(+e.target.value)} className="w-full" /></label>
         </div>
       )}
       <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={useProb} onChange={(e) => setUseProb(e.target.checked)} /> 방송 확률 바꾸기</label>
-      {useProb && <label className="block text-[11px] text-zinc-500">{prob}% <input type="range" min={0} max={100} value={prob} onChange={(e) => setProb(+e.target.value)} className="w-full" /></label>}
+      {useProb && <label className="block text-[length:calc(11px*var(--fs,1))] text-zinc-500">{prob}% <input type="range" min={0} max={100} value={prob} onChange={(e) => setProb(+e.target.value)} className="w-full" /></label>}
       <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={useLog} onChange={(e) => setUseLog(e.target.checked)} /> 오늘 방송 기록 추가 (게임·편집 영상·쇼츠)</label>
       {useLog && (
         <div className="space-y-2">
@@ -75,16 +75,16 @@ export function TestModeCard() {
           <input value={shortUrl} onChange={(e) => setShortUrl(e.target.value)} placeholder="쇼츠 주소 (선택)" className={input} />
         </div>
       )}
-      <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+      <div className="flex items-center gap-2 text-[length:calc(11px*var(--fs,1))] text-zinc-500">
         <span>유지 시간</span>
         {[10, 30, 60].map((m) => <button key={m} type="button" aria-pressed={mins === m} onClick={() => setMins(m)} className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer ${mins === m ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800'}`}>{m}분</button>)}
       </div>
       <button type="button" onClick={start} className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-500 text-black text-xs font-black cursor-pointer"><Play className="w-4 h-4" /> {cur ? '이 값으로 다시 시작' : '테스트 시작'}</button>
       <div className="pt-1">
-        <p className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300 mb-1.5 inline-flex items-center gap-1"><Bell className="w-3.5 h-3.5" /> 알림 미리 보기 (이 기기에만 뜸)</p>
+        <p className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300 mb-1.5 inline-flex items-center gap-1"><Bell className="w-3.5 h-3.5" /> 알림 미리 보기 (이 기기에만 뜸)</p>
         <div className="grid grid-cols-3 gap-1.5">
           {([['live', '방송 시작'], ['peak', '유력 시간'], ['video', '새 영상']] as const).map(([k, l]) => (
-            <button key={k} type="button" onClick={() => notify(k)} className="py-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-[11.5px] font-bold cursor-pointer">{l}</button>
+            <button key={k} type="button" onClick={() => notify(k)} className="py-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-[length:calc(11.5px*var(--fs,1))] font-bold cursor-pointer">{l}</button>
           ))}
         </div>
       </div>

@@ -113,6 +113,9 @@ export function liveLinksFor(video: any, allLogs: any, dates?: string[]): { url:
   return out;
 }
 
+/** 몰아보기 판단: 표시만 빠진 경우도 (몰아보기 묶음 id · 제목 [몰아보기] · 분류 '몰아보기') */
+const isCompEdit = (e: any) => !!(e?.isCompilation || e?.compilationId || /^\s*\[?몰아보기/.test(String(e?.title || '')) || e?.category === '몰아보기' || (Array.isArray(e?.categories) && e.categories.includes('몰아보기')));
+
 export const VideoCard = ({ 
   video,
   allLogs,
@@ -382,7 +385,7 @@ export const VideoCard = ({
         {!isPlayingInline && typeof durationSec === 'number' && durationSec > 0 && (
           <span className={cn(
             "absolute bottom-2 right-2 z-20 bg-black/80 text-white font-bold rounded backdrop-blur-sm shadow-sm select-none tabular-nums pointer-events-none",
-            isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-1.5 py-1"
+            isCompact ? "text-[length:calc(10px*var(--fs,1))] sm:text-xs px-1.5 py-0.5" : "text-xs px-1.5 py-1"
           )}>
             {formatDuration(durationSec)}
           </span>
@@ -400,7 +403,7 @@ export const VideoCard = ({
               }}
               className={cn(
                 "font-semibold rounded-lg backdrop-blur-md flex items-center gap-1.5 cursor-pointer shadow-md transition-all hover:scale-105 min-w-0",
-                isCompact ? "text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1" : "text-xs px-2.5 py-1",
+                isCompact ? "text-[length:calc(10px*var(--fs,1))] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1" : "text-xs px-2.5 py-1",
                 video.isCompilation
                   ? "bg-purple-900/90 hover:bg-purple-950 text-purple-100 border border-purple-400/50 shadow-purple-950/40"
                   : "bg-zinc-900/85 hover:bg-black text-zinc-100 border border-white/20"
@@ -434,7 +437,7 @@ export const VideoCard = ({
                   if (onShowLiveOn && !video.isLive) onShowLiveOn(d);
                   else onNavigateToCalendar?.(d);
                 }}
-                className={cn("bg-black/80 hover:bg-black/95 text-white font-normal rounded backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-colors shadow-sm select-none whitespace-nowrap", isCompact ? "text-[10px] sm:text-xs px-1.5 py-0.5" : "text-xs px-2 py-1")}
+                className={cn("bg-black/80 hover:bg-black/95 text-white font-normal rounded backdrop-blur-sm flex items-center gap-1 cursor-pointer transition-colors shadow-sm select-none whitespace-nowrap", isCompact ? "text-[length:calc(10px*var(--fs,1))] sm:text-xs px-1.5 py-0.5" : "text-xs px-2 py-1")}
                 title="눌러서 이 날 생방송 보기"
               >
                 <span>생방일: {mostRecentDate || displayDate}</span>
@@ -463,7 +466,7 @@ export const VideoCard = ({
 
         {/* 업로드일 · 경과 시간 (유튜브 표기 방식) */}
         {videoMeta?.publishedAt && (
-          <p className={cn("mt-1 text-zinc-500 dark:text-zinc-400 tabular-nums", isCompact ? "text-[10px] sm:text-xs" : "text-xs")}>
+          <p className={cn("mt-1 text-zinc-500 dark:text-zinc-400 tabular-nums", isCompact ? "text-[length:calc(10px*var(--fs,1))] sm:text-xs" : "text-xs")}>
             <span>{uploadDate}</span>
             <span aria-hidden="true" className="mx-1">·</span>
             <span>{formatRelativeTime(videoMeta.publishedAt)}</span>
@@ -502,7 +505,7 @@ export const VideoCard = ({
               </div>
               <div className="flex items-center gap-1.5">
                 <span className={cn(
-                  "text-[10px] font-bold px-2 py-0.5 rounded-md font-hanna font-pro",
+                  "text-[length:calc(10px*var(--fs,1))] font-bold px-2 py-0.5 rounded-md font-hanna font-pro",
                   video.isCompilation
                     ? "bg-purple-200/90 dark:bg-purple-900/90 text-purple-800 dark:text-purple-200"
                     : "bg-zinc-200/80 dark:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300"
@@ -527,7 +530,7 @@ export const VideoCard = ({
                 {displayedGames.map((g: any, i: number) => {
                   const hasSeparateCategory = g.category && g.category.trim() !== '' && g.category.trim().toLowerCase() !== g.name.trim().toLowerCase() && g.category !== '종합';
                   const gameContent = (
-                    <span className={`px-2 py-0.5 text-[10px] rounded-full select-none inline-flex items-center gap-1 font-hanna font-pro ${
+                    <span className={`px-2 py-0.5 text-[length:calc(10px*var(--fs,1))] rounded-full select-none inline-flex items-center gap-1 font-hanna font-pro ${
                       g.link 
                         ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors cursor-pointer' 
                         : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
@@ -560,7 +563,7 @@ export const VideoCard = ({
                       e.stopPropagation();
                       setShowAllGames(prev => !prev);
                     }}
-                    className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer font-hanna font-pro"
+                    className="px-2 py-0.5 text-[length:calc(10px*var(--fs,1))] font-medium rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer font-hanna font-pro"
                   >
                     {showAllGames 
                       ? '접기' 
@@ -972,7 +975,7 @@ export function RecommendTab({
 
     // 각 영상의 관련 게임 추출 함수 (몰아보기: 등록된 모든 게임 취합 / 일반 영상: 해당 영상 관련 게임만 추출)
     const extractRelevantGames = (edit: any, log: any) => {
-      const isComp = !!(edit.isCompilation || edit.compilationId);
+      const isComp = isCompEdit(edit);
 
       // 1. 몰아보기: 등록 시 체크된 게임만 정확히 가져오기
       if (isComp) {
@@ -1143,7 +1146,7 @@ export function RecommendTab({
               if (edit.gameSortOrder) existing.gameSortOrder = edit.gameSortOrder;
               if (edit.gameGroups) existing.gameGroups = edit.gameGroups;
               
-              if (edit.isCompilation || existing.isCompilation) {
+              if (isCompEdit(edit) || existing.isCompilation) {
                 existing.isCompilation = true;
                 // 몰아보기는 등록된 모든 게임 누락 없이 병합
                 const existingGameNames = new Set(existing.games.map((g: any) => g.name?.trim().toLowerCase()));
@@ -1168,7 +1171,7 @@ export function RecommendTab({
               videoMap.set(uniqueKey, {
                 id,
                 compilationId: edit.compilationId,
-                isCompilation: !!edit.isCompilation,
+                isCompilation: isCompEdit(edit),
                 createdAt,
                 videoTitle: (edit.title || log.game || log.category || '우주하마 편집본').replace(/^\[몰아보기\]\s*/, ''),
                 videoUrl: edit.url,
@@ -1476,7 +1479,7 @@ export function RecommendTab({
   // 최근 검색어 칩 (모든 탭 같은 모양)
   const recentChips = (divider: boolean) => (
           <div className={cn("flex items-center gap-1.5 overflow-x-auto no-scrollbar", divider && "pt-1.5 border-t border-zinc-100 dark:border-zinc-800/60")}>
-            <span className="text-[11px] text-zinc-400 shrink-0 font-medium mr-1 flex items-center gap-1">
+            <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-400 shrink-0 font-medium mr-1 flex items-center gap-1">
               <Clock className="w-3 h-3 text-zinc-400" /> 최근 검색:
             </span>
             {recentSearches.map((s) => (
@@ -2364,7 +2367,7 @@ export function RecommendTab({
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 underline cursor-pointer"
+                className="text-[length:calc(11px*var(--fs,1))] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 underline cursor-pointer"
               >
                 검색 초기화
               </button>
@@ -2620,7 +2623,7 @@ export function RecommendTab({
       {season && seasonItems.length > 0 && (subTab === 'home' || subTab === 'recommend') && currentPage === 1 && !searchTerm.trim() && (
         <section className="mb-6">
           <h3 className="px-1 text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5">{season.emoji} {season.title} <span className="text-xs font-semibold text-zinc-400">이동하면서 보기 좋은 긴 영상</span></h3>
-          <p className="px-1 mt-0.5 mb-2 text-[11px] text-zinc-500 dark:text-zinc-400">예전 {season.key === '성탄절' ? '크리스마스' : season.key} 방송과 길게 볼 수 있는 몰아보기·생방송 다시보기를 모았어요.</p>
+          <p className="px-1 mt-0.5 mb-2 text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400">예전 {season.key === '성탄절' ? '크리스마스' : season.key} 방송과 길게 볼 수 있는 몰아보기·생방송 다시보기를 모았어요.</p>
           <div className="flex flex-col gap-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] p-1.5 sm:p-2">
             {seasonItems.map((v) => (
               <VideoListRow

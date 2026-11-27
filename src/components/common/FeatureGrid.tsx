@@ -78,15 +78,15 @@ export function FeatureGrid({ dense = false }: { dense?: boolean }) {
         {CORE.map(({ art: Art, title, desc }, i) => (
           <motion.div key={title} {...pop(0.1 + i * 0.15)} className={card}>
             <div className="h-14 flex items-center">{<Art />}</div>
-            <p className={`mt-2 font-black text-zinc-900 dark:text-white break-keep ${dense ? 'text-[12.5px]' : 'text-[13px]'}`}>{title}</p>
-            <p className={`mt-0.5 text-zinc-500 dark:text-zinc-400 leading-snug break-keep ${dense ? 'text-[11px]' : 'text-[11.5px]'}`}>{desc}</p>
+            <p className={`mt-2 font-black text-zinc-900 dark:text-white break-keep ${dense ? 'text-[length:calc(12.5px*var(--fs,1))]' : 'text-[length:calc(13px*var(--fs,1))]'}`}>{title}</p>
+            <p className={`mt-0.5 text-zinc-500 dark:text-zinc-400 leading-snug break-keep ${dense ? 'text-[length:calc(11px*var(--fs,1))]' : 'text-[length:calc(11.5px*var(--fs,1))]'}`}>{desc}</p>
           </motion.div>
         ))}
       </div>
       <motion.div {...pop(0.8)} className="mt-2.5 flex flex-wrap gap-1.5">
-        <span className="text-[11.5px] font-bold text-zinc-500 dark:text-zinc-400 self-center mr-0.5">그 밖에도</span>
+        <span className="text-[length:calc(11.5px*var(--fs,1))] font-bold text-zinc-500 dark:text-zinc-400 self-center mr-0.5">그 밖에도</span>
         {MORE.map(({ icon: Icon, t }) => (
-          <span key={t} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 text-[11.5px] font-bold">
+          <span key={t} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 text-[length:calc(11.5px*var(--fs,1))] font-bold">
             <Icon className="w-3.5 h-3.5" />{t}
           </span>
         ))}

@@ -605,13 +605,13 @@ function DevicePicker({ value, onChange, options }: { value: DeviceKey; onChange
         {value === here ? detectedSummary() : DEVICE_LABEL[value]}
         <ChevronDown className={cn('w-3.5 h-3.5 text-zinc-400 transition-transform', open && 'rotate-180')} />
       </button>
-      {value === here && <span className="block mt-1.5 ml-1 text-[11px] text-zinc-400">자동으로 확인했어요 · 다르면 눌러서 바꿔요</span>}
+      {value === here && <span className="block mt-1.5 ml-1 text-[length:calc(11px*var(--fs,1))] text-zinc-400">자동으로 확인했어요 · 다르면 눌러서 바꿔요</span>}
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="absolute z-50 left-0 mt-2 w-64 rounded-2xl bg-white dark:bg-zinc-800 shadow-xl p-1.5">
             {options.map((d) => (
               <button key={d} type="button" onClick={() => { onChange(d); setOpen(false); }} className={cn('w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left cursor-pointer', d === value ? 'bg-purple-50 dark:bg-purple-500/15 font-bold' : 'hover:bg-zinc-50 dark:hover:bg-zinc-700/50')}>
-                <span>{DEVICE_LABEL[d]}{d === here && <span className="ml-1.5 text-[10px] font-bold text-purple-600 dark:text-purple-300">지금 기기</span>}</span>
+                <span>{DEVICE_LABEL[d]}{d === here && <span className="ml-1.5 text-[length:calc(10px*var(--fs,1))] font-bold text-purple-600 dark:text-purple-300">지금 기기</span>}</span>
                 {d === value && <Check className="w-4 h-4 text-purple-600" />}
               </button>
             ))}
@@ -646,7 +646,7 @@ function SlideView({ slides, index, setIndex }: { slides: Slide[]; index: number
         </AnimatePresence>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="flex items-center gap-2 text-[11px] font-bold text-purple-600 dark:text-purple-300">
+        <div className="flex items-center gap-2 text-[length:calc(11px*var(--fs,1))] font-bold text-purple-600 dark:text-purple-300">
           {slides.length > 1 && <span>{index + 1} / {slides.length}</span>}
         </div>
         <h3 className="mt-1 text-xl font-black tracking-tight break-keep">{s.title}</h3>
@@ -657,7 +657,7 @@ function SlideView({ slides, index, setIndex }: { slides: Slide[]; index: number
   );
 }
 
-const primaryBtn = 'w-full h-13 min-h-[52px] rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-[15px] font-bold shadow-lg shadow-purple-600/25 active:scale-[0.98] transition cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2';
+const primaryBtn = 'w-full h-13 min-h-[52px] rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-[length:calc(15px*var(--fs,1))] font-bold shadow-lg shadow-purple-600/25 active:scale-[0.98] transition cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2';
 const ghostBtn = 'h-12 px-4 rounded-2xl bg-white dark:bg-zinc-800 text-sm font-bold text-zinc-700 dark:text-zinc-200 shadow-sm active:scale-[0.98] transition cursor-pointer disabled:opacity-40';
 
 function StepNav({ index, total, setIndex, last }: { index: number; total: number; setIndex: (i: number) => void; last: React.ReactNode }) {
@@ -724,8 +724,8 @@ function InstallGuide({ onDone, onNotify, must }: { onDone: () => void; onNotify
     <>
       {must && (
         <div className="mb-3 rounded-2xl bg-purple-600 text-white px-4 py-2.5">
-          <p className="text-[13px] font-black">아이폰은 앱 설치가 꼭 필요해요</p>
-          <p className="text-[11px] leading-snug text-white/85 break-keep">홈 화면에 추가한 앱에서만 방송 알림이 와요. 1분이면 끝나요.</p>
+          <p className="text-[length:calc(13px*var(--fs,1))] font-black">아이폰은 앱 설치가 꼭 필요해요</p>
+          <p className="text-[length:calc(11px*var(--fs,1))] leading-snug text-white/85 break-keep">홈 화면에 추가한 앱에서만 방송 알림이 와요. 1분이면 끝나요.</p>
         </div>
       )}
       <div className="flex items-center justify-between gap-2">

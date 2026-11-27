@@ -24,22 +24,22 @@ export function FeedbackFaq({ onAsk }: { onAsk: () => void }) {
     <div className="space-y-3">
       <label className="flex items-center gap-2 h-10 px-3 rounded-xl bg-zinc-100 dark:bg-zinc-800">
         <Search className="w-4 h-4 text-zinc-400" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="궁금한 것 찾기 (예: 알림)" className="flex-1 bg-transparent text-[14px] outline-none text-zinc-900 dark:text-white" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="궁금한 것 찾기 (예: 알림)" className="flex-1 bg-transparent text-[length:calc(14px*var(--fs,1))] outline-none text-zinc-900 dark:text-white" />
       </label>
       <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800 overflow-hidden">
         {list.map((f) => (
           <div key={f.i}>
             <button type="button" aria-expanded={open === f.i} onClick={() => setOpen(open === f.i ? null : f.i)} className="w-full flex items-center gap-2 px-4 py-3.5 text-left cursor-pointer">
-              <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-300 text-[10.5px] font-black">{f.tag}</span>
-              <span className="flex-1 text-[13.5px] font-bold text-zinc-900 dark:text-white break-keep">{f.q}</span>
+              <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-300 text-[length:calc(10.5px*var(--fs,1))] font-black">{f.tag}</span>
+              <span className="flex-1 text-[length:calc(13.5px*var(--fs,1))] font-bold text-zinc-900 dark:text-white break-keep">{f.q}</span>
               <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${open === f.i ? 'rotate-180' : ''}`} />
             </button>
-            {open === f.i && <p className="px-4 pb-4 -mt-1 text-[13px] text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line break-keep">{f.a}</p>}
+            {open === f.i && <p className="px-4 pb-4 -mt-1 text-[length:calc(13px*var(--fs,1))] text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line break-keep">{f.a}</p>}
           </div>
         ))}
-        {!list.length && <p className="px-4 py-6 text-center text-[13px] text-zinc-500">찾는 질문이 없어요.</p>}
+        {!list.length && <p className="px-4 py-6 text-center text-[length:calc(13px*var(--fs,1))] text-zinc-500">찾는 질문이 없어요.</p>}
       </div>
-      <button type="button" onClick={onAsk} className="w-full py-3 rounded-xl bg-purple-600 text-white text-[13px] font-bold cursor-pointer">찾는 답이 없으면 의견 보내기</button>
+      <button type="button" onClick={onAsk} className="w-full py-3 rounded-xl bg-purple-600 text-white text-[length:calc(13px*var(--fs,1))] font-bold cursor-pointer">찾는 답이 없으면 의견 보내기</button>
     </div>
   );
 }

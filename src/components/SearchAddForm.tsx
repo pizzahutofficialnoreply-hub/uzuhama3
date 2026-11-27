@@ -81,13 +81,13 @@ export function SearchAddForm({ mode, onDone, submitAdmin }: {
       <div>
         <label className={label}>나와야 하는 영상·쇼츠 링크 <span className="text-purple-500">*</span></label>
         <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://youtu.be/..." className={input} inputMode="url" />
-        {url && !videoId && <p className="mt-1 text-[11px] text-red-500">유튜브 링크가 아니에요.</p>}
+        {url && !videoId && <p className="mt-1 text-[length:calc(11px*var(--fs,1))] text-red-500">유튜브 링크가 아니에요.</p>}
         {videoId && <img src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="" className="mt-2 w-40 rounded-lg" />}
       </div>
       <div>
         <label className={label}>장면 시간 (선택)</label>
         <input value={time} onChange={(e) => setTime(e.target.value)} placeholder={t && !time ? `링크의 ${t}초` : '예: 12:34'} className={input} />
-        {timeBad && <p className="mt-1 text-[11px] text-red-500">'12:34' 처럼 적어 주세요.</p>}
+        {timeBad && <p className="mt-1 text-[length:calc(11px*var(--fs,1))] text-red-500">'12:34' 처럼 적어 주세요.</p>}
       </div>
       <div>
         <label className={label}>{mode === 'admin' ? '출처 (카페 글 링크 등, 선택)' : '참고 링크 (카페 글 등, 선택)'}</label>

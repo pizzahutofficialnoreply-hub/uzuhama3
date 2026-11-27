@@ -167,7 +167,7 @@ export function RichTextEditor({
               {label}
             </span>
           )}
-          <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium hidden sm:inline">
+          <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-400 dark:text-zinc-500 font-medium hidden sm:inline">
             서식 편집기 (마크다운 & HTML 지원)
           </span>
         </div>
@@ -247,7 +247,7 @@ export function RichTextEditor({
             <button
               type="button"
               onClick={() => prefixLine('# ')}
-              className="px-1.5 py-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md text-[11px] font-black transition-colors cursor-pointer"
+              className="px-1.5 py-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md text-[length:calc(11px*var(--fs,1))] font-black transition-colors cursor-pointer"
               title="제목 1 (아주 크게)"
             >
               H1
@@ -255,7 +255,7 @@ export function RichTextEditor({
             <button
               type="button"
               onClick={() => prefixLine('## ')}
-              className="px-1.5 py-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md text-[11px] font-extrabold transition-colors cursor-pointer"
+              className="px-1.5 py-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md text-[length:calc(11px*var(--fs,1))] font-extrabold transition-colors cursor-pointer"
               title="제목 2 (크게)"
             >
               H2
@@ -263,7 +263,7 @@ export function RichTextEditor({
             <button
               type="button"
               onClick={() => prefixLine('### ')}
-              className="px-1.5 py-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md text-[11px] font-bold transition-colors cursor-pointer"
+              className="px-1.5 py-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md text-[length:calc(11px*var(--fs,1))] font-bold transition-colors cursor-pointer"
               title="제목 3 (중간)"
             >
               H3
@@ -271,7 +271,7 @@ export function RichTextEditor({
             <button
               type="button"
               onClick={applySmallText}
-              className="px-1.5 py-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md text-[10px] font-semibold text-zinc-500 transition-colors cursor-pointer"
+              className="px-1.5 py-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md text-[length:calc(10px*var(--fs,1))] font-semibold text-zinc-500 transition-colors cursor-pointer"
               title="작은 글씨"
             >
               Small
@@ -294,7 +294,7 @@ export function RichTextEditor({
 
             {showColorPicker && (
               <div className="absolute top-full left-0 mt-1.5 z-30 p-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl min-w-[170px] space-y-1 animate-in fade-in zoom-in-95 duration-100">
-                <div className="text-[10px] font-bold text-zinc-400 px-1 mb-1">글자 색상 지정</div>
+                <div className="text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-400 px-1 mb-1">글자 색상 지정</div>
                 {COLOR_PRESETS.map((p) => (
                   <button
                     key={p.label}
@@ -419,7 +419,7 @@ export function RichTextEditor({
       </div>
 
       {/* 하단 글자 수 및 단축키 안내 */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-t border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-950/40 text-[11px] text-zinc-400">
+      <div className="flex items-center justify-between px-3 py-1.5 border-t border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-950/40 text-[length:calc(11px*var(--fs,1))] text-zinc-400">
         <div className="flex items-center gap-2">
           <span>단축키: <b>Ctrl+B</b>(굵게), <b>Ctrl+I</b>(기울임), <b>Ctrl+U</b>(밑줄)</span>
         </div>

@@ -5,7 +5,7 @@
  *  - 새 영상 (누르면 검색 탭에서 그 영상)
  * 누르면 토스처럼 줄·카드 면이 살짝 밝아짐 (.press-row / .press-card)
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { format, parseISO, subDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { ChevronRight, ChevronDown, Gamepad2, CalendarDays, Clock, Film } from 'lucide-react';
@@ -28,7 +28,7 @@ export function Section({ title, onMore, children }: { title: string; onMore?: (
   return (
     <section className="bg-white dark:bg-zinc-900 rounded-[26px] px-3 pt-3 pb-2.5">
       <button type="button" onClick={onMore} disabled={!onMore} className="press-row w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-left disabled:cursor-default">
-        <h3 className="text-[20px] sm:text-[22px] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">{title}</h3>
+        <h3 className="text-[length:calc(20px*var(--fs,1))] sm:text-[length:calc(22px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">{title}</h3>
         {onMore && <ChevronRight className="w-5 h-5 text-zinc-400" />}
       </button>
       <div className="mt-0.5">{children}</div>
@@ -41,8 +41,8 @@ export function Row({ icon, caption, value, onClick, right }: { icon: ReactNode;
     <button type="button" onClick={(e) => onClick?.(e.currentTarget)} className="press-row w-full flex items-center gap-3.5 px-3 py-2.5 rounded-2xl text-left">
       <span className="w-11 h-11 rounded-full shrink-0 overflow-hidden flex items-center justify-center">{icon}</span>
       <span className="flex-1 min-w-0">
-        <span className="block text-[13px] text-zinc-500 dark:text-zinc-400 truncate">{caption}</span>
-        <span className="block text-[17px] font-bold font-hanna font-pro text-zinc-900 dark:text-white truncate leading-snug">{value}</span>
+        <span className="block text-[length:calc(13px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 truncate">{caption}</span>
+        <span className="block text-[length:calc(17px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white truncate leading-snug">{value}</span>
       </span>
       {right}
     </button>
@@ -63,7 +63,7 @@ export function TossHome({ data, onOpenDate, onOpenStats, onOpenVideo }: {
   data: AppData;
   onOpenDate: (date: string) => void;
   /** 분석 탭: 하위 탭 + 기간 */
-  onOpenStats: (sub: 'summary' | 'trend' | 'day' | 'category', start: string, end: string) => void;
+  onOpenStats: (sub: 'trend' | 'day' | 'category', start: string, end: string) => void;
   /** 검색 탭으로 */
   onOpenVideo: (videoId: string | null) => void;
 }) {
@@ -92,6 +92,20 @@ export function TossHome({ data, onOpenDate, onOpenStats, onOpenVideo }: {
   }, [logs]);
   // 새 영상: 처음 3개 → '더보기'(흐린 끝 + 글자)를 누르면 카드가 늘어나며 8개까지 → 그다음은 '자세히 보기'(검색 탭)
   const [moreVideos, setMoreVideos] = useState(false);
+  // 높이는 실제 줄 높이로: 접힘 = 3번째 줄 절반까지, 펼침 = 전체 (글자 크기를 바꿔도 맞게)
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [boxH, setBoxH] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = boxRef.current; if (!el) return;
+    const rows = el.children as HTMLCollectionOf<HTMLElement>;
+    const measure = () => {
+      if (rows.length <= 3) { setBoxH(null); return; }
+      setBoxH(moreVideos ? el.scrollHeight : rows[2].offsetTop + rows[2].offsetHeight * 0.55);
+    };
+    measure();
+    const ro = new ResizeObserver(measure); ro.observe(el);
+    return () => ro.disconnect();
+  }, [moreVideos, newVideos.length]);
 
   if (!logs.length) return null;
   const dayText = (d: string) => format(parseISO(d), 'M월 d일 (E)', { locale: ko });
@@ -110,7 +124,7 @@ export function TossHome({ data, onOpenDate, onOpenStats, onOpenVideo }: {
         })}
       </Section>
 
-      <Section title={month.label} onMore={() => onOpenStats('summary', month.start, month.end)}>
+      <Section title={month.label} onMore={() => onOpenStats('trend', month.start, month.end)}>
         <Row onClick={() => onOpenStats('trend', month.start, month.end)} icon={<Tint tone="emerald"><CalendarDays /></Tint>} caption="방송한 날" value={month.n ? `${month.n}번` : '아직 없어요'} />
         {month.hours > 0 && <Row onClick={() => onOpenStats('day', month.start, month.end)} icon={<Tint tone="amber"><Clock /></Tint>} caption="방송한 시간" value={hoursText(month.hours)} />}
         {month.top && <Row onClick={() => onOpenStats('category', month.start, month.end)} icon={<Tint tone="rose"><Gamepad2 /></Tint>} caption="제일 많이 한 게임" value={month.top} />}
@@ -118,27 +132,27 @@ export function TossHome({ data, onOpenDate, onOpenStats, onOpenVideo }: {
 
       {newVideos.length > 0 && (
         <Section title="새 영상" onMore={() => onOpenVideo(null)}>
-          <div className="relative overflow-hidden transition-[max-height] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]" style={{ maxHeight: moreVideos ? newVideos.length * 66 + 8 : (newVideos.length > 3 ? 3 * 66 - 22 : 999) }}>
-            {newVideos.map((v) => {
-              const id = extractYoutubeId(v.url);
-              return (
-                <Row key={v.url}
-                  onClick={(el) => (id ? openAiCard(id, v.title, el, `${dayText(v.date)} 영상`) : onOpenVideo(null))}
-                  icon={<Thumb src={thumbOf(v.url)} fallback={<Tint tone="zinc"><Film /></Tint>} />}
-                  caption={dayText(v.date)} value={v.title}
-                />
-              );
-            })}
+          <div className="relative">
+            <div ref={boxRef} className="overflow-hidden transition-[height] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]" style={{ height: boxH ?? undefined }}>
+              {newVideos.map((v) => {
+                const id = extractYoutubeId(v.url);
+                return (
+                  <Row key={v.url}
+                    onClick={(el) => (id ? openAiCard(id, v.title, el, `${dayText(v.date)} 영상`) : onOpenVideo(null))}
+                    icon={<Thumb src={thumbOf(v.url)} fallback={<Tint tone="zinc"><Film /></Tint>} />}
+                    caption={dayText(v.date)} value={v.title} />
+                );
+              })}
+            </div>
+            {/* 접혀 있을 때: 마지막 줄 위로 흐린 덮개 (누를 수 없음 — 누르는 건 아래 버튼) */}
             {!moreVideos && newVideos.length > 3 && (
-              <button type="button" onClick={() => setMoreVideos(true)}
-                className="absolute inset-x-0 bottom-0 h-16 flex items-end justify-center pb-1.5 bg-gradient-to-b from-white/0 via-white/80 to-white dark:from-zinc-900/0 dark:via-zinc-900/80 dark:to-zinc-900 backdrop-blur-[1.5px] [mask-image:linear-gradient(to_bottom,transparent,black_45%)] cursor-pointer">
-                <span className="text-[14px] font-bold font-hanna font-pro text-zinc-600 dark:text-zinc-300 flex items-center gap-1">더보기<ChevronDown className="w-4 h-4" /></span>
-              </button>
+              <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-b from-white/0 to-white dark:from-zinc-900/0 dark:to-zinc-900" />
             )}
           </div>
-          {moreVideos && (
-            <button type="button" onClick={() => onOpenVideo(null)} className="press-row w-full mt-1 py-3 rounded-2xl text-[14px] font-bold font-hanna font-pro text-zinc-600 dark:text-zinc-300 flex items-center justify-center gap-1">
-              자세히 보기<ChevronRight className="w-4 h-4" />
+          {newVideos.length > 3 && (
+            <button type="button" onClick={() => (moreVideos ? onOpenVideo(null) : setMoreVideos(true))}
+              className="press-row w-full py-3 rounded-2xl text-[length:calc(14px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-600 dark:text-zinc-300 flex items-center justify-center gap-1">
+              {moreVideos ? <>자세히 보기<ChevronRight className="w-4 h-4" /></> : <>더보기<ChevronDown className="w-4 h-4" /></>}
             </button>
           )}
         </Section>

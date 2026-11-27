@@ -148,7 +148,7 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
                   <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">
                     {user ? user.email : '게스트'}
                   </p>
-                  <p className="text-[11px] text-zinc-400">
+                  <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-400">
                     {user ? '로그인됨' : '비로그인 상태'}
                   </p>
                 </div>
@@ -180,7 +180,7 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
                   <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors">
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">방송 알림</span>
-                      <span className="text-[11px] text-zinc-400">생방송 시작 시 푸시 알림</span>
+                      <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-400">생방송 시작 시 푸시 알림</span>
                     </div>
                     <button
                       type="button"
@@ -206,7 +206,7 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
                   <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors">
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">휴방 사유 알림</span>
-                      <span className="text-[11px] text-zinc-400">휴방 공지 등록 시 알림</span>
+                      <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-400">휴방 공지 등록 시 알림</span>
                     </div>
                     <button
                       type="button"
@@ -232,7 +232,7 @@ export function UserMenu({ user, onLogout, system, onOpenNotice, onOpenTutorial 
                   <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors">
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">최고 확률 시간 알림</span>
-                      <span className="text-[11px] text-zinc-400">당일 최고 방송 확률 시간대 알림</span>
+                      <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-400">당일 최고 방송 확률 시간대 알림</span>
                     </div>
                     <button
                       type="button"

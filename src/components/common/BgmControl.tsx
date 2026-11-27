@@ -31,8 +31,8 @@ export function BgmControl({ compact = false }: { compact?: boolean }) {
           <div className="mt-3 flex items-center gap-2 rounded-xl bg-zinc-100/80 dark:bg-white/[0.05] px-3 py-2">
             <button type="button" onClick={() => skip(-1)} aria-label="이전 곡" className="p-1 rounded-lg text-zinc-500 hover:text-zinc-800 dark:hover:text-white cursor-pointer"><SkipBack className="w-4 h-4" /></button>
             <div className="flex-1 min-w-0 text-center">
-              <p className="text-[12.5px] font-bold text-zinc-800 dark:text-zinc-100 truncate">{s.track.index + 1}. {s.track.title}</p>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">{s.track.artist}{s.playing ? '' : ' · 화면을 누르면 재생돼요'}</p>
+              <p className="text-[length:calc(12.5px*var(--fs,1))] font-bold text-zinc-800 dark:text-zinc-100 truncate">{s.track.index + 1}. {s.track.title}</p>
+              <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 truncate">{s.track.artist}{s.playing ? '' : ' · 화면을 누르면 재생돼요'}</p>
             </div>
             <button type="button" onClick={() => skip(1)} aria-label="다음 곡" className="p-1 rounded-lg text-zinc-500 hover:text-zinc-800 dark:hover:text-white cursor-pointer"><SkipForward className="w-4 h-4" /></button>
           </div>
@@ -44,8 +44,8 @@ export function BgmControl({ compact = false }: { compact?: boolean }) {
           {!compact && (
             <div className="mt-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[13px] font-medium text-zinc-800 dark:text-zinc-200">앱을 내려도 계속 듣기</p>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 break-keep">다른 앱을 쓰거나 화면을 꺼도 재생 · 아이폰은 이걸 켜면 음량 조절이 안 돼서 기기 볼륨으로 맞춰야 해요</p>
+                <p className="text-[length:calc(13px*var(--fs,1))] font-medium text-zinc-800 dark:text-zinc-200">앱을 내려도 계속 듣기</p>
+                <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 break-keep">다른 앱을 쓰거나 화면을 꺼도 재생 · 아이폰은 이걸 켜면 음량 조절이 안 돼서 기기 볼륨으로 맞춰야 해요</p>
               </div>
               {sw(s.bg, () => setBgm({ bg: !s.bg }), '앱을 내려도 계속 듣기')}
             </div>

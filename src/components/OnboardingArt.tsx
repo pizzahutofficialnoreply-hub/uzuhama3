@@ -45,7 +45,7 @@ function Terms() {
         ))}
         <div className="pt-2 space-y-2">
           {['이용약관', '개인정보'].map((t, i) => (
-            <motion.div key={t} {...pop(0.9 + i * 0.25)} className="flex items-center gap-2 text-[11px] font-bold text-zinc-600 dark:text-zinc-300">
+            <motion.div key={t} {...pop(0.9 + i * 0.25)} className="flex items-center gap-2 text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">
               <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1.1 + i * 0.25, type: 'spring', stiffness: 400 }} className="w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center">
                 <Check className="w-2.5 h-2.5" strokeWidth={3.5} />
               </motion.span>
@@ -70,7 +70,7 @@ function Notice() {
       </motion.div>
       <div className="flex flex-wrap justify-center gap-1.5">
         {tags.map((t, i) => (
-          <motion.span key={t} {...pop(0.4 + i * 0.15)} className={cn(card, 'px-3 py-1.5 text-[11px] font-bold text-zinc-700 dark:text-zinc-200 rounded-full')}>{t}</motion.span>
+          <motion.span key={t} {...pop(0.4 + i * 0.15)} className={cn(card, 'px-3 py-1.5 text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-700 dark:text-zinc-200 rounded-full')}>{t}</motion.span>
         ))}
       </div>
     </div>
@@ -78,7 +78,7 @@ function Notice() {
 }
 
 function KeyboardArt({ layout }: { layout: KeyboardLayout }) {
-  const key = 'h-7 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 text-[11px] font-bold flex items-center justify-center text-zinc-700 dark:text-zinc-200 shadow-[0_1px_0_rgba(0,0,0,0.08)]';
+  const key = 'h-7 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 text-[length:calc(11px*var(--fs,1))] font-bold flex items-center justify-center text-zinc-700 dark:text-zinc-200 shadow-[0_1px_0_rgba(0,0,0,0.08)]';
   const cj = layout === 'cheonjiin' || layout === 'naratgeul';
   const grid = layout === 'naratgeul'
     ? ['ㄱ', 'ㄴ', 'ㅏㅓ', 'ㄹ', 'ㅁ', 'ㅗㅜ', 'ㅅ', 'ㅇ', 'ㅣ', '획', 'ㅡ', '쌍']
@@ -129,7 +129,7 @@ function Intro() {
           <motion.circle cx="22" cy="22" r="18" fill="none" strokeWidth="5" strokeLinecap="round" className="stroke-purple-600 dark:stroke-purple-400"
             strokeDasharray={113} initial={{ strokeDashoffset: 113 }} animate={{ strokeDashoffset: 113 * 0.28 }} transition={{ delay: 0.4, duration: 1.2, ease: 'easeOut' }} />
         </svg>
-        <span className="mt-1 text-[11px] font-bold text-zinc-600 dark:text-zinc-300">방송 확률</span>
+        <span className="mt-1 text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">방송 확률</span>
       </motion.div>
       {/* 달력 */}
       <motion.div {...pop(0.25)} className={cn(card, 'p-3')}>
@@ -139,7 +139,7 @@ function Intro() {
               className={cn('aspect-square rounded-[3px]', [2, 5, 9, 11, 16, 19, 23, 26].includes(i) ? 'bg-purple-500/80' : 'bg-zinc-200 dark:bg-zinc-700')} />
           ))}
         </div>
-        <span className="mt-2 block text-center text-[11px] font-bold text-zinc-600 dark:text-zinc-300">방송 기록</span>
+        <span className="mt-2 block text-center text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">방송 기록</span>
       </motion.div>
       {/* 분석 */}
       <motion.div {...pop(0.4)} className={cn(card, 'p-3')}>
@@ -149,7 +149,7 @@ function Intro() {
               style={{ height: `${h * 100}%`, originY: 1 }} className="flex-1 rounded-t-[3px] bg-blue-500/80" />
           ))}
         </div>
-        <span className="mt-2 block text-center text-[11px] font-bold text-zinc-600 dark:text-zinc-300">상세 분석</span>
+        <span className="mt-2 block text-center text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">상세 분석</span>
       </motion.div>
       {/* 영상 */}
       <motion.div {...pop(0.55)} className={cn(card, 'p-3')}>
@@ -160,7 +160,7 @@ function Intro() {
             </motion.div>
           ))}
         </div>
-        <span className="mt-2 block text-center text-[11px] font-bold text-zinc-600 dark:text-zinc-300">추천 영상</span>
+        <span className="mt-2 block text-center text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300">추천 영상</span>
       </motion.div>
     </div>
   );

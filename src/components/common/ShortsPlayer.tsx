@@ -304,12 +304,12 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
 
           {/* 소리 꺼져 있으면 가운데 크게 (누르면 소리 켜짐) */}
           {passThrough && muted && !menuOpen && (
-            <div className="absolute left-1/2 top-[18%] -translate-x-1/2 w-max max-w-[86%] px-4 py-2 rounded-2xl bg-black/70 backdrop-blur-md text-[13px] font-bold text-center pointer-events-none break-keep">
+            <div className="absolute left-1/2 top-[18%] -translate-x-1/2 w-max max-w-[86%] px-4 py-2 rounded-2xl bg-black/70 backdrop-blur-md text-[length:calc(13px*var(--fs,1))] font-bold text-center pointer-events-none break-keep">
               아이폰은 영상을 직접 한 번 눌러야 소리가 켜져요 · 영상에 뜬 소리 버튼을 눌러 주세요
             </div>
           )}
           {passThrough && (
-            <button type="button" onClick={() => setPassThrough(false)} className="absolute right-3 top-[calc(env(safe-area-inset-top,0px)+56px)] px-3 py-1.5 rounded-full bg-black/60 text-[12px] font-bold cursor-pointer">넘기기로 돌아가기</button>
+            <button type="button" onClick={() => setPassThrough(false)} className="absolute right-3 top-[calc(env(safe-area-inset-top,0px)+56px)] px-3 py-1.5 rounded-full bg-black/60 text-[length:calc(12px*var(--fs,1))] font-bold cursor-pointer">넘기기로 돌아가기</button>
           )}
           {muted && !menuOpen && !passThrough && (
             <button type="button" onClick={toggleMute} className="absolute left-1/2 top-[58%] -translate-x-1/2 h-11 px-4 rounded-full bg-black/55 backdrop-blur-md flex items-center gap-2 text-sm font-bold cursor-pointer shadow-lg ring-1 ring-white/20 animate-pulse" aria-label="소리 켜기">
@@ -335,7 +335,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
 
           {/* 아래: 제목·날짜·링크 */}
           <div className="absolute bottom-0 inset-x-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-black/75 via-black/35 to-transparent pointer-events-none">
-            <p className="text-[15px] font-bold leading-snug line-clamp-2 break-keep">{cleanShortsTitle(cur.title) || '유튜브 쇼츠'}</p>
+            <p className="text-[length:calc(15px*var(--fs,1))] font-bold leading-snug line-clamp-2 break-keep">{cleanShortsTitle(cur.title) || '유튜브 쇼츠'}</p>
             {cur.caption && <p className="mt-1 text-xs text-white/70">{cur.caption}</p>}
             <div className="mt-3 flex items-center gap-2 pointer-events-auto">
               {cur.liveUrl && (
@@ -409,7 +409,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
                 {!cur.compilationVideo && cur.compilation.map((r) => (
                   <div key={r.date} className="flex items-center gap-3 px-2 py-2.5 rounded-2xl hover:bg-white/5">
                     <div className="w-12 shrink-0 text-center">
-                      <p className="text-[10px] text-white/50">{r.date.slice(0, 4)}</p>
+                      <p className="text-[length:calc(10px*var(--fs,1))] text-white/50">{r.date.slice(0, 4)}</p>
                       <p className="text-sm font-black tabular-nums">{r.date.slice(5).replace('-', '.')}</p>
                     </div>
                     <p className="flex-1 min-w-0 text-xs text-white/80 line-clamp-2">{r.games.length ? r.games.join(', ') : '게임 정보 없음'}</p>
@@ -436,11 +436,11 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
               drag="y" dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.6 }}
               onDragEnd={(_, info) => { if (info.offset.y > 80 || info.velocity.y > 500) setMenuOpen(false); }}>
               <div className="pt-2.5 pb-2 flex justify-center"><span className="h-1.5 w-10 rounded-full bg-zinc-300 dark:bg-zinc-700" /></div>
-              <p className="px-5 pb-2 text-[13px] font-bold text-zinc-500 line-clamp-1">{cleanShortsTitle(cur.title) || '유튜브 쇼츠'}</p>
+              <p className="px-5 pb-2 text-[length:calc(13px*var(--fs,1))] font-bold text-zinc-500 line-clamp-1">{cleanShortsTitle(cur.title) || '유튜브 쇼츠'}</p>
               {(() => {
                 const vid = idOf(index);
                 const link = `https://uzuhama.vercel.app/s/${vid}`;
-                const row = 'w-full flex items-center gap-3 px-5 py-3.5 text-[15px] font-semibold text-left cursor-pointer active:bg-zinc-100 dark:active:bg-zinc-800';
+                const row = 'w-full flex items-center gap-3 px-5 py-3.5 text-[length:calc(15px*var(--fs,1))] font-semibold text-left cursor-pointer active:bg-zinc-100 dark:active:bg-zinc-800';
                 const done = () => setMenuOpen(false);
                 return (
                   <div>
@@ -496,8 +496,8 @@ function HiddenCountdown({ id }: { id: string; onUndo?: () => void }) {
             <span className="absolute inset-0 flex items-center justify-center"><EyeOff className="w-5 h-5" /></span>
           </span>
         ) : <EyeOff className="w-8 h-8 text-white/70" />}
-        <p className="px-3 py-1 rounded-full bg-zinc-900/80 text-[13px] font-bold">{pending ? `가렸어요 · ${left}초 뒤 사라져요` : '가린 영상이에요'}</p>
-        <button type="button" onClick={(e) => { e.stopPropagation(); unhideVideo(id); toast('다시 보이게 했어요'); }} className="pointer-events-auto px-4 py-1.5 rounded-full bg-white text-zinc-900 text-[13px] font-black cursor-pointer">되돌리기</button>
+        <p className="px-3 py-1 rounded-full bg-zinc-900/80 text-[length:calc(13px*var(--fs,1))] font-bold">{pending ? `가렸어요 · ${left}초 뒤 사라져요` : '가린 영상이에요'}</p>
+        <button type="button" onClick={(e) => { e.stopPropagation(); unhideVideo(id); toast('다시 보이게 했어요'); }} className="pointer-events-auto px-4 py-1.5 rounded-full bg-white text-zinc-900 text-[length:calc(13px*var(--fs,1))] font-black cursor-pointer">되돌리기</button>
       </div>
     </div>
   );

@@ -116,7 +116,7 @@ export function BackupCard() {
         <HardDriveDownload className="w-4 h-4 text-purple-500" />
         <h3 className="font-bold text-sm text-zinc-900 dark:text-white">DB 백업 · 복원 (JSON)</h3>
       </div>
-      <p className="text-[11px] text-zinc-500 break-keep leading-relaxed">
+      <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 break-keep leading-relaxed">
         DB 전체를 JSON 파일 하나로 내려받고, 다른 Firebase 프로젝트로 옮긴 뒤 그 파일을 올리면 같은 모양으로 다시 등록해요.
         내려받기는 <b>문서 수만큼 DB 읽기</b>를 써서, 무료 한도(하루 5만)가 넉넉할 때 하세요. 오늘 한도를 다 썼으면 오후 5시쯤 이후에 돼요.
       </p>
@@ -131,7 +131,7 @@ export function BackupCard() {
               <label key={c.name} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer">
                 <input type="checkbox" checked={!!pick[c.name]} onChange={(e) => setPick((p) => ({ ...p, [c.name]: e.target.checked }))} />
                 <span className="flex-1 font-mono text-zinc-800 dark:text-zinc-200">{c.name}</span>
-                {REGEN.test(c.name) && <span className="text-[10px] text-zinc-400">다시 만들 수 있음</span>}
+                {REGEN.test(c.name) && <span className="text-[length:calc(10px*var(--fs,1))] text-zinc-400">다시 만들 수 있음</span>}
                 <span className="tabular-nums text-zinc-500">{c.count ?? '?'}개</span>
               </label>
             ))}

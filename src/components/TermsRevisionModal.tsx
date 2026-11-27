@@ -147,13 +147,13 @@ export function TermsRevisionModal({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="p-3 bg-red-50/50 dark:bg-red-950/20 border border-red-200/60 dark:border-red-900/40 rounded-lg">
                         <div className="font-bold text-red-700 dark:text-red-400 mb-1">직전 이용약관</div>
-                        <pre className="whitespace-pre-wrap font-sans text-[11px] max-h-40 overflow-y-auto text-zinc-600 dark:text-zinc-400">
+                        <pre className="whitespace-pre-wrap font-sans text-[length:calc(11px*var(--fs,1))] max-h-40 overflow-y-auto text-zinc-600 dark:text-zinc-400">
                           {revision.previousTerms}
                         </pre>
                       </div>
                       <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 rounded-lg">
                         <div className="font-bold text-emerald-700 dark:text-emerald-400 mb-1">개정 이용약관</div>
-                        <pre className="whitespace-pre-wrap font-sans text-[11px] max-h-40 overflow-y-auto text-zinc-700 dark:text-zinc-200">
+                        <pre className="whitespace-pre-wrap font-sans text-[length:calc(11px*var(--fs,1))] max-h-40 overflow-y-auto text-zinc-700 dark:text-zinc-200">
                           {revision.newTerms}
                         </pre>
                       </div>
@@ -164,13 +164,13 @@ export function TermsRevisionModal({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="p-3 bg-red-50/50 dark:bg-red-950/20 border border-red-200/60 dark:border-red-900/40 rounded-lg">
                         <div className="font-bold text-red-700 dark:text-red-400 mb-1">직전 개인정보처리방침</div>
-                        <pre className="whitespace-pre-wrap font-sans text-[11px] max-h-40 overflow-y-auto text-zinc-600 dark:text-zinc-400">
+                        <pre className="whitespace-pre-wrap font-sans text-[length:calc(11px*var(--fs,1))] max-h-40 overflow-y-auto text-zinc-600 dark:text-zinc-400">
                           {revision.previousPrivacy}
                         </pre>
                       </div>
                       <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 rounded-lg">
                         <div className="font-bold text-emerald-700 dark:text-emerald-400 mb-1">개정 개인정보처리방침</div>
-                        <pre className="whitespace-pre-wrap font-sans text-[11px] max-h-40 overflow-y-auto text-zinc-700 dark:text-zinc-200">
+                        <pre className="whitespace-pre-wrap font-sans text-[length:calc(11px*var(--fs,1))] max-h-40 overflow-y-auto text-zinc-700 dark:text-zinc-200">
                           {revision.newPrivacy}
                         </pre>
                       </div>

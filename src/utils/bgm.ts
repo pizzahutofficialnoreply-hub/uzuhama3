@@ -154,12 +154,25 @@ export function setBgm(patch: Partial<Pref>) {
 export function initBgm() {
   if (typeof window === 'undefined' || (window as any).__bgmInit) return;
   (window as any).__bgmInit = true;
-  // 화면을 처음 누를 때 시작 (브라우저 소리 허락)
-  const kick = () => { if (getBgm().on && (!started || el?.paused)) play(); };
+  // 화면 로딩을 방해하지 않게: 페이지가 다 뜨고 브라우저가 한가해진 뒤에야 음악 파일(큼)을 받기 시작
+  let ready = false;
+  const whenReady = (fn: () => void) => {
+    const go = () => {
+      const ric = (window as any).requestIdleCallback as ((cb: () => void, o?: { timeout: number }) => number) | undefined;
+      const later = () => window.setTimeout(fn, 1200);
+      if (ric) ric(later, { timeout: 4000 }); else later();
+    };
+    if (document.readyState === 'complete') go(); else window.addEventListener('load', go, { once: true });
+  };
+  // 화면을 누를 때 시작 (브라우저 소리 허락). 준비 전에 누르면 허락만 받아 둠 (파일은 아직 안 받음)
+  const kick = () => {
+    if (!getBgm().on || (started && !el?.paused)) return;
+    if (ready) { play(); return; }
+    if (!unlocked) { try { const a = ensureEl(); a.muted = true; a.play().then(() => { a.pause(); a.muted = false; unlocked = true; }).catch(() => { a.muted = false; }); } catch { /* */ } }
+  };
   ['click', 'touchend', 'keydown'].forEach((ev) => window.addEventListener(ev, kick, { capture: true, passive: true }));
-  // 홈 화면 앱(안드로이드)은 바로 될 수도 있어서 한 번 시도
-  setTimeout(() => { if (getBgm().on) play(); }, 2500);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { if (getBgm().bg) savePos(); else pause(); } else play(); });
+  whenReady(() => { ready = true; if (getBgm().on) play(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { if (getBgm().bg) savePos(); else pause(); } else if (ready) play(); });
   window.addEventListener('pagehide', savePos);
   setInterval(() => { if (el && !el.paused) savePos(); }, 5000);
   // 유튜브 영상이 화면에 뜨면 멈춤 → 없어지면 이어서
@@ -167,9 +180,11 @@ export function initBgm() {
     const has = !!document.querySelector('iframe[src*="youtube.com/embed"], iframe[src*="youtube-nocookie.com/embed"]');
     if (has === videoOpen) return;
     videoOpen = has;
-    if (has) pause(); else play();
+    if (has) pause(); else if (ready) play();
   };
-  new MutationObserver(() => check()).observe(document.body, { childList: true, subtree: true });
+  // 화면이 바뀔 때마다 전체를 찾으면 무거워서: 한 프레임에 한 번만
+  let queued = false;
+  new MutationObserver(() => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; check(); }); }).observe(document.body, { childList: true, subtree: true });
   // 인트로가 끝나면(또는 건너뛰면) 기다리던 배경음 시작
   new MutationObserver(() => { if (waitIntro && !introOn()) setTimeout(play, 300); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 }

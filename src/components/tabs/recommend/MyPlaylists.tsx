@@ -120,7 +120,7 @@ function MyListCard({ list, isDefault, onOpen }: { list: MyList; isDefault: bool
               <span className="font-bold text-purple-900 dark:text-purple-200">재생목록 영상 펼치기</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-200/90 dark:bg-purple-900/90 text-purple-800 dark:text-purple-200">{list.items.length}개</span>
+              <span className="text-[length:calc(10px*var(--fs,1))] font-bold px-2 py-0.5 rounded-md bg-purple-200/90 dark:bg-purple-900/90 text-purple-800 dark:text-purple-200">{list.items.length}개</span>
               <ChevronDown className="w-3.5 h-3.5 opacity-70" />
             </span>
           </button>
@@ -211,7 +211,7 @@ function MyListDetail({ list, isDefault, onClose, logs, logIndex, onNavigateToCa
         <button type="button" onClick={async () => { if (await confirmSheet(`'${list.name}' 재생목록을 지울까요?`)) { deleteList(list.id); onClose(); } }} className="ml-auto px-3 py-1.5 rounded-xl text-red-600 text-xs font-bold flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /> 목록 지우기</button>
       </div>
       {ytMsg && <p className="px-1 -mt-1 mb-2 text-xs font-bold text-red-600">{ytMsg}</p>}
-      {ids.length > 0 && <p className="px-1 -mt-1 mb-3 text-[11px] text-zinc-500">유튜브에서 이어 보기를 누르면 유튜브가 임시 재생목록으로 열어 줘요. 거기서 '저장'을 누르면 내 유튜브 재생목록이 돼요 (쇼츠 제외, 50개까지).</p>}
+      {ids.length > 0 && <p className="px-1 -mt-1 mb-3 text-[length:calc(11px*var(--fs,1))] text-zinc-500">유튜브에서 이어 보기를 누르면 유튜브가 임시 재생목록으로 열어 줘요. 거기서 '저장'을 누르면 내 유튜브 재생목록이 돼요 (쇼츠 제외, 50개까지).</p>}
 
       {list.items.length === 0 ? (
         <p className="py-8 text-center text-sm text-zinc-500">아직 담은 게 없어요. 카드의 저장 버튼을 눌러 보세요.</p>
@@ -254,6 +254,6 @@ function ImportButton() {
       if (!p) { alert('읽을 수 없는 링크예요. 다시 복사해 주세요.'); return; }
       importList(p);
       toast(`'${p.name}' (${p.items.length}개)을 가져왔어요`);
-    }} className="shrink-0 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 cursor-pointer">가져오기</button>
+    }} className="shrink-0 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-300 cursor-pointer">가져오기</button>
   );
 }

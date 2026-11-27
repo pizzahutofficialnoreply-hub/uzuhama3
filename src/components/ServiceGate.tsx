@@ -95,16 +95,16 @@ export function ServiceGateScreen({ mode, system, onOpen }: { mode: GateMode; sy
       )}
       detail={(
         <div className="w-full max-w-2xl mx-auto px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+24px)] pb-[calc(100lvh-100svh+env(safe-area-inset-bottom,0px)+64px)] space-y-5 text-left">
-          <p className="text-center text-[11px] text-zinc-400">맨 위에서 아래로 끌면 처음 화면으로 돌아가요</p>
+          <p className="text-center text-[length:calc(11px*var(--fs,1))] text-zinc-400">맨 위에서 아래로 끌면 처음 화면으로 돌아가요</p>
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 shadow-sm">
             <div className="flex items-center gap-3 pb-3 mb-3 border-b border-zinc-100 dark:border-zinc-800">
               <img src="/icon-192.png" alt="" className="w-10 h-10 rounded-xl" />
               <div>
                 <p className="text-sm font-black text-zinc-900 dark:text-white">우주하마 방송 예측</p>
-                <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400">{mode === 'prelaunch' ? '사이트 소개 미리 보기' : mode === 'ended' ? '서비스 종료 안내' : mode === 'dbcheck' ? '점검 안내' : '서비스 중지 안내'}</p>
+                <p className="text-[length:calc(11px*var(--fs,1))] font-bold text-purple-600 dark:text-purple-400">{mode === 'prelaunch' ? '사이트 소개 미리 보기' : mode === 'ended' ? '서비스 종료 안내' : mode === 'dbcheck' ? '점검 안내' : '서비스 중지 안내'}</p>
               </div>
             </div>
-            {mode === 'prelaunch' && <div className="mb-4"><p className="text-[13px] font-black text-zinc-900 dark:text-white mb-2">이런 걸 할 수 있어요</p><FeatureGrid /></div>}
+            {mode === 'prelaunch' && <div className="mb-4"><p className="text-[length:calc(13px*var(--fs,1))] font-black text-zinc-900 dark:text-white mb-2">이런 걸 할 수 있어요</p><FeatureGrid /></div>}
             <NiceMarkdown>{letter}</NiceMarkdown>
           </div>
         </div>

@@ -47,7 +47,7 @@ export function PatternAnalysis({ guides, onIllnessClick }: PatternAnalysisProps
   return (
     <div id="summary-pattern-guide-card" className="bg-white dark:bg-zinc-900 rounded-[26px] px-6 pt-5 pb-5 relative">
       <div className="flex items-center justify-between mb-5">
-        <h3 className="text-[20px] sm:text-[22px] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em] flex items-center gap-2 break-keep">
+        <h3 className="text-[length:calc(20px*var(--fs,1))] sm:text-[length:calc(22px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em] flex items-center gap-2 break-keep">
           예측 가이드
         </h3>
         <WidgetShareButton targetId="summary-pattern-guide-card" title="예측 가이드" />
@@ -60,7 +60,7 @@ export function PatternAnalysis({ guides, onIllnessClick }: PatternAnalysisProps
               {index + 1}
             </div>
             <div>
-              <h4 className="text-[17px] font-bold font-hanna font-pro text-zinc-900 dark:text-zinc-100 mb-1 break-keep">{guide.title}</h4>
+              <h4 className="text-[length:calc(17px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-zinc-100 mb-1 break-keep">{guide.title}</h4>
               <div className="text-sm sm:text-base text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap break-keep">
                 {renderContent(guide)}
               </div>

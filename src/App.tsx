@@ -134,6 +134,13 @@ function MainApp() {
     }
     return saved;
   });
+  // 그래프 탭은 넘어오는 움직임(0.36초)이 끝난 뒤에 그래프를 그림 (움직임과 그리기를 겹치지 않게 → 안 끊김)
+  const [chartTab, setChartTab] = useState<Tab>(activeTab);
+  useEffect(() => {
+    if (activeTab === chartTab) return;
+    const id = window.setTimeout(() => setChartTab(activeTab), 380);
+    return () => window.clearTimeout(id);
+  }, [activeTab, chartTab]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   // 아이폰 쓸어서 뒤로 가기로 설정을 닫을 때는 효과 없이 바로
   const settingsInstantExitRef = useRef(false);
@@ -1212,7 +1219,7 @@ function MainApp() {
             {/* Tab Content (한 번 연 탭은 계속 붙여 둬서 다시 열 때 바로 보임) */}
             <div ref={tabContentRef} id="tab-content-container" className="pb-24 sm:pb-8">
               <div id="summary-tab-view" className={activeTab === 'summary' ? 'block tab-enter' : 'hidden'}>
-                <SummaryTab data={data} fetchLogs={fetchLogsByDateRange} isActive={activeTab === 'summary'}
+                <SummaryTab data={data} fetchLogs={fetchLogsByDateRange} isActive={activeTab === 'summary' && chartTab === 'summary'}
                   onOpenDate={(d) => { (window as unknown as { __uzuCalPanel?: boolean }).__uzuCalPanel = true; handleNavigateToCalendar(d); }}
                   onOpenStats={(sub, start, end) => { window.dispatchEvent(new CustomEvent('uzuhama:stats-open', { detail: { sub, start, end } })); handleTabChange('detailed'); }}
                   onOpenVideo={(id) => (id ? handleNavigateToRecommend(undefined, undefined, id) : handleTabChange('recommend'))} />
@@ -1236,7 +1243,7 @@ function MainApp() {
                 <DetailedStatsTab 
                   data={data} 
                   fetchLogs={fetchLogsByDateRange} 
-                  isActive={activeTab === 'detailed'} 
+                  isActive={activeTab === 'detailed' && chartTab === 'detailed'} 
                   onNavigateToCalendar={handleNavigateToCalendar}
                   onNavigateToRecommend={handleNavigateToRecommend}
                 />

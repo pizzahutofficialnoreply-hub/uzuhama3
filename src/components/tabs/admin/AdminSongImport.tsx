@@ -101,7 +101,7 @@ export function AdminSongImport({ data, onUpdateLog }: { data: AppData; onUpdate
     <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-3 text-xs">
       <div className="flex items-center gap-2"><Music className="w-4 h-4 text-pink-500" /><b className="text-sm text-zinc-900 dark:text-white">생방쏭 가져오기 (그날 한 게임)</b></div>
       <p className="text-zinc-500 break-keep leading-relaxed">카페에서 '생방쏭'을 검색하고 (작성자 상관없음) 카페 모으기에서 <b>1: 생방쏭 글만</b>을 골라 모은 글을 붙여 넣으세요 (글 화면을 그대로 복사해도 돼요). 제목의 날짜·게임 이름으로 그날 방송을 찾아, 연결된 유튜브 생방송을 AI가 본 게임과 맞춰 보고, 기록에 없는 게임만 넣어요 (기록에 이미 있는 다른 게임은 그대로). 같은 날 글이 여러 개면 하나로 봐요. 게임 링크는 스팀에서 이름으로 찾아요.</p>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder="===== [다시보기 링크] 8/23 일요일 생방쏭 (게임이름- …)" className="w-full rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-2 font-mono text-[11px]" />
+      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder="===== [다시보기 링크] 8/23 일요일 생방쏭 (게임이름- …)" className="w-full rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-2 font-mono text-[length:calc(11px*var(--fs,1))]" />
       <button type="button" disabled={!text.trim() || !!busy} onClick={() => void analyze()} className="px-3 py-2 rounded-xl font-bold bg-zinc-100 dark:bg-zinc-800 cursor-pointer disabled:opacity-50">분석</button>
       {msg && <p className="text-zinc-600 dark:text-zinc-300">{msg}{busy === 'ai' ? ' · AI가 본 게임과 맞춰 보는 중…' : busy === 'steam' ? ' · 스팀에서 링크 찾는 중…' : ''}</p>}
       {rows && rows.length > 0 && (

@@ -58,7 +58,7 @@ export function ReadStatsCard() {
         <h3 className="font-bold text-sm text-zinc-900 dark:text-white">DB 읽기 출처</h3>
         <button type="button" onClick={() => void load()} className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold cursor-pointer"><RefreshCw className="w-3.5 h-3.5" /> 새로 보기</button>
       </div>
-      <p className="text-[11px] text-zinc-500 break-keep">무료 한도는 하루 5만 번(한국 시간 오후 5시쯤 초기화)이에요. 이 기능을 넣은 뒤부터 세요. 방문자 기기 숫자는 기기가 화면을 떠날 때 모아서 보내서 조금 늦게 반영돼요.</p>
+      <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 break-keep">무료 한도는 하루 5만 번(한국 시간 오후 5시쯤 초기화)이에요. 이 기능을 넣은 뒤부터 세요. 방문자 기기 숫자는 기기가 화면을 떠날 때 모아서 보내서 조금 늦게 반영돼요.</p>
       {err && <p className="text-xs text-red-500">못 불러왔어요: {err}</p>}
       {days && (
         <>
@@ -80,8 +80,8 @@ export function ReadStatsCard() {
                   </button>
                 ))}
               </div>
-              <div className="flex justify-between text-[10px] text-zinc-400 tabular-nums mt-0.5"><span>0시</span><span>6시</span><span>12시</span><span>18시</span><span>23시</span></div>
-              <p className="text-[10px] text-zinc-400 mt-0.5"><span className="inline-block w-2 h-2 bg-purple-500 rounded-sm align-middle" /> 서버 <span className="inline-block w-2 h-2 bg-amber-400 rounded-sm align-middle ml-2" /> 방문자 기기</p>
+              <div className="flex justify-between text-[length:calc(10px*var(--fs,1))] text-zinc-400 tabular-nums mt-0.5"><span>0시</span><span>6시</span><span>12시</span><span>18시</span><span>23시</span></div>
+              <p className="text-[length:calc(10px*var(--fs,1))] text-zinc-400 mt-0.5"><span className="inline-block w-2 h-2 bg-purple-500 rounded-sm align-middle" /> 서버 <span className="inline-block w-2 h-2 bg-amber-400 rounded-sm align-middle ml-2" /> 방문자 기기</p>
               {hour && (
                 <div className="mt-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 p-2.5">
                   <p className="text-xs font-bold mb-1.5">{Number(hour.slice(1))}시 · 서버 {byHour.find((x) => x.h === hour)?.sv.toLocaleString()}번 · 기기 {byHour.find((x) => x.h === hour)?.cv.toLocaleString()}번</p>

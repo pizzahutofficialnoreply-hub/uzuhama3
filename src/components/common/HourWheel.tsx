@@ -34,8 +34,8 @@ export function HourWheel({ min = 1, max = 72, value, onChange }: { min?: number
               onClick={() => ref.current?.scrollTo({ top: i * ITEM, behavior: 'smooth' })}
               className="snap-center h-10 flex items-center justify-center cursor-pointer tabular-nums"
               style={{ transform: `rotateX(${-rot}deg)`, opacity: Math.max(0.15, 1 - Math.abs(d) * 0.28) }}>
-              <span className={`text-[22px] ${i + min === value ? 'font-black text-zinc-900 dark:text-white' : 'font-semibold text-zinc-500'}`}>{i + min}</span>
-              <span className="ml-1 text-[14px] font-bold text-zinc-500">시간</span>
+              <span className={`text-[length:calc(22px*var(--fs,1))] ${i + min === value ? 'font-black text-zinc-900 dark:text-white' : 'font-semibold text-zinc-500'}`}>{i + min}</span>
+              <span className="ml-1 text-[length:calc(14px*var(--fs,1))] font-bold text-zinc-500">시간</span>
             </div>
           );
         })}
@@ -59,12 +59,12 @@ export function RemuteSheet({ open, label, onPick, onClose }: { open: boolean; l
             className="sheet-fill relative w-full sm:max-w-sm bg-white dark:bg-zinc-900 rounded-t-[28px] sm:rounded-[28px] p-5 pb-[calc(20px+env(safe-area-inset-bottom))] sm:pb-5 shadow-2xl"
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 420, damping: 38 }}>
             <SheetHandle onClose={onClose} />
-            <p className="text-[17px] font-black text-zinc-900 dark:text-white text-center break-keep"><span className="text-purple-600 dark:text-purple-400 tabular-nums">{h}시간</span> 뒤에 {label}을 다시 켤까요?</p>
-            <p className="mt-1 text-[12px] text-zinc-500 text-center tabular-nums">{when}에 다시 켜져요</p>
+            <p className="text-[length:calc(17px*var(--fs,1))] font-black text-zinc-900 dark:text-white text-center break-keep"><span className="text-purple-600 dark:text-purple-400 tabular-nums">{h}시간</span> 뒤에 {label}을 다시 켤까요?</p>
+            <p className="mt-1 text-[length:calc(12px*var(--fs,1))] text-zinc-500 text-center tabular-nums">{when}에 다시 켜져요</p>
             <HourWheel value={h} onChange={setH} />
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => onPick(null)} className="py-3 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-[14px] font-bold text-zinc-700 dark:text-zinc-200 cursor-pointer">계속 꺼 두기</button>
-              <button type="button" onClick={() => onPick(h)} className="py-3 rounded-2xl bg-purple-600 text-white text-[14px] font-bold cursor-pointer">{h}시간 뒤 켜기</button>
+              <button type="button" onClick={() => onPick(null)} className="py-3 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-[length:calc(14px*var(--fs,1))] font-bold text-zinc-700 dark:text-zinc-200 cursor-pointer">계속 꺼 두기</button>
+              <button type="button" onClick={() => onPick(h)} className="py-3 rounded-2xl bg-purple-600 text-white text-[length:calc(14px*var(--fs,1))] font-bold cursor-pointer">{h}시간 뒤 켜기</button>
             </div>
           </motion.div>
         </div>

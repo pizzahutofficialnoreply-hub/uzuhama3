@@ -545,7 +545,7 @@ function CafeCollectorHelp() {
         <li><b>검색어로 모으기 (추천)</b>: 카페 화면 아무 데서나 누르고 <b>5</b>(글 화면이면 먼저 '취소'). 창에 검색어를 치거나 빠른 검색(생방정리·생방쏭·휴생추·휴영추·생방링크)을 누르면 그 검색 결과의 글만 바로 읽어 쌓아요. 여러 번 해도 같은 글은 한 번만, 창을 닫았다 열어도 이어져요. 다 되면 <b>파일 저장</b>.</li>
         <li><b>글 목록·검색 결과 화면</b>에서 누르면(예: 카페 검색 <code>영상 생방링크</code>): 무엇을 모을지 골라요 — <b>1</b> 생방쏭 글만 · <b>2</b> 이츠하마타임 글만 · <b>3</b> 화면의 글 전부 · <b>4</b> 사이트에 있는 영상 제목으로 카페를 검색해서 이츠하마타임 글을 모으기 (생방 링크가 없거나 자동 연결된 것처럼 확인이 필요한 것부터) (다른 이름을 적으면 그 작성자 글만). 고른 글을 읽어 이 브라우저에 쌓아 둬요. 모으는 중에 새 글이 올라와도 같은 글은 한 번만 들어가요. '다음 페이지도 자동으로?'에 확인을 누르면 페이지를 알아서 넘겨요. 언제든 '전부 복사'로 꺼낼 수 있어요.</li>
       </ol>
-      <p className="mt-2 text-[11px] text-zinc-500 break-keep">로그인한 그 브라우저가 직접 읽어서 아이디·비밀번호는 어디에도 저장되지 않아요. 글 사이마다 잠깐씩 쉬면서 읽어요(한 번에 최대 400개).</p>
+      <p className="mt-2 text-[length:calc(11px*var(--fs,1))] text-zinc-500 break-keep">로그인한 그 브라우저가 직접 읽어서 아이디·비밀번호는 어디에도 저장되지 않아요. 글 사이마다 잠깐씩 쉬면서 읽어요(한 번에 최대 400개).</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <a ref={ref} onClick={(e) => e.preventDefault()} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 text-white text-xs font-bold cursor-grab" title="북마크바로 끌어다 놓으세요">우주하마 카페 모으기</a>
         <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(code); setCopied(true); } catch { /* */ } }} className="px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer">{copied ? '복사했어요 ✓' : '코드 복사'}</button>

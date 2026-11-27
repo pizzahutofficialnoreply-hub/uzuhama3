@@ -159,10 +159,10 @@ export function IllnessInfoModal({
             </div>
             <div className="min-w-0 text-left">
               <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="text-[11px] font-bold text-red-600 dark:text-red-400 tracking-tight">
+                <span className="text-[length:calc(11px*var(--fs,1))] font-bold text-red-600 dark:text-red-400 tracking-tight">
                   휴방 사유 병명 안내
                 </span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-950/80 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-900/40 font-semibold">
+                <span className="text-[length:calc(10px*var(--fs,1))] px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-950/80 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-900/40 font-semibold">
                   의학 정보
                 </span>
               </div>
@@ -187,12 +187,12 @@ export function IllnessInfoModal({
         <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-6 space-y-4 text-left">
           {/* 핵심 정보 카드 (공식 의학 정보 / 국가건강정보포털 포맷) */}
           <div className="bg-amber-50/70 dark:bg-zinc-950/70 border border-amber-200/80 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 text-zinc-700 dark:text-zinc-300 text-xs sm:text-sm shadow-xs relative text-left">
-            <div className="flex items-center justify-between text-amber-800 dark:text-amber-400 font-bold text-[11px] sm:text-xs mb-3 pb-2 border-b border-amber-200/60 dark:border-zinc-800/80 text-left">
+            <div className="flex items-center justify-between text-amber-800 dark:text-amber-400 font-bold text-[length:calc(11px*var(--fs,1))] sm:text-xs mb-3 pb-2 border-b border-amber-200/60 dark:border-zinc-800/80 text-left">
               <div className="flex items-center gap-1.5 text-left">
                 <Stethoscope className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 <span>핵심 건강 정보 요약</span>
               </div>
-              <span className="text-[10px] text-amber-700/80 dark:text-amber-400/80 font-normal">
+              <span className="text-[length:calc(10px*var(--fs,1))] text-amber-700/80 dark:text-amber-400/80 font-normal">
                 공식 요약
               </span>
             </div>
@@ -204,7 +204,7 @@ export function IllnessInfoModal({
 
             {/* 공식 출처 표기 */}
             {source && (
-              <div className="mt-4 pt-2.5 border-t border-amber-200/50 dark:border-zinc-800/70 text-[11px] text-zinc-600 dark:text-zinc-400 flex items-center justify-between flex-wrap gap-2 text-left">
+              <div className="mt-4 pt-2.5 border-t border-amber-200/50 dark:border-zinc-800/70 text-[length:calc(11px*var(--fs,1))] text-zinc-600 dark:text-zinc-400 flex items-center justify-between flex-wrap gap-2 text-left">
                 <div className="flex items-center gap-1 text-left">
                   <CheckCircle2 className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
                   <span>공식 출처: <b className="text-zinc-900 dark:text-zinc-200">{source}</b></span>
@@ -214,7 +214,7 @@ export function IllnessInfoModal({
                     href={effectiveSourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 text-[11px] font-medium"
+                    className="text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 text-[length:calc(11px*var(--fs,1))] font-medium"
                   >
                     <span>기관 사이트 바로가기</span>
                     <ExternalLink className="w-3 h-3" />
@@ -225,7 +225,7 @@ export function IllnessInfoModal({
           </div>
 
           {/* 주의 안내 박스 */}
-          <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-zinc-100/80 dark:bg-zinc-800/60 text-[11.5px] text-zinc-600 dark:text-zinc-400 leading-relaxed text-left border border-zinc-200/60 dark:border-zinc-700/50">
+          <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-zinc-100/80 dark:bg-zinc-800/60 text-[length:calc(11.5px*var(--fs,1))] text-zinc-600 dark:text-zinc-400 leading-relaxed text-left border border-zinc-200/60 dark:border-zinc-700/50">
             <ShieldAlert className="w-4 h-4 text-zinc-500 shrink-0 mt-0.5" />
             <span className="text-left">
               본 정보는 보건의료기관 공식 자료를 바탕으로 요약된 건강 안내 정보이며, 전문 의료진의 진료나 처방을 대신하지 않아요.

@@ -202,7 +202,7 @@ export const TermsPolicySubTab: React.FC<TermsPolicySubTabProps> = ({
                 className={`p-3 rounded-xl border text-left ${revisionForm.type === 'normal' ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/30 ring-2 ring-purple-500' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'}`}
               >
                 <div className="font-bold text-xs mb-1">일반 개정 (7일 후 시행)</div>
-                <p className="text-[11px] text-zinc-500">직전 버전 대비 변경 사항 안내 후 자동 동의 간주되는 팝업</p>
+                <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">직전 버전 대비 변경 사항 안내 후 자동 동의 간주되는 팝업</p>
               </button>
               <button
                 type="button"
@@ -210,7 +210,7 @@ export const TermsPolicySubTab: React.FC<TermsPolicySubTabProps> = ({
                 className={`p-3 rounded-xl border text-left ${revisionForm.type === 'important' ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/30 ring-2 ring-amber-500' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'}`}
               >
                 <div className="font-bold text-xs mb-1">중요 개정 (30일 사전 고지)</div>
-                <p className="text-[11px] text-zinc-500">최소 30일 전 고지 및 사용자의 체크박스 필수 동의 확인</p>
+                <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">최소 30일 전 고지 및 사용자의 체크박스 필수 동의 확인</p>
               </button>
             </div>
 
@@ -286,7 +286,7 @@ export const TermsPolicySubTab: React.FC<TermsPolicySubTabProps> = ({
             새 기본 문서 불러오기 ({LEGAL_VERSION_DATE})
           </button>
         </div>
-        <p className="text-[11px] text-zinc-500">개인정보 보호법·작성지침(2025)과 약관규제법을 바탕으로, 이 사이트가 실제로 모으는 정보(알림 토큰, 제보·신고·만족도, 오류 기록, 구글 로그인, 유튜브 저장)에 맞춰 쓴 문서예요. 운영자 개인 연락처는 싣지 않고, 모든 문의는 사이트 '문의하기'로만 받는다고 적었어요.</p>
+        <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">개인정보 보호법·작성지침(2025)과 약관규제법을 바탕으로, 이 사이트가 실제로 모으는 정보(알림 토큰, 제보·신고·만족도, 오류 기록, 구글 로그인, 유튜브 저장)에 맞춰 쓴 문서예요. 운영자 개인 연락처는 싣지 않고, 모든 문의는 사이트 '문의하기'로만 받는다고 적었어요.</p>
         <PublishLegalButton systemEdit={systemEdit} handleChange={handleChange} onUpdateSystemConfig={onUpdateSystemConfig} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

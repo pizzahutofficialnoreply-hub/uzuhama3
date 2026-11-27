@@ -52,17 +52,17 @@ const CATEGORY_MAP: Record<PatchCategory | 'all', { label: string; color: string
 
 // 노션처럼 읽히는 본문: 문단 사이 여백, 목록 점, 제목 크기, 구분선, 이미지 (typography 플러그인 없이 직접)
 const PATCH_PROSE = [
-  'text-[15px] leading-[1.8] tracking-[-0.01em] text-zinc-800 dark:text-zinc-200 break-keep select-text',
+  'text-[length:calc(15px*var(--fs,1))] leading-[1.8] tracking-[-0.01em] text-zinc-800 dark:text-zinc-200 break-keep select-text',
   '[&>*:first-child]:mt-0',
   '[&_h1]:text-2xl [&_h1]:font-black [&_h1]:text-zinc-900 dark:[&_h1]:text-white [&_h1]:mt-10 [&_h1]:mb-3 [&_h1]:leading-snug',
-  '[&_h2]:text-[22px] [&_h2]:font-black [&_h2]:text-zinc-900 dark:[&_h2]:text-white [&_h2]:mt-10 [&_h2]:mb-3 [&_h2]:leading-snug',
+  '[&_h2]:text-[length:calc(22px*var(--fs,1))] [&_h2]:font-black [&_h2]:text-zinc-900 dark:[&_h2]:text-white [&_h2]:mt-10 [&_h2]:mb-3 [&_h2]:leading-snug',
   '[&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-zinc-900 dark:[&_h3]:text-white [&_h3]:mt-7 [&_h3]:mb-2',
   '[&_h4]:text-base [&_h4]:font-bold [&_h4]:mt-5 [&_h4]:mb-1.5',
   '[&_p]:my-3 [&_strong]:font-bold [&_strong]:text-zinc-900 dark:[&_strong]:text-white [&_em]:italic [&_del]:opacity-60',
   '[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_ul]:my-3 [&_ol]:my-3 [&_li]:my-1.5 [&_li]:pl-0.5 [&_li>ul]:my-1 [&_li>ol]:my-1 [&_li]:marker:text-zinc-400',
   '[&_a]:text-purple-600 dark:[&_a]:text-purple-300 [&_a]:underline [&_a]:underline-offset-2 [&_a]:break-all',
   '[&_blockquote]:my-4 [&_blockquote]:border-l-[3px] [&_blockquote]:border-zinc-300 dark:[&_blockquote]:border-zinc-600 [&_blockquote]:pl-4 [&_blockquote]:text-zinc-600 dark:[&_blockquote]:text-zinc-300',
-  '[&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-zinc-100 dark:[&_code]:bg-white/10 [&_code]:text-[13px] [&_code]:text-rose-600 dark:[&_code]:text-rose-300',
+  '[&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-zinc-100 dark:[&_code]:bg-white/10 [&_code]:text-[length:calc(13px*var(--fs,1))] [&_code]:text-rose-600 dark:[&_code]:text-rose-300',
   '[&_pre]:my-4 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:bg-zinc-100 dark:[&_pre]:bg-white/[0.06] [&_pre]:overflow-x-auto [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit',
   '[&_hr]:my-8 [&_hr]:border-zinc-200 dark:[&_hr]:border-white/10',
   '[&_img]:my-4 [&_img]:rounded-xl [&_img]:w-full [&_img]:h-auto',
@@ -147,13 +147,13 @@ function NoteCard({ note, highlight, onOpen }: { note: PatchNote; highlight: boo
       </div>
       <div className="p-3 sm:p-3.5 flex-1 flex flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-1">
-          <span className={cn('px-1.5 py-0.5 rounded-md font-bold text-[10px]', cat.bg, cat.color)}>{note.kind || cat.label}</span>
+          <span className={cn('px-1.5 py-0.5 rounded-md font-bold text-[length:calc(10px*var(--fs,1))]', cat.bg, cat.color)}>{note.kind || cat.label}</span>
           {note.version && note.version !== '0.0.0' && (
-            <span className="px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono font-bold text-[10px]">v{note.version}</span>
+            <span className="px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono font-bold text-[length:calc(10px*var(--fs,1))]">v{note.version}</span>
           )}
         </div>
-        <h3 className="text-[13px] sm:text-sm font-bold text-zinc-900 dark:text-white leading-snug line-clamp-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{note.title}</h3>
-        <p className="mt-auto text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">{note.date}</p>
+        <h3 className="text-[length:calc(13px*var(--fs,1))] sm:text-sm font-bold text-zinc-900 dark:text-white leading-snug line-clamp-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{note.title}</h3>
+        <p className="mt-auto text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 tabular-nums">{note.date}</p>
       </div>
     </button>
   );
@@ -346,23 +346,23 @@ export function PatchNotesPage({ version: propVersion }: { version?: string } = 
               <div className="space-y-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className={cn(
-                    "px-2.5 py-0.5 rounded-md font-semibold text-[11px]",
+                    "px-2.5 py-0.5 rounded-md font-semibold text-[length:calc(11px*var(--fs,1))]",
                     CATEGORY_MAP[activeNote.category]?.bg || 'bg-zinc-100 dark:bg-zinc-800',
                     CATEGORY_MAP[activeNote.category]?.color || 'text-zinc-700 dark:text-zinc-300'
                   )}>
                     {activeNote.kind || CATEGORY_MAP[activeNote.category]?.label || activeNote.category}
                   </span>
 
-                  <span className="px-2.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-mono font-bold text-[11px]">
+                  <span className="px-2.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-mono font-bold text-[length:calc(11px*var(--fs,1))]">
                     v{activeNote.version}
                   </span>
 
-                  <span className="text-[12px] text-zinc-500 dark:text-zinc-400">
+                  <span className="text-[length:calc(12px*var(--fs,1))] text-zinc-500 dark:text-zinc-400">
                     {activeNote.date}
                   </span>
 
                   {activeNote.author && (
-                    <span className="text-[12px] text-zinc-500 dark:text-zinc-400">
+                    <span className="text-[length:calc(12px*var(--fs,1))] text-zinc-500 dark:text-zinc-400">
                       작성자: {activeNote.author}
                     </span>
                   )}
@@ -451,7 +451,7 @@ export function PatchNotesPage({ version: propVersion }: { version?: string } = 
                           )}
                         >
                           <span>{info.label}</span>
-                          <span className="text-[10px] opacity-75 ml-1">
+                          <span className="text-[length:calc(10px*var(--fs,1))] opacity-75 ml-1">
                             ({catKey === 'all' ? patchNotes.length : patchNotes.filter(n => n.category === catKey).length})
                           </span>
                         </button>
@@ -473,7 +473,7 @@ export function PatchNotesPage({ version: propVersion }: { version?: string } = 
                 <div className="flex items-center gap-1" role="radiogroup" aria-label="정렬">
                   {(['new', 'old', 'version'] as SortMode[]).map((m) => (
                     <button key={m} type="button" role="radio" aria-checked={sortMode === m} onClick={() => setSortMode(m)}
-                      className={cn('px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer transition-colors', sortMode === m ? 'bg-purple-600 text-white' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800')}>
+                      className={cn('px-2.5 py-1 rounded-full text-[length:calc(11px*var(--fs,1))] font-bold cursor-pointer transition-colors', sortMode === m ? 'bg-purple-600 text-white' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800')}>
                       {SORT_LABEL[m]}
                     </button>
                   ))}

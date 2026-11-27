@@ -34,6 +34,8 @@
           try { localStorage.removeItem('uzuhama_skin'); } catch (e) {} // 없앤 '그림판' 스타일 설정 정리
           var mode = localStorage.getItem('uzuhama_theme_mode') || 'system';
           var isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          // 글자 크기 (설정 › 화면): 첫 화면부터 맞는 크기로
+          try { var fs = (JSON.parse(localStorage.getItem('uzuhama_user_prefs_v1') || '{}') || {}).fontScale; if (fs && fs !== 1) document.documentElement.style.setProperty('--fs', String(fs)); } catch (e) {}
           if (isDark) {
             document.documentElement.classList.add('dark');
           } else {

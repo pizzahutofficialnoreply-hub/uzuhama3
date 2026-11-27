@@ -623,7 +623,7 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
               </div>
             )}
             <div className="flex items-start justify-between gap-2">
-              <p className="flex items-center gap-1.5 text-[11px] font-bold text-purple-600 dark:text-purple-400 tabular-nums">
+              <p className="flex items-center gap-1.5 text-[length:calc(11px*var(--fs,1))] font-bold text-purple-600 dark:text-purple-400 tabular-nums">
                 <span>{index + 1} / {total}</span>
                 {step.chapter && <span className="px-1.5 py-px rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">{step.chapter}</span>}
                 {(step.isNew || step.id === 'welcome-new') && <span className="px-1.5 py-px rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">새 기능</span>}
@@ -633,14 +633,14 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
               </button>
             </div>
             <h3 className="mt-0.5 text-base sm:text-lg font-extrabold leading-snug break-keep">{step.title}</h3>
-            {step.body && <p className="mt-1.5 text-[13px] sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line break-keep">{step.body}</p>}
+            {step.body && <p className="mt-1.5 text-[length:calc(13px*var(--fs,1))] sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-line break-keep">{step.body}</p>}
             {step.extra && (
-              <button type="button" onClick={step.extra.onClick} className="mt-3 w-full h-10 rounded-xl bg-purple-600/10 dark:bg-purple-400/15 text-purple-700 dark:text-purple-200 text-[13px] font-bold cursor-pointer active:scale-[0.98] transition">
+              <button type="button" onClick={step.extra.onClick} className="mt-3 w-full h-10 rounded-xl bg-purple-600/10 dark:bg-purple-400/15 text-purple-700 dark:text-purple-200 text-[length:calc(13px*var(--fs,1))] font-bold cursor-pointer active:scale-[0.98] transition">
                 {step.extra.label}
               </button>
             )}
             {step.action && (
-              <div className={`mt-2.5 flex items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-bold transition-colors ${actionDone ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300'}`}>
+              <div className={`mt-2.5 flex items-center gap-2 rounded-xl px-3 py-2.5 text-[length:calc(13px*var(--fs,1))] font-bold transition-colors ${actionDone ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300'}`}>
                 {actionDone ? <Check className="w-4 h-4 shrink-0" /> : <Pointer className="w-4 h-4 shrink-0 animate-bounce" />}
                 <span className="break-keep">{actionDone ? '잘했어요!' : step.action.hint}</span>
               </div>

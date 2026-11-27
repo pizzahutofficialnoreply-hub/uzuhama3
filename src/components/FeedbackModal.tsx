@@ -694,7 +694,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                   <button key={k} type="button" aria-pressed={dataSub === k} onClick={() => setDataSub(k)} className={`py-2 text-xs font-bold rounded-lg cursor-pointer ${dataSub === k ? 'bg-white dark:bg-zinc-900 shadow-xs text-zinc-900 dark:text-white' : 'text-zinc-500'}`}>{l}</button>
                 ))}
               </div>
-              <p className="px-1 text-[11px] text-zinc-500 break-keep">이미 있는 기록을 고치거나 지울 때는 그 영상의 ⋮ › 신고로 알려 주세요.</p>
+              <p className="px-1 text-[length:calc(11px*var(--fs,1))] text-zinc-500 break-keep">이미 있는 기록을 고치거나 지울 때는 그 영상의 ⋮ › 신고로 알려 주세요.</p>
               {dataSub === 'search' ? (
                 <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] p-5 sm:p-6 shadow-xs">
                   <SearchAddForm mode="user" />
@@ -762,7 +762,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                         <button
                           type="button"
                           onClick={() => setSelectedItemIds(new Set())}
-                          className="text-[11px] font-semibold text-zinc-400 hover:text-red-500 transition-colors"
+                          className="text-[length:calc(11px*var(--fs,1))] font-semibold text-zinc-400 hover:text-red-500 transition-colors"
                         >
                           전체 선택 해제 ({selectedItemIds.size}개)
                         </button>
@@ -809,11 +809,11 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                                      <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+                                      <span className="px-2 py-0.5 rounded-md text-[length:calc(11px*var(--fs,1))] font-bold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
                                         <Calendar className="w-3 h-3" />
                                         {log.date}
                                       </span>
-                                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                      <span className={`text-[length:calc(10px*var(--fs,1))] font-bold px-1.5 py-0.5 rounded ${
                                         log.isAbsence ? 'bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
                                       }`}>
                                         {log.isAbsence ? '휴방' : '생방송'}
@@ -828,7 +828,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                                   <button
                                     type="button"
                                     onClick={() => toggleSelectAllLogItems(log)}
-                                    className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 shrink-0 transition-colors border cursor-pointer ${
+                                    className={`px-2 py-1 rounded-lg text-[length:calc(11px*var(--fs,1))] font-bold flex items-center gap-1 shrink-0 transition-colors border cursor-pointer ${
                                       isAllLogSelected
                                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
                                         : someSelected
@@ -843,7 +843,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
 
                                 {/* 딸린 하위 항목들 (복수 선택 가능) */}
                                 <div className="space-y-1.5 pt-1 border-t border-zinc-100 dark:border-zinc-800/80">
-                                  <div className="text-[10px] font-bold text-zinc-400 flex items-center justify-between">
+                                  <div className="text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-400 flex items-center justify-between">
                                     <span>수정할 세부 항목 선택 (복수 선택 가능):</span>
                                     <button
                                       type="button"
@@ -882,7 +882,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                                             </div>
                                             <div className="min-w-0 flex-1 text-xs">
                                               <div className="flex items-center gap-1.5 flex-wrap">
-                                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                                <span className={`text-[length:calc(10px*var(--fs,1))] font-bold px-1.5 py-0.2 rounded ${
                                                   item.type === 'date'
                                                     ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300'
                                                     : item.type === 'game'
@@ -902,7 +902,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                                                 </span>
                                               </div>
                                               {(item.originalLink || item.originalUrl) && (
-                                                <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+                                                <div className="text-[length:calc(11px*var(--fs,1))] text-zinc-400 truncate mt-0.5">
                                                   링크: {item.originalLink || item.originalUrl}
                                                 </div>
                                               )}
@@ -925,7 +925,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                     )}
                     
                     {!searchQuery.trim() && selectedItemsList.length === 0 && (
-                      <p className="text-[11px] text-zinc-400 flex items-center gap-1">
+                      <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-400 flex items-center gap-1">
                         <AlertCircle className="w-3 h-3 text-zinc-400 shrink-0" />
                         <span>수정할 방송 날짜, 영상 제목, 쇼츠 제목, 게임명을 검색하여 대상을 복수 선택해주세요.</span>
                       </p>
@@ -954,12 +954,12 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                         </div>
                         {selectedDateItems.map(item => (
                           <div key={item.id} className="space-y-2 bg-white dark:bg-zinc-900 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs">
-                            <div className="text-[11px] text-zinc-500">
+                            <div className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">
                               기존 기록: <strong className="text-zinc-800 dark:text-zinc-200">{item.originalDate}</strong> ({item.originalTime || '시작 미기재'} ~ {item.originalEndTime || '종료 미기재'})
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                               <div>
-                                <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 날짜</label>
+                                <label className="block text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 날짜</label>
                                 <input
                                   type="date"
                                   value={item.requestedDate || ''}
@@ -968,7 +968,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">시작 시간</label>
+                                <label className="block text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-400 mb-1">시작 시간</label>
                                 <input
                                   type="text"
                                   placeholder="예: 20:00"
@@ -978,7 +978,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">종료 시간</label>
+                                <label className="block text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-400 mb-1">종료 시간</label>
                                 <input
                                   type="text"
                                   placeholder="예: 23:30"
@@ -1004,7 +1004,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                           <button
                             type="button"
                             onClick={() => handleAddNewItemToLog('game')}
-                            className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer"
+                            className="text-[length:calc(11px*var(--fs,1))] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer"
                           >
                             <Plus className="w-3 h-3" /> 게임 추가
                           </button>
@@ -1012,12 +1012,12 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                         {selectedGameItems.map((item, gIdx) => (
                           <div key={item.id} className="space-y-2 bg-white dark:bg-zinc-900 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs">
                             <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-zinc-500">게임 #{gIdx + 1} ({item.logDate})</span>
-                              <span className="text-[10px] text-zinc-400">기존명: {item.originalName}</span>
+                              <span className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500">게임 #{gIdx + 1} ({item.logDate})</span>
+                              <span className="text-[length:calc(10px*var(--fs,1))] text-zinc-400">기존명: {item.originalName}</span>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               <div>
-                                <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 게임 제목</label>
+                                <label className="block text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 게임 제목</label>
                                 <input
                                   type="text"
                                   placeholder="게임 제목 입력"
@@ -1027,7 +1027,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 게임 링크 (URL)</label>
+                                <label className="block text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 게임 링크 (URL)</label>
                                 <input
                                   type="url"
                                   placeholder="스팀 또는 공식 웹사이트 링크"
@@ -1053,7 +1053,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                           <button
                             type="button"
                             onClick={() => handleAddNewItemToLog('video')}
-                            className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+                            className="text-[length:calc(11px*var(--fs,1))] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
                           >
                             <Plus className="w-3 h-3" /> 영상 추가
                           </button>
@@ -1064,13 +1064,13 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                           return (
                             <div key={item.id} className="space-y-2.5 bg-white dark:bg-zinc-900 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs">
                               <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-bold text-zinc-500">영상 #{vIdx + 1} ({item.logDate})</span>
+                                <span className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500">영상 #{vIdx + 1} ({item.logDate})</span>
                                 {item.originalUrl && (
                                   <a
                                     href={item.originalUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-[10px] text-blue-500 hover:underline flex items-center gap-0.5"
+                                    className="text-[length:calc(10px*var(--fs,1))] text-blue-500 hover:underline flex items-center gap-0.5"
                                   >
                                     기존 링크 확인 <ExternalLink className="w-2.5 h-2.5" />
                                   </a>
@@ -1095,7 +1095,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
 
                               <div className="space-y-2">
                                 <div>
-                                  <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 영상 제목</label>
+                                  <label className="block text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 영상 제목</label>
                                   <input
                                     type="text"
                                     placeholder="영상 제목 입력"
@@ -1105,7 +1105,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 영상 링크 (URL)</label>
+                                  <label className="block text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 영상 링크 (URL)</label>
                                   <input
                                     type="url"
                                     placeholder="https://www.youtube.com/watch?v=..."
@@ -1132,7 +1132,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                           <button
                             type="button"
                             onClick={() => handleAddNewItemToLog('shorts')}
-                            className="text-[11px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+                            className="text-[length:calc(11px*var(--fs,1))] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
                           >
                             <Plus className="w-3 h-3" /> 쇼츠 추가
                           </button>
@@ -1143,13 +1143,13 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                           return (
                             <div key={item.id} className="space-y-2.5 bg-white dark:bg-zinc-900 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs">
                               <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-bold text-zinc-500">쇼츠 #{sIdx + 1} ({item.logDate})</span>
+                                <span className="text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-500">쇼츠 #{sIdx + 1} ({item.logDate})</span>
                                 {item.originalUrl && (
                                   <a
                                     href={item.originalUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-[10px] text-rose-500 hover:underline flex items-center gap-0.5"
+                                    className="text-[length:calc(10px*var(--fs,1))] text-rose-500 hover:underline flex items-center gap-0.5"
                                   >
                                     기존 링크 확인 <ExternalLink className="w-2.5 h-2.5" />
                                   </a>
@@ -1168,7 +1168,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
 
                               <div className="space-y-2">
                                 <div>
-                                  <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 쇼츠 제목</label>
+                                  <label className="block text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 쇼츠 제목</label>
                                   <input
                                     type="text"
                                     placeholder="쇼츠 제목 입력"
@@ -1178,7 +1178,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 쇼츠 링크 (URL)</label>
+                                  <label className="block text-[length:calc(10px*var(--fs,1))] font-bold text-zinc-600 dark:text-zinc-400 mb-1">수정할 쇼츠 링크 (URL)</label>
                                   <input
                                     type="url"
                                     placeholder="https://www.youtube.com/shorts/..."
@@ -1240,7 +1240,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                         <button
                           type="button"
                           onClick={() => setNewGames(prev => [...prev, { name: '', link: '' }])}
-                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 cursor-pointer"
+                          className="text-[length:calc(11px*var(--fs,1))] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 cursor-pointer"
                         >
                           <Plus className="w-3 h-3" /> 게임 추가
                         </button>
@@ -1278,7 +1278,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                         <button
                           type="button"
                           onClick={() => setNewVideos(prev => [...prev, { title: '', url: '' }])}
-                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 cursor-pointer"
+                          className="text-[length:calc(11px*var(--fs,1))] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 cursor-pointer"
                         >
                           <Plus className="w-3 h-3" /> 영상 추가
                         </button>
@@ -1316,7 +1316,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                         <button
                           type="button"
                           onClick={() => setNewShorts(prev => [...prev, { title: '', url: '' }])}
-                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 cursor-pointer"
+                          className="text-[length:calc(11px*var(--fs,1))] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 cursor-pointer"
                         >
                           <Plus className="w-3 h-3" /> 쇼츠 추가
                         </button>
@@ -1420,7 +1420,7 @@ export function FeedbackModal({ onClose, system, data }: FeedbackModalProps) {
                     <div>
                       <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5 flex items-center justify-between">
                         <span>오류 로그 / 콘솔 텍스트 (선택)</span>
-                        <span className="text-[10px] text-zinc-400 font-normal">PC: F12 → Console 붉은 에러 문구</span>
+                        <span className="text-[length:calc(10px*var(--fs,1))] text-zinc-400 font-normal">PC: F12 → Console 붉은 에러 문구</span>
                       </label>
                       <textarea 
                         placeholder="복사한 에러 로그나 비정상 동작 증상을 적어주시면 빠른 원인 파악이 가능해요."

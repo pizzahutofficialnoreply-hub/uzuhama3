@@ -140,13 +140,13 @@ export function ContributionProcessModal({ item, logs, onClose, onSubmit }: Cont
                     {(editedItem.linkedLogIds || []).map(id => {
                       const log = logs[id];
                       return log ? (
-                        <span key={id} className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        <span key={id} className="text-[length:calc(10px*var(--fs,1))] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-1">
                           {log.date}
                           <button onClick={() => setEditedItem({...editedItem, linkedLogIds: (editedItem.linkedLogIds || []).filter(l => l !== id)})}>
                             <X className="w-2.5 h-2.5" />
                           </button>
                         </span>
-                      ) : <span key={id} className="text-[10px] text-red-500">기록 없음({id})</span>;
+                      ) : <span key={id} className="text-[length:calc(10px*var(--fs,1))] text-red-500">기록 없음({id})</span>;
                     })}
                   </div>
                 </div>

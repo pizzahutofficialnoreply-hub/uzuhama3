@@ -106,19 +106,19 @@ import { FluidBackdrop } from './common/FluidBackdrop';
 
 /** 약관 본문: 마크다운 전체(제목·목록·표·인용·코드·구분선·링크)를 문서처럼 */
 export const TERMS_PROSE = [
-  'text-[13px] leading-[1.75] text-zinc-700 dark:text-zinc-300 break-keep select-text',
+  'text-[length:calc(13px*var(--fs,1))] leading-[1.75] text-zinc-700 dark:text-zinc-300 break-keep select-text',
   '[&>*:first-child]:mt-0',
   '[&_h1]:text-lg [&_h1]:font-black [&_h1]:text-zinc-900 dark:[&_h1]:text-white [&_h1]:mt-6 [&_h1]:mb-2',
-  '[&_h2]:text-[15px] [&_h2]:font-bold [&_h2]:text-zinc-900 dark:[&_h2]:text-white [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:pb-1.5 [&_h2]:border-b [&_h2]:border-zinc-200 dark:[&_h2]:border-white/10',
+  '[&_h2]:text-[length:calc(15px*var(--fs,1))] [&_h2]:font-bold [&_h2]:text-zinc-900 dark:[&_h2]:text-white [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:pb-1.5 [&_h2]:border-b [&_h2]:border-zinc-200 dark:[&_h2]:border-white/10',
   '[&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-zinc-900 dark:[&_h3]:text-white [&_h3]:mt-4 [&_h3]:mb-1',
   '[&_h4]:font-bold [&_h4]:mt-3',
   '[&_p]:my-2 [&_strong]:font-bold [&_strong]:text-zinc-900 dark:[&_strong]:text-white [&_em]:italic',
   '[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_li>ul]:my-1 [&_li>ol]:my-1 [&_li]:marker:text-zinc-400',
   '[&_a]:text-purple-600 dark:[&_a]:text-purple-300 [&_a]:underline [&_a]:underline-offset-2',
   '[&_blockquote]:my-3 [&_blockquote]:border-l-[3px] [&_blockquote]:border-purple-300 dark:[&_blockquote]:border-purple-500/50 [&_blockquote]:pl-3 [&_blockquote]:text-zinc-500 dark:[&_blockquote]:text-zinc-400',
-  '[&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-zinc-100 dark:[&_code]:bg-white/10 [&_code]:text-[12px] [&_pre]:my-3 [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:bg-zinc-100 dark:[&_pre]:bg-white/10 [&_pre]:overflow-x-auto',
+  '[&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:bg-zinc-100 dark:[&_code]:bg-white/10 [&_code]:text-[length:calc(12px*var(--fs,1))] [&_pre]:my-3 [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:bg-zinc-100 dark:[&_pre]:bg-white/10 [&_pre]:overflow-x-auto',
   '[&_hr]:my-5 [&_hr]:border-zinc-200 dark:[&_hr]:border-white/10',
-  '[&_table]:block [&_table]:overflow-x-auto [&_table]:my-3 [&_table]:w-full [&_table]:text-[12px] [&_table]:border-collapse [&_th]:border [&_td]:border [&_th]:border-zinc-200 [&_td]:border-zinc-200 dark:[&_th]:border-white/10 dark:[&_td]:border-white/10 [&_th]:bg-zinc-50 dark:[&_th]:bg-white/5 [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5 [&_th]:text-left [&_th]:font-bold',
+  '[&_table]:block [&_table]:overflow-x-auto [&_table]:my-3 [&_table]:w-full [&_table]:text-[length:calc(12px*var(--fs,1))] [&_table]:border-collapse [&_th]:border [&_td]:border [&_th]:border-zinc-200 [&_td]:border-zinc-200 dark:[&_th]:border-white/10 dark:[&_td]:border-white/10 [&_th]:bg-zinc-50 dark:[&_th]:bg-white/5 [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5 [&_th]:text-left [&_th]:font-bold',
 ].join(' ');
 
 const IOS_SPRING = { type: 'spring' as const, stiffness: 320, damping: 34 };
@@ -309,7 +309,7 @@ export function Onboarding({ enabled, version, system, tutorialEnabled, preview 
               {/* 이렇게 쓰면 돼요: 핵심 기능 네 가지를 움직이는 카드로 (런칭 준비 화면 소개와 같은 내용) */}
               {step.type === 'intro' && <div className="mt-4 md:max-w-xl"><FeatureGrid dense /></div>}
               {step.body && step.type !== 'intro' && (
-                <div className={cn('mt-3 text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-300 break-keep prose-sm [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mt-2 [&_p]:mt-2 [&_strong]:text-zinc-900 dark:[&_strong]:text-white', step.type === 'welcome' && 'whitespace-pre-line')}>
+                <div className={cn('mt-3 text-[length:calc(15px*var(--fs,1))] leading-relaxed text-zinc-600 dark:text-zinc-300 break-keep prose-sm [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_ul]:mt-2 [&_p]:mt-2 [&_strong]:text-zinc-900 dark:[&_strong]:text-white', step.type === 'welcome' && 'whitespace-pre-line')}>
                   {step.type === 'welcome' ? step.body : <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{fillPlaceholders(step.body, system)}</Markdown>}
                 </div>
               )}

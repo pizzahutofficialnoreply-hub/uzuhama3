@@ -105,7 +105,7 @@ export function NoticesView({ system, onClose }: { system?: SystemConfig; onClos
                 aria-expanded={isOpen}
                 className="w-full text-left p-5 cursor-pointer"
               >
-                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                <div className="flex flex-wrap items-center gap-2 text-[length:calc(11px*var(--fs,1))]">
                   {/* 띠 공지 앞머리 태그 그대로 ([공지], [안내], [업데이트] …) */}
                   <span className={cn('px-2.5 py-0.5 rounded-md font-bold', t.cls)}>{(n.prefix || '').trim() || ((system as any)?.defaultNoticePrefix || '').trim() || '[공지]'}</span>
                   <span className={cn('px-2 py-0.5 rounded-md font-semibold', n.active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400')}>

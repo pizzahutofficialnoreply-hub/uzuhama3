@@ -52,14 +52,14 @@ export function ScriptView({ script, now, playing, onSeek }: { script: Script | 
     if (el && b) b.scrollTo({ top: el.offsetTop - b.clientHeight / 2 + el.clientHeight / 2, behavior: 'smooth' });
   }, [cur, playing, q]);
 
-  if (!script) return <p className="text-[12px] text-zinc-400">불러오는 중…</p>;
-  if (!lines.length) return <p className="text-[12px] text-zinc-500 break-keep">아직 스크립트가 없어요. AI가 이 영상을 보면서 대사를 받아 적으면 여기에 나와요.</p>;
+  if (!script) return <p className="text-[length:calc(12px*var(--fs,1))] text-zinc-400">불러오는 중…</p>;
+  if (!lines.length) return <p className="text-[length:calc(12px*var(--fs,1))] text-zinc-500 break-keep">아직 스크립트가 없어요. AI가 이 영상을 보면서 대사를 받아 적으면 여기에 나와요.</p>;
   return (
     <div className="space-y-2">
       <label className="flex items-center gap-2 px-3 h-9 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
         <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="대사에서 찾기" className="flex-1 min-w-0 bg-transparent text-[13px] text-zinc-900 dark:text-white focus:outline-none" />
-        {q && <span className="text-[11px] text-zinc-400 shrink-0">{shown.length}줄</span>}
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="대사에서 찾기" className="flex-1 min-w-0 bg-transparent text-[length:calc(13px*var(--fs,1))] text-zinc-900 dark:text-white focus:outline-none" />
+        {q && <span className="text-[length:calc(11px*var(--fs,1))] text-zinc-400 shrink-0">{shown.length}줄</span>}
       </label>
       <div ref={box} onWheel={() => { userScroll.current = Date.now(); }} onTouchMove={() => { userScroll.current = Date.now(); }}
         className="relative max-h-[55vh] overflow-y-auto overscroll-contain -mx-1 px-1" data-testid="ai-script" data-no-swipe>
@@ -70,9 +70,9 @@ export function ScriptView({ script, now, playing, onSeek }: { script: Script | 
               <li key={i} data-line={i}>
                 <button type="button" onClick={() => onSeek(l.t)}
                   className={`w-full text-left flex items-start gap-2.5 px-2 py-1.5 rounded-lg cursor-pointer transition-colors ${on ? 'bg-purple-100 dark:bg-purple-900/40' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/70'}`}>
-                  <span className={`shrink-0 w-[52px] pt-px text-[11.5px] font-bold tabular-nums ${on ? 'text-purple-700 dark:text-purple-300' : 'text-zinc-400'}`}>{fmt(l.t)}</span>
-                  <span className={`min-w-0 text-[13px] leading-relaxed break-keep ${on ? 'text-zinc-900 dark:text-white font-semibold' : l.w === '게임' ? 'text-zinc-500 dark:text-zinc-400 italic' : 'text-zinc-700 dark:text-zinc-200'}`}>
-                    {l.w && <span className="mr-1 text-[11px] font-bold text-zinc-400 not-italic">{l.w}</span>}
+                  <span className={`shrink-0 w-[52px] pt-px text-[length:calc(11.5px*var(--fs,1))] font-bold tabular-nums ${on ? 'text-purple-700 dark:text-purple-300' : 'text-zinc-400'}`}>{fmt(l.t)}</span>
+                  <span className={`min-w-0 text-[length:calc(13px*var(--fs,1))] leading-relaxed break-keep ${on ? 'text-zinc-900 dark:text-white font-semibold' : l.w === '게임' ? 'text-zinc-500 dark:text-zinc-400 italic' : 'text-zinc-700 dark:text-zinc-200'}`}>
+                    {l.w && <span className="mr-1 text-[length:calc(11px*var(--fs,1))] font-bold text-zinc-400 not-italic">{l.w}</span>}
                     {l.s}
                   </span>
                 </button>
@@ -81,7 +81,7 @@ export function ScriptView({ script, now, playing, onSeek }: { script: Script | 
           })}
         </ol>
       </div>
-      <p className="text-[10.5px] text-zinc-400 break-keep">AI가 소리를 듣고 받아 적은 거라 틀린 말이 있을 수 있어요. 생방송은 자막이 없어서 특히 그래요. 이름이 없는 줄은 우주하마가 한 말이에요.</p>
+      <p className="text-[length:calc(10.5px*var(--fs,1))] text-zinc-400 break-keep">AI가 소리를 듣고 받아 적은 거라 틀린 말이 있을 수 있어요. 생방송은 자막이 없어서 특히 그래요. 이름이 없는 줄은 우주하마가 한 말이에요.</p>
     </div>
   );
 }

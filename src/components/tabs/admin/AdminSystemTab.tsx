@@ -221,7 +221,7 @@ export function AdminSystemTab({
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveSubTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-bold transition-all shrink-0 cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[length:calc(13px*var(--fs,1))] font-bold transition-all shrink-0 cursor-pointer ${
                   isActive
                     ? 'bg-zinc-200/80 dark:bg-white/15 text-zinc-950 dark:text-white'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60'
@@ -230,7 +230,7 @@ export function AdminSystemTab({
                 <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-500 dark:text-zinc-400'}`} />
                 <span>{tab.label}</span>
                 {tab.badge && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${tab.badgeColor}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[length:calc(10px*var(--fs,1))] font-extrabold ${tab.badgeColor}`}>
                     {tab.badge}
                   </span>
                 )}

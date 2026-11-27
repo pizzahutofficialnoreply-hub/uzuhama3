@@ -103,8 +103,8 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
   };
 
   const group = 'rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-800';
-  const label = 'px-1 pb-1.5 text-[11.5px] font-bold text-zinc-500 dark:text-zinc-400';
-  const field = 'w-full bg-transparent px-4 py-3 text-[14px] text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none';
+  const label = 'px-1 pb-1.5 text-[length:calc(11.5px*var(--fs,1))] font-bold text-zinc-500 dark:text-zinc-400';
+  const field = 'w-full bg-transparent px-4 py-3 text-[length:calc(14px*var(--fs,1))] text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none';
   const kindNow = KINDS.find((k) => k.key === kind)!;
 
   return (
@@ -114,9 +114,9 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
         <div className={group}>
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="한 줄로 요약해 주세요 (예: 달력에서 날짜를 눌러도 안 열려요)" maxLength={120} className={field} />
           <label className="flex items-center justify-between gap-3 px-4 py-3">
-            <span className="text-[14px] text-zinc-900 dark:text-white shrink-0">어디에서 생겼나요?</span>
+            <span className="text-[length:calc(14px*var(--fs,1))] text-zinc-900 dark:text-white shrink-0">어디에서 생겼나요?</span>
             <span className="relative flex items-center min-w-0">
-              <select value={area} onChange={(e) => setArea(e.target.value)} className="appearance-none bg-transparent text-right text-[14px] text-zinc-500 pr-5 outline-none max-w-[12rem] truncate">
+              <select value={area} onChange={(e) => setArea(e.target.value)} className="appearance-none bg-transparent text-right text-[length:calc(14px*var(--fs,1))] text-zinc-500 pr-5 outline-none max-w-[12rem] truncate">
                 {areas.map((a) => <option key={a} value={a}>{a}</option>)}
               </select>
               <ChevronRight className="w-4 h-4 text-zinc-400 absolute right-0 pointer-events-none" />
@@ -133,7 +133,7 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
             const Icon = k.icon;
             const on = kind === k.key;
             return (
-              <button key={k.key} type="button" aria-pressed={on} onClick={() => setKind(k.key)} className={cn('flex items-center gap-2 px-3.5 py-3 rounded-2xl border text-[13px] font-bold cursor-pointer active:scale-[0.98] transition-colors', on ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200')}>
+              <button key={k.key} type="button" aria-pressed={on} onClick={() => setKind(k.key)} className={cn('flex items-center gap-2 px-3.5 py-3 rounded-2xl border text-[length:calc(13px*var(--fs,1))] font-bold cursor-pointer active:scale-[0.98] transition-colors', on ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200')}>
                 <Icon className="w-4 h-4 shrink-0" /> {k.label}
               </button>
             );
@@ -154,58 +154,58 @@ export function FeedbackCompose({ areas, selftest, onDone, onOpenCheck }: { area
           <div className="flex items-center gap-3 px-4 py-3">
             <span className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0"><Smartphone className="w-4.5 h-4.5 text-zinc-500" /></span>
             <span className="min-w-0 flex-1">
-              <span className={cn('block text-[14px] font-semibold', useDev ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 line-through')}>{dev.device}</span>{useDev && !dev.named && /iPhone/.test(dev.device) && <span className="block text-[10.5px] text-zinc-400">아이폰은 기종을 알려 주지 않아 화면 크기로 짐작했어요 (설정 › 이 기기 정보에서 고를 수 있어요)</span>}
-              <span className={cn('block text-[11.5px] truncate', useDev ? 'text-zinc-500' : 'text-zinc-400 line-through')}>{dev.os} · {dev.browser} · {dev.app}</span>
+              <span className={cn('block text-[length:calc(14px*var(--fs,1))] font-semibold', useDev ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 line-through')}>{dev.device}</span>{useDev && !dev.named && /iPhone/.test(dev.device) && <span className="block text-[length:calc(10.5px*var(--fs,1))] text-zinc-400">아이폰은 기종을 알려 주지 않아 화면 크기로 짐작했어요 (설정 › 이 기기 정보에서 고를 수 있어요)</span>}
+              <span className={cn('block text-[length:calc(11.5px*var(--fs,1))] truncate', useDev ? 'text-zinc-500' : 'text-zinc-400 line-through')}>{dev.os} · {dev.browser} · {dev.app}</span>
             </span>
-            <button type="button" onClick={() => setUseDev(!useDev)} className="text-[12px] font-bold text-zinc-500 cursor-pointer shrink-0">{useDev ? '빼기' : '넣기'}</button>
+            <button type="button" onClick={() => setUseDev(!useDev)} className="text-[length:calc(12px*var(--fs,1))] font-bold text-zinc-500 cursor-pointer shrink-0">{useDev ? '빼기' : '넣기'}</button>
           </div>
           <div className="flex items-center gap-3 px-4 py-3">
             <button type="button" onClick={() => diag && setPeek(peek === 'diag' ? null : 'diag')} className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer">
               <span className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0"><FileText className="w-4.5 h-4.5 text-zinc-500" /></span>
               <span className="min-w-0">
-                <span className={cn('block text-[14px] font-semibold', useDiag ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 line-through')}>앱 진단</span>
-                <span className="block text-[11.5px] text-zinc-500">{diag ? `${(new Blob([diag]).size / 1024).toFixed(1)}KB · 눌러서 내용 보기` : '수집 중…'}</span>
+                <span className={cn('block text-[length:calc(14px*var(--fs,1))] font-semibold', useDiag ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 line-through')}>앱 진단</span>
+                <span className="block text-[length:calc(11.5px*var(--fs,1))] text-zinc-500">{diag ? `${(new Blob([diag]).size / 1024).toFixed(1)}KB · 눌러서 내용 보기` : '수집 중…'}</span>
               </span>
             </button>
-            {!diag ? <Loader2 className="w-4 h-4 animate-spin text-zinc-400" /> : <button type="button" onClick={() => setUseDiag(!useDiag)} className="text-[12px] font-bold text-zinc-500 cursor-pointer">{useDiag ? '빼기' : '넣기'}</button>}
+            {!diag ? <Loader2 className="w-4 h-4 animate-spin text-zinc-400" /> : <button type="button" onClick={() => setUseDiag(!useDiag)} className="text-[length:calc(12px*var(--fs,1))] font-bold text-zinc-500 cursor-pointer">{useDiag ? '빼기' : '넣기'}</button>}
           </div>
-          {peek === 'diag' && diag && <pre className="px-4 py-3 text-[10.5px] leading-relaxed text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap break-all max-h-56 overflow-auto bg-zinc-50 dark:bg-zinc-950">{diag}</pre>}
+          {peek === 'diag' && diag && <pre className="px-4 py-3 text-[length:calc(10.5px*var(--fs,1))] leading-relaxed text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap break-all max-h-56 overflow-auto bg-zinc-50 dark:bg-zinc-950">{diag}</pre>}
           {selftest ? (
             <>
               <div className="flex items-center gap-3 px-4 py-3">
                 <button type="button" onClick={() => setPeek(peek === 'test' ? null : 'test')} className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer">
                   <span className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0"><Stethoscope className="w-4.5 h-4.5 text-emerald-600" /></span>
                   <span className="min-w-0">
-                    <span className={cn('block text-[14px] font-semibold', useTest ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 line-through')}>앱 점검 결과</span>
-                    <span className="block text-[11.5px] text-zinc-500 truncate">{selftest.split('\n')[0]}</span>
+                    <span className={cn('block text-[length:calc(14px*var(--fs,1))] font-semibold', useTest ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 line-through')}>앱 점검 결과</span>
+                    <span className="block text-[length:calc(11.5px*var(--fs,1))] text-zinc-500 truncate">{selftest.split('\n')[0]}</span>
                   </span>
                 </button>
-                <button type="button" onClick={() => setUseTest(!useTest)} className="text-[12px] font-bold text-zinc-500 cursor-pointer">{useTest ? '빼기' : '넣기'}</button>
+                <button type="button" onClick={() => setUseTest(!useTest)} className="text-[length:calc(12px*var(--fs,1))] font-bold text-zinc-500 cursor-pointer">{useTest ? '빼기' : '넣기'}</button>
               </div>
-              {peek === 'test' && <pre className="px-4 py-3 text-[10.5px] leading-relaxed text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap break-all max-h-56 overflow-auto bg-zinc-50 dark:bg-zinc-950">{selftest}</pre>}
+              {peek === 'test' && <pre className="px-4 py-3 text-[length:calc(10.5px*var(--fs,1))] leading-relaxed text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap break-all max-h-56 overflow-auto bg-zinc-50 dark:bg-zinc-950">{selftest}</pre>}
             </>
           ) : onOpenCheck ? (
             <button type="button" onClick={onOpenCheck} className="w-full flex items-center gap-3 px-4 py-3 text-left cursor-pointer">
               <span className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0"><Stethoscope className="w-4.5 h-4.5 text-zinc-400" /></span>
-              <span className="min-w-0 flex-1"><span className="block text-[14px] text-zinc-700 dark:text-zinc-200">앱 점검 결과 넣기</span><span className="block text-[11.5px] text-zinc-500">'앱 점검' 탭에서 점검하고 오면 여기 붙어요 (선택)</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-[length:calc(14px*var(--fs,1))] text-zinc-700 dark:text-zinc-200">앱 점검 결과 넣기</span><span className="block text-[length:calc(11.5px*var(--fs,1))] text-zinc-500">'앱 점검' 탭에서 점검하고 오면 여기 붙어요 (선택)</span></span>
               <ChevronRight className="w-4 h-4 text-zinc-400" />
             </button>
           ) : null}
           {images.map((im, i) => (
             <div key={i} className="flex items-center gap-3 px-4 py-2.5">
               <img src={im.data} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0" />
-              <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold text-zinc-900 dark:text-white truncate">{im.name}</span><span className="block text-[11.5px] text-zinc-500">{Math.round(im.data.length * 0.75 / 1024)}KB</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-[length:calc(14px*var(--fs,1))] font-semibold text-zinc-900 dark:text-white truncate">{im.name}</span><span className="block text-[length:calc(11.5px*var(--fs,1))] text-zinc-500">{Math.round(im.data.length * 0.75 / 1024)}KB</span></span>
               <button type="button" onClick={() => setImages((p) => p.filter((_, j) => j !== i))} className="p-1 text-zinc-400 cursor-pointer" aria-label="사진 빼기"><X className="w-4 h-4" /></button>
             </div>
           ))}
           {images.length < 3 && (
-            <button type="button" onClick={() => file.current?.click()} className="w-full flex items-center gap-2 px-4 py-3 text-[14px] font-semibold text-purple-600 dark:text-purple-400 cursor-pointer">
-              <Paperclip className="w-4 h-4" /> 첨부 파일 추가 <span className="text-[11.5px] font-normal text-zinc-400">(사진·스크린샷 최대 3장)</span>
+            <button type="button" onClick={() => file.current?.click()} className="w-full flex items-center gap-2 px-4 py-3 text-[length:calc(14px*var(--fs,1))] font-semibold text-purple-600 dark:text-purple-400 cursor-pointer">
+              <Paperclip className="w-4 h-4" /> 첨부 파일 추가 <span className="text-[length:calc(11.5px*var(--fs,1))] font-normal text-zinc-400">(사진·스크린샷 최대 3장)</span>
             </button>
           )}
           <input ref={file} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addImages(e.target.files); e.target.value = ''; }} />
         </div>
-        <p className="px-1 pt-2 text-[10.5px] text-zinc-400 leading-relaxed break-keep">앱 진단에는 기기·브라우저·앱 버전·설정 켜짐 여부·최근 오류만 들어가요. 시청 기록이나 검색어 같은 내용은 안 들어가요. 각 항목을 눌러 미리 볼 수 있어요.</p>
+        <p className="px-1 pt-2 text-[length:calc(10.5px*var(--fs,1))] text-zinc-400 leading-relaxed break-keep">앱 진단에는 기기·브라우저·앱 버전·설정 켜짐 여부·최근 오류만 들어가요. 시청 기록이나 검색어 같은 내용은 안 들어가요. 각 항목을 눌러 미리 볼 수 있어요.</p>
       </section>
 
       {err && <p className="text-xs font-bold text-red-500 px-1">{err}</p>}

@@ -130,7 +130,7 @@ export function HeaderTitle({ decor, events, className, previewDay }: { decor?: 
     return () => window.clearInterval(t);
   }, [themes.length]);
   const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-  const base = 'text-xl sm:text-[25px] font-extrabold tracking-tight truncate';
+  const base = 'text-xl sm:text-[length:calc(25px*var(--fs,1))] font-extrabold tracking-tight truncate';
 
   // ?titleart=banner&titletext=10주년 으로 그림 미리 보기 (관리자 확인용)
   const pv = (() => { try { const q = new URLSearchParams(window.location.search); const k = q.get('titleart'); return k ? { kind: artFor('', k) as ArtKind, label: q.get('titletext') || '미리 보기', text: q.get('titletext') || undefined } : null; } catch { return null; } })();

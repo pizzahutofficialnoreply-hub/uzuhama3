@@ -212,19 +212,19 @@ export const PushNotificationSubTab: React.FC = () => {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
               <div className="p-2 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                <div className="text-zinc-400 text-[10px]">총 대상</div>
+                <div className="text-zinc-400 text-[length:calc(10px*var(--fs,1))]">총 대상</div>
                 <div className="font-bold text-sm text-zinc-900 dark:text-white">{lastResult.totalCount ?? 0}대</div>
               </div>
               <div className="p-2 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                <div className="text-emerald-500 text-[10px]">발송 성공</div>
+                <div className="text-emerald-500 text-[length:calc(10px*var(--fs,1))]">발송 성공</div>
                 <div className="font-bold text-sm text-emerald-600 dark:text-emerald-400">{lastResult.successCount ?? 0}대</div>
               </div>
               <div className="p-2 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                <div className="text-red-500 text-[10px]">발송 실패</div>
+                <div className="text-red-500 text-[length:calc(10px*var(--fs,1))]">발송 실패</div>
                 <div className="font-bold text-sm text-red-600 dark:text-red-400">{lastResult.failureCount ?? 0}대</div>
               </div>
               <div className="p-2 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                <div className="text-purple-500 text-[10px]">만료 토큰 정리</div>
+                <div className="text-purple-500 text-[length:calc(10px*var(--fs,1))]">만료 토큰 정리</div>
                 <div className="font-bold text-sm text-purple-600 dark:text-purple-400">{lastResult.cleanedTokens ?? 0}개</div>
               </div>
             </div>

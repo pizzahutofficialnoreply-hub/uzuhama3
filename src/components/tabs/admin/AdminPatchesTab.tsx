@@ -238,10 +238,10 @@ export function AdminPatchesTab() {
             const added = draftAdded(d);
             return (
               <li key={d.key} className="py-2.5 flex items-center gap-3">
-                <span className={cn('shrink-0 px-2 py-0.5 rounded-md text-[11px] font-bold', d.category === 'dev' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300' : 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300')}>{d.category === 'dev' ? '개발일지' : '패치노트'} v{d.version}</span>
+                <span className={cn('shrink-0 px-2 py-0.5 rounded-md text-[length:calc(11px*var(--fs,1))] font-bold', d.category === 'dev' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300' : 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300')}>{d.category === 'dev' ? '개발일지' : '패치노트'} v{d.version}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold text-zinc-800 dark:text-zinc-100 truncate">{d.title}</span>
-                  <span className="block text-[11px] text-zinc-400">{d.date} · 글자 {d.content.length.toLocaleString()}자</span>
+                  <span className="block text-[length:calc(11px*var(--fs,1))] text-zinc-400">{d.date} · 글자 {d.content.length.toLocaleString()}자</span>
                 </span>
                 {added ? <span className="shrink-0 text-xs font-bold text-emerald-600">추가됨</span> : (
                   <button type="button" disabled={!!draftBusy} onClick={() => void addDraft(d)} className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 cursor-pointer disabled:opacity-50">{draftBusy === d.key ? '올리는 중…' : '추가하기'}</button>
@@ -357,7 +357,7 @@ export function AdminPatchesTab() {
                   className="w-full pl-8 pr-4 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-mono font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
-              <p className="text-[11px] text-zinc-400 mt-1">
+              <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-400 mt-1">
                 생성될 경로: <code className="text-purple-600 dark:text-purple-400 font-mono">/patch-{version.replace(/^v/, '').trim() || '0.0.0'}</code>
               </p>
             </div>

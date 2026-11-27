@@ -123,7 +123,7 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
           <div className="px-4 pb-3">
             <label className="flex items-center gap-2.5 px-3.5 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800/80">
               <Search className="w-5 h-5 text-zinc-400 shrink-0" />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="시청 기록 검색" className="flex-1 min-w-0 bg-transparent outline-none text-[15px]" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="시청 기록 검색" className="flex-1 min-w-0 bg-transparent outline-none text-[length:calc(15px*var(--fs,1))]" />
               {q && <button type="button" onClick={() => setQ('')} className="p-1 text-zinc-400 cursor-pointer" aria-label="지우기"><X className="w-4 h-4" /></button>}
             </label>
           </div>
@@ -149,7 +149,7 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
                       <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800">
                         <img src={`https://i.ytimg.com/vi/${e.id}/oardefault.jpg`} onError={(ev) => { (ev.currentTarget as HTMLImageElement).src = thumb(e.id); }} alt="" loading="lazy" className="w-full h-full object-cover" />
                         <span className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
-                        <span className="absolute left-2 right-2 bottom-2 text-white text-[13px] font-bold leading-snug line-clamp-2">{e.title || 'Shorts'}</span>
+                        <span className="absolute left-2 right-2 bottom-2 text-white text-[length:calc(13px*var(--fs,1))] font-bold leading-snug line-clamp-2">{e.title || 'Shorts'}</span>
                       </div>
                     </button>
                     <div className="absolute top-1 right-1 bg-black/30 rounded-lg text-white">{menu(e, true)}</div>
@@ -169,11 +169,11 @@ export function WatchHistoryPage({ onClose }: { onClose: () => void }) {
                     <button type="button" onClick={(ev) => open(e, ev.currentTarget.querySelector('[data-thumb]'), g.rows.filter((x) => x.kind === 'short'))} className="flex flex-1 min-w-0 items-start gap-3 text-left cursor-pointer">
                       <div data-thumb className="relative w-[44%] max-w-[220px] aspect-video rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 shrink-0">
                         <img src={thumb(e.id)} alt="" loading="lazy" className="w-full h-full object-cover" />
-                        {e.dur ? <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-black/75 text-white text-[11px] font-bold tabular-nums">{formatDuration(e.dur)}</span> : null}
+                        {e.dur ? <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-black/75 text-white text-[length:calc(11px*var(--fs,1))] font-bold tabular-nums">{formatDuration(e.dur)}</span> : null}
                         {p > 0.02 && <ProgressBar value={p} />}
                       </div>
                       <div className="min-w-0 flex-1 pt-0.5">
-                        <p className="text-[15px] font-semibold text-zinc-900 dark:text-white leading-snug line-clamp-3">{e.title || '제목 없음'}</p>
+                        <p className="text-[length:calc(15px*var(--fs,1))] font-semibold text-zinc-900 dark:text-white leading-snug line-clamp-3">{e.title || '제목 없음'}</p>
                         <p className="mt-1 text-xs text-zinc-500">{KIND_LABEL[e.kind] || '동영상'} · {timeLabel(e.at)}{e.pos && e.dur && p < 0.97 ? ` · ${formatDuration(e.pos)}까지 봄` : ''}</p>
                       </div>
                     </button>

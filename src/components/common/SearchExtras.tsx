@@ -43,21 +43,21 @@ function ExtraCard({ c }: { c: Card }) {
           <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/25 transition-colors">
             <Play className="w-7 h-7 text-white drop-shadow fill-white/90" />
           </span>
-          {first && <span className="absolute bottom-1 right-1 px-1 rounded bg-black/75 text-white text-[10px] font-bold tabular-nums">{fmtTime(first.t)}</span>}
+          {first && <span className="absolute bottom-1 right-1 px-1 rounded bg-black/75 text-white text-[length:calc(10px*var(--fs,1))] font-bold tabular-nums">{fmtTime(first.t)}</span>}
         </button>
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-1">
             {c.from === 'ai' ? (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-purple-600 text-white text-[10px] font-black"><ScanSearch className="w-3 h-3" /> {c.checked ? 'AI가 영상에서 확인' : 'AI 검색'}</span>
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-purple-600 text-white text-[length:calc(10px*var(--fs,1))] font-black"><ScanSearch className="w-3 h-3" /> {c.checked ? 'AI가 영상에서 확인' : 'AI 검색'}</span>
             ) : (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[10px] font-black"><Pin className="w-3 h-3" /> 추천 결과</span>
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[length:calc(10px*var(--fs,1))] font-black"><Pin className="w-3 h-3" /> 추천 결과</span>
             )}
-            {c.kind && <span className="px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-[10px] font-bold">{KIND_LABEL[c.kind] || c.kind}</span>}
-            {c.games?.slice(0, 2).map((g) => <span key={g} className="px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-[10px] font-semibold truncate max-w-[9rem]">{g}</span>)}
+            {c.kind && <span className="px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-[length:calc(10px*var(--fs,1))] font-bold">{KIND_LABEL[c.kind] || c.kind}</span>}
+            {c.games?.slice(0, 2).map((g) => <span key={g} className="px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-[length:calc(10px*var(--fs,1))] font-semibold truncate max-w-[9rem]">{g}</span>)}
           </div>
           <a href={watchUrl(c.id, { t: first ? Math.max(0, first.t - 10) : undefined, kind: c.kind === 'short' ? 'short' : undefined })} target="_blank" rel="noreferrer" className="block text-sm font-bold text-zinc-900 dark:text-white leading-snug line-clamp-2 hover:text-purple-600 dark:hover:text-purple-400">{c.title || '영상'}</a>
-          {c.summary && <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 break-keep">{c.summary}</p>}
-          {c.note && <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 break-keep">{c.note}</p>}
+          {c.summary && <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 line-clamp-2 break-keep">{c.summary}</p>}
+          {c.note && <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 line-clamp-2 break-keep">{c.note}</p>}
         </div>
       </div>
       {c.scenes.length > 0 && (
@@ -68,13 +68,13 @@ function ExtraCard({ c }: { c: Card }) {
               <button type="button" onClick={() => play(s.t)} className="font-black text-purple-600 dark:text-purple-400 underline underline-offset-2 tabular-nums cursor-pointer">{fmtTime(s.t)}</button>
               {i === 0 ? '에 나와요' : ''}
               {s.d && <span className="text-zinc-500 dark:text-zinc-400"> · {politeKo(s.d)}</span>}
-              {s.vague && <span className="text-[10px] text-amber-600"> (확실하지 않음)</span>}
+              {s.vague && <span className="text-[length:calc(10px*var(--fs,1))] text-amber-600"> (확실하지 않음)</span>}
             </p>
           ))}
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] text-zinc-400">시간을 누르면 10초 전부터 재생돼요{c.partial ? ' · 아직 영상 앞부분만 분석했어요' : ''}</p>
+            <p className="text-[length:calc(10px*var(--fs,1))] text-zinc-400">시간을 누르면 10초 전부터 재생돼요{c.partial ? ' · 아직 영상 앞부분만 분석했어요' : ''}</p>
             {c.from === 'ai' && c.hasSummary && getPrefs().labAiSummary && (
-              <button type="button" onClick={() => openAiSummary({ id: c.id, title: c.title, kind: c.kind, t: first ? Math.max(0, first.t - 10) : undefined })} className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[11px] font-bold cursor-pointer">
+              <button type="button" onClick={() => openAiSummary({ id: c.id, title: c.title, kind: c.kind, t: first ? Math.max(0, first.t - 10) : undefined })} className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[length:calc(11px*var(--fs,1))] font-bold cursor-pointer">
                 <BookOpen className="w-3 h-3" /> AI 요약 보기
               </button>
             )}
@@ -156,12 +156,12 @@ export function SearchExtras({ query, aiEnabled }: { query: string; aiEnabled: b
     <section className="mb-5 space-y-2" aria-label="AI 검색">
       <h3 className="px-1 text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5">
         <ScanSearch className="w-4 h-4 text-purple-500" /> 콕 집어 찾은 결과
-        {loading && !cards.length && <span className="text-[11px] font-semibold text-zinc-400 ml-1">AI가 정리해 둔 장면에서 찾는 중…</span>}
+        {loading && !cards.length && <span className="text-[length:calc(11px*var(--fs,1))] font-semibold text-zinc-400 ml-1">AI가 정리해 둔 장면에서 찾는 중…</span>}
       </h3>
-      {verifying && <p className="px-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-ping" /> AI가 이 장면들을 영상에서 직접 보고 확인하는 중이에요 (처음 찾는 말은 10~40초)</p>}
-      {!verifying && ver?.q === q && ver.v.verified.length === 0 && ver.v.rejected.length > 0 && <p className="px-1 text-[11px] text-zinc-500">AI가 영상에서 확인해 보니 딱 맞는 장면은 아직 없었어요. 분석된 영상이 늘면 더 찾아요.</p>}
+      {verifying && <p className="px-1 text-[length:calc(11px*var(--fs,1))] font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-ping" /> AI가 이 장면들을 영상에서 직접 보고 확인하는 중이에요 (처음 찾는 말은 10~40초)</p>}
+      {!verifying && ver?.q === q && ver.v.verified.length === 0 && ver.v.rejected.length > 0 && <p className="px-1 text-[length:calc(11px*var(--fs,1))] text-zinc-500">AI가 영상에서 확인해 보니 딱 맞는 장면은 아직 없었어요. 분석된 영상이 늘면 더 찾아요.</p>}
       {(lastExpanded.get(q.toLowerCase()) || []).length > 0 && ai?.q === q && (
-        <p className="px-1 text-[11px] text-zinc-500">AI가 '{q}'를 <b>{(lastExpanded.get(q.toLowerCase()) || []).slice(0, 5).join(' · ')}</b>(으)로도 찾아봤어요</p>
+        <p className="px-1 text-[length:calc(11px*var(--fs,1))] text-zinc-500">AI가 '{q}'를 <b>{(lastExpanded.get(q.toLowerCase()) || []).slice(0, 5).join(' · ')}</b>(으)로도 찾아봤어요</p>
       )}
       <div className={cn('grid gap-2.5', cards.length > 1 && 'lg:grid-cols-2')}>
         {cards.map((c) => <ExtraCard key={`${c.from}-${c.id}-${c.scenes[0]?.t || 0}`} c={c} />)}

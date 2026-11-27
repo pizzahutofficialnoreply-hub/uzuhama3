@@ -245,7 +245,7 @@ export function NoticeModal({ notices, onClose, onNavigateInternal }: NoticeModa
                 <div className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500 ml-1 font-medium select-none">
                   <span>{currentIndex + 1}/{notices.length}</span>
                   {!isAutoPlay && (
-                    <span className="text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded font-normal">
+                    <span className="text-[length:calc(10px*var(--fs,1))] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded font-normal">
                       멈춤
                     </span>
                   )}

@@ -72,10 +72,10 @@ export function AdminAuditTab({ onAddLog, onUpdateLog, onDeleteLog, onUpdateSyst
     <div className="space-y-4">
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-2">
         <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2"><History className="w-4 h-4 text-purple-600" /> 수정 이력</h3>
-        <p className="text-[11px] text-zinc-500">방송 기록을 추가·수정·삭제하거나 시스템 설정을 바꿀 때마다 바뀌기 전 모습이 남아요. '되돌리기'를 누르면 그때로 돌아가요 (되돌린 것도 이력에 남아요). 관리자 화면에 뜬 알림과 사이트 코드가 바뀐 내용(사이트 수정)도 함께 보여요.</p>
+        <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">방송 기록을 추가·수정·삭제하거나 시스템 설정을 바꿀 때마다 바뀌기 전 모습이 남아요. '되돌리기'를 누르면 그때로 돌아가요 (되돌린 것도 이력에 남아요). 관리자 화면에 뜬 알림과 사이트 코드가 바뀐 내용(사이트 수정)도 함께 보여요.</p>
         <div className="flex flex-wrap gap-1.5">
           {([['all', '전체'], ['log', '기록·설정'], ['note', '알림'], ['site', '사이트 수정']] as const).map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setKind(k)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${kind === k ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>{l}</button>
+            <button key={k} type="button" onClick={() => setKind(k)} className={`px-2.5 py-1 rounded-full text-[length:calc(11px*var(--fs,1))] font-bold cursor-pointer ${kind === k ? 'bg-purple-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>{l}</button>
           ))}
         </div>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="날짜(2025-10-07)·종류·내용으로 찾기" className="w-full px-3 py-2 text-xs rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700" />
@@ -90,10 +90,10 @@ export function AdminAuditTab({ onAddLog, onUpdateLog, onDeleteLog, onUpdateSyst
               <li key={x.id} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-xs flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-bold text-zinc-900 dark:text-white">
-                    <span className={`mr-1.5 px-1.5 py-0.5 rounded text-[10px] ${x.action === 'deleteLog' ? 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300' : x.action === 'addLog' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300'}`}>{LABEL[x.action] || x.action}</span>
+                    <span className={`mr-1.5 px-1.5 py-0.5 rounded text-[length:calc(10px*var(--fs,1))] ${x.action === 'deleteLog' ? 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300' : x.action === 'addLog' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300'}`}>{LABEL[x.action] || x.action}</span>
                     {x.text ? <span className="font-semibold break-keep">{x.text}</span> : <>{x.date || ''} {x.after?.game || x.before?.game || ''}</>}
                   </p>
-                  {x.detail && <details className="mt-1 text-zinc-600 dark:text-zinc-300"><summary className="cursor-pointer text-[11px]">자세히</summary><p className="mt-1 whitespace-pre-line break-keep">{x.detail}</p></details>}
+                  {x.detail && <details className="mt-1 text-zinc-600 dark:text-zinc-300"><summary className="cursor-pointer text-[length:calc(11px*var(--fs,1))]">자세히</summary><p className="mt-1 whitespace-pre-line break-keep">{x.detail}</p></details>}
                   <p className="mt-0.5 text-zinc-500">{x.at ? new Date(x.at).toLocaleString('ko-KR') : ''} · {x.by || '관리자'}</p>
                   {keys.length > 0 && <p className="mt-1 text-zinc-600 dark:text-zinc-300">바뀐 칸: {keys.slice(0, 8).map((k) => FIELD[k] || k).join(', ')}{keys.length > 8 ? ` 외 ${keys.length - 8}개` : ''}</p>}
                 </div>

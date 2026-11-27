@@ -44,11 +44,11 @@ export function UserSelfCheck({ onResult, onAttach }: { onResult: (text: string)
             <button type="button" onClick={() => startSelfTestBg(deep, false, where === 'cloud')} className="w-full py-3 rounded-2xl bg-purple-600 text-white text-sm font-bold flex items-center justify-center gap-2 cursor-pointer"><Play className="w-4 h-4" /> {s.done ? '다시 점검' : '점검 시작'}</button>
           </>
         )}
-        {!s.running && /못했어요|멈췄어요/.test(s.stage) && <p className="text-[11.5px] text-red-500 break-keep">{s.stage}</p>}
+        {!s.running && /못했어요|멈췄어요/.test(s.stage) && <p className="text-[length:calc(11.5px*var(--fs,1))] text-red-500 break-keep">{s.stage}</p>}
         {s.running && (
           <div className="space-y-1.5">
             <div className="h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden"><div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} /></div>
-            <p className="text-[11.5px] text-purple-600 dark:text-purple-400 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> <span className="truncate">{pct}% · {s.stage}</span></p>
+            <p className="text-[length:calc(11.5px*var(--fs,1))] text-purple-600 dark:text-purple-400 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> <span className="truncate">{pct}% · {s.stage}</span></p>
             <button type="button" onClick={() => stopSelfTest()} className="mt-1 w-full py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-200 flex items-center justify-center gap-1.5 cursor-pointer"><Square className="w-3 h-3 fill-current" /> 점검 중단</button>
           </div>
         )}
@@ -61,7 +61,7 @@ export function UserSelfCheck({ onResult, onAttach }: { onResult: (text: string)
             {[...fail, ...warn, ...s.results.filter((r) => r.ok && !r.warn)].map((r, i) => (
               <li key={i} className="flex items-start gap-2 text-xs">
                 {!r.ok ? <XCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" /> : r.warn ? <AlertTriangle className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />}
-                <span className="min-w-0 break-keep"><span className="text-zinc-400">[{r.group}]</span> {r.name}{r.err && <span className="block text-[11px] text-zinc-500 break-all">{r.err}</span>}</span>
+                <span className="min-w-0 break-keep"><span className="text-zinc-400">[{r.group}]</span> {r.name}{r.err && <span className="block text-[length:calc(11px*var(--fs,1))] text-zinc-500 break-all">{r.err}</span>}</span>
               </li>
             ))}
           </ul>
@@ -102,7 +102,7 @@ function SelfCheckHistory() {
               {open === e.id && (
                 <ul className="mt-2 space-y-1 max-h-60 overflow-y-auto pl-5">
                   {[...e.results.filter((r) => !r.ok), ...e.results.filter((r) => r.ok && r.warn), ...e.results.filter((r) => r.ok && !r.warn)].map((r, i) => (
-                    <li key={i} className="text-[11.5px] break-keep"><span className={!r.ok ? 'text-red-500' : r.warn ? 'text-amber-600' : 'text-emerald-600'}>{!r.ok ? '✕' : r.warn ? '!' : '✓'}</span> <span className="text-zinc-400">[{r.group}]</span> {r.name}{r.err && <span className="block text-[11px] text-zinc-500 break-all">{r.err}</span>}</li>
+                    <li key={i} className="text-[length:calc(11.5px*var(--fs,1))] break-keep"><span className={!r.ok ? 'text-red-500' : r.warn ? 'text-amber-600' : 'text-emerald-600'}>{!r.ok ? '✕' : r.warn ? '!' : '✓'}</span> <span className="text-zinc-400">[{r.group}]</span> {r.name}{r.err && <span className="block text-[length:calc(11px*var(--fs,1))] text-zinc-500 break-all">{r.err}</span>}</li>
                   ))}
                 </ul>
               )}

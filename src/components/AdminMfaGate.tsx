@@ -170,7 +170,7 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
               <p className="text-xs text-zinc-500 leading-relaxed break-keep">아이폰 '암호' 앱·구글 OTP(Google Authenticator)·Microsoft Authenticator 같은 인증 앱으로 아래 QR을 찍거나, 휴대폰이면 '앱에 바로 추가'를 누르세요. 그다음 앱에 뜨는 6자리 숫자를 넣어요.</p>
               {qr && <img src={qr} alt="인증 앱 등록 QR" className="mx-auto w-48 h-48 rounded-xl bg-white p-1" />}
               <a href={uri} className="block text-xs font-bold text-purple-600 underline">휴대폰 인증 앱에 바로 추가</a>
-              <details className="text-[11px] text-zinc-500"><summary className="cursor-pointer">직접 입력할 설정 키 (이건 코드가 아니에요)</summary><p className="mt-1 font-mono break-all select-all">{secret.replace(/(.{4})/g, '$1 ').trim()}</p><p className="mt-1">앱에 이 키를 넣으면, 앱에 30초마다 바뀌는 <b>6자리 숫자</b>가 생겨요. 그 숫자를 아래에 넣어요.</p></details>
+              <details className="text-[length:calc(11px*var(--fs,1))] text-zinc-500"><summary className="cursor-pointer">직접 입력할 설정 키 (이건 코드가 아니에요)</summary><p className="mt-1 font-mono break-all select-all">{secret.replace(/(.{4})/g, '$1 ').trim()}</p><p className="mt-1">앱에 이 키를 넣으면, 앱에 30초마다 바뀌는 <b>6자리 숫자</b>가 생겨요. 그 숫자를 아래에 넣어요.</p></details>
             </>
           ) : (
             <p className="text-xs text-zinc-500 leading-relaxed break-keep">{useRecovery ? '복구 코드(XXXXX-XXXXX)를 넣어요. 코드마다 한 번만 쓸 수 있어요.' : '인증 앱(암호 앱 등)에 뜨는 6자리 숫자를 넣어요. 숫자는 30초마다 바뀌는 게 정상이에요. 휴대폰이 없을 때만 아래 복구 코드를 써요.'}</p>
@@ -202,7 +202,7 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
             {busy && <Loader2 className="w-4 h-4 animate-spin" />} 확인
           </button>
           {phase === 'verify' && (
-            <button type="button" onClick={() => { setUseRecovery(!useRecovery); setCode(''); setErr(''); }} className="text-[11px] text-zinc-500 underline cursor-pointer">
+            <button type="button" onClick={() => { setUseRecovery(!useRecovery); setCode(''); setErr(''); }} className="text-[length:calc(11px*var(--fs,1))] text-zinc-500 underline cursor-pointer">
               {useRecovery ? '6자리 코드로 하기' : '휴대폰이 없어요 (복구 코드)'}
             </button>
           )}
@@ -213,7 +213,7 @@ export function AdminMfaGate({ children, onCancel }: { children: React.ReactNode
                 <button type="button" onClick={() => { setErr(''); setCode(''); if (phase === 'verify') startWindow(); else check(false); }} className="w-full py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-xs font-bold cursor-pointer">다시 시작</button>
               </div>
             ) : (
-              <p className={`text-[11px] font-bold tabular-nums ${left <= 30 ? 'text-red-500' : 'text-zinc-400'}`}>남은 입력 시간 {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</p>
+              <p className={`text-[length:calc(11px*var(--fs,1))] font-bold tabular-nums ${left <= 30 ? 'text-red-500' : 'text-zinc-400'}`}>남은 입력 시간 {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</p>
             )
           )}
           <button type="button" onClick={onCancel} className="w-full py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5"><LogOut className="w-3.5 h-3.5" /> 나가기</button>
