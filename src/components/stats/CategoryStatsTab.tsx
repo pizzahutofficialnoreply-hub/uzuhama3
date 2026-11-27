@@ -1,3 +1,4 @@
+import { josa } from '../../utils/josa';
 import { makeMatcher } from '../../utils/textMatch';
 import { usePrefs } from '../../utils/userPrefs';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -363,7 +364,7 @@ export function CategoryStatsTab({
     const topGame = topIndividualGames[0];
     return (
       <span>
-        가장 많이 플레이한 장르는 <strong className="text-purple-700 dark:text-purple-300 font-bold">{topCategory.name}</strong>(으)로 전체의 <strong className="font-bold">{topCategory.share.toFixed(1)}%</strong>({topCategory.count}회)를 차지하며, {topGame ? <>대표 게임은 <strong className="text-zinc-900 dark:text-white font-bold">{topGame.name}</strong>({topGame.count}회)이에요.</> : '다양한 게임들을 진행했어요.'}
+        가장 많이 플레이한 장르는 <strong className="text-purple-700 dark:text-purple-300 font-bold">{topCategory.name}</strong>{josa(topCategory.name, '으로/로').slice(topCategory.name.length)} 전체의 <strong className="font-bold">{topCategory.share.toFixed(1)}%</strong>({topCategory.count}회)를 차지하며, {topGame ? <>대표 게임은 <strong className="text-zinc-900 dark:text-white font-bold">{topGame.name}</strong>({topGame.count}회)이에요.</> : '다양한 게임들을 진행했어요.'}
       </span>
     );
   }, [topCategory, totalPlays, topIndividualGames]);
@@ -392,7 +393,7 @@ export function CategoryStatsTab({
   return (
     <div className="space-y-6">
       {/* 4대 요약 카드 (모바일 폰트 최적화로 말줄임 최소화 & 클릭 시 추천 영상 탭 이동 연동) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         {/* 1위 최다 플레이 카테고리 -> 클릭 시 추천 영상 탭 해당 카테고리 선택 */}
         <div 
           onClick={() => {
@@ -401,7 +402,7 @@ export function CategoryStatsTab({
             }
           }}
           className={cn(
-            "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between transition-all group",
+            "col-span-2 sm:col-span-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between transition-all group",
             topCategory ? "cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md" : ""
           )}
           title={topCategory ? `클릭 시 추천 영상 탭에서 "${topCategory.name}" 카테고리로 이동해요.` : undefined}
@@ -446,34 +447,7 @@ export function CategoryStatsTab({
           </span>
         </div>
 
-        {/* 가장 자주 등장한 게임 -> 클릭 시 추천 영상 탭 해당 게임명 검색 */}
-        <div 
-          onClick={() => {
-            if (topIndividualGames[0] && onNavigateToRecommend) {
-              onNavigateToRecommend(undefined, topIndividualGames[0].name);
-            }
-          }}
-          className={cn(
-            "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[20px] p-3 sm:p-4 shadow-sm flex flex-col justify-between transition-all group",
-            topIndividualGames[0] ? "cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md" : ""
-          )}
-          title={topIndividualGames[0] ? `클릭 시 추천 영상 탭에서 "${topIndividualGames[0].name}" 검색 결과로 이동해요.` : undefined}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[length:calc(11px*var(--fs,1))] sm:text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              가장 자주 등장한 게임
-            </span>
-            {topIndividualGames[0] && (
-              <ExternalLink className="w-3.5 h-3.5 text-zinc-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
-            )}
-          </div>
-          <span className="text-sm sm:text-lg lg:text-xl font-bold text-zinc-900 dark:text-white truncate my-1">
-            {topIndividualGames[0]?.name || '없음'}
-          </span>
-          <span className="text-[length:calc(11px*var(--fs,1))] sm:text-xs text-zinc-500 dark:text-zinc-400 truncate">
-            {topIndividualGames[0] ? `${topIndividualGames[0].count}회 방송 진행` : '-'}
-          </span>
-        </div>
+        {/* '가장 자주 등장한 게임'은 위 요약(많이 한 게임 순위)과 겹쳐서 뺌 */}
       </div>
 
       {/* 카테고리별 비중 원그래프 (크기 키움, 하얀 윤곽선 제거, 부드러운 파스텔톤, 인터랙티브 필터링) */}

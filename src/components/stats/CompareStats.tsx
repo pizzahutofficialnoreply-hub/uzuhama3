@@ -1,3 +1,4 @@
+import { josa } from '../../utils/josa';
 import { useMemo, useState } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { format, subDays, subYears, startOfYear, endOfYear, parseISO, differenceInCalendarDays } from 'date-fns';
@@ -112,8 +113,8 @@ function compareLines(A: Stats, B: Stats, la: string, lb: string): string[] {
   // 카테고리
   const ca = A.cats[0]?.name, cb = B.cats[0]?.name;
   if (ca && cb) {
-    if (ca === cb) out.push(`가장 많이 한 장르는 두 기간 모두 ${ca}예요.`);
-    else out.push(`${la}에는 ${ca} 게임을 가장 많이 했는데, ${lb}에는 ${cb}이(가) 가장 많아요.`);
+    if (ca === cb) out.push(`가장 많이 한 장르는 두 기간 모두 ${josa(ca, '이에요/예요')}.`);
+    else out.push(`${la}에는 ${ca} 게임을 가장 많이 했는데, ${lb}에는 ${josa(cb, '이/가')} 가장 많아요.`);
   }
   return out;
 }

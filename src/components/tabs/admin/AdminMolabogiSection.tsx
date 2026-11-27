@@ -1,3 +1,4 @@
+import { josa } from '../../../utils/josa';
 import { useState, useMemo, useEffect } from 'react';
 import { AppData, BroadcastLog, GameItem, LinkItem, GameGroup } from '../../../types';
 import { extractYoutubeId, matchLogMedia, matchMediaUrl } from '../../../utils/urlUtils';
@@ -626,7 +627,7 @@ export function AdminMolabogiSection({ data, onUpdateLog }: AdminMolabogiSection
   const handleDeleteCompilation = async (comp: ExistingCompilation) => {
     if (!await confirmSheet(comp.kind === 'multi'
       ? `[${comp.title}]의 여러 생방 연결을 해제할까요?\n영상은 가장 이른 방송 기록에만 일반 영상으로 남아요.`
-      : `몰아보기 영상 [${comp.title}]을(를) 삭제할까요?\n연동된 ${comp.associatedLogIds.length}개 생방 기록에서 모두 제거돼요.`)) {
+      : `몰아보기 영상 ${josa(`[${comp.title}]`, '을/를')} 삭제할까요?\n연동된 ${comp.associatedLogIds.length}개 생방 기록에서 모두 제거돼요.`)) {
       return;
     }
 

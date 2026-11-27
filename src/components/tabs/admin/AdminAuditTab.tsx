@@ -1,3 +1,4 @@
+import { josa } from '../../../utils/josa';
 import { noteReads } from '../../../utils/readStats';
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
@@ -56,7 +57,7 @@ export function AdminAuditTab({ onAddLog, onUpdateLog, onDeleteLog, onUpdateSyst
 
   const undo = async (x: any) => {
     const what = `${x.at?.slice(0, 16).replace('T', ' ')} ${LABEL[x.action] || x.action}${x.date ? ` (${x.date})` : ''}`;
-    if (!await confirmSheet(`${what} 을(를) 되돌릴까요?`)) return;
+    if (!await confirmSheet(`${josa(String(what), '을/를')} 되돌릴까요?`)) return;
     setBusy(x.id);
     try {
       if (x.action === 'updateSystemConfig') await onUpdateSystemConfig?.(x.before || {});

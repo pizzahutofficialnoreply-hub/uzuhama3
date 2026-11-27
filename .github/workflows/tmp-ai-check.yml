@@ -1,0 +1,10 @@
+name: tmp AI 상태 확인 (한 번 쓰고 지움)
+on:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "== 워커 =="; curl -sS --max-time 30 "https://uzuhama.vercel.app/api/health?cf=status"; echo
+          echo "== AI 상태 =="; curl -sS --max-time 60 "https://uzuhama.vercel.app/api/videos/search-index?ai=status" | head -c 3000; echo

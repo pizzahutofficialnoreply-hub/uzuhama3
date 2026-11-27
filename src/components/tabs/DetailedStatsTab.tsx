@@ -1,3 +1,4 @@
+import { confirmSheet } from '../../utils/ui';
 
 const TrendTooltip = ({ active, payload, label }: any) => {
   const [visible, setVisible] = useState(false);
@@ -341,13 +342,21 @@ export function DetailedStatsTab({
     return () => window.removeEventListener('uzuhama:stats-open', on);
   }, [fetchLogs]);
   const [downloadConfirm, setDownloadConfirm] = useState<'csv' | 'pdf' | null>(null);
-  useBodyScrollLock(Boolean(downloadConfirm));
+  // 내보내기 전 확인: 다른 확인 창과 같은 '아래에서 올라오는 창'
   useEffect(() => {
     if (!downloadConfirm) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDownloadConfirm(null); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [downloadConfirm]);
+    const kind = downloadConfirm;
+    confirmSheet({
+      title: kind === 'csv' ? 'CSV 파일로 내보낼까요?' : 'PDF 리포트로 내보낼까요?',
+      message: '개인적으로 보는 용도로만 쓸 수 있어요. 판매나 광고 같은 상업적인 곳에는 쓰지 말아 주세요. 퍼 갈 때는 출처(우주하마 방송 예측)를 같이 적어 주세요.',
+      confirmText: '동의하고 내보내기',
+      cancelText: '취소',
+      danger: false,
+    }).then((ok) => {
+      if (ok) { if (kind === 'csv') executeDownloadCSV(); else executeDownloadPDF(); }
+      setDownloadConfirm(null);
+    });
+  }, [downloadConfirm]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showLegacyTooltip, setShowLegacyTooltip] = useState(false);
   const helpButtonRef = useRef<HTMLButtonElement>(null);
   const [tooltipPos, setTooltipPos] = useState<{
@@ -1164,7 +1173,7 @@ export function DetailedStatsTab({
 
       <div className="space-y-6 bg-transparent">
         {/* 각 하위 탭 맨 위: 그 탭 요약 (예전 기록은 추이 탭이 요일까지 합쳐 보여 줌) */}
-        {!compare && <StatsSummary logs={logsArray} start={startDate} end={endDate} part={activeSubTab} withDay={isLegacyRange} />}
+        {!compare && <StatsSummary logs={logsArray} start={startDate} end={endDate} part={activeSubTab} withDay={isLegacyRange} onSearch={onNavigateToRecommend ? (q) => onNavigateToRecommend(undefined, q) : undefined} />}
         {/* ~2025 데이터일 때: 방송 추이와 요일별 분석을 합치고 히트맵은 숨김 */}
         {isLegacyRange ? (
           <>
@@ -2249,52 +2258,6 @@ export function DetailedStatsTab({
         )}
       </AnimatePresence>
 
-      {/* Download Confirm Modal */}
-      {downloadConfirm && (
-        <div role="dialog" aria-modal="true" aria-label="다운로드 이용 동의" onClick={(e) => { if (e.target === e.currentTarget) setDownloadConfirm(null); }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
-          <div 
-            style={{ WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)' }}
-            className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-[24px] w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 border border-zinc-200/80 dark:border-zinc-800/80 relative"
-          >
-            <button 
-              type="button"
-              aria-label="닫기"
-              onClick={() => setDownloadConfirm(null)}
-              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <div className="p-6 text-center space-y-4">
-              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-2">
-                <AlertCircle className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-bold text-zinc-900 dark:text-white">이용 동의</h3>
-              <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">
-                본 데이터 및 리포트의 <strong className="text-red-500 font-bold">상업적 이용을 엄격히 금지</strong>해요.<br />
-                이에 동의하고 다운로드할까요?
-              </p>
-            </div>
-            <div className="flex border-t border-zinc-200 dark:border-zinc-800">
-              <button 
-                onClick={() => setDownloadConfirm(null)}
-                className="flex-1 p-4 font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
-              >
-                취소
-              </button>
-              <button 
-                onClick={() => {
-                  if (downloadConfirm === 'csv') executeDownloadCSV();
-                  else if (downloadConfirm === 'pdf') executeDownloadPDF();
-                  setDownloadConfirm(null);
-                }}
-                className="flex-1 p-4 font-bold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors border-l border-zinc-200 dark:border-zinc-800"
-              >
-                동의 및 다운로드
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

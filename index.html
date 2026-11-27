@@ -135,6 +135,8 @@
             || navigator.webdriver === true
             || window.matchMedia('(prefers-reduced-motion: reduce)').matches
             || /^\/(admin|selftest)/.test(location.pathname)
+            // 백그라운드에서 아이폰이 앱을 정리했다가 30분 안에 다시 연 경우: 인트로 없이 보던 화면으로
+            || (function () { var r = JSON.parse(localStorage.getItem('uzuhama_resume') || 'null'); return !!(r && Date.now() - r.t < 30 * 60 * 1000); })()
             || !el.animate;
           sessionStorage.setItem('uzuhama_intro', '1');
         } catch (e) {}

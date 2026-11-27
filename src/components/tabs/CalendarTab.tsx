@@ -1,3 +1,4 @@
+import { GameThumb } from '../common/GameLinkCard';
 import { useYoutubeViews, ytIdOf } from '../../hooks/useYoutubeViews';
 import { liveTitle } from '../../utils/liveTitle';
 import { makeMatcher } from '../../utils/textMatch';
@@ -1256,7 +1257,10 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                         <h4 className="text-xs sm:text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">진행한 게임</h4>
                         {selectedLog.games && selectedLog.games.length > 0 ? (
                           selectedLog.games.map((g, idx) => (
-                            <div key={idx} className="bg-zinc-50 dark:bg-zinc-800/50 p-3 sm:p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex flex-col items-start gap-1">
+                            <div key={idx} className="bg-zinc-50 dark:bg-zinc-800/50 p-3 sm:p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
+                              {/* 게임 썸네일 (스팀 링크일 때) · 없으면 칸 없이 */}
+                              {(() => { const link = g.link || (g as any).url || ''; return link ? <a href={link} target="_blank" rel="noopener noreferrer" className="contents"><GameThumb link={link} className="w-[38%] max-w-[160px] shrink-0 rounded-xl" /></a> : null; })()}
+                              <div className="flex-1 min-w-0 flex flex-col items-start gap-1">
                               <span className="inline-block px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[length:calc(10px*var(--fs,1))] sm:text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 font-hanna font-pro">
                                 {g.category || selectedLog.category || '종합'}
                               </span>
@@ -1271,6 +1275,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                                     <GameTitle text={g.name} />
                                   );
                                 })()}
+                              </div>
                               </div>
                             </div>
                           ))

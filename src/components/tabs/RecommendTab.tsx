@@ -1,3 +1,4 @@
+import { josa } from '../../utils/josa';
 import { chooseSheet } from '../../utils/ui';
 import { liveTitle } from '../../utils/liveTitle';
 import { ChevronRight } from 'lucide-react';
@@ -2522,7 +2523,7 @@ export function RecommendTab({
             {autoCorrected ? (
               <p>
                 <button type="button" onClick={() => setSearchTerm(autoCorrected.to)} className="font-bold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer">'{autoCorrected.to}'</button>
-                (으)로 검색한 결과예요{autoCorrected.how === 'hanyeong' ? ' (한/영 전환)' : ''}.{' '}
+                {josa(`'${autoCorrected.to}'`, '으로/로').slice(`'${autoCorrected.to}'`.length)} 검색한 결과예요{autoCorrected.how === 'hanyeong' ? ' (한/영 전환)' : ''}.{' '}
                 <button type="button" onClick={() => setKeepOriginalFor(autoCorrected.from)} className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 underline cursor-pointer">
                   '{autoCorrected.from}' 그대로 검색
                 </button>
@@ -2531,7 +2532,7 @@ export function RecommendTab({
               <p>
                 혹시{' '}
                 <button type="button" onClick={() => setSearchTerm(suggestion.to)} className="font-bold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer">'{suggestion.to}'</button>
-                {' '}을(를) 검색하셨나요?
+                {josa(suggestion.to, '을/를').slice(suggestion.to.length)} 검색하셨나요?
               </p>
             )}
             {/* 줄임말·말하듯 검색 안내 */}

@@ -128,6 +128,8 @@ function MainApp() {
   useRealtimeNotification(logsList, data?.system); // 실시간 제보 심사 결과 및 최고 확률 안내 알림 수신 브릿지 활성화
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const saved = (localStorage.getItem('uzuhama_active_tab') as Tab) || 'summary';
+    // 백그라운드에서 잠깐 정리됐다 다시 연 경우(30분 안)는 보던 탭 그대로
+    if (resumeInfo()) return (resumeInfo()!.tab as Tab) || saved;
     // 검색 탭을 마지막으로 앱을 종료했으면 요약 탭에서 시작하도록 강제 리셋
     if (saved === 'recommend') {
       return 'summary';
@@ -136,6 +138,19 @@ function MainApp() {
   });
   // 그래프 탭은 넘어오는 움직임(0.36초)이 끝난 뒤에 그래프를 그림 (움직임과 그리기를 겹치지 않게 → 안 끊김)
   const [chartTab, setChartTab] = useState<Tab>(activeTab);
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  // 백그라운드로 갈 때 지금 탭·스크롤을 적어 두고, 아이폰이 앱을 정리했다 다시 열면 그 자리로
+  useEffect(() => {
+    const save = () => { try { localStorage.setItem('uzuhama_resume', JSON.stringify({ t: Date.now(), tab: activeTabRef.current, y: Math.round(window.scrollY) })); } catch { /* */ } };
+    const vis = () => { if (document.visibilityState === 'hidden') save(); else { try { localStorage.removeItem('uzuhama_resume'); } catch { /* */ } } };
+    document.addEventListener('visibilitychange', vis);
+    window.addEventListener('pagehide', save);
+    const r = resumeInfo();
+    try { localStorage.removeItem('uzuhama_resume'); } catch { /* */ }
+    if (r && r.y > 0) { const ids = [600, 1400]; ids.forEach((ms) => window.setTimeout(() => { if (Math.abs(window.scrollY - r.y) > 40) window.scrollTo({ top: r.y }); }, ms)); }
+    return () => { document.removeEventListener('visibilitychange', vis); window.removeEventListener('pagehide', save); };
+  }, []);
   useEffect(() => {
     if (activeTab === chartTab) return;
     const id = window.setTimeout(() => setChartTab(activeTab), 380);
@@ -1480,6 +1495,14 @@ function MainOrPause() {
     return <MaintenanceScreen system={sys} maintSystem={sys} onEnd={openWithIntro} />;
   }
   return <MainApp />;
+}
+
+/** 백그라운드에서 정리된 뒤 30분 안에 다시 연 경우의 이전 상태 */
+let resumeCache: { t: number; tab: string; y: number } | null | undefined;
+function resumeInfo() {
+  if (resumeCache !== undefined) return resumeCache;
+  try { const r = JSON.parse(localStorage.getItem('uzuhama_resume') || 'null'); resumeCache = r && Date.now() - r.t < 30 * 60 * 1000 ? r : null; } catch { resumeCache = null; }
+  return resumeCache;
 }
 
 export default function App() {

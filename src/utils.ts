@@ -1,3 +1,4 @@
+import { finalSound } from './utils/josa';
 import React from 'react';
 import { AppData, BroadcastLog } from './types';
 import { clsx, type ClassValue } from 'clsx';
@@ -346,54 +347,11 @@ export function getKoreanParticle(
   word: string, 
   particleType: '으로/로' | '이/가' | '을/를' | '은/는' | '과/와' | '이나/나' | '이란/란'
 ): string {
-  if (!word || typeof word !== 'string') {
-    return particleType.split('/')[0];
-  }
-
-  // 특수문자, 괄호 등 끝부분의 무의미한 기호 제거 후 마지막 음절 검사
-  const cleanWord = word.trim().replace(/[\s.,!?;:()\[\]'"]+$/g, '');
-  if (!cleanWord) return particleType.split('/')[0];
-
-  const lastChar = cleanWord[cleanWord.length - 1];
-  const charCode = lastChar.charCodeAt(0);
-
-  // 한글 완성형 음절 범위: AC00 ~ D7A3
-  if (charCode >= 0xAC00 && charCode <= 0xD7A3) {
-    const jongseong = (charCode - 0xAC00) % 28;
-    const hasJongseong = jongseong > 0;
-
-    switch (particleType) {
-      case '으로/로':
-        // 받침이 없거나 'ㄹ' 받침(jongseong === 8)일 때는 '로'
-        return (!hasJongseong || jongseong === 8) ? '로' : '으로';
-      case '이/가':
-        return hasJongseong ? '이' : '가';
-      case '을/를':
-        return hasJongseong ? '을' : '를';
-      case '은/는':
-        return hasJongseong ? '은' : '는';
-      case '과/와':
-        return hasJongseong ? '과' : '와';
-      case '이나/나':
-        return hasJongseong ? '이나' : '나';
-      case '이란/란':
-        return hasJongseong ? '이란' : '란';
-    }
-  }
-
-  // 숫자로 끝날 경우의 일반적인 발음 기준
-  if (/[013678]$/.test(cleanWord)) {
-    // 0(영), 1(일), 3(삼), 6(육), 7(칠), 8(팔)은 받침 있음
-    if (particleType === '으로/로') {
-      return (/[18]$/.test(cleanWord)) ? '로' : '으로'; // 1(일), 8(팔)은 ㄹ받침 -> 로
-    }
-    return particleType.split('/')[0];
-  } else if (/[2459]$/.test(cleanWord)) {
-    // 2(이), 4(사), 5(오), 9(구)는 받침 없음
-    return particleType.split('/')[1];
-  }
-
-  return particleType.split('/')[1];
+  // 끝소리(받침)는 utils/josa 의 규칙 하나로: 한글 받침 · 숫자 읽기 · 영어(외래어 표기법 끝소리) · 가나
+  const f = finalSound(word);
+  const [withB, withoutB] = particleType.split('/');
+  if (particleType === '으로/로') return f === true ? '으로' : '로';
+  return f ? withB : withoutB;
 }
 
 export function attachKoreanParticle(
@@ -410,11 +368,16 @@ export function autoFixKoreanParticles(text: string): string {
   if (!text || typeof text !== 'string') return text;
   
   return text
-    .replace(/([가-힣0-9a-zA-Z]+)\(으\)로/g, (_, word) => `${word}${getKoreanParticle(word, '으로/로')}`)
-    .replace(/([가-힣0-9a-zA-Z]+)\(이\/가\)/g, (_, word) => `${word}${getKoreanParticle(word, '이/가')}`)
-    .replace(/([가-힣0-9a-zA-Z]+)\(을\/를\)/g, (_, word) => `${word}${getKoreanParticle(word, '을/를')}`)
-    .replace(/([가-힣0-9a-zA-Z]+)\(은\/는\)/g, (_, word) => `${word}${getKoreanParticle(word, '은/는')}`)
-    .replace(/([가-힣0-9a-zA-Z]+)\(과\/와\)/g, (_, word) => `${word}${getKoreanParticle(word, '과/와')}`)
+    .replace(/([가-힣0-9a-zA-Z]+[)\]]?)\(으\)로/g, (_, word) => `${word}${getKoreanParticle(word, '으로/로')}`)
+    .replace(/([가-힣0-9a-zA-Z]+[)\]]?)\(이\/가\)/g, (_, word) => `${word}${getKoreanParticle(word, '이/가')}`)
+    .replace(/([가-힣0-9a-zA-Z]+[)\]]?)\(을\/를\)/g, (_, word) => `${word}${getKoreanParticle(word, '을/를')}`)
+    .replace(/([가-힣0-9a-zA-Z]+[)\]]?)\(은\/는\)/g, (_, word) => `${word}${getKoreanParticle(word, '은/는')}`)
+    .replace(/([가-힣0-9a-zA-Z]+[)\]]?)\(과\/와\)/g, (_, word) => `${word}${getKoreanParticle(word, '과/와')}`)
+    // '을(를)' 처럼 괄호 하나로 쓴 꼴도
+    .replace(/([가-힣0-9a-zA-Z]+[)\]'"]?)(을\(를\)|를\(을\))/g, (_, word) => `${word}${getKoreanParticle(word, '을/를')}`)
+    .replace(/([가-힣0-9a-zA-Z]+[)\]'"]?)(이\(가\)|가\(이\))/g, (_, word) => `${word}${getKoreanParticle(word, '이/가')}`)
+    .replace(/([가-힣0-9a-zA-Z]+[)\]'"]?)(은\(는\)|는\(은\))/g, (_, word) => `${word}${getKoreanParticle(word, '은/는')}`)
+    .replace(/([가-힣0-9a-zA-Z]+[)\]'"]?)(과\(와\)|와\(과\))/g, (_, word) => `${word}${getKoreanParticle(word, '과/와')}`)
     .replace(/([가-힣0-9a-zA-Z]+)으로\/로/g, (_, word) => `${word}${getKoreanParticle(word, '으로/로')}`);
 }
 

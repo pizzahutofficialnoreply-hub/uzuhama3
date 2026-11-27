@@ -32,8 +32,8 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
   listOnly?: boolean;
 }) {
   const [savedStyle, setViewStyle] = useViewStyle('compilation');
-  // 펼친 카드 안(웃참 제외 몰아보기): 항상 목록 — 줄마다 생방송·쇼츠 버튼
-  const viewStyle = listOnly ? 'list' : savedStyle;
+  // 펼친 카드 안(웃참 제외 몰아보기): 항상 카드 — 유튜브·생방송·쇼츠 버튼이 카드 안에 같이 있는 그 카드
+  const viewStyle = listOnly ? 'card' : savedStyle;
   const [page, setPage] = useState(1);
   // 설정에서 조절, 목록 보기는 한 줄이 작아서 카드의 2배
   const basePerPage = usePrefs().collectionPageSize;

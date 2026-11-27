@@ -1,3 +1,4 @@
+import { josa } from './josa';
 import { buildVocab, correctQuery, latinToHangul, squash } from './smartSearch';
 import { GAME_ALIASES, autoAliases } from './searchPlan';
 import type { UserPrefs } from './userPrefs';
@@ -46,7 +47,7 @@ export function findGames(query: string, names: string[], prefs: Partial<UserPre
     if (/^[a-z]+$/i.test(raw)) { const h = latinToHangul(raw); if (h && h !== raw) contains(h, 6, `한/영 '${h}'`); }
     try {
       const fix = correctQuery(raw, buildVocab(list), (prefs.keyboard || 'unknown') as any);
-      if (fix && fix.to !== raw) contains(fix.to, 5, `'${fix.to}'(으)로 고쳐서`);
+      if (fix && fix.to !== raw) contains(fix.to, 5, `${josa(`'${fix.to}'`, '으로/로')} 고쳐서`);
     } catch { /* */ }
   }
   return [...out.values()].sort((a, b) => b.score - a.score || a.name.length - b.name.length).slice(0, limit).map(({ name, how }) => ({ name, how }));

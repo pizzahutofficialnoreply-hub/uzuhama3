@@ -98,19 +98,19 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts, part }: {
     <>
       {showLinked && others.length > 0 && (
         <section className="mt-6" aria-label="연결된 영상">
-          <h3 className="px-1 mb-2.5 text-[length:calc(13px*var(--fs,1))] font-black text-white">{others.some((x) => x.kind === 'live') ? '이 영상의 생방송' : '이 방송의 영상'}</h3>
+          <h3 className="mb-2.5 text-[length:calc(13px*var(--fs,1))] font-black text-zinc-900 dark:text-white">{others.some((x) => x.kind === 'live') ? '이 영상의 생방송' : '이 방송의 영상'}</h3>
           <div className="space-y-3">{others.map((c) => <Card key={c.id} c={{ ...c, cats: [] }} onPick={onPick} logs={logs} />)}</div>
         </section>
       )}
       {showLinked && shorts.length > 0 && (
         <section className="mt-6" aria-label="연결된 쇼츠">
-          <h3 className="px-1 mb-2.5 text-[length:calc(13px*var(--fs,1))] font-black text-white">연결된 쇼츠</h3>
-          <div className="flex gap-2.5 overflow-x-auto no-scrollbar -mx-1 px-1 pb-1" data-no-swipe>
+          <h3 className="mb-2.5 text-[length:calc(13px*var(--fs,1))] font-black text-zinc-900 dark:text-white">연결된 쇼츠</h3>
+          <div className="flex gap-2.5 overflow-x-auto no-scrollbar -mx-5 px-5 pb-1" data-no-swipe>
             {shorts.map((x, i) => (
               <button key={x.id} type="button" onClick={() => onShorts?.(shorts.map((y) => ({ url: `https://www.youtube.com/shorts/${y.id}`, title: y.title })), i, x.games)}
-                className="shrink-0 w-[110px] text-left cursor-pointer">
+                className="shrink-0 w-[136px] sm:w-[156px] text-left cursor-pointer">
                 <span className="block aspect-[9/16] rounded-2xl overflow-hidden bg-zinc-800"><img src={`https://i.ytimg.com/vi/${x.id}/oardefault.jpg`} onError={(e) => { (e.currentTarget as HTMLImageElement).src = `https://i.ytimg.com/vi/${x.id}/hqdefault.jpg`; }} alt="" loading="lazy" className="w-full h-full object-cover" /></span>
-                <span className="mt-1.5 block text-[length:calc(12px*var(--fs,1))] font-bold text-zinc-100 leading-snug line-clamp-2 break-keep">{x.title || '쇼츠'}</span>
+                <span className="mt-1.5 block text-[length:calc(12.5px*var(--fs,1))] font-bold text-zinc-800 dark:text-zinc-100 leading-snug line-clamp-2 break-keep">{x.title || '쇼츠'}</span>
               </button>
             ))}
           </div>
@@ -118,7 +118,7 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts, part }: {
       )}
       {showRest && rest.length > 0 && (
         <section className="mt-6" aria-label="추천 영상">
-          <h3 className="px-1 mb-2.5 text-[length:calc(13px*var(--fs,1))] font-black text-white">추천 영상</h3>
+          <h3 className="mb-2.5 text-[length:calc(13px*var(--fs,1))] font-black text-zinc-900 dark:text-white">추천 영상</h3>
           <div className="space-y-3">{rest.map((c) => <Card key={c.id} c={c} onPick={onPick} logs={logs} />)}</div>
         </section>
       )}

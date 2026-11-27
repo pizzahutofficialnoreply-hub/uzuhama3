@@ -15,8 +15,9 @@ const keyFor = (scope?: ViewScope) => (scope && getPrefs().viewStyleScope === 'p
 const read = (scope?: ViewScope): ViewStyle => {
   try {
     const v = localStorage.getItem(keyFor(scope)) ?? localStorage.getItem(KEY);
-    return v === 'list' ? 'list' : 'card';
-  } catch { return 'card'; }
+    // 기본은 목록 (카드로 바꿔 둔 사람만 카드)
+    return v === 'card' ? 'card' : 'list';
+  } catch { return 'list'; }
 };
 
 export function useViewStyle(scope?: ViewScope): [ViewStyle, (v: ViewStyle) => void] {

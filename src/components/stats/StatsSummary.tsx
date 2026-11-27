@@ -1,16 +1,29 @@
 /**
  * 분석 탭 각 하위 탭(추이 · 요일·시간 · 카테고리) 맨 위 요약
  */
+import { josa } from '../../utils/josa';
 import { useMemo } from 'react';
 import { parseISO, getDay, format } from 'date-fns';
-import { CalendarDays, Clock, Timer, Sunrise, CalendarRange, Gamepad2 } from 'lucide-react';
+import { CalendarDays, Clock, Timer, Sunrise, Sun, Sunset, Moon, CalendarRange, Gamepad2, ChevronRight } from 'lucide-react';
 import type { BroadcastLog } from '../../types';
 import { Row, Tint, hoursText } from '../home/TossHome';
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 /** 분석 탭 각 하위 탭 맨 위: 그 탭 내용을 한 문장 + 큰 숫자 줄로 (토스식) */
-export function StatsSummary({ logs, start, end, part, withDay }: {
+/** 보통 시작한 시간: '밤 9시대'처럼 대략 + 시간대별 아이콘 */
+function startLabel(min: number) {
+  const h = Math.floor(min / 60) % 24;
+  const when = h < 5 ? '새벽' : h < 9 ? '아침' : h < 12 ? '오전' : h < 18 ? '오후' : h < 21 ? '저녁' : '밤';
+  const h12 = h % 12 || 12;
+  const icon = h >= 5 && h < 9 ? <Sunrise /> : h >= 9 && h < 17 ? <Sun /> : h >= 17 && h < 20 ? <Sunset /> : <Moon />;
+  const tone: 'amber' | 'purple' | 'rose' = h >= 5 && h < 17 ? 'amber' : h >= 17 && h < 20 ? 'rose' : 'purple';
+  return { text: `${when} ${h12}시대`, icon, tone };
+}
+
+export function StatsSummary({ logs, start, end, part, withDay, onSearch }: {
+  /** 순위 게임을 누르면 검색 탭에서 그 게임 */
+  onSearch?: (q: string) => void;
   /** 예전 기록(~2025): 추이 탭이 요일까지 합쳐 보여 줘서 요일 줄도 */
   withDay?: boolean;
   logs: BroadcastLog[];
@@ -34,14 +47,13 @@ export function StatsSummary({ logs, start, end, part, withDay }: {
     return { n: on.length, hours, avg, avgStart, topDay, topDayN: topDay >= 0 ? dayCnt[topDay] : 0, games };
   }, [logs]);
 
-  const clock = (m: number) => { const h = Math.floor(m / 60), mm = m % 60; return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}시${mm ? ` ${mm}분` : ''}`; };
   const range = `${format(parseISO(start), 'yyyy.M.d')} ~ ${format(parseISO(end), 'yyyy.M.d')}`;
   if (!s.n) return null;
 
   const head =
     part === 'trend' ? `${s.n}번${s.avg > 0 ? `, 평균 ${hoursText(s.avg)}씩` : ''} 방송했어요`
     : part === 'day' ? (s.topDay >= 0 ? `${DAYS[s.topDay]}요일에 제일 많이 했어요` : '')
-    : s.games[0] ? `${s.games[0][0]}을(를) 제일 많이 했어요` : '';
+    : s.games[0] ? (s.games[0][1] >= 2 ? `${josa(s.games[0][0], '을/를')} 제일 많이 했어요` : `${s.games.length}개 게임을 한 번씩 했어요`) : '';
 
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-[26px] px-3 pt-5 pb-2.5">
@@ -56,11 +68,22 @@ export function StatsSummary({ logs, start, end, part, withDay }: {
       </>}
       {(part === 'day' || (withDay && part === 'trend')) && <>
         {s.topDay >= 0 && <Row icon={<Tint tone="rose"><CalendarRange /></Tint>} caption="제일 많이 한 요일" value={`${DAYS[s.topDay]}요일 · ${s.topDayN}번`} />}
-        {s.avgStart !== null && <Row icon={<Tint tone="amber"><Sunrise /></Tint>} caption="보통 시작한 시간" value={clock(s.avgStart)} />}
+        {s.avgStart !== null && (() => { const l = startLabel(s.avgStart); return <Row icon={<Tint tone={l.tone}>{l.icon}</Tint>} caption="보통 시작한 시간" value={l.text} />; })()}
       </>}
-      {part === 'category' && s.games.slice(0, 3).map(([name, c], i) => (
-        <Row key={name} icon={<Tint tone={i === 0 ? 'purple' : 'zinc'}><Gamepad2 /></Tint>} caption={`${i + 1}위 · ${c}번`} value={name} />
-      ))}
+      {/* 순위는 2번 이상 한 게임만 (1번씩 한 게임이 3위로 보이면 헷갈려서) · 나머지는 한 줄로 묶음 */}
+      {part === 'category' && (() => {
+        const ranked = s.games.filter(([, c]) => c >= 2).slice(0, 3);
+        const once = s.games.filter(([, c]) => c < 2).length;
+        return <>
+          {ranked.map(([name, c], i) => (
+            <Row key={name} onClick={onSearch ? () => onSearch(name) : undefined} icon={<Tint tone={i === 0 ? 'purple' : 'zinc'}><Gamepad2 /></Tint>} caption={`${i + 1}위 · ${c}번`} value={name}
+              right={onSearch ? <ChevronRight className="w-5 h-5 text-zinc-400 shrink-0" /> : undefined} />
+          ))}
+          {once > 0 && ranked.length < 3 && (
+            <Row icon={<Tint tone="zinc"><Gamepad2 /></Tint>} caption="한 번씩 한 게임" value={`${once}개 · 여러 게임을 한 번씩 했어요`} />
+          )}
+        </>;
+      })()}
     </div>
   );
 }

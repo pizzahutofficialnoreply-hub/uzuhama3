@@ -40,7 +40,9 @@ export function getBgm(): Pref {
 type State = Pref & { playing: boolean; track: ReturnType<typeof trackAt> };
 const listeners = new Set<(s: State) => void>();
 export function onBgm(fn: (s: State) => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
-export function bgmState(): State { return { ...getBgm(), playing: !!el && !el.paused, track: trackAt(el ? el.currentTime : savedPos()) }; }
+/** 잠금화면·다이나믹 아일랜드에서 멈춤: 이번에만 멈춤 (설정은 켜 둔 채 → 앱을 다시 열면 다시 나옴) */
+let sessionPaused = false;
+export function bgmState(): State { const p = getBgm(); return { ...p, on: p.on && !sessionPaused, playing: !!el && !el.paused, track: trackAt(el ? el.currentTime : savedPos()) }; }
 const emit = () => { const s = bgmState(); listeners.forEach((fn) => fn(s)); };
 
 let el: HTMLAudioElement | null = null;
@@ -92,8 +94,8 @@ function ensureEl() {
   applyVol();
   try {
     if ('mediaSession' in navigator) {
-      navigator.mediaSession.setActionHandler('pause', () => setBgm({ on: false }));
-      navigator.mediaSession.setActionHandler('play', () => setBgm({ on: true }));
+      navigator.mediaSession.setActionHandler('pause', () => { sessionPaused = true; pause(); emit(); });
+      navigator.mediaSession.setActionHandler('play', () => { sessionPaused = false; play(); emit(); });
       navigator.mediaSession.setActionHandler('nexttrack', () => skip(1));
       navigator.mediaSession.setActionHandler('previoustrack', () => skip(-1));
     }
@@ -107,7 +109,7 @@ function applyVol() {
 }
 function play() {
   const p = getBgm();
-  if (!p.on || videoOpen || (document.hidden && !p.bg)) return;
+  if (!p.on || sessionPaused || videoOpen || (document.hidden && !p.bg)) return;
   const a = ensureEl();
   try { ac?.resume(); } catch { /* */ }
   // 인트로(채널 인트로 노래)가 도는 중이면 겹치지 않게: 재생 허락만 받아 두고(바로 멈춤) 인트로가 끝나면 시작
@@ -143,6 +145,7 @@ export function skip(dir: 1 | -1) {
 
 export function setBgm(patch: Partial<Pref>) {
   const next = { ...getBgm(), ...patch };
+  if (patch.on !== undefined) sessionPaused = false; // 사이트 안에서 켜고 끄면 그게 설정
   try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* */ }
   if (patch.bg !== undefined && el) { const was = !el.paused; ensureEl(); if (was) play(); }
   applyVol();
@@ -166,7 +169,7 @@ export function initBgm() {
   };
   // 화면을 누를 때 시작 (브라우저 소리 허락). 준비 전에 누르면 허락만 받아 둠 (파일은 아직 안 받음)
   const kick = () => {
-    if (!getBgm().on || (started && !el?.paused)) return;
+    if (!getBgm().on || sessionPaused || (started && !el?.paused)) return;
     if (ready) { play(); return; }
     if (!unlocked) { try { const a = ensureEl(); a.muted = true; a.play().then(() => { a.pause(); a.muted = false; unlocked = true; }).catch(() => { a.muted = false; }); } catch { /* */ } }
   };

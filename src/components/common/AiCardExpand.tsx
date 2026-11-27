@@ -1,3 +1,4 @@
+import { GameLinkCard } from './GameLinkCard';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, animate, useMotionValue, useTransform } from 'motion/react';
@@ -388,13 +389,25 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
 
                 {/* 연결된 생방송·쇼츠를 AI 요약보다 먼저 (유튜브로 보기는 위 제목 칸에 그대로) */}
                 {!t.compilation && !t.embed && (
-                  <div className="-mx-1.5 -mt-2">
+                  <div className="-mt-2">
                     <SimilarVideos part="linked" id={t.id} title={data?.title || t.title} logs={logs} onPick={(id, title) => switchTo(id, title)} onShorts={(items, i, games) => {
                       try { frame.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*'); } catch { /* */ }
                       setShortsView({ items: [...items, ...recommendShorts(logs, games, items.map((x) => x.url))], i });
                     }} />
                   </div>
                 )}
+                {/* 이 방송의 게임: 썸네일 + 링크 (AI 요약에 '게임별 요약'이 있으면 거기에 붙여서 보여 주니 여기선 생략 · 몰아보기 제외) */}
+                {!t.compilation && !t.embed && (() => {
+                  const items = (findVideo(t.id, logs)?.log?.games || []).filter((g: any) => g?.name);
+                  const aiHasGames = showSummary && ready && ((data?.games?.length || 0) + (data?.gameStories?.length || 0)) > 0;
+                  if (!items.length || aiHasGames) return null;
+                  return (
+                    <div className="mt-4">
+                      <p className="mb-2 text-[length:calc(13px*var(--fs,1))] font-black text-zinc-900 dark:text-white">이 방송의 게임</p>
+                      <div className="space-y-2">{items.map((g: any, i: number) => <GameLinkCard key={`${g.name}-${i}`} name={g.name} link={g.link} category={g.category} />)}</div>
+                    </div>
+                  );
+                })()}
                 {(showSummary || hasScript) && <div className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
                   <div className="flex items-center gap-2 px-4 py-3">
                     {showSummary && hasScript ? (
@@ -432,7 +445,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                               <Skeleton className="mt-3 h-16 w-full rounded-2xl" />
                             </div>
                           ) : ready ? (
-                            <SummaryBody d={data} date={findVideo(t.id, logs)?.log?.date} spoil={spoil} onSeek={(s) => seek(s)} onSearch={(q) => { close(); goSearch(q); }} />
+                            <SummaryBody d={data} date={findVideo(t.id, logs)?.log?.date} gameItems={findVideo(t.id, logs)?.log?.games} spoil={spoil} onSeek={(s) => seek(s)} onSearch={(q) => { close(); goSearch(q); }} />
                           ) : compHas ? (
                             <CompilationSummary data={data} spoil={spoil} onSeek={(s, id) => seek(s, id)} onSearch={(q) => { close(); goSearch(q); }} />
                           ) : null}

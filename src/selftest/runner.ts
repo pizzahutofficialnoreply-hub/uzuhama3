@@ -1,3 +1,4 @@
+import { josa } from '../utils/josa';
 /**
  * 화면·기능 전체 점검 (사람이 누르는 순서 그대로)
  * - /selftest 화면이 사이트를 안쪽 창(iframe)에 띄워 놓고 차례로 눌러 봄
@@ -132,7 +133,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
       try { const v = fn(); if (v) return v as T; } catch { /* */ }
       await sleep(120);
     }
-    throw new Error(`${what}이(가) ${Math.round(ms / 1000)}초 안에 안 나와요`);
+    throw new Error(`${josa(what, '이/가')} ${Math.round(ms / 1000)}초 안에 안 나와요`);
   };
   const go = async (path: string) => {
     await new Promise<void>((res) => {

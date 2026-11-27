@@ -8,7 +8,10 @@ import { isAdminUser, adminSessionValid } from '../../utils/adminAuth';
 const AiSummaryEditor = lazy(() => import('./AiSummaryEditor'));
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { BookOpen, ChevronRight, Flag, Gamepad2, Loader2, Search, X, MessageCircle } from 'lucide-react';
+import { BookOpen, ChevronRight, Flag, Gamepad2, Loader2, Search, X, MessageCircle, ExternalLink } from 'lucide-react';
+import { GameThumb } from './GameLinkCard';
+import { matchGameItem, gameLinkLabel } from '../../utils/gameThumb';
+import type { GameItem } from '../../types';
 import { embedSrc, trackYoutubeFrame } from '../../utils/watchHistory';
 import { aiSearch, fmtTime, type AiResult } from '../../utils/aiSearch';
 import { useBackToClose } from '../../hooks/useBackToClose';
@@ -231,7 +234,7 @@ export function useDetailUpdates(id: string | undefined, set: (d: any) => void) 
 }
 const isAdminNow = () => { try { return isAdminUser(auth.currentUser) && adminSessionValid(); } catch { return false; } };
 
-export function SummaryBody(props: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean; date?: string | null }) {
+export function SummaryBody(props: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean; date?: string | null; gameItems?: GameItem[] | null }) {
   const [editing, setEditing] = useState(false);
   const admin = isAdminNow();
   if (editing) {
@@ -282,7 +285,7 @@ async function seekMention(id: string, k: string, onSeek: (t: number) => void) {
   else toast(sc?.lines?.length ? '스크립트에서 이 얘기를 한 곳을 못 찾았어요' : '스크립트가 아직 없어서 시간을 못 찾았어요', 'info');
 }
 
-function SummaryView({ d, onSeek, onSearch, spoil = false, date }: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean; date?: string | null }) {
+function SummaryView({ d, onSeek, onSearch, spoil = false, date, gameItems }: { d: any; onSeek: (t: number) => void; onSearch: (q: string) => void; spoil?: boolean; date?: string | null; gameItems?: GameItem[] | null }) {
   // 시트(사람이 적은 것)에 있으면 그걸 먼저: 오팬무·오음무·오저무
   const sheet = useSheetExtra(date);
   const pan = sheet?.pan || d.opanmu;
@@ -352,6 +355,13 @@ function SummaryView({ d, onSeek, onSearch, spoil = false, date }: { d: any; onS
           <div className="space-y-2.5">
             {[...games.map((g) => ({ g, s: storyOf(g) })), ...extraStories.map((s) => ({ g: { name: s.name }, s }))].map(({ g, s }, i) => (
               <div key={`${g.name}-${i}`} className="rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 p-3.5 space-y-2">
+                {/* 방송 기록의 게임 링크로 썸네일 + 가기 (없으면 썸네일 칸 없이) */}
+                {(() => { const it = matchGameItem(g.name || g.ko || '', gameItems); return it?.link ? (
+                  <a href={it.link} target="_blank" rel="noreferrer" className="block -mx-0.5 -mt-0.5 mb-1 relative rounded-xl overflow-hidden">
+                    <GameThumb link={it.link} className="w-full rounded-xl" />
+                    <span className="absolute right-1.5 bottom-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 text-white text-[length:calc(11px*var(--fs,1))] font-bold">{gameLinkLabel(it.link)}<ExternalLink className="w-3 h-3" /></span>
+                  </a>
+                ) : null; })()}
                 <div className="flex items-start justify-between gap-2">
                   <button type="button" onClick={() => onSearch(g.name || g.ko)} className="flex-1 text-left min-w-0 cursor-pointer group">
                     <p className="text-[length:calc(13.5px*var(--fs,1))] font-black text-zinc-900 dark:text-white group-hover:text-purple-600 break-keep">{g.name || g.ko}</p>
