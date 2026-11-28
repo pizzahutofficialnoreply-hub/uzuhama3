@@ -1,4 +1,4 @@
-name: tmp 읽기 통계 자세히 (지움)
+name: tmp 날짜 보정 넣기 (지움)
 on:
   workflow_dispatch:
 jobs:
@@ -13,14 +13,14 @@ jobs:
           import admin from 'firebase-admin';
           admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.SA)) });
           const db = admin.firestore();
-          const day = new Date(Date.now() + 9*3600000 - 86400000).toISOString().slice(0,10);
-          const d = (await db.collection('admin_data').doc('reads_' + day).get()).data() || {};
-          console.log('== day', day);
-          const rows = [];
-          for (const [r, cols] of Object.entries(d.s || {})) for (const [c, n] of Object.entries(cols)) rows.push([n, r, c]);
-          rows.sort((a, b) => b[0] - a[0]);
-          rows.slice(0, 40).forEach(([n, r, c]) => console.log(String(n).padStart(6), r, '›', c));
-          const hr = d.h || {};
-          for (const h of ['h03', 'h13', 'h20']) console.log(h, JSON.stringify(Object.entries(hr[h] || {}).sort((a,b)=>b[1]-a[1]).slice(0,5)));
+          const ref = db.collection('config').doc('system');
+          const cur = (await ref.get()).data() || {};
+          const list = Array.isArray(cur.dateOverrides) ? cur.dateOverrides : [];
+          console.log('before', JSON.stringify(list));
+          const add = [{ date: '2026-11-29', type: 'boost', min: 12, note: '10주년 전날' }, { date: '2026-11-30', type: 'boost', min: 40, note: '10주년' }];
+          const next = [...list];
+          for (const a of add) if (!next.some((o) => o && o.date === a.date)) next.push(a);
+          await ref.set({ dateOverrides: next }, { merge: true });
+          console.log('after', JSON.stringify(next));
           JS
           node r.mjs
