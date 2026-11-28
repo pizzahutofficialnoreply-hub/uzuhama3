@@ -1,3 +1,4 @@
+import { boostFor } from './dday';
 import type { BroadcastLog, SystemConfig } from '../types';
 
 /**
@@ -58,7 +59,7 @@ export interface ProbabilityBreakdown {
   /** 단계별 확률(%) — 자세히 보기 표시용: 요일 → 간격 반영 → 휴방·패턴 반영(=오늘) → 시간대 반영(=최종) */
   steps: { weekday: number; afterGap: number; day: number; final: number };
   pattern: {
-    state: 'live' | 'streamedToday' | 'absence' | 'scheduled' | 'normal' | 'noData';
+    state: 'live' | 'streamedToday' | 'absence' | 'scheduled' | 'special' | 'normal' | 'noData';
     factor: number; // 오즈 배수 (1 = 변화 없음)
     label: string;
   };
@@ -257,13 +258,23 @@ export function computeBroadcastProbability(
     patternLabel = '방송 기록 없음';
   }
 
+  // 기념일(10주년 등): 그날·전날 최소 확률 (공지된 휴방일·오늘 이미 방송·방송 예정일은 그대로)
+  //  기록상 활동하던 해에는 11-30 에 늘 방송함(8/8) · 쉬는 중이면 다시 돌아올지 몰라 절반 정도로 잡음 (관리자에서 조절)
+  const boost = !['live', 'streamedToday', 'scheduled'].includes(patternState) && dateOverrideFor(options.system, todayStr)?.type !== 'off'
+    ? boostFor(options.system?.events, todayStr) : null;
   const baseDayP =
     patternState === 'live'
       ? 1
       : sigmoid(logit(smoothed) + gapLogOdds + patternLogOdds);
   // 방송 예정일: 그날만 최소 92% (원래 계산이 더 높으면 그대로)
-  const dayP = patternState === 'scheduled' ? Math.max(baseDayP, 0.92) : baseDayP;
+  let dayP = patternState === 'scheduled' ? Math.max(baseDayP, 0.92) : baseDayP;
   if (patternState === 'scheduled') patternLogOdds = logit(dayP) - logit(Math.min(0.999, Math.max(0.001, baseDayP)));
+  if (boost && dayP < boost.min / 100) {
+    dayP = boost.min / 100;
+    patternLogOdds = logit(dayP) - logit(sigmoid(logit(smoothed) + gapLogOdds));
+    patternState = 'special';
+    patternLabel = boost.before ? `내일 ${boost.title} (전날)` : `오늘 ${boost.title}`;
+  }
   const scheduledTime = patternState === 'scheduled' ? parseMinute(dateOverrideFor(options.system, todayStr)?.time || '') : null;
 
   // ── 4. 시간대 분포 ──

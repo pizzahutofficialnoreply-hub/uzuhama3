@@ -31,3 +31,19 @@ export function activeDdays(events: DdayEvent[] | undefined, now = Date.now()) {
 }
 
 export const ddayLabel = (left: number) => (left === 0 ? 'D-DAY' : `D-${left}`);
+
+/** 기념일 방송 확률 하한 (그날 / 전날). 이름에 '주년'이 있으면 기본으로 켜짐 */
+export const BOOST_DEFAULT = { day: 40, before: 12 };
+export function boostFor(events: DdayEvent[] | undefined, day: string): { min: number; title: string; before: boolean } | null {
+  const next = new Date(Date.parse(`${day}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
+  let best: { min: number; title: string; before: boolean } | null = null;
+  for (const e of events || []) {
+    if (!e || e.active === false || !/^\d{4}-\d{2}-\d{2}$/.test(e.date || '')) continue;
+    const anniv = /주년/.test(e.title || '');
+    const dayMin = typeof e.boost === 'number' ? e.boost : anniv ? BOOST_DEFAULT.day : 0;
+    const beforeMin = typeof e.boostBefore === 'number' ? e.boostBefore : anniv ? BOOST_DEFAULT.before : 0;
+    const cand = occursOn(e, day) ? { min: dayMin, title: e.title, before: false } : occursOn(e, next) ? { min: beforeMin, title: e.title, before: true } : null;
+    if (cand && cand.min > 0 && (!best || cand.min > best.min)) best = cand;
+  }
+  return best;
+}

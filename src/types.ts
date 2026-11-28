@@ -191,6 +191,12 @@ export interface DdayEvent {
   message?: string;
   /** 매년 반복 (생일 등): 날짜의 월·일로 */
   repeat?: 'yearly';
+  /**
+   * 방송 확률 올리기 (기념일 방송): 그날 '오늘 방송할 확률'을 최소 몇 %로 · 전날도 따로
+   * 비우면 이름에 '주년'이 있을 때만 기본값(당일 40 · 전날 12), 0 이면 끔
+   */
+  boost?: number;
+  boostBefore?: number;
 }
 
 export interface SystemConfig {

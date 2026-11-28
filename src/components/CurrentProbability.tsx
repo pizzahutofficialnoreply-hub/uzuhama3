@@ -1,3 +1,5 @@
+import { boostFor } from '../utils/dday';
+import { finalSound } from '../utils/josa';
 import { useTestMode, testLiveData } from '../utils/testMode';
 import { useState, useEffect, useMemo, useRef } from "react";
 import { format } from "date-fns";
@@ -240,6 +242,15 @@ export function CurrentProbability({
   } else if (dayOverride?.type === 'on') {
     const t = dayOverride.time ? formatClockMinute(Number(dayOverride.time.slice(0, 2)) * 60 + Number(dayOverride.time.slice(3, 5))) : '';
     patternMessage = dayOverride.note?.trim() || (t ? `오늘 ${t} 방송 예정이라고 공지됐어요.` : "오늘 방송 예정이라고 공지됐어요.");
+  } else if (prob.pattern.state === 'special') {
+    // 기념일 방송 (10주년 등): 오래 쉬고 있어도 그날·전날은 확률을 높게 잡음
+    const b = boostFor(system?.events, broadcastDayStr(currentTime));
+    const rest = daysSinceLastStream >= 3 ? ` (${daysSinceLastStream}일째 쉬는 중)` : '';
+    const name = b?.title || '기념일';
+    const ira = finalSound(name) ? '이라' : '라'; // 받침 있으면 '10주년이라', 없으면 '축제라'
+    patternMessage = b?.before
+      ? `내일이 ${name}${ira} 확률을 조금 높게 잡았어요.${rest}`
+      : `오늘은 ${name}${ira} 확률을 높게 잡았어요.${rest}`;
   } else if (isAbsencePeriod) {
     const lead = daysSinceLastStream >= 2 ? `${daysSinceLastStream}일째 ` : "";
     patternMessage = absenceDisplayReason

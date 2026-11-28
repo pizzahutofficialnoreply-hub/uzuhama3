@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CalendarClock, Plus, Trash2 } from 'lucide-react';
 import type { DdayEvent } from '../../../../types';
-import { daysUntil, ddayLabel, nextDate } from '../../../../utils/dday';
+import { daysUntil, ddayLabel, nextDate, BOOST_DEFAULT } from '../../../../utils/dday';
 import { EventArt, artFor, ART_KINDS, bannerText } from '../../../common/EventArt';
 import { mutate } from './SearchTuningCard';
 
@@ -81,6 +81,21 @@ export function DdayEventsCard({ value, onChange }: { value: DdayEvent[]; onChan
                     <input value={e.message || ''} onChange={(ev) => set(e.id, { message: ev.target.value.slice(0, 30) })} placeholder={['cheer', 'exam'].includes(artFor(e.title, e.art) || '') ? '수능 화이팅!!' : `${bannerText(e.title)} 축하해요!`} maxLength={30} className={`${input} flex-1 sm:w-44 py-1.5`} />
                   </label>
                 )}
+                {/* 기념일 방송 확률: 이름에 '주년'이 있으면 기본 켜짐 (당일 40 · 전날 12), 0 이면 끔 */}
+                {(() => {
+                  const anniv = /주년/.test(e.title || '');
+                  const dv = e.boost ?? (anniv ? BOOST_DEFAULT.day : 0);
+                  const bv = e.boostBefore ?? (anniv ? BOOST_DEFAULT.before : 0);
+                  const num = (v: string) => Math.max(0, Math.min(95, Math.round(Number(v) || 0)));
+                  return (
+                    <span className="w-full flex flex-wrap items-center gap-1.5 text-xs text-zinc-500">
+                      <span className="font-bold text-zinc-600 dark:text-zinc-300">방송 확률 최소</span>
+                      당일 <input type="number" min={0} max={95} value={dv} onChange={(ev) => set(e.id, { boost: num(ev.target.value) })} className={`${input} w-14 py-1`} />%
+                      · 전날 <input type="number" min={0} max={95} value={bv} onChange={(ev) => set(e.id, { boostBefore: num(ev.target.value) })} className={`${input} w-14 py-1`} />%
+                      <span className="text-[length:calc(10.5px*var(--fs,1))] text-zinc-400">(0이면 안 올림 · 원래 계산이 더 높으면 그대로)</span>
+                    </span>
+                  );
+                })()}
                 <label className="flex items-center gap-1 text-xs font-bold text-zinc-600 dark:text-zinc-300 cursor-pointer"><input type="checkbox" checked={e.repeat === 'yearly'} onChange={(ev) => set(e.id, { repeat: ev.target.checked ? 'yearly' : undefined })} /> 매년 (생일 등)</label>
                 <span className="w-full text-[length:calc(10.5px*var(--fs,1))] text-zinc-400">{e.repeat === 'yearly' ? `다음: ${nextDate(e)} · ` : ''}{shown ? '지금 보이는 중' : left < 0 ? '지난 일정 (안 보임)' : e.active === false ? '꺼 둠' : `${left - Number(e.daysBefore ?? 14)}일 뒤부터 보여요`}</span>
               </li>
