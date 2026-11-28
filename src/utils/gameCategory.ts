@@ -19,3 +19,33 @@ export function setGameCategories(logs: any) {
   map = out;
 }
 export function gameCategoryOf(name: string): string { return map.get(nz(name)) || ''; }
+
+/* ── 스토어(스팀·앱스토어) 링크에 적힌 장르 ──
+ * 서버(/api/videos/meta?ggenre=)가 CDN 에 30일 보관 · 여기서는 기기에 7일 보관 */
+const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
+  (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')
+).replace(/\/+$/, '');
+const GK = 'uzuhama_store_genres_v1';
+const mem = new Map<string, Promise<string[]>>();
+const isStore = (l: string) => /store\.steampowered\.com\/app\/\d+|steamcommunity\.com\/app\/\d+|apps\.apple\.com\/.*\/id\d+/i.test(l || '');
+export function storeGenres(link: string): Promise<string[]> {
+  if (!isStore(link)) return Promise.resolve([]);
+  const hit = mem.get(link); if (hit) return hit;
+  let all: Record<string, { g: string[]; at: number }> = {};
+  try { all = JSON.parse(localStorage.getItem(GK) || '{}'); } catch { /* */ }
+  const c = all[link];
+  if (c && Date.now() - c.at < 7 * 86400000) { const p = Promise.resolve(c.g); mem.set(link, p); return p; }
+  const p = fetch(`${API_BASE}/api/videos/meta?ggenre=${encodeURIComponent(link)}`).then((r) => (r.ok ? r.json() : { genres: [] })).then((j: any) => {
+    const g = Array.isArray(j?.genres) ? j.genres.map(String).slice(0, 6) : [];
+    try { const cur = JSON.parse(localStorage.getItem(GK) || '{}'); cur[link] = { g, at: Date.now() }; localStorage.setItem(GK, JSON.stringify(cur)); } catch { /* */ }
+    return g;
+  }).catch(() => []);
+  mem.set(link, p);
+  return p;
+}
+/** 게임 칸에 보여 줄 카테고리: 방송 기록에 적힌 것(쉼표로 나눔) + 스토어 장르, 겹치는 건 한 번만 */
+export function mergeCategories(recorded: string, store: string[]): string[] {
+  const out: string[] = []; const seen = new Set<string>();
+  [...String(recorded || '').split(','), ...store].map((s) => s.trim()).filter(Boolean).forEach((s) => { const k = nz(s); if (k && !seen.has(k)) { seen.add(k); out.push(s); } });
+  return out;
+}

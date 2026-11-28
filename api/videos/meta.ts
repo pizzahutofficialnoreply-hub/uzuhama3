@@ -88,12 +88,41 @@ async function gameImage(req: any, res: any) {
   return res.status(302).end();
 }
 
+/**
+ * 게임 장르 (GET /api/videos/meta?ggenre=<스팀·앱스토어 링크>) → { genres: string[] }
+ *  - 카드 확장의 게임 칸: AI 가 짐작한 장르 대신 '방송 기록 카테고리 + 스토어에 적힌 장르'만 보여 주려고
+ *  - 스팀 appdetails(genres, 한국어) · 앱스토어 lookup(genres, '게임' 은 뺌) · 그 밖 링크는 빈 목록
+ *  - CDN 30일 보관 → DB 읽기 없음, 게임마다 한 달에 한 번 정도만 실제로 물어봄
+ */
+async function gameGenres(req: any, res: any) {
+  const raw = String(req.query?.ggenre || '').slice(0, 500);
+  let genres: string[] = [];
+  let ok = false;
+  try {
+    const steam = raw.match(/store\.steampowered\.com\/app\/(\d+)/i) || raw.match(/steamcommunity\.com\/app\/(\d+)/i);
+    const apple = raw.match(/apps\.apple\.com\/.*\/id(\d+)/i);
+    if (steam) {
+      const r = await fetch(`https://store.steampowered.com/api/appdetails?appids=${steam[1]}&filters=genres&l=koreana&cc=kr`, { signal: AbortSignal.timeout(6000) });
+      const j: any = r.ok ? await r.json() : null;
+      genres = (j?.[steam[1]]?.data?.genres || []).map((g: any) => String(g?.description || '')); ok = !!j;
+    } else if (apple) {
+      const r = await fetch(`https://itunes.apple.com/lookup?id=${apple[1]}&country=kr&lang=ko_kr`, { signal: AbortSignal.timeout(6000) });
+      const j: any = r.ok ? await r.json() : null;
+      genres = (j?.results?.[0]?.genres || []).map(String); ok = !!j;
+    } else ok = true;
+  } catch { /* 못 찾음 */ }
+  genres = [...new Set(genres.map((g) => g.trim()).filter((g) => g && !/^(게임|games?|앞서 해보기|early access|무료 플레이|free to play)$/i.test(g)))].slice(0, 6);
+  res.setHeader('Cache-Control', ok ? 'public, max-age=604800, s-maxage=2592000, stale-while-revalidate=2592000' : 'public, s-maxage=3600');
+  return res.status(200).json({ genres });
+}
+
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   if (req.query?.share) return sharePage(req, res);
   if (req.query?.gimg) return gameImage(req, res);
+  if (req.query?.ggenre) return gameGenres(req, res);
 
   const raw = String(req.query?.ids || '');
   const ids = [...new Set(raw.split(',').map((s) => s.trim()).filter((s) => ID_RE.test(s)))].slice(0, 50);

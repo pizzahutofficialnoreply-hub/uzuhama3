@@ -76,7 +76,7 @@ function buildKw(doc: any): string[] {
   };
   (doc.keywords || []).forEach(add);
   (doc.mood || []).forEach(add);
-  (doc.games || []).forEach((g: any) => { add(g.name); (g.tags || []).forEach(add); (g.aliases || []).forEach(add); if (g.genre) add(g.genre); });
+  (doc.games || []).forEach((g: any) => { add(g.name); (g.tags || []).forEach(add); (g.aliases || []).forEach(add); }); // AI 가 짐작한 장르(genre)는 검색어에도 안 넣음 (카테고리는 방송 기록·스토어 것만)
   (doc.scenes || []).forEach((sc: Scene) => { (sc.k || []).forEach(add); (sc.w || []).forEach(add); if (sc.q) add(sc.q); });
   String(doc.nogari || '').split(/\s+/).forEach(add);
   if (doc.opanmu) { add('오팬무'); String(doc.opanmu).split(/\s+/).forEach(add); }
@@ -560,7 +560,7 @@ async function analyzeGame(db: any, name: string, ko: string, link = '') {
   if (cur?.about) return cur;
   const prompt = `게임 "${name}"${ko ? ` (한국어로 "${ko}")` : ''}이 어떤 게임인지 구글 검색으로 확인해 줘.${link ? ` 방송 기록에 적힌 게임 링크: ${link} (이 페이지의 소개도 참고)` : ''} 공식 소개·스토어 페이지·리뷰, 그리고 이 게임을 플레이한 다른 유튜버·스트리머 영상의 제목과 반응을 참고해.
 아래 JSON 으로만 답해 (한국어). 확인 안 되는 건 비워 둬.
-{"name":"정식 이름","aliases":["한국어 이름·줄임말"],"genre":"장르","about":"어떤 게임인지 2~3문장","tags":["검색 키워드 5~12개: 분위기·소재·특징 (예: 점프스케어, 생존, 퍼즐, 협동, 귀여움)"],"horror":true/false,"players":"혼자/협동/대전 등","reactions":"다른 유튜버 플레이 영상에서 흔히 나오는 반응 한두 문장"}`;
+{"name":"정식 이름","aliases":["한국어 이름·줄임말"],"about":"어떤 게임인지 2~3문장","tags":["검색 키워드 5~12개: 분위기·소재·특징 (예: 점프스케어, 생존, 퍼즐, 협동, 귀여움)"],"horror":true/false,"players":"혼자/협동/대전 등","reactions":"다른 유튜버 플레이 영상에서 흔히 나오는 반응 한두 문장"}`;
   let out: { text: string; model: string };
   if (searchOffUntil > Date.now()) out = await gen([{ text: prompt.replace('구글 검색으로 확인해 줘', '알려 줘') }], false, 30000, TEXT_MODELS);
   else {
@@ -1254,7 +1254,7 @@ export async function aiSearch(db: any, q: string, sceneLimit = 3) {
         return { t: s.t, d: s.q ? `${s.d} “${s.q}”` : s.d, n, vague };
       }).filter((s: any) => s.n > 0).sort((a: any, b: any) => b.n - a.n || a.t - b.t);
       if (scenes.length) score += scenes[0].n * 3 + Math.min(3, scenes.filter((x: any) => !x.vague).length) * 0.5;
-      const gameText = (v.games || []).map((g: any) => [g.name, g.ko, ...(g.tags || []), ...(g.aliases || []), g.genre, g.about].join(' ')).join(' ') + ' ' + (v.gameStories || []).map((g: any) => `${g.story} ${g.result}`).join(' ');
+      const gameText = (v.games || []).map((g: any) => [g.name, g.ko, ...(g.tags || []), ...(g.aliases || []), g.about].join(' ')).join(' ') + ' ' + (v.gameStories || []).map((g: any) => `${g.story} ${g.result}`).join(' ');
       if (has(gameText, toks).length) score += 1.5; else if (has(gameText, extra).length) score += 0.8;
       return {
         id: v.id || d.id, title: v.title, kind: v.kind, publishedAt: v.publishedAt, duration: v.duration,

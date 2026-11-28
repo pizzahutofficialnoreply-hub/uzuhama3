@@ -198,6 +198,10 @@ html.dark, html.dark body {
   background-color: #101012;
   color: #f2f4f6;
 }
+/* 브라우저 기본 색(따로 바탕색을 안 준 곳·입력칸·스크롤 막대)도 사이트 테마를 따르게
+   — 아이폰이 앱 전환 사진을 '밝은 모양'으로 찍을 때 기본 흰 바탕이 비쳐 개체가 하얗게 보이던 것 */
+html.dark { color-scheme: dark; }
+html:not(.dark) { color-scheme: light; }
 
 /* 라이트 모드 카드: 회색 테두리를 없애고 아주 옅은 그림자만 (사진 액자처럼 보이지 않게) */
 html:not(.dark) .bg-white.border-zinc-200[class*="rounded-[2"],

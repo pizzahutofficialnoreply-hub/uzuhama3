@@ -8,7 +8,7 @@ export function Skeleton({ className }: { className?: string }) {
 /** 영상 카드 모양 자리 */
 export function CardSkeleton({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="rounded-[24px] overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900" aria-hidden>
+    <div className="rounded-[24px] overflow-hidden bg-white dark:bg-zinc-900" aria-hidden>
       <Skeleton className="aspect-video w-full rounded-none" />
       <div className={cn('space-y-2', compact ? 'p-3' : 'p-4')}>
         <Skeleton className="h-4 w-11/12" />
@@ -40,60 +40,76 @@ export function TextSkeleton({ lines = 3, className }: { lines?: number; classNa
   );
 }
 
-/** 기록 탭 모양: 달력 + 기간 버튼 + 검색창 + 표 */
+/** 실제 화면과 같은 틀: 흰(다크는 #171719) 둥근 판, 테두리 없음 */
+const PANEL = 'rounded-[26px] bg-white dark:bg-zinc-900';
+
+/** 기록 탭 모양: '방송 기록 달력' 판 (제목 · 날짜 설정 · 달 넘기기 · 요일 · 날짜 칸) */
 export function CalendarTabSkeleton() {
   return (
-    <div className="py-2 space-y-5" role="status" aria-label="기록을 불러오는 중">
-      <div className="rounded-[28px] border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6 space-y-4">
-        <div className="flex items-center justify-between"><Skeleton className="h-6 w-32" /><div className="flex gap-2"><Skeleton className="h-8 w-8 rounded-full" /><Skeleton className="h-8 w-8 rounded-full" /></div></div>
-        <div className="grid grid-cols-7 gap-1.5">
-          {Array.from({ length: 35 }, (_, i) => <Skeleton key={i} className="aspect-square rounded-xl" />)}
-        </div>
-      </div>
-      <div className="rounded-[28px] border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6 space-y-4">
-        <div className="flex gap-2 flex-wrap">{['w-16', 'w-20', 'w-20', 'w-16', 'w-14'].map((w, i) => <Skeleton key={i} className={cn('h-9 rounded-full', w)} />)}</div>
-        <Skeleton className="h-12 w-full rounded-full" />
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-          {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="flex items-start gap-4 py-3.5">
-              <div className="w-28 space-y-1.5 shrink-0"><Skeleton className="h-4 w-24" /><Skeleton className="h-3 w-20" /></div>
-              <div className="flex-1 space-y-1.5"><Skeleton className="h-4 w-16 rounded-md" /><Skeleton className="h-4 w-3/4" /></div>
-              <Skeleton className="h-7 w-7 rounded-lg shrink-0" />
-            </div>
-          ))}
+    <div className="py-2 space-y-3" role="status" aria-label="기록을 불러오는 중">
+      <div className={cn(PANEL, 'p-4 sm:p-6')}>
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="mt-4 h-8 w-48 rounded-full" />
+        <div className="mt-4 flex items-center gap-3"><Skeleton className="h-7 w-7 rounded-full" /><Skeleton className="h-9 w-36 rounded-full" /><Skeleton className="h-7 w-7 rounded-full" /></div>
+        <div className="mt-5 grid grid-cols-7 gap-y-[52px] gap-x-2">
+          {Array.from({ length: 7 }, (_, i) => <Skeleton key={`w${i}`} className="h-3.5 w-4 mx-auto rounded" />)}
+          {Array.from({ length: 35 }, (_, i) => <Skeleton key={i} className="h-4 w-5 mx-auto rounded" />)}
         </div>
       </div>
     </div>
   );
 }
 
-/** 분석 탭 모양: 숫자 칸 + 그래프 */
+/** 분석 탭 모양: '상세 분석' 판(기간 버튼) · 하위 탭 · 요약 판(두 줄 제목 + 세 줄) */
 export function StatsTabSkeleton() {
   return (
-    <div className="py-2 space-y-5" role="status" aria-label="분석을 불러오는 중">
-      <div className="flex gap-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-9 w-24 rounded-full" />)}</div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="rounded-3xl border border-zinc-200 dark:border-zinc-800 p-4 space-y-2"><Skeleton className="h-3 w-16" /><Skeleton className="h-7 w-20" /></div>
+    <div className="py-2 space-y-3" role="status" aria-label="분석을 불러오는 중">
+      <div className={cn(PANEL, 'p-4 sm:p-5')}>
+        <div className="flex items-center justify-between"><Skeleton className="h-6 w-24" /><Skeleton className="h-5 w-16" /></div>
+        <div className="mt-4 flex gap-1.5">{['w-12', 'w-16', 'w-14', 'w-14', 'w-10'].map((w, i) => <Skeleton key={i} className={cn('h-8 rounded-full', w)} />)}</div>
+      </div>
+      <Skeleton className="h-12 w-full rounded-2xl" />
+      <div className={cn(PANEL, 'p-5 space-y-4')}>
+        <Skeleton className="h-3 w-32" />
+        <div className="space-y-2"><Skeleton className="h-6 w-56" /><Skeleton className="h-6 w-28" /></div>
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-center gap-3 pt-1"><Skeleton className="h-10 w-10 rounded-full shrink-0" /><div className="space-y-1.5"><Skeleton className="h-3 w-20" /><Skeleton className="h-5 w-28" /></div></div>
         ))}
       </div>
-      {[0, 1].map((i) => (
-        <div key={i} className="rounded-[28px] border border-zinc-200 dark:border-zinc-800 p-5 space-y-4">
-          <Skeleton className="h-5 w-40" />
-          <div className="flex items-end gap-2 h-40">{[40, 70, 55, 90, 65, 30, 80, 50, 75, 45, 60, 85].map((h, j) => <span key={j} className="skeleton flex-1 rounded-md" style={{ height: `${h}%` }} />)}</div>
-        </div>
-      ))}
     </div>
   );
 }
 
-/** 검색 탭 모양: 검색창 + 하위 탭 + 영상 카드 */
-export function SearchTabSkeleton() {
+/** 목록 한 줄 (검색 탭 목록 보기와 같은 크기: 왼쪽 썸네일 · 오른쪽 두 줄 제목) */
+export function ListRowSkeleton() {
   return (
-    <div className="py-2 space-y-5" role="status" aria-label="불러오는 중">
-      <Skeleton className="h-12 w-full rounded-full" />
-      <div className="flex gap-2">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-9 w-16 rounded-full" />)}</div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{[0, 1, 2, 3, 4, 5].map((i) => <CardSkeleton key={i} />)}</div>
+    <div className="flex items-start gap-3 py-2" aria-hidden>
+      <Skeleton className="w-[37%] max-w-[200px] aspect-video rounded-[16px] shrink-0" />
+      <div className="flex-1 space-y-2 pt-1"><Skeleton className="h-4 w-11/12" /><Skeleton className="h-4 w-1/2" /></div>
+    </div>
+  );
+}
+
+/** 검색 탭 모양: 하위 탭 · 정렬 판 · '총 N개'+보기 방식 · 목록(또는 카드) — 지금 보기 방식 그대로 */
+export function SearchTabSkeleton() {
+  let card = false;
+  try { card = localStorage.getItem('uzuhama_view_style') === 'card'; } catch { /* */ }
+  return (
+    <div className="py-2 space-y-4" role="status" aria-label="불러오는 중">
+      <div className="flex gap-2">{['w-12', 'w-16', 'w-16', 'w-14', 'w-20'].map((w, i) => <Skeleton key={i} className={cn('h-10 rounded-full', w)} />)}</div>
+      <div className={cn(PANEL, 'p-4 space-y-3')}>
+        <Skeleton className="h-4 w-28" />
+        <div className="grid grid-cols-2 gap-2"><Skeleton className="h-10 rounded-xl" /><Skeleton className="h-10 rounded-xl" /></div>
+      </div>
+      <div className="flex items-center justify-between"><Skeleton className="h-4 w-24" /><Skeleton className="h-8 w-28 rounded-xl" /></div>
+      {card
+        ? <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{[0, 1, 2].map((i) => (
+            <div key={i} className="rounded-[24px] overflow-hidden bg-white dark:bg-zinc-900" aria-hidden>
+              <Skeleton className="aspect-video w-full rounded-none" />
+              <div className="p-4 space-y-2"><Skeleton className="h-4 w-11/12" /><Skeleton className="h-3 w-1/3" /><Skeleton className="h-10 w-full rounded-xl mt-3" /></div>
+            </div>
+          ))}</div>
+        : <div className="space-y-1">{Array.from({ length: 7 }, (_, i) => <ListRowSkeleton key={i} />)}</div>}
     </div>
   );
 }

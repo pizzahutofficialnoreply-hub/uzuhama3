@@ -181,7 +181,8 @@ export function LongPressPreview() {
       <button type="button" aria-label="미리보기 닫기" onClick={() => close()}
         className="absolute inset-0 w-full h-full cursor-default"
         style={{ background: 'rgba(0,0,0,.28)', backdropFilter: 'blur(14px) saturate(1.2)', WebkitBackdropFilter: 'blur(14px) saturate(1.2)', opacity: shown ? 1 : 0, transition: 'opacity .26s ease' }} />
-      <div className="absolute" style={{ left, top, width: W }}>
+      {/* 이 틀은 누름을 통과시킴 → 미리보기·메뉴가 아닌 빈 곳(카드 아래·메뉴 옆)을 눌러도 배경이 받아 닫힘 */}
+      <div className="absolute pointer-events-none [&>*]:pointer-events-auto" style={{ left, top, width: W }}>
         {/* 미리보기 창 */}
         <button type="button" onClick={open}
           className="block w-full text-left rounded-[22px] overflow-hidden bg-white dark:bg-zinc-900 shadow-[0_18px_50px_rgba(0,0,0,.35)]"

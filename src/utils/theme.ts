@@ -97,12 +97,14 @@ export function initThemeListener(): () => void {
     if (getThemeMode() !== 'system') return;
     document.documentElement.classList.toggle('dark', window.matchMedia('(prefers-color-scheme: dark)').matches);
   };
-  const handleMediaChange = () => {
-    if (document.visibilityState === 'hidden') return;
-    syncSystem();
-  };
+  // 아이폰이 사진을 찍으려고 모양을 바꾸는 건 '앱을 벗어난다'는 알림보다 먼저 올 때도 있어서,
+  // 시스템 모양이 바뀌어도 1.2초 동안 그대로이고 화면이 보이고 있을 때만 따라감 (잠깐 바뀌었다 돌아오는 건 무시)
+  let t = 0;
+  const later = (ms: number) => { window.clearTimeout(t); t = window.setTimeout(() => { if (document.visibilityState === 'visible') syncSystem(); }, ms); };
+  const handleMediaChange = () => later(1200);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') requestAnimationFrame(syncSystem);
+    if (document.visibilityState === 'visible') later(800);
+    else window.clearTimeout(t);
   });
 
   if (mediaQuery.addEventListener) {

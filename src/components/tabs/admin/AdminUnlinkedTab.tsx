@@ -660,7 +660,7 @@ function SheetCheckPanel({ data }: { data: AppData }) {
       // 그날 오팬무·오음무·오저무도 같이 저장 (AI 요약보다 먼저 보여 줌)
       const byDate: Record<string, any> = {};
       for (const x of rows) { const e: any = {}; if (x.pan) e.pan = x.pan; if (x.eum) e.eum = x.eum; if (x.jeo) e.jeo = x.jeo; if (Object.keys(e).length) byDate[x.date] = { ...(byDate[x.date] || {}), ...e }; }
-      if (Object.keys(byDate).length) await setDoc(doc(db, 'config', 'sheetExtra'), { at: new Date().toISOString(), byDate });
+      if (Object.keys(byDate).length) await setDoc(doc(db, 'config', 'sheetExtra'), { at: new Date().toISOString(), byDate }, { merge: true }); // 합쳐서 (카페 글에서 넣은 값 지키기)
     } catch (e: any) { setMsg('파일을 못 읽었어요: ' + (e?.message || e)); } finally { setBusy(''); }
   };
   const order: SheetDiff['kind'][] = ['live', 'video', 'game', 'nolog', 'siteOnly', 'gameLang', 'moved'];

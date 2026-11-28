@@ -1565,7 +1565,7 @@ export function DetailedStatsTab({
       {/* 푸터 바로 윗부분: 레거시 데이터 안내문구 */}
       <div className="mt-8 p-4 rounded-[24px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2 leading-relaxed">
         <div>
-          <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 {firstYear}~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 파일 변환 시에 누락된 데이터나 잘못된 정보가 포함되어 있을 수 있어요.
+          <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 {firstYear}~2025년 데이터는 스프레드시트와 우주하마 공식 팬카페 자료를 참고해 정리한 것으로, 일부 누락되거나 잘못된 정보가 있을 수 있어요.
         </div>
       </div>
       
@@ -1775,7 +1775,7 @@ export function DetailedStatsTab({
               )}
 
               <div className="p-4 rounded-xl border border-zinc-200 bg-zinc-50 text-xs text-zinc-500 leading-relaxed">
-                * {firstYear}~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 방송 시작·종료 시간 정보는 미포함이나 방송 일자, 요일 빈도{showLegacyCategory ? ' 및 게임 카테고리 분석은 ' : '는 '}정상적으로 제공됩니다.
+                * {firstYear}~2025년 데이터는 스프레드시트와 우주하마 공식 팬카페 자료를 참고해 정리한 것으로, 방송 시작·종료 시간 정보는 미포함이나 방송 일자, 요일 빈도{showLegacyCategory ? ' 및 게임 카테고리 분석은 ' : '는 '}정상적으로 제공됩니다.
               </div>
             </div>
           ) : (

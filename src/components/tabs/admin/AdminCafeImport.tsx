@@ -15,6 +15,8 @@ import { useChannelVideos } from '../../../hooks/useChannelVideos';
 import { confirmSheet } from '../../../utils/ui';
 import { loadFreshLogs } from '../../../hooks/useFirebaseData';
 import { markChanged } from '../../../utils/changeLog';
+import { parseCafeExtras, compareExtras, EXTRA_LABEL, type ExtraRow } from '../../../utils/cafeExtra';
+import { loadSheetExtra, type SheetExtra } from '../../../utils/sheetExtra';
 
 /**
  * 관리자 > 기록 추가 > 카페 정리 글 가져오기
@@ -359,6 +361,8 @@ export function AdminCafeImport({ data, onAddLog, onUpdateLog, onDeleteLog }: {
         {message && <p className="text-xs font-bold text-purple-700 dark:text-purple-300">{message}</p>}
       </div>
 
+      <CafeExtraPanel text={text} />
+
       {allDays && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -551,5 +555,67 @@ function CafeCollectorHelp() {
         <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(code); setCopied(true); } catch { /* */ } }} className="px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold cursor-pointer">{copied ? '복사했어요 ✓' : '코드 복사'}</button>
       </div>
     </details>
+  );
+}
+
+/**
+ * '[다시보기] 8/23 일요일 생방송 노가리요약 … ✔️오팬무 초록' 글의 오팬무·오음무·오저무(오점무)
+ * - 스프레드시트 값(config/sheetExtra + 처음 넣은 시트)과 비교: 시트에 없으면 추가, 둘 다 있는데 다르면 고르기, 같으면 숨김
+ * - 고른 것만 config/sheetExtra 에 합쳐 저장 (AI 요약의 그날 정보에 바로 쓰임)
+ */
+function CafeExtraPanel({ text }: { text: string }) {
+  const [sheet, setSheet] = useState<Record<string, SheetExtra> | null>(null);
+  const [choice, setChoice] = useState<Record<string, 'cafe' | 'sheet' | 'skip'>>({});
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
+  const days = useMemo(() => parseCafeExtras(text), [text]);
+  useEffect(() => { if (days.length && !sheet) loadSheetExtra().then(setSheet).catch(() => setSheet({})); }, [days.length, sheet]);
+  const rows = useMemo(() => (sheet ? compareExtras(days, sheet) : []), [days, sheet]);
+  const keyOf = (r: ExtraRow) => `${r.date}|${r.key}`;
+  // 기본: 시트에 없는 건 추가, 다른 건 시트 그대로 (직접 골라야 바뀜)
+  const pick = (r: ExtraRow) => choice[keyOf(r)] || (r.kind === 'new' ? 'cafe' : 'sheet');
+  if (!days.length) return null;
+  const changes = rows.filter((r) => pick(r) === 'cafe');
+  const save = async () => {
+    if (!changes.length) return;
+    setBusy(true); setNote('');
+    try {
+      const byDate: Record<string, SheetExtra> = {};
+      changes.forEach((r) => { byDate[r.date] = { ...(byDate[r.date] || {}), [r.key]: r.cafe }; });
+      await setDoc(doc(db, 'config', 'sheetExtra'), { at: new Date().toISOString(), byDate }, { merge: true });
+      setSheet((cur) => { const n = { ...(cur || {}) }; Object.entries(byDate).forEach(([d, v]) => { n[d] = { ...(n[d] || {}), ...v }; }); return n; });
+      setChoice({}); setNote(`${changes.length}개 저장했어요.`);
+    } catch (e: any) { setNote('저장 못 했어요: ' + (e?.message || e)); } finally { setBusy(false); }
+  };
+  return (
+    <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-3 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-zinc-900 dark:text-white">오팬무 · 오음무 · 오저무 <span className="text-zinc-400 font-semibold">카페 글 {days.length}개 날짜</span></p>
+        <button type="button" disabled={busy || !changes.length} onClick={save} className="px-3 py-1.5 rounded-xl bg-purple-600 text-white font-bold cursor-pointer disabled:opacity-40">{busy ? '저장 중…' : `${changes.length}개 저장`}</button>
+      </div>
+      <p className="text-zinc-500 break-keep">스프레드시트에 없는 건 추가하고, 둘 다 있는데 다른 것만 골라요. 같은 건 숨겨요.</p>
+      {!sheet ? <p className="text-zinc-400">시트 값 불러오는 중…</p> : !rows.length ? <p className="text-emerald-600 font-bold">모두 스프레드시트와 같아요.</p> : (
+        <ul className="space-y-1.5 max-h-[50vh] overflow-auto">
+          {rows.map((r) => { const k = keyOf(r); const p = pick(r); return (
+            <li key={k} className="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              <span className="font-bold tabular-nums">{r.date}</span>
+              <span className="text-zinc-500">{EXTRA_LABEL[r.key]}</span>
+              {r.kind === 'new' ? (
+                <label className="inline-flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={p === 'cafe'} onChange={(e) => setChoice((c) => ({ ...c, [k]: e.target.checked ? 'cafe' : 'skip' }))} /><b>{r.cafe}</b><span className="text-emerald-600 font-bold">추가</span></label>
+              ) : (
+                <span className="inline-flex flex-wrap gap-1.5">
+                  {(['sheet', 'cafe'] as const).map((w) => (
+                    <button key={w} type="button" onClick={() => setChoice((c) => ({ ...c, [k]: w }))} className={cn('px-2.5 py-1 rounded-full font-bold cursor-pointer', p === w ? 'bg-purple-600 text-white' : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700')}>
+                      {w === 'sheet' ? '시트' : '카페'} · {w === 'sheet' ? r.sheet : r.cafe}
+                    </button>
+                  ))}
+                </span>
+              )}
+            </li>
+          ); })}
+        </ul>
+      )}
+      {note && <p className="font-bold text-purple-700 dark:text-purple-300">{note}</p>}
+    </div>
   );
 }

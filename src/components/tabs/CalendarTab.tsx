@@ -2146,7 +2146,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
         <div className="p-4 sm:p-5 rounded-[24px] bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2.5 leading-relaxed">
           <AlertCircle className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
           <div>
-            <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 2020~2025년 데이터는 스프레드시트 기록을 변환한 것으로, 파일 변환 시에 누락된 데이터나 잘못된 정보가 포함되어 있을 수 있어요. (또한 과거 아카이브 데이터에는 쇼츠 영상 정보가 포함되지 않아요)
+            <strong className="text-zinc-700 dark:text-zinc-300">과거 데이터 안내:</strong> 본 사이트의 데이터 중 2020~2025년 데이터는 스프레드시트와 우주하마 공식 팬카페 자료를 참고해 정리한 것으로, 일부 누락되거나 잘못된 정보가 있을 수 있어요. (또한 과거 아카이브 데이터에는 쇼츠 영상 정보가 포함되지 않아요)
           </div>
         </div>
 

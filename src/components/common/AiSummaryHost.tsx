@@ -17,7 +17,7 @@ import { aiSearch, fmtTime, type AiResult } from '../../utils/aiSearch';
 import { useBackToClose } from '../../hooks/useBackToClose';
 import { requestReport } from './ItemMenu';
 import { politeKo as pk } from '../../utils/politeKo';
-import { gameCategoryOf } from '../../utils/gameCategory';
+import { gameCategoryOf, storeGenres, mergeCategories } from '../../utils/gameCategory';
 
 /**
  * ⋮ › AI 영상 요약: AI가 영상을 다 보고 정리한 내용
@@ -103,6 +103,14 @@ export function useAiStarted(id: string, enabled: boolean) {
 /** 다 끝난 AI 요약이 있는 영상인지 (신고 이유에 'AI 요약이 틀려요'를 넣을지) */
 export async function hasAiSummary(id: string): Promise<boolean> {
   try { const d = await loadDetail(id); return Boolean(d?.found && !d.pending); } catch { return false; }
+}
+
+function GameCats({ name, link, onSearch }: { name: string; link: string; onSearch: (s: string) => void }) {
+  const [store, setStore] = useState<string[]>([]);
+  useEffect(() => { let on = true; storeGenres(link).then((g) => { if (on) setStore(g); }); return () => { on = false; }; }, [link]);
+  const cats = mergeCategories(gameCategoryOf(name), store);
+  if (!cats.length) return null;
+  return <div className="flex flex-wrap gap-1">{cats.map((t) => <Chip key={t} label={t} tone={/공포|호러|horror/i.test(t) ? 'purple' : 'zinc'} onClick={() => onSearch(t)} />)}</div>;
 }
 
 function Chip({ label, onClick, tone = 'purple' }: { label: string; onClick: () => void; tone?: 'purple' | 'zinc' }) {
@@ -366,18 +374,12 @@ function SummaryView({ d, onSeek, onSearch, spoil = false, date, gameItems }: { 
                   <button type="button" onClick={() => onSearch(g.name || g.ko)} className="flex-1 text-left min-w-0 cursor-pointer group">
                     <p className="text-[length:calc(13.5px*var(--fs,1))] font-black text-zinc-900 dark:text-white group-hover:text-purple-600 break-keep">{g.name || g.ko}</p>
                   </button>
-                  {/* 카테고리는 AI 짐작이 아니라 방송 기록에 적힌 값 그대로 */}
-                  {(() => { const c = gameCategoryOf(g.name || g.ko || ''); return c ? <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[length:calc(10px*var(--fs,1))] font-black ${/공포|호러/.test(c) ? 'bg-red-500/10 text-red-600' : 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-300'}`}>{c}</span> : null; })()}
                 </div>
                 {s?.result && <Spoiler on={spoil}><p className="text-[length:calc(11.5px*var(--fs,1))] font-bold text-emerald-700 dark:text-emerald-400 break-keep">결과 · {pk(s.result)}</p></Spoiler>}
                 {s?.story ? <Spoiler on={spoil}><p className="text-[length:calc(12.5px*var(--fs,1))] text-zinc-700 dark:text-zinc-200 leading-relaxed break-keep">{pk(s.story)}</p></Spoiler> : g.about ? <p className="text-[length:calc(12.5px*var(--fs,1))] text-zinc-600 dark:text-zinc-300 leading-relaxed break-keep">{pk(g.about)}</p> : null}
                 {/* 별표 장면 목록은 뺌 (흐름·이야기별 요약에 시간과 함께 있고, 게임 카드 쪽은 의미 없는 순간이 많았음) */}
-                {((g.tags || []).length > 0) && (
-                  <div className="flex flex-wrap gap-1">
-                    {/* AI 가 짐작한 장르(g.genre)는 빼고 분위기 낱말만 */}
-                    {[...new Set((g.tags || []) as string[])].filter(Boolean).slice(0, 6).map((t: string) => <Chip key={t} label={t} tone="zinc" onClick={() => onSearch(t)} />)}
-                  </div>
-                )}
+                {/* 카테고리: AI 짐작은 빼고, 방송 기록에 적힌 카테고리 + 스팀·앱스토어 링크에 적힌 장르만 */}
+                <GameCats name={g.name || g.ko || ''} link={matchGameItem(g.name || g.ko || '', gameItems)?.link || ''} onSearch={onSearch} />
               </div>
             ))}
           </div>
