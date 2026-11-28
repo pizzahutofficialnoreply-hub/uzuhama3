@@ -96,6 +96,7 @@ import { wideAt } from './utils/layoutSize';
 import { setGameCategories } from './utils/gameCategory';
 import { initBgm } from './utils/bgm';
 import { startShake } from './utils/shake';
+import { REVEAL_EVENT } from './utils/revealVideo';
 import { ShakeSheet } from './components/common/ShakeSheet';
 import { triggerHaptic } from './utils/haptics';
 // 채널 영상 목록을 앱 켤 때 미리 꺼내 둠 (검색 탭을 열 때 순서가 한 번 바뀌어 보이지 않게)
@@ -342,6 +343,11 @@ function MainApp() {
     setSelectedCalendarDate(dateStr);
     handleTabChange('calendar', false, true);
   };
+
+  // 요약 탭 새 영상 카드를 내리면 검색 탭으로 (검색어는 비움 · 동영상 목록 맞춤은 검색 탭이)
+  const revealNavRef = useRef<() => void>(() => {});
+  revealNavRef.current = () => { setGlobalSearchTerm(''); setRecommendTargetSearchTerm(null); handleTabChange('recommend', false, true); };
+  useEffect(() => { const on = () => revealNavRef.current(); window.addEventListener(REVEAL_EVENT, on); return () => window.removeEventListener(REVEAL_EVENT, on); }, []);
 
   const handleNavigateToRecommend = (category?: string, searchTerm?: string, pinnedVideoId?: string) => {
     isAutoNavigatedRef.current = true;

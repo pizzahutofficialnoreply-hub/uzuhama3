@@ -171,8 +171,9 @@ export function EdgeSpeedZones({ command }: { command: (func: string, args?: any
   const R = useState(() => zone('r'))[0];
   return (
     <>
-      <div className="absolute left-0 top-[12%] bottom-[56px] w-[18%] z-10 touch-none" {...L} aria-hidden />
-      <div className="absolute right-0 top-[12%] bottom-[56px] w-[18%] z-10 touch-none" {...R} aria-hidden />
+      {/* 유튜브 위쪽(제목)·아래쪽(진행바·전체화면 버튼) 자리는 비워 둠: 전체화면 버튼을 누르려다 이 칸을 눌러 멈추던 문제 */}
+      <div className="absolute left-0 top-[max(18%,40px)] bottom-[max(34%,72px)] w-[18%] z-10 touch-none" {...L} aria-hidden />
+      <div className="absolute right-0 top-[max(18%,40px)] bottom-[max(34%,72px)] w-[18%] z-10 touch-none" {...R} aria-hidden />
       {flash && (
         <span className={'absolute top-1/2 -translate-y-1/2 z-20 px-3 py-1.5 rounded-full bg-black/55 text-white text-xs font-bold pointer-events-none ' + (flash.side === 'l' ? 'left-[6%]' : 'right-[6%]')}>
           {flash.side === 'l' ? '« 10초' : '10초 »'}

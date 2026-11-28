@@ -148,7 +148,7 @@ export function TossHome({ data, onOpenDate, onOpenStats, onOpenVideo }: {
                 const id = extractYoutubeId(v.url);
                 return (
                   <Row key={v.url} lp={id}
-                    onClick={(el) => (id ? openAiCard(id, v.title, el, `${dayText(v.date)} 영상`) : onOpenVideo(null))}
+                    onClick={(el) => (id ? openAiCard(id, v.title, el, `${dayText(v.date)} 영상`, { revealOnClose: true }) : onOpenVideo(null))}
                     icon={<Thumb src={thumbOf(v.url)} fallback={<Tint tone="zinc"><Film /></Tint>} />}
                     caption={dayText(v.date)} value={v.title} />
                 );

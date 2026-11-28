@@ -51,6 +51,7 @@ import { ViewStyleToggle } from '../common/ViewStyleToggle';
 import { useViewStyle } from '../../hooks/useViewStyle';
 import { YoutubeLogo, ShortsIcon, PlaySquare, GlassPlayButton } from '../common/MediaIcons';
 import { PlaylistsFeed, HomePlaylists } from './recommend/PlaylistsFeed';
+import { REVEAL_EVENT, takePendingReveal } from '../../utils/revealVideo';
 import { MyPlaylists } from './recommend/MyPlaylists';
 import { currentSeason, isSeasonDate, type Season } from '../../utils/seasonal';
 import { usePlaylists } from '../../hooks/usePlaylists';
@@ -722,6 +723,18 @@ export function RecommendTab({
   });
   const [subTabDir, setSubTabDir] = useState(0); // 넘어가는 방향 (밀기 애니메이션용)
   const [pinLocal, setPinLocal] = useState<string | null>(null); // 다른 화면에서 고른 영상 (탭을 바꾸면 풀림)
+  // 요약 탭 새 영상 카드를 내릴 때: 동영상 하위 탭 · 검색어·카테고리 없음 · 기본 정렬 (그 영상 칸으로 카드가 줄어듦)
+  const revealRef = useRef<() => void>(() => {});
+  revealRef.current = () => {
+    setPinLocal(null); setSearchTerm(''); setSelectedCategories(['전체']); setSortOrder(getPrefs().recommendSort as any);
+    setSubTab('videos'); try { localStorage.setItem('rec_subTab', 'videos'); } catch { /* */ }
+  };
+  useEffect(() => {
+    if (takePendingReveal()) revealRef.current();
+    const on = () => { takePendingReveal(); revealRef.current(); };
+    window.addEventListener(REVEAL_EVENT, on);
+    return () => window.removeEventListener(REVEAL_EVENT, on);
+  }, []);
   const [openPlaylistId, setOpenPlaylistId] = useState<string | null>(null); // 홈 재생목록 칸에서 누른 것
   const changeSubTab = (next: RecommendSubTab) => {
     const from = RECOMMEND_SUB_TABS.findIndex((t) => t.id === subTab);

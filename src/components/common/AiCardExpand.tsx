@@ -1,4 +1,5 @@
 import { EdgeSpeedZones } from './SpeedHold';
+import { requestReveal, waitForCard, settleIntoView } from '../../utils/revealVideo';
 import { videoGames } from '../../utils/videoGames';
 import { GameLinkCard } from './GameLinkCard';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -40,6 +41,8 @@ export type CardOpts = {
   thumb?: string;
   /** 이 시간(초)부터 재생 (검색에서 찾은 장면) */
   start?: number;
+  /** 닫을 때 다른 화면의 이 영상 자리로 줄어듦 (요약 탭 새 영상 → 검색 탭 동영상 목록) */
+  revealOnClose?: boolean;
 };
 type Target = { id: string; title: string; sub?: string; from: Rect; src?: HTMLElement | null } & CardOpts;
 
@@ -246,8 +249,23 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
     return () => { alive = false; };
   }, [t, bodyReady]);
 
+  const revealing = useRef(false);
   const close = () => {
-    if (!t || closing) return;
+    if (!t || closing || revealing.current) return;
+    // 요약 탭 '새 영상'에서 연 카드: 검색 탭 동영상 목록(기본 정렬)으로 넘기고 그 영상 칸으로 줄어듦
+    if (t.revealOnClose) {
+      revealing.current = true;
+      const old = t.src;
+      requestReveal(t.id);
+      waitForCard(t.id).then((el) => (el ? settleIntoView(el) : null)).then((el) => {
+        revealing.current = false;
+        try { if (old) old.style.visibility = ''; } catch { /* */ }
+        if (el) { try { el.style.visibility = 'hidden'; } catch { /* */ } }
+        t.src = el; t.revealOnClose = false;
+        close();
+      });
+      return;
+    }
     // 원래 카드가 아직 화면에 있으면 그 자리로 돌아감
     const el = (t.src && t.src.isConnected ? t.src : document.querySelector(`[data-ai-card="${t.id}"]`)) as HTMLElement | null;
     const r = el?.getBoundingClientRect();

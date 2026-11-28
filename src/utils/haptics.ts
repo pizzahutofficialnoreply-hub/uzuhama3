@@ -103,42 +103,48 @@ export function iosHaptic(): void {
 /**
  * 아이폰 '톡' — 손가락이 직접 누르는 방식 (iOS 26.5+ 에서도 됨)
  *  - iOS 26.5(WebKit 309082)부터 스크립트로 스위치를 눌러서는(label.click) 진동이 안 남.
- *    손가락의 진짜 누름이 스위치의 label 에 닿을 때만 울림.
- *  - 그래서 버튼마다 맨 앞에 투명한 label(+숨긴 스위치)을 깔아 둠: 누르면
- *    ① label 누름이 그대로 버튼으로 올라가 원래 onClick 이 돌고 ② label 이 스위치를 켜고 끄며 '톡'
- *  - 스위치 자신의 클릭은 막아서 버튼이 두 번 눌리지 않게
- *  - 안 까는 곳: 링크(a)·제출 버튼(label 이 먼저 받아 이동·제출이 안 되므로), 안에 또 버튼·입력칸이 있는 것,
- *    data-no-haptic="true" 안쪽, 꺼진(disabled) 버튼은 누를 때 진동 안 함
+ *    손가락의 진짜 누름이 스위치의 label 에 닿을 때만 울림 (세기·길이는 못 바꿈: 가벼운 '톡' 한 번)
+ *  - 그래서 누를 수 있는 것(버튼·링크·탭·스위치 등)마다 맨 앞에 투명한 label(+숨긴 스위치)을 깔아 둠
+ *  - 누르면: label 이 스위치를 켜고 끄며 '톡' + 원래 손가락 아래에 있던 것에 같은 클릭을 다시 보냄
+ *    (그래서 링크 이동·제출·안쪽 버튼·카드 누르기가 모두 원래대로 동작)
+ *  - 안 까는 곳: 안에 글자 입력칸·영상(iframe)이 있는 것, data-no-haptic="true" 안쪽
  *  - 끌기·꾹 누르기·흔들기처럼 '톡 누르기'가 아닌 동작은 iOS 에서 진동을 낼 방법이 없음
  */
-const HOST = 'button:not([type="submit"]), [role="button"]:not(a), [role="switch"]:not(a), [role="tab"]:not(a), [data-haptic="true"]:not(a)';
-const INNER = 'button, a[href], input, select, textarea, [role="button"], [role="switch"], [role="tab"], [contenteditable="true"]';
+const HOST = 'button, a[href], summary, [role="button"], [role="switch"], [role="tab"], [role="menuitem"], [role="option"], [role="checkbox"], [role="radio"], [data-haptic="true"]';
+const SKIP_INNER = 'input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea, [contenteditable="true"], iframe, video';
+const inHx = (n: Element) => Boolean(n.closest('label[data-hx]'));
+function forward(label: HTMLLabelElement, e: MouseEvent) {
+  const host = label.parentElement as HTMLElement | null;
+  e.stopPropagation(); // 원래 클릭은 여기서 멈추고, 아래에서 손가락 밑의 것에 다시 보냄
+  if (!host || (host as HTMLButtonElement).disabled || host.getAttribute('aria-disabled') === 'true' || host.closest('[data-no-haptic="true"]')) { e.preventDefault(); return; }
+  lastTapTick = Date.now();
+  const x = e.clientX, y = e.clientY;
+  let under: Element | undefined;
+  if (x || y) under = document.elementsFromPoint(x, y).find((n) => !inHx(n) && host.contains(n));
+  const target = under || host;
+  target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, view: window, detail: 1, clientX: x, clientY: y, screenX: e.screenX, screenY: e.screenY, ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey, altKey: e.altKey }));
+}
 function makeOverlay(): HTMLLabelElement {
   const label = document.createElement('label');
   label.setAttribute('data-hx', '');
   label.setAttribute('aria-hidden', 'true');
-  label.style.cssText = 'position:absolute;inset:0;z-index:5;margin:0;padding:0;border-radius:inherit;cursor:inherit;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;';
+  label.style.cssText = 'position:absolute;inset:0;z-index:5;margin:0;padding:0;border-radius:inherit;cursor:inherit;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;';
   const input = document.createElement('input');
   input.type = 'checkbox';
   input.setAttribute('switch', '');
   input.tabIndex = -1;
   input.setAttribute('aria-hidden', 'true');
   input.style.cssText = 'position:absolute;left:0;top:0;width:1px;height:1px;margin:0;opacity:0;pointer-events:none;';
-  input.addEventListener('click', (e) => e.stopPropagation()); // 스위치 클릭이 버튼까지 올라가 또 눌리지 않게
+  input.addEventListener('click', (e) => e.stopPropagation()); // 스위치 클릭이 밖으로 올라가 또 눌리지 않게
   label.appendChild(input);
-  label.addEventListener('click', (e) => {
-    const host = label.parentElement as HTMLElement | null;
-    if (!host || (host as HTMLButtonElement).disabled || host.getAttribute('aria-disabled') === 'true' || host.closest('[data-no-haptic="true"]')) { e.preventDefault(); return; }
-    lastTapTick = Date.now();
-  });
+  label.addEventListener('click', (e) => { if (e.target === label) forward(label, e); });
   return label;
 }
 function ensure(host: Element) {
   const el = host as HTMLElement;
-  const first = el.firstElementChild;
-  const has = first && first.hasAttribute('data-hx') ? first : el.querySelector(':scope > label[data-hx]');
-  // 안쪽에 진짜 버튼·입력칸이 있으면 덮지 않음 (우리 덮개의 숨긴 스위치는 빼고 셈)
-  const bad = el.closest('[data-no-haptic="true"]') || [...el.querySelectorAll(INNER)].some((x) => !x.closest('label[data-hx]'));
+  if (el.matches('input, select, textarea, label')) return;
+  const has = el.firstElementChild?.hasAttribute('data-hx') ? el.firstElementChild : el.querySelector(':scope > label[data-hx]');
+  const bad = el.closest('[data-no-haptic="true"]') || [...el.querySelectorAll(SKIP_INNER)].some((x) => !inHx(x));
   if (bad) { has?.remove(); return; }
   if (has) { if (el.firstChild !== has) el.insertBefore(has, el.firstChild); return; }
   if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
@@ -151,24 +157,23 @@ export function setupIosTapHaptics(): () => void {
     queued = false;
     const list = [...pend]; pend = new Set();
     for (const n of list) {
-      if (!(n as Element).isConnected) continue;
-      if ((n as Element).matches?.(HOST)) ensure(n);
-      (n as Element).querySelectorAll?.(HOST).forEach(ensure);
-      // 안쪽에 버튼이 새로 생기면 바깥 덮개는 걷어야 함
-      const outer = (n as Element).parentElement?.closest(HOST); if (outer) ensure(outer);
+      if (!n.isConnected) continue;
+      if (n.matches?.(HOST)) ensure(n);
+      n.querySelectorAll?.(HOST).forEach(ensure);
+      // 안에 입력칸 등이 새로 생기면 바깥 덮개는 걷어야 함
+      const outer = n.parentElement?.closest(HOST); if (outer) ensure(outer);
     }
   };
-  const add = (n: Node | null) => { if (n && n.nodeType === 1 && !(n as Element).hasAttribute('data-hx')) pend.add(n as Element); if (!queued) { queued = true; requestAnimationFrame(flush); } };
+  const add = (n: Node | null) => { if (n && n.nodeType === 1 && !(n as Element).hasAttribute('data-hx') && !inHx(n as Element)) pend.add(n as Element); if (!queued) { queued = true; requestAnimationFrame(flush); } };
   const mo = new MutationObserver((ms) => {
     for (const m of ms) {
       if (m.type === 'childList') {
         m.addedNodes.forEach((n) => add(n.nodeType === 1 ? n : (n.parentElement as Node | null)));
-        // 글자만 바꾸며 덮개가 지워진 버튼 (React 가 textContent 로 바꿀 때)
-        if (m.removedNodes.length && m.target.nodeType === 1) add(m.target);
+        if (m.removedNodes.length && m.target.nodeType === 1) add(m.target); // 글자만 바꾸며 덮개가 지워진 버튼
       } else if (m.type === 'attributes') add(m.target);
     }
   });
-  mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['role', 'data-haptic', 'data-no-haptic', 'type'] });
+  mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['role', 'href', 'data-haptic', 'data-no-haptic'] });
   add(document.body);
   return () => mo.disconnect();
 }

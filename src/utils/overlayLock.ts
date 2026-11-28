@@ -96,5 +96,8 @@ export function startOverlayScrollLock() {
   schedule();
 }
 
+/** 떠 있는 창 아래 화면을 일부러 옮겼을 때 (예: 카드를 닫으며 다른 탭 그 영상 자리로): 닫을 때 원래 자리로 되돌리지 않게 */
+export function rebaseOverlayScroll() { savedY = window.scrollY; }
+
 /** 지금 잠겨 있으면 원래 스크롤 위치 (잠긴 동안 window.scrollY 는 0) */
 export const overlayScrollY = () => window.scrollY;
