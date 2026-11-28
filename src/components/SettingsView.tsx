@@ -1,3 +1,4 @@
+import { ShareBoxArrowIcon } from './common/ShareIcon';
 import { chooseSheet } from '../utils/ui';
 import { confirmSheet } from '../utils/ui';
 import { isAdminEmail } from '../utils/adminAuth';
@@ -943,7 +944,7 @@ export function SettingsView({
               className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <Share2 className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <ShareBoxArrowIcon className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
                 <span className="text-sm font-semibold text-zinc-900 dark:text-white">그래프 및 데이터 공유 설정</span>
               </div>
               <div className="flex items-center gap-2">

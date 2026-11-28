@@ -1,3 +1,4 @@
+import { setReadRoute } from './_readStats.js';
 import fs from 'fs';
 import { foldLine } from '../src/utils/icsFold.js';
 import path from 'path';
@@ -210,8 +211,25 @@ export async function buildFullCalendarFeed(origin: string): Promise<string> {
   let loaded = false;
   if (hasAdminCredentials && db) {
     try {
-      const snaps = await db.collection('logs_by_month').get();
-      snaps.forEach((d: any) => monthDocs.push(d.data()));
+      // 캘린더 앱이 자주 다시 받아 가서 매번 달 문서 전부(100개 넘게)를 읽던 것 →
+      // 서버 메모리에 두고 10분 안이면 그대로, 그 뒤엔 바뀐 달만 (보통 읽기 1번)
+      const g: any = globalThis as any;
+      const c = g.__calMonths as { at: number; sync: string; docs: Record<string, any> } | undefined;
+      if (c && Date.now() - c.at < 10 * 60000) {
+        Object.values(c.docs).forEach((d) => monthDocs.push(d));
+      } else if (c) {
+        const ch = await db.collection('logs_by_month').where('updatedAt', '>', c.sync).get();
+        ch.forEach((d: any) => { c.docs[d.id] = d.data(); });
+        c.at = Date.now();
+        ch.forEach((d: any) => { const u = String(d.data()?.updatedAt || ''); if (u > c.sync) c.sync = u; });
+        Object.values(c.docs).forEach((d) => monthDocs.push(d));
+      } else {
+        const snaps = await db.collection('logs_by_month').get();
+        const docs: Record<string, any> = {};
+        let sync = '';
+        snaps.forEach((d: any) => { docs[d.id] = d.data(); monthDocs.push(d.data()); const u = String(d.data()?.updatedAt || ''); if (u > sync) sync = u; });
+        g.__calMonths = { at: Date.now(), sync: sync || new Date(0).toISOString(), docs };
+      }
       loaded = true;
     } catch (e) {
       console.warn('[Calendar Feed] Admin SDK read failed, falling back to REST:', e);
@@ -266,6 +284,7 @@ export async function buildFullCalendarFeed(origin: string): Promise<string> {
 }
 
 export default async function handler(req: any, res: any) {
+  try { setReadRoute(req); } catch { /* 읽기 통계용 경로 이름 ('other' 로 묶이던 것) */ }
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,HEAD');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');

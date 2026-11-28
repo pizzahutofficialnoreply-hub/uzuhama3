@@ -1,7 +1,8 @@
+import { ShareBoxArrowIcon } from './common/ShareIcon';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChevronLeft, ChevronRight, Flag, MoreHorizontal, Play, Share, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flag, MoreHorizontal, Play, X } from 'lucide-react';
 import { openAiCard, AI_CARD_CLOSED } from './common/AiCardExpand';
 import { requestReport } from './common/ItemMenu';
 import { shareNodeAsImage } from '../utils/shareUtils';
@@ -249,7 +250,7 @@ export function YearRecapModal({ initialYear, logs, fetchLogs, onClose }: { init
                 {menu && (
                   <motion.div initial={{ opacity: 0, y: -6, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }}
                     className="absolute right-0 top-11 z-20 w-56 rounded-2xl overflow-hidden bg-white dark:bg-zinc-800 shadow-xl ring-1 ring-black/10" role="menu">
-                    <button type="button" role="menuitem" onClick={() => void saveImage()} className="w-full px-4 py-3 flex items-center gap-2.5 text-left text-[length:calc(13.5px*var(--fs,1))] font-semibold text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"><Share className="w-4 h-4" />이 장 사진으로 공유·저장</button>
+                    <button type="button" role="menuitem" onClick={() => void saveImage()} className="w-full px-4 py-3 flex items-center gap-2.5 text-left text-[length:calc(13.5px*var(--fs,1))] font-semibold text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"><ShareBoxArrowIcon className="w-4 h-4" />이 장 사진으로 공유·저장</button>
                     <button type="button" role="menuitem" onClick={report} className="w-full px-4 py-3 flex items-center gap-2.5 text-left text-[length:calc(13.5px*var(--fs,1))] font-semibold text-red-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 border-t border-zinc-100 dark:border-zinc-700 cursor-pointer"><Flag className="w-4 h-4" />잘못된 정보 신고</button>
                   </motion.div>
                 )}

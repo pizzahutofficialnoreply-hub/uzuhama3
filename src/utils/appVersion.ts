@@ -78,7 +78,8 @@ export function useNewBuildAvailable(): boolean {
     const check = () => { isNewBuildAvailable().then((s) => { if (alive && s) setStale(true); }); };
     const t0 = window.setTimeout(check, 4000);
     const t = window.setInterval(check, 10 * 60 * 1000);
-    const vis = () => { if (document.visibilityState === 'visible') check(); };
+    // 돌아온 순간엔 화면부터 그리게 조금 뒤에 (앱 복귀 때 검은 화면이 길던 것)
+    const vis = () => { if (document.visibilityState === 'visible') window.setTimeout(check, 2500); };
     document.addEventListener('visibilitychange', vis);
     return () => { alive = false; window.clearTimeout(t0); window.clearInterval(t); document.removeEventListener('visibilitychange', vis); };
   }, []);

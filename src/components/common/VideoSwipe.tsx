@@ -1,8 +1,9 @@
+import { ShareBoxArrowIcon } from './ShareIcon';
 import { isRecommended } from '../../utils/videoRecs';
 import { recommendWithToast } from './ItemMenu';
 import { useEffect, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
-import { Bookmark, EyeOff, Flag, Share, ThumbsUp } from 'lucide-react';
+import { Bookmark, EyeOff, Flag, ThumbsUp } from 'lucide-react';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
 import { requestReport } from './ItemMenu';
 import { requestSave, type MyItemKind } from '../../utils/myPlaylists';
@@ -61,7 +62,7 @@ export function VideoSwipe({ id, kind = 'video', title, shareText, radius = 24, 
   };
   const right: SwipeAction[] = [
     { key: 'report', label: '신고', icon: <Flag />, tone: 'bg-zinc-500 text-white dark:bg-zinc-600', onRun: () => { void reportOrHide({ id, kind, title }); } },
-    { key: 'share', label: '공유', icon: <Share />, tone: 'bg-blue-500 text-white', onRun: share },
+    { key: 'share', label: '공유', icon: <ShareBoxArrowIcon />, tone: 'bg-blue-500 text-white', onRun: share },
   ];
   const leftActs: SwipeAction[] = [
     { key: 'save', label: '저장', icon: <Bookmark />, tone: 'bg-purple-600 text-white', onRun: () => { onEngage?.(); requestSave({ id, kind, title }); } },

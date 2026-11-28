@@ -12,7 +12,8 @@ export function SheetHandle({ onClose, onUp, className = '' }: { onClose: () => 
     const s = st.current;
     if (!s?.el) return;
     s.dy = y - s.y0;
-    const d = s.dy > 0 ? s.dy : s.dy / 4; // 위로는 살짝만
+    // 위로는 들리지 않음 (위로 끌어 크게 여는 창만 아주 살짝) — 시트가 바닥에서 떠 보이던 것
+    const d = s.dy > 0 ? s.dy : onUp ? Math.max(-10, s.dy / 8) : 0;
     // transform 은 등장·퇴장 애니메이션(motion)이 쓰므로, 끌 때는 따로 있는 translate 속성만 씀 (둘이 겹쳐 튀던 문제)
     s.el.style.translate = `0 ${d}px`;
     s.el.style.transition = 'none';

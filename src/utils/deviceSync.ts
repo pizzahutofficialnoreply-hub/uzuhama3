@@ -170,7 +170,7 @@ export function startDeviceSync() {
   };
   const onChange = () => { if (!applying) soon(4000); };
   ['uzuhama-watch-history', 'uzuhama-my-playlists-change', 'uzuhama-recent-searches'].forEach((ev) => window.addEventListener(ev, onChange));
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') soon(500); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') soon(2000); }); // 돌아온 순간엔 화면부터
   window.setInterval(() => { if (document.visibilityState === 'visible') soon(0); }, 90000);
   soon(1500);
 }

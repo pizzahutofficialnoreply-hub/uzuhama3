@@ -99,9 +99,11 @@ export interface GameItem {
 
 export interface DateOverride {
   date: string; // YYYY-MM-DD (방송일 기준, 오전 6시 전은 전날)
-  type: 'on' | 'off'; // on: 방송 예정일, off: 휴방일
+  type: 'on' | 'off' | 'boost'; // on: 방송 예정일, off: 휴방일, boost: 확률 올리기 (기념일 등)
   time?: string; // HH:MM (예정 시각, 선택)
-  note?: string; // 공지 문구 (선택)
+  note?: string; // 공지 문구 (선택) · boost 는 이유 (예: 10주년)
+  /** boost: 그날 '오늘 방송할 확률' 최소 % (원래 계산이 더 높으면 그대로) */
+  min?: number;
 }
 
 export interface BroadcastLog {
@@ -191,12 +193,6 @@ export interface DdayEvent {
   message?: string;
   /** 매년 반복 (생일 등): 날짜의 월·일로 */
   repeat?: 'yearly';
-  /**
-   * 방송 확률 올리기 (기념일 방송): 그날 '오늘 방송할 확률'을 최소 몇 %로 · 전날도 따로
-   * 비우면 이름에 '주년'이 있을 때만 기본값(당일 40 · 전날 12), 0 이면 끔
-   */
-  boost?: number;
-  boostBefore?: number;
 }
 
 export interface SystemConfig {

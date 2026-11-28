@@ -2082,7 +2082,8 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
                               {ytId ? (
                                 <button
                                   type="button"
-                                  onClick={() => setPlayingModalVideo({ url: v.url, title: v.title || '유튜브 쇼츠' })}
+                                  // 다른 곳과 똑같이 쇼츠 화면으로 (예전엔 작은 재생 창이라 링크를 누른 것과 달랐음)
+                                  onClick={() => { const list = (log.shorts || []).filter((x) => extractYoutubeId(x.url)).map((x) => ({ url: x.url, title: x.title || '유튜브 쇼츠' })); setShortsAt({ items: list as any, i: Math.max(0, list.findIndex((x) => x.url === v.url)) }); }}
                                   className="inline-flex items-center gap-1.5 text-left hover:text-red-500 transition-colors cursor-pointer group/btn"
                                   title="브라우저에서 바로 재생"
                                 >

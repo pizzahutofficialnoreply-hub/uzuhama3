@@ -241,13 +241,14 @@ export const AbsenceHealthSubTab: React.FC<AbsenceHealthSubTabProps> = ({
 function DateOverridesCard({ list, onChange, onSave, saving }: { list: DateOverride[]; onChange: (next: DateOverride[]) => void; onSave?: () => void; saving?: boolean }) {
   const kstToday = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
   const [date, setDate] = React.useState(kstToday);
-  const [type, setType] = React.useState<'on' | 'off'>('off');
+  const [type, setType] = React.useState<'on' | 'off' | 'boost'>('off');
+  const [min, setMin] = React.useState(40);
   const [time, setTime] = React.useState('');
   const [note, setNote] = React.useState('');
   const sorted = [...list].sort((a, b) => a.date.localeCompare(b.date));
   const add = () => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-    const item: DateOverride = { date, type, ...(type === 'on' && time ? { time } : {}), ...(note.trim() ? { note: note.trim() } : {}) };
+    const item: DateOverride = { date, type, ...(type === 'on' && time ? { time } : {}), ...(type === 'boost' ? { min: Math.max(1, Math.min(95, Math.round(min))) } : {}), ...(note.trim() ? { note: note.trim() } : {}) };
     onChange([...list.filter((o) => o.date !== date), item]);
     setNote('');
     setTime('');
@@ -257,19 +258,23 @@ function DateOverridesCard({ list, onChange, onSave, saving }: { list: DateOverr
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4 shadow-xs">
       <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
         <CalendarClock className="w-4 h-4 text-purple-600" />
-        <h3 className="font-bold text-sm text-zinc-900 dark:text-white">날짜 지정 (방송 예정일 · 휴방일)</h3>
+        <h3 className="font-bold text-sm text-zinc-900 dark:text-white">날짜 지정 (방송 예정일 · 휴방일 · 확률 올리기)</h3>
       </div>
       <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
         공지로 "0월 0일 다시 옵니다", "0월 0일 휴방합니다"처럼 알렸을 때 그 날짜만 확률을 맞춰요. 지정한 날이 아니면 원래 계산 그대로예요.
         예정일은 최소 92%, 시각을 적으면 그 시각이 유력 시간이 돼요. 휴방일은 장기 휴방과 같은 정도로 낮춰요. 새벽 6시 전은 전날 방송으로 쳐요.
+        '확률 올리기'는 기념일처럼 방송할 것 같은 날, 그날 하루 방송 확률을 최소 몇 %로 잡아요 (원래 계산이 더 높으면 그대로 · 문구 칸에 이유를 적으면 '10주년이라 확률을 높게 잡았어요'처럼 보여요).
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field} aria-label="날짜" />
-        <select value={type} onChange={(e) => setType(e.target.value as 'on' | 'off')} className={field} aria-label="종류">
+        <select value={type} onChange={(e) => setType(e.target.value as 'on' | 'off' | 'boost')} className={field} aria-label="종류">
           <option value="off">휴방일</option>
           <option value="on">방송 예정일</option>
+          <option value="boost">확률 올리기</option>
         </select>
-        <input type="time" value={time} onChange={(e) => setTime(e.target.value)} disabled={type !== 'on'} className={`${field} disabled:opacity-40`} aria-label="예정 시각 (선택)" />
+        {type === 'boost'
+          ? <label className={`${field} flex items-center gap-1`}>최소 <input type="number" min={1} max={95} value={min} onChange={(e) => setMin(Number(e.target.value) || 0)} className="w-12 bg-transparent outline-none tabular-nums" aria-label="최소 확률(%)" />%</label>
+          : <input type="time" value={time} onChange={(e) => setTime(e.target.value)} disabled={type !== 'on'} className={`${field} disabled:opacity-40`} aria-label="예정 시각 (선택)" />}
         <button type="button" onClick={add} className="inline-flex items-center justify-center gap-1 rounded-xl bg-purple-600 text-white text-xs font-bold px-3 py-2 cursor-pointer">
           <Plus className="w-3.5 h-3.5" /> 추가
         </button>
@@ -280,7 +285,7 @@ function DateOverridesCard({ list, onChange, onSave, saving }: { list: DateOverr
           {sorted.map((o) => (
             <div key={o.date} className={`flex items-center gap-3 px-3 py-2.5 text-xs ${o.date < kstToday ? 'opacity-50' : ''}`}>
               <span className="font-bold tabular-nums w-24 shrink-0">{o.date}</span>
-              <span className={`px-2 py-0.5 rounded-md font-bold shrink-0 ${o.type === 'on' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}>{o.type === 'on' ? `방송 예정${o.time ? ` ${o.time}` : ''}` : '휴방'}</span>
+              <span className={`px-2 py-0.5 rounded-md font-bold shrink-0 ${o.type === 'on' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : o.type === 'boost' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}>{o.type === 'on' ? `방송 예정${o.time ? ` ${o.time}` : ''}` : o.type === 'boost' ? `최소 ${o.min ?? 0}%` : '휴방'}</span>
               <span className="flex-1 min-w-0 truncate text-zinc-500">{o.note || (o.date < kstToday ? '지난 날짜' : '')}</span>
               <button type="button" onClick={() => onChange(list.filter((x) => x.date !== o.date))} className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer" aria-label={`${o.date} 삭제`}>
                 <Trash2 className="w-3.5 h-3.5" />

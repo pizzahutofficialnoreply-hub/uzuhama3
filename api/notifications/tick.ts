@@ -220,10 +220,11 @@ export default async function handler(req: any, res: any) {
         ? new Date(Date.parse(`${dateStr}T00:00:00Z`) - 86400000).toISOString().slice(0, 10)
         : dateStr;
 
-      // 확률 엔진에 필요한 최근 약 13개월치 (문서 10여 개) — 30분에 한 번만 새로 계산하고 그 사이엔 저장해 둔 값
+      // 확률 엔진에 필요한 최근 약 13개월치 (문서 10여 개) — 1시간에 한 번만 새로 계산하고 그 사이엔 저장해 둔 값
       let prob: any;
       const pc = state.probCache;
-      if (pc && pc.date === bToday && now.getTime() - Number(pc.at || 0) < 30 * 60000) {
+      // 방송이 없는 동안 확률은 천천히 바뀌어 1시간마다 다시 계산 (매번 달 문서 10여 개를 읽음)
+      if (pc && pc.date === bToday && now.getTime() - Number(pc.at || 0) < 60 * 60000) {
         prob = { dayProb: pc.dayProb, finalProb: pc.finalProb, time: { peakMinute: pc.peak, peakIsToday: pc.peakIsToday }, pattern: { state: pc.state } };
       } else {
         const startMonth = new Date(now.getTime() - 400 * 86400000).toISOString().slice(0, 7);

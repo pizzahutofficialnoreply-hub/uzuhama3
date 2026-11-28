@@ -22,26 +22,22 @@ describe('D-day', () => {
   });
 });
 
-import { boostFor } from './dday';
-import { computeBroadcastProbability } from './probability';
-describe('기념일 방송 확률', () => {
-  const ev = [{ id: 'a', title: '10주년', date: '2026-11-30', active: true }];
-  it('주년이면 기본: 당일 40 · 전날 12', () => {
-    expect(boostFor(ev as any, '2026-11-30')?.min).toBe(40);
-    expect(boostFor(ev as any, '2026-11-29')).toMatchObject({ min: 12, before: true });
-    expect(boostFor(ev as any, '2026-11-28')).toBeNull();
+import { computeBroadcastProbability, dateBoostFor } from './probability';
+describe('날짜 보정: 확률 올리기 (관리자 데이터)', () => {
+  const ov = [{ date: '2026-11-30', type: 'boost', min: 40, note: '10주년' }, { date: '2026-11-29', type: 'boost', min: 12, note: '10주년 전날' }];
+  it('지정한 날만', () => {
+    expect(dateBoostFor({ dateOverrides: ov } as any, '2026-11-30')).toEqual({ min: 40, note: '10주년' });
+    expect(dateBoostFor({ dateOverrides: ov } as any, '2026-11-28')).toBeNull();
+    expect(dateBoostFor({ events: [{ id: 'a', title: '10주년', date: '2026-11-30', active: true }] } as any, '2026-11-30')).toBeNull(); // D-day 이름만으로는 안 올림
   });
-  it('0 이면 끔, 주년 아니면 기본 없음', () => {
-    expect(boostFor([{ ...ev[0], boost: 0, boostBefore: 0 }] as any, '2026-11-30')).toBeNull();
-    expect(boostFor([{ ...ev[0], title: '수능' }] as any, '2026-11-30')).toBeNull();
-  });
-  it('오래 쉬는 중이어도 당일 하루 확률이 최소 40%', () => {
+  it('오래 쉬는 중이어도 그날 하루 확률이 최소 40% · 휴방일이면 안 올림', () => {
     const logs = Array.from({ length: 60 }, (_, i) => ({ id: `l${i}`, date: new Date(Date.UTC(2026, 4, 1 + i)).toISOString().slice(0, 10), time: '20:00', vods: [{ url: 'x' }] }));
     const at = new Date('2026-11-30T03:00:00Z'); // 한국 정오
-    const p = computeBroadcastProbability(logs as any, at, { system: { events: ev } as any });
+    const p = computeBroadcastProbability(logs as any, at, { system: { dateOverrides: ov } as any });
     expect(p.pattern.state).toBe('special');
     expect(p.dayProb).toBeGreaterThanOrEqual(40);
-    const off = computeBroadcastProbability(logs as any, at, { system: { events: ev, dateOverrides: [{ date: '2026-11-30', type: 'off' }] } as any });
+    expect(p.pattern.label).toContain('10주년');
+    const off = computeBroadcastProbability(logs as any, at, { system: { dateOverrides: [{ date: '2026-11-30', type: 'off' }, ...ov] } as any });
     expect(off.pattern.state).not.toBe('special');
   });
 });

@@ -200,7 +200,12 @@ async function cloudSelftest(op: string, req: any, res: any) {
   }
   if (op === 'pending') {
     // 워커가 2분마다: 줄 선 점검이 있으면 GitHub 의 점검 작업(selftest.yml)을 바로 깨움
+    // 줄 선 게 없으면 5분 동안은 서버 메모리의 답을 씀 (2분마다 DB 를 읽어 하루 700번 넘게 읽던 것)
+    //  · 이 서버에서 점검을 새로 넣으면 바로 지움 → 늦어도 5분 안에 시작
+    const g: any = globalThis as any;
+    if (g.__stPendingZeroAt && Date.now() - g.__stPendingZeroAt < 5 * 60000) return res.status(200).json({ queued: 0, cached: true });
     const q = await col.where('status', '==', 'queued').limit(5).get();
+    g.__stPendingZeroAt = q.size ? 0 : Date.now();
     return res.status(200).json({ queued: q.size });
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST' });
@@ -252,6 +257,7 @@ async function cloudSelftest(op: string, req: any, res: any) {
     const ref = col.doc();
     const d = { status: 'queued', deep: Boolean(body.deep), vid, day, queuedAt: new Date().toISOString(), position: active.size };
     await ref.set(d);
+    (globalThis as any).__stPendingZeroAt = 0; // 위 'pending' 메모리 답 지움
     return res.status(200).json(pub(ref.id, d));
   }
   return res.status(400).json({ error: 'op' });

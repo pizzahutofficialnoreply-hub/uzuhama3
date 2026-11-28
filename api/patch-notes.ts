@@ -640,7 +640,8 @@ export default async function handler(req: any, res: any) {
     }
 
     // 방문자마다 패치노트 문서 전체를 읽지 않게 CDN 에 30분 보관
-    res.setHeader('Cache-Control', req.query?.announce ? 'no-store' : 'public, s-maxage=1800, stale-while-revalidate=86400');
+    // 방문자마다 패치노트 문서 전체를 읽지 않게 CDN 에 6시간 보관 (새 글은 관리자가 올리면 앱이 ?t= 로 새로 받음)
+    res.setHeader('Cache-Control', req.query?.announce ? 'no-store' : req.query?.t ? 'public, s-maxage=60' : 'public, s-maxage=21600, stale-while-revalidate=86400');
     return res.status(200).json({
       notes: merged,
       counts: { firestore: fsNotes.length, notion: notion.notes.length },

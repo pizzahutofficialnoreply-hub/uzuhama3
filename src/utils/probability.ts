@@ -1,4 +1,3 @@
-import { boostFor } from './dday';
 import type { BroadcastLog, SystemConfig } from '../types';
 
 /**
@@ -131,6 +130,13 @@ export function dateOverrideFor(system: SystemConfig | undefined, dayStr: string
   return (list.find((o: any) => o && o.date === dayStr && (o.type === 'on' || o.type === 'off')) || null) as { date: string; type: 'on' | 'off'; time?: string; note?: string } | null;
 }
 
+/** 날짜 보정 '확률 올리기' (관리자 › 휴방·건강 › 날짜 지정): 그날 하루 방송 확률 최소 % · 이유 */
+export function dateBoostFor(system: SystemConfig | undefined, dayStr: string): { min: number; note: string } | null {
+  const list = Array.isArray((system as any)?.dateOverrides) ? (system as any).dateOverrides : [];
+  const o = list.find((x: any) => x && x.date === dayStr && x.type === 'boost' && Number(x.min) > 0);
+  return o ? { min: Math.min(95, Number(o.min)), note: String(o.note || '').trim() } : null;
+}
+
 export function computeBroadcastProbability(
   logs: BroadcastLog[],
   now: Date = new Date(),
@@ -258,10 +264,10 @@ export function computeBroadcastProbability(
     patternLabel = '방송 기록 없음';
   }
 
-  // 기념일(10주년 등): 그날·전날 최소 확률 (공지된 휴방일·오늘 이미 방송·방송 예정일은 그대로)
-  //  기록상 활동하던 해에는 11-30 에 늘 방송함(8/8) · 쉬는 중이면 다시 돌아올지 몰라 절반 정도로 잡음 (관리자에서 조절)
+  // 날짜 보정 '확률 올리기' (기념일 등, 관리자가 날짜·최소 %를 정함 · 코드에 날짜를 박아 두지 않음)
+  //  공지된 휴방일·오늘 이미 방송·방송 예정일이면 그대로
   const boost = !['live', 'streamedToday', 'scheduled'].includes(patternState) && dateOverrideFor(options.system, todayStr)?.type !== 'off'
-    ? boostFor(options.system?.events, todayStr) : null;
+    ? dateBoostFor(options.system, todayStr) : null;
   const baseDayP =
     patternState === 'live'
       ? 1
@@ -273,7 +279,7 @@ export function computeBroadcastProbability(
     dayP = boost.min / 100;
     patternLogOdds = logit(dayP) - logit(sigmoid(logit(smoothed) + gapLogOdds));
     patternState = 'special';
-    patternLabel = boost.before ? `내일 ${boost.title} (전날)` : `오늘 ${boost.title}`;
+    patternLabel = `날짜 보정${boost.note ? ` · ${boost.note}` : ''} (최소 ${boost.min}%)`;
   }
   const scheduledTime = patternState === 'scheduled' ? parseMinute(dateOverrideFor(options.system, todayStr)?.time || '') : null;
 

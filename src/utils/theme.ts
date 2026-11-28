@@ -90,15 +90,20 @@ export function initThemeListener(): () => void {
 
   // 2. 시스템 OS 다크모드 변경 시 실시간 대응 (mode가 'system'일 때만)
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  const handleMediaChange = (e: MediaQueryListEvent) => {
-    if (getThemeMode() === 'system') {
-      if (e.matches) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
+  // 아이폰은 앱을 벗어날 때 앱 전환 화면용 사진을 밝은·어두운 모양으로 둘 다 찍으려고 '시스템 모양'을 잠깐 바꿈
+  //  → 그때 테마를 따라 바꾸면 반쯤 밝은 화면이 찍혀, 돌아올 때 하얀 칸이 비치거나 사진을 못 써서 검은 화면이 오래 보였음
+  //  그래서 화면이 안 보이는 동안의 바뀜은 무시하고, 다시 보일 때 한 번만 맞춤
+  const syncSystem = () => {
+    if (getThemeMode() !== 'system') return;
+    document.documentElement.classList.toggle('dark', window.matchMedia('(prefers-color-scheme: dark)').matches);
   };
+  const handleMediaChange = () => {
+    if (document.visibilityState === 'hidden') return;
+    syncSystem();
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') requestAnimationFrame(syncSystem);
+  });
 
   if (mediaQuery.addEventListener) {
     mediaQuery.addEventListener('change', handleMediaChange);

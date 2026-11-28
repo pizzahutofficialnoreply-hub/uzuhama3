@@ -7,9 +7,10 @@
  *
  * 붙이는 법: 영상 요소에 data-lp="유튜브ID" data-lp-title="제목" (외부 a[href] 링크는 자동)
  */
+import { ShareBoxArrowIcon } from './ShareIcon';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ExternalLink, Link2, Share2, Maximize2 } from 'lucide-react';
+import { ExternalLink, Link2, Maximize2 } from 'lucide-react';
 import { triggerHaptic, iosHaptic } from '../../utils/haptics';
 import { shareTextOrClipboard } from '../../utils/shareUtils';
 import { extractYoutubeId } from '../../utils/urlUtils';
@@ -56,6 +57,8 @@ export function LongPressPreview() {
     let timer = 0;
     let start: { x: number; y: number; el: HTMLElement; from: HTMLElement } | null = null;
     let holding = false; // 미리보기를 띄운 뒤 아직 손을 안 뗌
+    let lastXY = { x: 0, y: 0 }; // 마지막 손가락 위치 (손 뗄 때 따라오는 누름만 골라 막으려고)
+    let releaseXY: { x: number; y: number } | null = null;
     const clear = () => { if (timer) clearTimeout(timer); timer = 0; start = null; };
     // 터치 이벤트로 받음: 아이폰은 '손가락 터치' 안에서 시작한 타이머여야 진동(스위치 방식)을 허락할 가능성이 큼
     const onStart = (e: TouchEvent) => {
@@ -67,6 +70,7 @@ export function LongPressPreview() {
       if (!el) return;
       clear();
       const tch = e.touches[0];
+      lastXY = { x: tch.clientX, y: tch.clientY };
       start = { x: tch.clientX, y: tch.clientY, el, from };
       timer = window.setTimeout(() => {
         const st = start; clear();
@@ -82,15 +86,20 @@ export function LongPressPreview() {
     };
     const onMove = (e: TouchEvent) => {
       const tch = e.touches[0];
+      if (tch) lastXY = { x: tch.clientX, y: tch.clientY };
       if (start && tch && Math.hypot(tch.clientX - start.x, tch.clientY - start.y) > MOVE_PX) clear();
     };
     const onEnd = () => {
       clear();
       // 손을 뗄 때 따라오는 '누름'이 미리보기 바깥(닫기)이나 미리보기(열기)로 가지 않게 잠깐 막음
-      if (holding) { holding = false; lockUntil.current = Date.now() + 450; }
+      if (holding) { holding = false; lockUntil.current = Date.now() + 450; releaseXY = { ...lastXY }; }
     };
+    // 막는 건 '손 뗀 그 자리에 바로 따라오는 누름'만 → 미리보기가 뜬 뒤 바로 다른 곳을 누르면 그대로 닫힘
     const swallow = (e: Event) => {
-      if (holding || Date.now() < lockUntil.current || (Date.now() - firedAt.current < 700 && !(e.target as HTMLElement)?.closest?.('[data-lp-layer]'))) {
+      const me = e as MouseEvent;
+      const atRelease = releaseXY && Date.now() < lockUntil.current && Math.hypot((me.clientX ?? 0) - releaseXY.x, (me.clientY ?? 0) - releaseXY.y) < 28;
+      if (holding || atRelease) {
+        if (atRelease) releaseXY = null; // 한 번만
         e.preventDefault(); e.stopPropagation();
       }
     };
@@ -164,7 +173,7 @@ export function LongPressPreview() {
     { label: '열기', icon: <Maximize2 />, on: open },
     ...(t.kind === 'video' ? [{ label: '유튜브에서 열기', icon: <ExternalLink />, on: yt }] : []),
     { label: '링크 복사', icon: <Link2 />, on: copy },
-    { label: '공유…', icon: <Share2 />, on: share },
+    { label: '공유…', icon: <ShareBoxArrowIcon />, on: share },
   ];
 
   return createPortal(

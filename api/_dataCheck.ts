@@ -427,7 +427,16 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
   //  (매일 영상마다 ai_video 문서를 읽느라 하루 3천 번 넘게 읽던 것)
   const seenRef = db.collection('admin_data').doc('dataCheck_seen');
   let seenKeys = new Set<string>();
-  try { const k = (await seenRef.get()).data()?.keys; if (Array.isArray(k)) seenKeys = new Set(k); } catch { /* */ }
+  // 맞지 않아 보인 영상도 7일 동안은 AI 결과를 다시 읽지 않고 저장해 둔 것을 씀
+  //  (매일 같은 영상 수천 개의 ai_video 를 다시 읽어 하루 읽기의 1/4 이 넘던 것: 하루 약 3,900번)
+  let susPrev: Record<string, { d: number; g: string[] }> = {};
+  try {
+    const sd = (await seenRef.get()).data() || {};
+    if (Array.isArray(sd.keys)) seenKeys = new Set(sd.keys);
+    if (sd.sus && typeof sd.sus === 'object') susPrev = sd.sus;
+  } catch { /* */ }
+  const today = Math.floor(Date.now() / 86400000);
+  const susNew: Record<string, { d: number; g: string[] }> = {};
   const seenNew: string[] = [];
   for (const [vid, l] of vidToLog) {
     const names: string[] = (l.games?.length ? l.games.map((g: any) => g.name) : [l.game]).filter(Boolean);
@@ -440,13 +449,22 @@ export async function runDataCheck(db: any, opts: { linkLimit?: number; aiLimit?
     if (names.some((n) => looseMatch(text, n))) continue;
     const key = `${vid}|${names.join(',')}`;
     if (seenKeys.has(key)) { seenNew.push(key); continue; }
-    const ai = (await db.collection('ai_video').doc(vid).get().catch(() => null))?.data?.();
-    const aiGames: string[] = (ai?.status === 'done' ? ai.games || [] : []).flatMap((g: any) => [g.name, g.ko]).filter(Boolean);
+    let aiGames: string[];
+    const cached = susPrev[key];
+    if (cached && today - Number(cached.d) < 7 && Array.isArray(cached.g)) {
+      aiGames = cached.g;
+      susNew[key] = cached;
+    } else {
+      const ai = (await db.collection('ai_video').doc(vid).get().catch(() => null))?.data?.();
+      aiGames = (ai?.status === 'done' ? ai.games || [] : []).flatMap((g: any) => [g.name, g.ko]).filter(Boolean).slice(0, 12);
+    }
     const seen = aiGames.some((a) => names.some((n) => looseMatch(a, n)));
-    if (!seen) suspects.push({ l, vid, title: sn.title, desc: String(sn.description || '').slice(0, 500), aiGames });
-    else seenNew.push(key);
+    if (!seen) {
+      suspects.push({ l, vid, title: sn.title, desc: String(sn.description || '').slice(0, 500), aiGames });
+      if (!susNew[key]) susNew[key] = { d: today, g: aiGames };
+    } else seenNew.push(key);
   }
-  try { await seenRef.set({ keys: seenNew.slice(0, 20000), at: new Date().toISOString() }); } catch { /* */ }
+  try { await seenRef.set({ keys: seenNew.slice(0, 20000), sus: susNew, at: new Date().toISOString() }); } catch { /* */ }
   const aiLimit = opts.aiLimit ?? 40;
   for (let i = 0; i < Math.min(suspects.length, aiLimit) && Date.now() - t0 < 200000; i += 10) {
     const batch = suspects.slice(i, Math.min(i + 10, aiLimit));
