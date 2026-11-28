@@ -1,15 +1,22 @@
-name: tmp 공개 데이터 받기 (지움)
+name: tmp 공개 상태 확인 (지움)
 on:
   workflow_dispatch:
-permissions:
-  contents: write
 jobs:
   r:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - run: |
-          mkdir -p snap
-          for f in snapshot_logs.json channel_uploads.json; do curl -sS -o snap/$f "https://uzuhama-beta.web.app/data/$f"; ls -la snap/$f; done
-          git config user.name bot; git config user.email bot@users.noreply.github.com
-          git checkout --orphan tmp-snap2 && git rm -rfq . && git add snap && git commit -qm snap && git push -f origin tmp-snap2
+          B=https://uzuhama.vercel.app
+          echo "== health"; curl -sS -m 20 "$B/api/health" | head -c 600; echo
+          echo "== status"; curl -sS -m 20 "$B/api/videos/search-index?status=1" | head -c 2500; echo
+          echo "== ids"; curl -sS -m 20 "$B/api/videos/search-index?ai=ids" > ids.json; python3 -c "import json;d=json.load(open('ids.json'));print({k:(len(v) if isinstance(v,(list,dict)) else v) for k,v in d.items()})"
+          echo "== comp"; curl -sS -m 25 "$B/api/videos/search-index?ai=video&id=p59s4mXoBrs" > c.json; python3 - <<'PY'
+          import json
+          d=json.load(open('c.json'))
+          print(list(d.keys()))
+          v=d.get('video') or d.get('data') or d
+          print(json.dumps(v,ensure_ascii=False)[:200])
+          for k in ('games','gameStories','chapters','timeline'):
+              x=(v or {}).get(k)
+              if x: print(k, json.dumps(x,ensure_ascii=False)[:4000])
+          PY
