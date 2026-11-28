@@ -16,6 +16,7 @@ import { extractYoutubeId } from '../../utils/urlUtils';
 import { cleanShortsTitle } from '../../utils/videoSearch';
 import { PlaySquare, YoutubeLogo } from './MediaIcons';
 import { openAiCard } from './AiCardExpand';
+import { loadDetail, SummaryBody, CompilationSummary, goSearch } from './AiSummaryHost';
 import { usePrefs } from '../../utils/userPrefs';
 
 /**
@@ -34,6 +35,37 @@ export type ShortsPlayerItem = {
 
 const SWIPE_PX = 60;
 const SOUND_KEY = 'uzuhama_shorts_sound';
+/** 유튜브 쇼츠 화면의 채널 이름·진행바·제목을 화면 밖으로 밀어내는 만큼 (플레이어를 영상보다 위아래로 이만큼 길게) */
+const YT_CHROME_PX = 96;
+
+/*
+ * 쇼츠 플레이어(iframe)는 하나를 만들어 계속 씀 (뷰어를 닫아도 지우지 않고 숨겨 둠)
+ *  - 아이폰은 '그 플레이어를 한 번 직접 눌러 소리를 켠' 뒤에야 소리 나는 재생을 허락함
+ *    → 같은 플레이어를 다시 쓰면 뷰어를 다시 열어도 누르지 않고 소리가 남
+ *  - iframe 은 화면 안에서 자리를 옮기면 새로 불러와지므로, body 에 고정해 두고 위치·크기만 맞춤
+ *  - 뷰어가 겹쳐 열리면(쇼츠 → 카드 → 또 쇼츠) 맨 위 뷰어가 쓰고, 닫으면 아래 뷰어로 돌려줌
+ */
+type Owner = { attach: () => void };
+const SH: { frame: HTMLIFrameElement | null; holder: HTMLDivElement | null; wrap: HTMLDivElement | null; loaded: boolean; owners: Owner[] } = { frame: null, holder: null, wrap: null, loaded: false, owners: [] };
+function sharedFrame(firstId: string): { fresh: boolean } {
+  if (SH.frame && SH.frame.isConnected) return { fresh: false };
+  const origin = window.location.origin;
+  const holder = document.createElement('div');
+  holder.setAttribute('aria-hidden', 'true');
+  holder.style.cssText = 'position:fixed;overflow:hidden;pointer-events:none;display:none;left:0;top:0;width:0;height:0;';
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:absolute;inset:0;transition:opacity 150ms;opacity:0;';
+  const f = document.createElement('iframe');
+  f.src = `https://www.youtube.com/embed/${firstId}?autoplay=1&playsinline=1&mute=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&cc_lang_pref=xx&enablejsapi=1&origin=${encodeURIComponent(origin)}`;
+  f.title = '쇼츠';
+  f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+  f.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:0;width:100%;height:100%;';
+  wrap.appendChild(f); holder.appendChild(wrap); document.body.appendChild(holder);
+  SH.frame = f; SH.holder = holder; SH.wrap = wrap; SH.loaded = false;
+  f.addEventListener('load', () => { SH.loaded = true; f.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 'uzuhama-shorts' }), '*'); });
+  return { fresh: true };
+}
+const frameCommand = (func: string, args: any[] = []) => { SH.frame?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*'); };
 
 export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = false, zIndex }: { items: ShortsPlayerItem[]; startIndex: number; onClose: () => void; allLogs?: any; /** 끝나면 다음 쇼츠로 (연결된 쇼츠 → 추천 쇼츠) */ autoNext?: boolean; zIndex?: number }) {
 
@@ -49,6 +81,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
   const [paused, setPaused] = useState(false);
   const [ready, setReady] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetFull, setSheetFull] = useState(false); // 자세히 보기 판: 처음엔 반쯤, 위로 끌면 크게
   // 다음 쇼츠로 넘어가는 동안은 플레이어를 숨기고 썸네일을 보여 줌 (이전 영상이 잠깐 보이지 않게)
   const [switching, setSwitching] = useState(true);
   const pausedRef = useRef(false);
@@ -57,7 +90,6 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
   const [menuOpen, setMenuOpen] = useState(false);
   const longRef = useRef<number | null>(null);
   pausedRef.current = paused;
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   // 화면 비율이 9:16 보다 길쭉한 휴대폰(아이폰 등)에서도 위아래 검은 여백 없이 꽉 차게 (양옆을 조금 잘라 채움)
   const [cover, setCover] = useState<{ w: number; h: number } | null>(null);
@@ -78,14 +110,12 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
   const touchRef = useRef<{ y: number; x: number; t: number; moved: boolean; long?: boolean } | null>(null);
   const wheelLock = useRef(0);
   const firstId = useRef(extractYoutubeId(items[index]?.url || '') || '');
-  const loadedId = useRef(firstId.current);
+  const loadedId = useRef('');
 
   const idOf = (i: number) => extractYoutubeId(items[i]?.url || '') || '';
   const cur = items[index];
 
-  const command = useCallback((func: string, args: any[] = []) => {
-    iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
-  }, []);
+  const command = useCallback((func: string, args: any[] = []) => frameCommand(func, args), []);
 
   // 2배속(가장자리 길게 누르기) · 진행바
   const speed = useSpeedHold(command);
@@ -137,6 +167,63 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
     command('unloadModule', ['cc']);
     command('setOption', ['captions', 'track', {}]);
   }, [command]);
+
+  // 같이 쓰는 플레이어를 이 뷰어 자리에 붙이기 (처음이면 만들고, 이미 있으면 이 쇼츠를 불러와 소리 설정대로 재생)
+  const zBase = zIndex || 300;
+  const indexRef = useRef(index); indexRef.current = index;
+  useEffect(() => {
+    const { fresh } = sharedFrame(firstId.current);
+    const place = () => {
+      const st = stageRef.current; const h = SH.holder; const f = SH.frame;
+      if (!st || !h || !f) return;
+      const r = st.getBoundingClientRect();
+      h.style.left = `${r.left}px`; h.style.top = `${r.top}px`; h.style.width = `${r.width}px`; h.style.height = `${r.height}px`;
+      h.style.zIndex = String(zBase + 1); h.style.display = 'block';
+      const w = Math.max(r.width, r.height * 9 / 16);
+      f.style.width = `${w}px`; f.style.height = `${w * 16 / 9 + YT_CHROME_PX * 2}px`;
+    };
+    const me: Owner = {
+      attach: () => {
+        place();
+        SH.frame?.removeAttribute('data-idle');
+        const id = idOf(indexRef.current);
+        if (!fresh || loadedId.current) {
+          loadedId.current = id;
+          setSwitching(true);
+          frameCommand('loadVideoById', [id, 0]);
+          setReady(true);
+          try { if (localStorage.getItem(SOUND_KEY) !== '0') { unmuteAt.current = Date.now(); frameCommand('unMute'); frameCommand('setVolume', [100]); } else frameCommand('mute'); } catch { /* */ }
+          frameCommand('playVideo');
+          window.setTimeout(() => setSwitching(false), 1500);
+        } else loadedId.current = id;
+      },
+    };
+    SH.owners.push(me);
+    me.attach();
+    if (fresh) SH.frame?.addEventListener('load', () => { setReady(true); window.setTimeout(() => setSwitching(false), 1200); }, { once: true });
+    const ro = new ResizeObserver(place);
+    if (stageRef.current) ro.observe(stageRef.current);
+    window.addEventListener('resize', place);
+    return () => {
+      ro.disconnect(); window.removeEventListener('resize', place);
+      SH.owners = SH.owners.filter((o) => o !== me);
+      const prev = SH.owners[SH.owners.length - 1];
+      if (prev) prev.attach();
+      else {
+        frameCommand('pauseVideo');
+        if (SH.holder) SH.holder.style.display = 'none';
+        SH.frame?.setAttribute('data-idle', '');
+        if (SH.wrap) SH.wrap.style.opacity = '0';
+      }
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // 끌기·넘기는 중: 같이 쓰는 플레이어도 따라 움직이고 숨김
+  useEffect(() => {
+    if (SH.owners[SH.owners.length - 1] && SH.wrap) {
+      SH.wrap.style.transform = `translateY(${drag}px)`;
+      SH.wrap.style.opacity = switching || animating ? '0' : '1';
+    }
+  }, [drag, switching, animating]);
 
   // 바뀐 쇼츠 불러오기
   useEffect(() => {
@@ -257,22 +344,16 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
   };
 
   if (!cur) return null;
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const src = `https://www.youtube.com/embed/${firstId.current}?autoplay=1&playsinline=1&mute=1&controls=0&rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&cc_lang_pref=xx&enablejsapi=1&origin=${encodeURIComponent(origin)}`;
   const translate = `translateY(calc(${-index * 100}% + ${drag}px))`;
 
+  const stop = { onTouchStart: (e: React.TouchEvent) => e.stopPropagation(), onTouchMove: (e: React.TouchEvent) => e.stopPropagation(), onTouchEnd: (e: React.TouchEvent) => e.stopPropagation() };
+  const STAGE = 'relative h-full w-full max-w-[min(100vw,calc(100dvh*9/16))] overflow-hidden';
   return createPortal(
-    // 화면 위에 따로 떠 있어도 React 이벤트는 부모로 올라가므로, 뒤쪽 화면(하위 탭 좌우 밀기)에 손가락이 전달되지 않게 막음
-    <div
-      className="fixed inset-0 z-[300] bg-black text-white select-none overscroll-none"
-      style={zIndex ? { zIndex } : undefined}
-      role="dialog" aria-modal="true" aria-label="쇼츠 보기" data-no-swipe
-      onTouchStart={(e) => e.stopPropagation()}
-      onTouchMove={(e) => e.stopPropagation()}
-      onTouchEnd={(e) => e.stopPropagation()}
-    >
+    <>
+    {/* 아래 판: 검은 바탕 + 썸네일 줄 · 그 위(z+1)에 같이 쓰는 플레이어 · 맨 위(z+2)에 누르기·버튼 */}
+    <div className="fixed inset-0 bg-black select-none overscroll-none" style={{ zIndex: zBase }} aria-hidden {...stop}>
       <div className="absolute inset-0 flex justify-center">
-        <div ref={stageRef} className="relative h-full w-full max-w-[min(100vw,calc(100dvh*9/16))] overflow-hidden">
+        <div ref={stageRef} className={STAGE}>
           {/* 쇼츠 썸네일 줄 (끌 때 다음·이전이 보이게) */}
           <div
             className="absolute inset-0"
@@ -290,26 +371,18 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
             })}
           </div>
 
-          {/* 실제 재생은 플레이어 하나 (현재 쇼츠 자리에, 끌면 같이 움직임) */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ transform: `translateY(${drag}px)`, transition: 'opacity 150ms', opacity: switching || animating ? 0 : 1 }}
-          >
-            <iframe
-              ref={iframeRef}
-              src={src}
-              title={cur.title || '쇼츠'}
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border-0"
-              style={cover ? { width: cover.w, height: cover.h } : { width: '100%', height: '100%' }}
-              allow="autoplay; encrypted-media; picture-in-picture"
-              onLoad={() => {
-                iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 'uzuhama-shorts' }), '*');
-                setReady(true);
-                window.setTimeout(() => setSwitching(false), 1200);
-              }}
-            />
-          </div>
-
+        </div>
+      </div>
+    </div>
+    {/* 화면 위에 따로 떠 있어도 React 이벤트는 부모로 올라가므로, 뒤쪽 화면(하위 탭 좌우 밀기)에 손가락이 전달되지 않게 막음 */}
+    <div
+      className="fixed inset-0 text-white select-none overscroll-none pointer-events-none"
+      style={{ zIndex: zBase + 2 }}
+      role="dialog" aria-modal="true" aria-label="쇼츠 보기" data-no-swipe
+      {...stop}
+    >
+      <div className="absolute inset-0 flex justify-center">
+        <div className={cn(STAGE, passThrough ? 'pointer-events-none' : 'pointer-events-auto')}>
           {/* 밀기·누르기를 받는 투명 막 (플레이어가 손가락을 가로채지 않게) */}
           <div
             className={cn('absolute inset-0 touch-none cursor-pointer', passThrough && 'pointer-events-none')}
@@ -328,11 +401,11 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
             </div>
           )}
           {passThrough && (
-            <button type="button" onClick={() => setPassThrough(false)} className="absolute right-3 top-[calc(env(safe-area-inset-top,0px)+56px)] px-3 py-1.5 rounded-full bg-black/60 text-[length:calc(12px*var(--fs,1))] font-bold cursor-pointer">넘기기로 돌아가기</button>
+            <button type="button" onClick={() => setPassThrough(false)} className="pointer-events-auto absolute right-3 top-[calc(env(safe-area-inset-top,0px)+56px)] px-3 py-1.5 rounded-full bg-black/60 text-[length:calc(12px*var(--fs,1))] font-bold cursor-pointer">넘기기로 돌아가기</button>
           )}
           {muted && !menuOpen && !passThrough && (
-            <button type="button" onClick={toggleMute} className="absolute left-1/2 top-[58%] -translate-x-1/2 h-11 px-4 rounded-full bg-black/55 backdrop-blur-md flex items-center gap-2 text-sm font-bold cursor-pointer shadow-lg ring-1 ring-white/20 animate-pulse" aria-label="소리 켜기">
-              <VolumeX className="w-5 h-5" /> 화면을 누르면 소리가 켜져요
+            <button type="button" onClick={toggleMute} className="absolute left-1/2 top-[58%] -translate-x-1/2 w-14 h-14 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center cursor-pointer shadow-lg ring-1 ring-white/20" aria-label="소리 켜기 (화면을 누르면 켜져요)">
+              <VolumeX className="w-7 h-7" />
             </button>
           )}
 
@@ -342,14 +415,13 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
           {/* 멈춰도 따로 아이콘을 띄우지 않음 (넘길 때 잠깐 보이던 것도 없앰) */}
 
           {/* 위: 닫기, 소리 */}
-          <div className="absolute top-0 inset-x-0 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between bg-gradient-to-b from-black/50 to-transparent">
+          <div className="pointer-events-auto absolute top-0 inset-x-0 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between bg-gradient-to-b from-black/50 to-transparent">
             <button type="button" onClick={close} className="w-10 h-10 rounded-full bg-black/35 backdrop-blur-md flex items-center justify-center cursor-pointer" aria-label="닫기">
               <X className="w-5 h-5" />
             </button>
             <span className="text-xs font-semibold text-white/80 tabular-nums">{index + 1} / {items.length}</span>
             <button type="button" onClick={toggleMute} className="h-10 px-3 rounded-full bg-black/35 backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold cursor-pointer" aria-label={muted ? '소리 켜기' : '소리 끄기'}>
               {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-              {muted && <span>소리 켜기</span>}
             </button>
           </div>
 
@@ -368,22 +440,11 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
                   <YoutubeLogo className="w-4 h-4" /> 편집본
                 </button>
               )}
-              <a href={`https://www.youtube.com/shorts/${idOf(index)}`} target="_blank" rel="noreferrer" className="h-9 px-3 rounded-full bg-white/15 backdrop-blur-md flex items-center text-xs font-semibold">
+              <a href={tm.cur >= 2 ? `https://youtu.be/${idOf(index)}?t=${Math.floor(tm.cur)}` : `https://www.youtube.com/shorts/${idOf(index)}`} onClick={() => { command('pauseVideo'); setPaused(true); }} target="_blank" rel="noreferrer" className="h-9 px-3 rounded-full bg-white/15 backdrop-blur-md flex items-center text-xs font-semibold">
                 유튜브에서 보기
               </a>
               {!!cur.compilation?.length && (
-                <button type="button" onClick={() => {
-                  // 다른 곳의 '자세히 보기'와 같이 전체 화면으로 펼침 (실험실 끄면 아래에서 올라오는 목록)
-                  if (labCard && cur.compilationVideo) {
-                    command('pauseVideo'); setPaused(true);
-                    const v = cur.compilationVideo;
-                    const vid = idOf(index);
-                    openAiCard(vid, v.videoTitle || cur.title || '몰아보기', stageRef.current, `몰아보기 · ${cur.compilation?.length || 0}개 방송`, {
-                      compilation: true,
-                      extra: (closeCard) => <CompilationDetail video={v} allLogs={allLogs} onClose={closeCard} listOnly />,
-                    });
-                  } else setSheetOpen(true);
-                }} className="h-9 px-3 rounded-full bg-purple-600/90 backdrop-blur-md flex items-center gap-1 text-xs font-bold cursor-pointer">
+                <button type="button" onClick={() => { setSheetFull(false); setSheetOpen(true); }} className="h-9 px-3 rounded-full bg-purple-600/90 backdrop-blur-md flex items-center gap-1 text-xs font-bold cursor-pointer">
                   <Layers className="w-4 h-4" /> 자세히 보기 · {cur.compilation.length}
                 </button>
               )}
@@ -391,11 +452,12 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
           </div>
           {/* 진행바: 끌어서 원하는 곳으로 */}
           {!switching && <ScrubBar cur={tm.cur} dur={tm.dur} className="bottom-[env(safe-area-inset-bottom,0px)]"
-            onSeek={(t, final) => { command('seekTo', [t, final]); setTm((p) => ({ ...p, cur: t })); }} />}
+            onSeek={(t, final) => { command('seekTo', [t, final]); setTm((p) => ({ ...p, cur: t })); if (final) { command('playVideo'); setPaused(false); } }} />}
         </div>
       </div>
 
       {/* 몰아보기 목록: 아래에서 위로 올라오는 판 */}
+      <div className="contents [&>*]:pointer-events-auto">
       <AnimatePresence>
         {sheetOpen && cur.compilation?.length ? (
           <>
@@ -409,22 +471,26 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
               key="sheet"
               role="dialog"
               aria-label="몰아보기 연결 생방송"
-              className="absolute inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[min(100vw,calc(100dvh*9/16))] max-h-[70dvh] flex flex-col rounded-t-[28px] bg-white/95 dark:bg-zinc-950/95 text-zinc-900 dark:text-white backdrop-blur-xl border-t border-zinc-200/70 dark:border-white/10 pb-[env(safe-area-inset-bottom)]"
+              className="absolute inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[min(100vw,calc(100dvh*9/16))] flex flex-col transition-[height] duration-300 rounded-t-[28px] bg-white/95 dark:bg-zinc-950/95 text-zinc-900 dark:text-white backdrop-blur-xl border-t border-zinc-200/70 dark:border-white/10 pb-[env(safe-area-inset-bottom)]"
+              style={{ height: sheetFull ? '92dvh' : '55dvh' }}
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 380, damping: 38 }}
               drag="y"
               dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={{ top: 0, bottom: 0.6 }}
-              onDragEnd={(_, info) => { if (info.offset.y > 90 || info.velocity.y > 600) setSheetOpen(false); }}
+              dragElastic={{ top: 0.15, bottom: 0.6 }}
+              onDragEnd={(_, info) => {
+                if (info.offset.y < -50 || info.velocity.y < -500) setSheetFull(true);
+                else if (info.offset.y > 90 || info.velocity.y > 600) { if (sheetFull) setSheetFull(false); else setSheetOpen(false); }
+              }}
             >
               <div className="pt-2.5 pb-1 flex justify-center"><span className="w-10 h-1.5 rounded-full bg-zinc-300 dark:bg-white/25" /></div>
               <div className="px-4 pb-1 flex items-center justify-between">
                 <p className="text-sm font-bold line-clamp-1">{cur.title || '몰아보기'}</p>
                 <button type="button" onClick={() => setSheetOpen(false)} className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-white/10 flex items-center justify-center cursor-pointer shrink-0" aria-label="닫기"><X className="w-4 h-4" /></button>
               </div>
-              <div className="overflow-y-auto pb-3" onPointerDownCapture={(e) => e.stopPropagation()}>
+              <div className="flex-1 min-h-0 overflow-y-auto pb-3" onPointerDownCapture={(e) => e.stopPropagation()} onScroll={(e) => { if ((e.currentTarget as HTMLDivElement).scrollTop > 40 && !sheetFull) setSheetFull(true); }}>
                 {cur.compilationVideo ? (
                   // 사이트의 몰아보기 펼치기와 같은 목록 (위쪽 큰 영상 부분만 뺌)
                   <CompilationDetail video={cur.compilationVideo} allLogs={allLogs} onClose={() => setSheetOpen(false)} listOnly />
@@ -442,13 +508,17 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
                     </div>
                   </div>
                 ))}
+                {/* 연결된 것(위) 다음에 AI 요약 */}
+                <SheetSummary id={idOf(index)} onSeek={(t) => { setSheetOpen(false); command('seekTo', [t, true]); command('playVideo'); setPaused(false); }} />
               </div>
             </motion.div>
           </>
         ) : null}
       </AnimatePresence>
 
+      </div>
       {/* 길게 누르면: 아래에서 올라오는 메뉴 (⋯ 메뉴와 같은 순서) */}
+      <div className="contents [&>*]:pointer-events-auto">
       <AnimatePresence>
         {menuOpen && (
           <>
@@ -480,8 +550,9 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
         )}
       </AnimatePresence>
 
+      </div>
       {/* 데스크톱: 위·아래 버튼 */}
-      <div className="hidden md:flex absolute right-6 top-1/2 -translate-y-1/2 flex-col gap-3">
+      <div className="hidden md:flex pointer-events-auto absolute right-6 top-1/2 -translate-y-1/2 flex-col gap-3">
         <button type="button" onClick={() => go(-1)} disabled={index === 0} className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 flex items-center justify-center cursor-pointer" aria-label="이전 쇼츠">
           <ChevronUp className="w-6 h-6" />
         </button>
@@ -489,8 +560,24 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
           <ChevronDown className="w-6 h-6" />
         </button>
       </div>
-    </div>,
+    </div>
+    </>,
     document.body
+  );
+}
+
+/** 자세히 보기 판 아래쪽: 이 쇼츠(또는 몰아보기)의 AI 요약 · 없으면 아무것도 안 보임 */
+function SheetSummary({ id, onSeek }: { id: string; onSeek: (t: number) => void }) {
+  const [d, setD] = useState<any>(null);
+  useEffect(() => { let on = true; setD(null); loadDetail(id).then((x: any) => { if (on) setD(x); }).catch(() => {}); return () => { on = false; }; }, [id]);
+  if (!d?.found || d.pending) return null;
+  const comp = d.compilation && ((d.sources || []).length || d.overview?.opening || d.overview?.theme);
+  if (d.compilation && !comp) return null;
+  return (
+    <section className="mx-3 mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20 p-4">
+      <p className="mb-2 text-[length:calc(13px*var(--fs,1))] font-black text-purple-700 dark:text-purple-300">AI 영상 요약</p>
+      {comp ? <CompilationSummary data={d} onSeek={(t) => onSeek(t)} onSearch={(q) => goSearch(q)} /> : <SummaryBody d={d} onSeek={onSeek} onSearch={(q) => goSearch(q)} />}
+    </section>
   );
 }
 

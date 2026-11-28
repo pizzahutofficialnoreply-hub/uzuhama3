@@ -121,18 +121,35 @@ function play() {
   // 아이폰 무음 스위치를 켜 두면 배경음은 안 들리게 ('ambient': 무음 모드를 따르고, 다른 앱 음악도 끊지 않음 · iOS 16.4+)
   //  '앱을 내려도 계속 듣기' 를 켰을 때만 'playback' (무음이어도 들리고 앱 밖에서도 계속)
   try { const as = (navigator as any).audioSession; if (as) as.type = p.bg ? 'playback' : 'ambient'; } catch { /* */ }
-  const fadeIn = waitIntro; waitIntro = false;
-  if (fadeIn) fade();
+  const fadeIn = waitIntro || faded; waitIntro = false;
+  if (fadeIn) fade(faded ? 0.8 : 2);
+  faded = false;
   a.play().then(() => { started = true; unlocked = true; emit(); }).catch(() => { /* 아직 터치 전 → 첫 터치 때 */ });
 }
 function pause() { savePos(); try { el?.pause(); } catch { /* */ } }
-/** 2초 동안 0 → 설정 음량 (인트로 뒤) */
-function fade() {
+let faded = false; // 줄여서 멈춘 상태 → 다시 틀 때 살짝 키우며
+let fadeTimer = 0;
+/** 앱을 내릴 때: 뚝 끊으면 '징' 하는 소리가 나서 0.25초 동안 줄인 뒤 멈춤 */
+function fadeOutPause() {
+  if (!el || el.paused) { pause(); return; }
+  faded = true;
+  window.clearTimeout(fadeTimer);
+  if (gain && ac) {
+    try { const t = ac.currentTime; gain.gain.cancelScheduledValues(t); gain.gain.setValueAtTime(gain.gain.value, t); gain.gain.linearRampToValueAtTime(0, t + 0.25); } catch { /* */ }
+  } else {
+    const v0 = el.volume; let k = 0;
+    const id = setInterval(() => { k++; try { if (el) el.volume = Math.max(0, v0 * (1 - k / 5)); } catch { /* */ } if (k >= 5) clearInterval(id); }, 50);
+  }
+  fadeTimer = window.setTimeout(() => { if (document.hidden && !getBgm().bg) pause(); }, 300);
+}
+/** sec 초 동안 0 → 설정 음량 (인트로 뒤 2초 · 앱으로 돌아올 때 0.8초) */
+function fade(sec = 2) {
   const v = getBgm().vol;
-  if (gain && ac) { gain.gain.setValueAtTime(0, ac.currentTime); gain.gain.linearRampToValueAtTime(v, ac.currentTime + 2); return; }
+  if (gain && ac) { try { gain.gain.cancelScheduledValues(ac.currentTime); } catch { /* */ } gain.gain.setValueAtTime(0, ac.currentTime); gain.gain.linearRampToValueAtTime(v, ac.currentTime + sec); return; }
   if (!el) return;
   try { el.volume = 0; } catch { /* */ }
-  let k = 0; const id = setInterval(() => { k++; try { if (el) el.volume = Math.min(v, (v * k) / 20); } catch { /* */ } if (k >= 20) clearInterval(id); }, 100);
+  const n = Math.max(4, Math.round(sec * 10));
+  let k = 0; const id = setInterval(() => { k++; try { if (el) el.volume = Math.min(v, (v * k) / n); } catch { /* */ } if (k >= n) clearInterval(id); }, 100);
 }
 /** 다음·이전 곡 */
 export function skip(dir: 1 | -1) {
@@ -175,19 +192,26 @@ export function initBgm() {
   };
   ['click', 'touchend', 'keydown'].forEach((ev) => window.addEventListener(ev, kick, { capture: true, passive: true }));
   whenReady(() => { ready = true; if (getBgm().on) play(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { if (getBgm().bg) savePos(); else pause(); } else if (ready) play(); });
-  window.addEventListener('pagehide', savePos);
+  // 앱을 내리면: 줄이며 멈춤 / 돌아오면: 화면이 먼저 뜨게 0.6초 뒤 살짝 키우며 이어서
+  let back = 0;
+  document.addEventListener('visibilitychange', () => {
+    window.clearTimeout(back);
+    if (document.hidden) { if (getBgm().bg) savePos(); else fadeOutPause(); }
+    else if (ready) back = window.setTimeout(() => { if (!document.hidden) play(); }, 600);
+  });
+  window.addEventListener('pagehide', () => { savePos(); if (!getBgm().bg) fadeOutPause(); });
   setInterval(() => { if (el && !el.paused) savePos(); }, 5000);
   // 유튜브 영상이 화면에 뜨면 멈춤 → 없어지면 이어서
   const check = () => {
-    const has = !!document.querySelector('iframe[src*="youtube.com/embed"], iframe[src*="youtube-nocookie.com/embed"]');
+    // 쇼츠 뷰어의 플레이어는 닫아도 숨겨 두고 다시 씀 → 쉬는 중(data-idle)인 건 빼고
+    const has = !!document.querySelector('iframe[src*="youtube.com/embed"]:not([data-idle]), iframe[src*="youtube-nocookie.com/embed"]:not([data-idle])');
     if (has === videoOpen) return;
     videoOpen = has;
     if (has) pause(); else if (ready) play();
   };
   // 화면이 바뀔 때마다 전체를 찾으면 무거워서: 한 프레임에 한 번만
   let queued = false;
-  new MutationObserver(() => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; check(); }); }).observe(document.body, { childList: true, subtree: true });
+  new MutationObserver(() => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; check(); }); }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-idle'] });
   // 인트로가 끝나면(또는 건너뛰면) 기다리던 배경음 시작
   new MutationObserver(() => { if (waitIntro && !introOn()) setTimeout(play, 300); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 }

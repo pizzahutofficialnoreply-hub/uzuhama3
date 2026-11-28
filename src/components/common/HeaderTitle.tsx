@@ -126,7 +126,7 @@ export function HeaderTitle({ decor, events, className, previewDay }: { decor?: 
   // 테마가 둘이면 6초마다 번갈아
   useEffect(() => {
     if (themes.length < 2 || reduceMotion()) return;
-    const t = window.setInterval(() => setI((x) => (x + 1) % themes.length), 6000);
+    const t = window.setInterval(() => { if (!document.hidden) setI((x) => (x + 1) % themes.length); }, 6000);
     return () => window.clearInterval(t);
   }, [themes.length]);
   const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');

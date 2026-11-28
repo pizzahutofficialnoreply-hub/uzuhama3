@@ -1,5 +1,6 @@
 import { ShareBoxArrowIcon } from './common/ShareIcon';
-import { chooseSheet } from '../utils/ui';
+import { chooseSheet, toast as uiToast } from '../utils/ui';
+import { askMotionPermission } from '../utils/shake';
 import { confirmSheet } from '../utils/ui';
 import { isAdminEmail } from '../utils/adminAuth';
 import { FlaskConical, Stethoscope } from 'lucide-react';
@@ -903,6 +904,8 @@ export function SettingsView({
                     <LabToggle k="labAiSummary" title="AI 영상 요약" desc="영상 ⋮ 메뉴와 검색 결과에 AI가 정리한 이야기별 요약·노가리를 보여 줘요. AI는 실수할 수 있어요." />
                     <LabToggle k="labAiCard" title="카드 펼쳐 요약과 함께 보기" desc="AI 요약이 끝난 영상 카드의 썸네일을 누르면 카드가 커지면서 위에서 바로 재생되고, 제목 아래에 요약이 펼쳐져요. 스포일러는 가릴 수 있어요. (쇼츠·목록 보기 제외)" />
                     <LabToggle k="labIntroTap" title="아이폰: 화면 눌러 인트로 소리 재생" desc="아이폰은 앱을 켤 때 소리를 막아요. 켜 두면 인트로가 화면을 누를 때까지 기다렸다가, 누르면 채널 인트로 노래와 함께 재생돼요." />
+                    <LabToggle k="labYtSave" title="내 유튜브 재생목록에 바로 저장" desc="준비 중이에요. 만들어지면 저장 창에서 구글 계정으로 내 유튜브 재생목록에 바로 담을 수 있어요. 그전까지는 유튜브를 열어 저장해요. 끄면 저장 창에서 유튜브 칸을 숨겨요." />
+                    <LabToggle k="labShake" title="흔들어서 문제 신고" desc="화면이 멈추거나 이상할 때 휴대폰을 몇 번 세게 흔들면 의견 보내기(문제 신고) 창이 떠요. 아이폰은 켤 때 움직임 센서 허락을 물어봐요." />
                     <LabToggle k="labCafeOld" title="과거 영상 생방 연동" desc="2020년 전 영상에 팬카페 정리 글을 보고 이어 붙인 생방송 다시보기·영상·쇼츠도 보여 줘요. 예전 기록이라 날짜나 짝이 조금 틀릴 수 있어요." />
                   </div>
                 </motion.div>
@@ -1556,11 +1559,16 @@ function ViewPrefsPanel() {
 }
 
 /** 실험실 켜고 끄기 */
-function LabToggle({ k, title, desc }: { k: 'labAiSummary' | 'labAiCard' | 'labCafeOld' | 'labIntroTap'; title: string; desc: string }) {
+function LabToggle({ k, title, desc }: { k: 'labAiSummary' | 'labAiCard' | 'labCafeOld' | 'labIntroTap' | 'labYtSave' | 'labShake'; title: string; desc: string }) {
   const prefs = usePrefs();
   const on = Boolean(prefs[k]);
+  const flip = async () => {
+    // 흔들기: 아이폰은 켜는 순간(누른 손길) 움직임 센서 허락을 받아야 함
+    if (k === 'labShake' && !on && !(await askMotionPermission())) { uiToast('움직임 센서를 허락해야 쓸 수 있어요', 'info'); return; }
+    setPref(k, !on);
+  };
   return (
-    <button type="button" role="switch" aria-checked={on} onClick={() => setPref(k, !on)} className="w-full flex items-center justify-between gap-3 p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-left cursor-pointer">
+    <button type="button" role="switch" aria-checked={on} onClick={flip} className="w-full flex items-center justify-between gap-3 p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-left cursor-pointer">
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-zinc-900 dark:text-white">{title}</span>
         <span className="block text-[length:calc(11.5px*var(--fs,1))] text-zinc-500 break-keep">{desc}</span>

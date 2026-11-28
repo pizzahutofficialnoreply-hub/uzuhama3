@@ -141,6 +141,16 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
   const dragRadius = useTransform(dragY, [0, 120], [0, 28]);
   const shadeOpacity = useTransform(dragY, [0, 400], [1, 0.25]);
   const scrollEl = useRef<HTMLDivElement | null>(null);
+  // 카드 안(따로 스크롤되는 칸)에서는 아이폰이 '늦게 불러오기(lazy)' 그림을 제때 안 불러와 썸네일이 비는 일이 있어서 바로 불러옴
+  useEffect(() => {
+    const root = scrollEl.current;
+    if (!root) return;
+    const fix = () => root.querySelectorAll('img[loading="lazy"]').forEach((im) => { (im as HTMLImageElement).loading = 'eager'; });
+    fix();
+    const mo = new MutationObserver(fix);
+    mo.observe(root, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, [t, bodyReady]);
   const drag = useRef<{ y0: number; x0: number; on: boolean; dead: boolean; video: boolean; moved: boolean } | null>(null);
   /** 재생기 상태 (1 재생, 2 멈춤) — 영상 위를 누르면 재생/멈춤 */
   const ytState = useRef(-1);
@@ -431,6 +441,10 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                     </div>
                   );
                 })()}
+                {/* 몰아보기·재생목록: 들어 있는 영상(연결된 것)을 먼저, 그다음 AI 요약 */}
+                {t.compilation && isLaugh ? (
+                  <div className="-mx-1.5"><CompLives id={t.id} logs={logs} ranges={data?.ranges} onPick={(id, title) => switchTo(id, title)} onSeek={(s) => seek(s)} /></div>
+                ) : t.extra && <div className="mt-4 -mx-3">{t.extra(close, pickFromList)}</div>}
                 {(showSummary || hasScript) && <div data-tour="card-summary" data-open={open ? '1' : '0'} className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
                   <div className="flex items-center gap-2 px-4 py-3">
                     {showSummary && hasScript ? (
@@ -478,9 +492,6 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                     )}
                   </AnimatePresence>
                 </div>}
-                {t.compilation && isLaugh ? (
-                  <div className="-mx-1.5"><CompLives id={t.id} logs={logs} ranges={data?.ranges} onPick={(id, title) => switchTo(id, title)} onSeek={(s) => seek(s)} /></div>
-                ) : t.extra && <div className="mt-4 -mx-3">{t.extra(close, pickFromList)}</div>}
                 {!t.compilation && !t.embed && (
                   <div className="-mx-1.5">
                     <SimilarVideos part="similar" id={t.id} title={data?.title || t.title} logs={logs} ai={ready ? data : null} onPick={(id, title) => switchTo(id, title)} onShorts={(items, i, games) => {

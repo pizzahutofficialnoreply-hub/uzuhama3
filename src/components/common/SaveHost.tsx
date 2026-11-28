@@ -9,6 +9,7 @@ import { db } from '../../lib/firebase';
 import { REPORT_EVENT, type ReportTarget } from './ItemMenu';
 import { useBackToClose } from '../../hooks/useBackToClose';
 import { checkSubmit, noteSubmit, visitorId } from '../../utils/submitGuard';
+import { usePrefs } from '../../utils/userPrefs';
 import { addToYoutubePlaylist, createYoutubePlaylist, listMyYoutubePlaylists, onYoutubeConfig, youtubeSaveEnabled, type YtPlaylist } from '../../utils/youtubeAccount';
 import { cn } from '../../utils';
 import {
@@ -218,6 +219,7 @@ function SaveSheetHost() {
   };
   // 내 유튜브 재생목록 (관리자가 클라이언트 ID 를 넣었을 때)
   const [ytOn, setYtOn] = useState(youtubeSaveEnabled());
+  const ytLab = usePrefs().labYtSave !== false;
   useEffect(() => onYoutubeConfig(() => setYtOn(youtubeSaveEnabled())), []);
   const [yt, setYt] = useState<{ state: 'idle' | 'loading' | 'list' | 'error'; lists?: YtPlaylist[]; done?: Set<string>; picked?: { id: string; title: string }; error?: string }>({ state: 'idle' });
   const [ytNew, setYtNew] = useState('');
@@ -284,7 +286,8 @@ function SaveSheetHost() {
                 다음부터 묻지 않고 마지막에 고른 목록에 바로 저장
               </label>
 
-              <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+              {/* 실험실 '내 유튜브 재생목록에 바로 저장'을 끄면 유튜브 칸을 숨김 */}
+              {ytLab && <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                 {ytOn && item.kind !== 'short' ? (
                   yt.state === 'list' ? (
                     <div>
@@ -325,7 +328,7 @@ function SaveSheetHost() {
                     </span>
                   </a>
                 )}
-              </div>
+              </div>}
 
               <button type="button" onClick={close} className="mt-3 w-full h-11 rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-bold cursor-pointer">완료</button>
             </motion.div>

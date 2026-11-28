@@ -4,7 +4,7 @@ import { ItemMenu } from '../../common/ItemMenu';
 import { CardSkeleton } from '../../common/Skeleton';
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown, ListVideo, Loader2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, ListVideo, Loader2, X } from 'lucide-react';
 import { cn, fuzzyKoreanMatch } from '../../../utils';
 import { extractYoutubeId } from '../../../utils/urlUtils';
 import { GlassPlayButton } from '../../common/MediaIcons';
@@ -201,10 +201,51 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
   );
 }
 
-export function PlaylistsFeed({ searchTerm, logs, onNavigateToCalendar }: { searchTerm: string; logs: any; onNavigateToCalendar?: (date: string) => void }) {
+/** 검색 탭 홈의 '재생목록 >' 칸: 큰 썸네일 + 제목 (유튜브 채널 홈처럼), 앞의 3개만 */
+export function HomePlaylists({ logs, onOpen, onMore, onNavigateToCalendar }: { logs?: any; onOpen: (id: string) => void; onMore: () => void; onNavigateToCalendar?: (date: string) => void }) {
+  const { data } = usePlaylists();
+  const logIndex = useLogIndex(logs);
+  const labCard = usePrefs().labAiCard;
+  const list = (data?.playlists || []).filter((p) => p.items.length > 0).slice(0, 3);
+  if (!list.length) return null;
+  const open = (p: Playlist, el: Element | null) => {
+    if (!labCard) return onOpen(p.id);
+    openAiCard(p.id, p.title, el, `재생목록 · 동영상 ${p.items.length}개`, {
+      noSummary: true, thumb: p.thumbnail,
+      embed: `https://www.youtube.com/embed/videoseries?list=${p.id}&autoplay=1&rel=0`,
+      extra: (close, pick) => (
+        <PlaylistDetail playlist={p} channelTitle={data?.channelTitle || '우주하마'} channelThumbnail={data?.channelThumbnail || ''} matchedIds={null} logIndex={logIndex} logs={logs} listOnly onPick={pick}
+          onClose={close} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} />
+      ),
+    });
+  };
+  return (
+    <section>
+      <button type="button" onClick={onMore} className="px-1 mb-2.5 inline-flex items-center gap-1 text-[length:calc(17px*var(--fs,1))] font-black text-zinc-900 dark:text-white cursor-pointer active:opacity-60">
+        재생목록<ChevronRight className="w-5 h-5 text-zinc-400" />
+      </button>
+      <div className="space-y-5">
+        {list.map((p) => (
+          <div key={p.id} data-ai-card={p.id}>
+            <button type="button" onClick={(e) => open(p, (e.currentTarget as HTMLElement).closest('[data-ai-card]'))} className="block w-full text-left cursor-pointer active:opacity-80">
+              <span className="relative block w-full aspect-video rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800">
+                <img src={p.thumbnail} alt="" loading="lazy" className="w-full h-full object-cover" />
+                <span className="absolute right-2 bottom-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-black/70 text-white text-[length:calc(11.5px*var(--fs,1))] font-bold"><ListVideo className="w-3.5 h-3.5" />동영상 {p.items.length}개</span>
+              </span>
+              <span className="block mt-2 px-1 text-[length:calc(14.5px*var(--fs,1))] font-bold text-zinc-900 dark:text-white line-clamp-2 break-keep">{p.title}</span>
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function PlaylistsFeed({ searchTerm, logs, onNavigateToCalendar, initialOpenId, onOpened }: { searchTerm: string; logs: any; onNavigateToCalendar?: (date: string) => void; initialOpenId?: string | null; onOpened?: () => void }) {
   const { data, loading, error } = usePlaylists();
   const logIndex = useLogIndex(logs);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialOpenId || null);
+  useEffect(() => { if (initialOpenId) { setOpenId(initialOpenId); onOpened?.(); } }, [initialOpenId]); // eslint-disable-line react-hooks/exhaustive-deps
   const labCard = usePrefs().labAiCard;
   const [page, setPage] = useState(1);
   const playlists = data?.playlists || [];

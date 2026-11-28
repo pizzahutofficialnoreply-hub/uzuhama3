@@ -194,6 +194,7 @@ export const NoticeBanner: React.FC<NoticeBannerProps> = ({
     if (totalItems <= 1 || isExpanded || isSearchTab) return;
 
     const timer = window.setInterval(() => {
+      if (document.hidden) return; // 앱을 내린 동안은 안 넘김
       setSlideDirection(1);
       setIsSliding(true);
       setCurrentIndex(prev => (prev + 1) % totalItems);

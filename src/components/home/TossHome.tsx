@@ -12,6 +12,7 @@ import { ChevronRight, ChevronDown, Gamepad2, CalendarDays, Clock, Film } from '
 import { openAiCard } from '../common/AiCardExpand';
 import type { AppData, BroadcastLog } from '../../types';
 import { extractYoutubeId } from '../../utils/urlUtils';
+import { useChannelVideos } from '../../hooks/useChannelVideos';
 import { cn } from '../../utils';
 
 /** 동그란 썸네일: 못 불러오면 아이콘 */
@@ -85,11 +86,20 @@ export function TossHome({ data, onOpenDate, onOpenStats, onOpenVideo }: {
     return { n: inRange.length, hours, top, label, start, end };
   }, [logs]);
 
+  // 새 영상: 유튜브에 올린 날 최신순 (모르면 방송일) — 설정의 정렬 기본값(업로드 최신순)과 같게
+  const channel = useChannelVideos();
   const newVideos = useMemo(() => {
-    const out: { url: string; title: string; date: string }[] = [];
-    for (const l of logs) { for (const v of l.edited || []) { if (v?.url && v.title) out.push({ url: v.url, title: v.title, date: l.date }); } if (out.length >= 8) break; }
-    return out.slice(0, 8);
-  }, [logs]);
+    const pub = new Map(channel.map((c) => [c.videoId, c.publishedAt] as const));
+    const seen = new Set<string>();
+    const out: { url: string; title: string; date: string; t: string }[] = [];
+    for (const l of logs) for (const v of l.edited || []) {
+      const id = extractYoutubeId(v?.url || '');
+      if (!v?.url || !v.title || !id || seen.has(id)) continue;
+      seen.add(id);
+      out.push({ url: v.url, title: v.title, date: l.date, t: pub.get(id) || `${l.date}T00:00:00` });
+    }
+    return out.sort((a, b) => b.t.localeCompare(a.t)).slice(0, 8);
+  }, [logs, channel]);
   // 새 영상: 처음 3개 → '더보기'(흐린 끝 + 글자)를 누르면 카드가 늘어나며 8개까지 → 그다음은 '자세히 보기'(검색 탭)
   const [moreVideos, setMoreVideos] = useState(false);
   // 높이는 실제 줄 높이로: 접힘 = 3번째 줄 절반까지, 펼침 = 전체 (글자 크기를 바꿔도 맞게)

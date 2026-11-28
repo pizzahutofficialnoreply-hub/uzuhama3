@@ -35,6 +35,10 @@ export interface UserPrefs {
   labCafeOld: boolean;
   /** 실험실: 아이폰에서 인트로를 화면을 눌러 소리와 함께 재생 (누르기 전까지 기다림) */
   labIntroTap: boolean;
+  /** 실험실: 내 유튜브 재생목록에 바로 저장 (준비 중 · 끄면 저장 창에서 유튜브 칸을 숨김) */
+  labYtSave: boolean;
+  /** 실험실: 휴대폰을 흔들면 문제 신고 창 */
+  labShake: boolean;
   /** 목록 보기에서 영상을 누르면: 사이트 안에서 펼쳐 재생 / 유튜브 링크로 */
   listPlay: 'site' | 'link';
   /** 글자 크기 배율 (설정 › 화면) */
@@ -60,6 +64,8 @@ export const DEFAULT_PREFS: UserPrefs = {
   labAiCard: true,
   labCafeOld: true,
   labIntroTap: false,
+  labYtSave: true,
+  labShake: false,
   listPlay: 'site',
   fontScale: 1,
 };
@@ -87,6 +93,8 @@ export function getPrefs(): UserPrefs {
     const s = saved && typeof saved === 'object' ? saved : {};
     // 과거 영상 생방 연동: 기본 켜짐으로 바뀜 (예전에 저장된 꺼짐 값은 한 번 켜 줌)
     if (s.labCafeOldV !== 2) s.labCafeOld = true;
+    // 정렬 기본값: 업로드 최신순 (예전에 저장된 값은 한 번 새 기본으로)
+    if (s.sortV !== 3) { s.recommendSort = 'upload'; s.shortsSortBy = 'upload'; s.shortsOrder = 'desc'; }
     return { ...DEFAULT_PREFS, ...s };
   } catch {
     return { ...DEFAULT_PREFS };
@@ -94,7 +102,7 @@ export function getPrefs(): UserPrefs {
 }
 
 export function setPref<K extends keyof UserPrefs>(key: K, value: UserPrefs[K]) {
-  const next = { ...getPrefs(), [key]: value, labCafeOldV: 2 };
+  const next = { ...getPrefs(), [key]: value, labCafeOldV: 2, sortV: 3 };
   try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* 저장 공간 없음 */ }
   try { window.dispatchEvent(new CustomEvent(EVENT)); } catch { /* 무시 */ }
   if (key === 'fontScale') applyFontScale(value as number);

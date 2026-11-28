@@ -160,3 +160,16 @@ export function ShortsShelf({ items }: { items: { url: string; title?: string; c
     </div>
   );
 }
+
+/** 유튜브 채널 홈의 Shorts 칸처럼: 3열 바둑판 (누르면 쇼츠 뷰어) */
+export function ShortsGrid({ items }: { items: { url: string; title?: string; caption?: string; liveUrl?: string; editUrl?: string; interest?: InterestItem }[] }) {
+  const [playerAt, setPlayerAt] = useState<number | null>(null);
+  return (
+    <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
+      {items.map((s, i) => (
+        <ShortsCard key={`${s.url}-${i}`} url={s.url} title={s.title} caption={s.caption} liveUrl={s.liveUrl} editUrl={s.editUrl} interest={s.interest} onPlay={() => setPlayerAt(i)} className="w-full" />
+      ))}
+      {playerAt !== null && <ShortsPlayer items={items} startIndex={playerAt} onClose={() => setPlayerAt(null)} />}
+    </div>
+  );
+}

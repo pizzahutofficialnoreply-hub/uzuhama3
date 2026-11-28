@@ -94,16 +94,24 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts, part }: {
   const linkedIds = new Set(linked.map((x) => x.id));
   const rest = list.filter((c) => !linkedIds.has(c.id));
   const shorts = linked.filter((x) => x.kind === 'short');
-  const others = linked.filter((x) => x.kind !== 'short');
+  const lives = linked.filter((x) => x.kind === 'live');
+  const edits = linked.filter((x) => x.kind === 'video');
 
   const showLinked = part !== 'similar', showRest = part !== 'linked';
   if (!(showRest && rest.length) && !(showLinked && linked.length)) return null;
   return (
     <>
-      {showLinked && others.length > 0 && (
-        <section className="mt-6" aria-label="연결된 영상">
-          <h3 className="mb-2.5 text-[length:calc(13px*var(--fs,1))] font-black text-zinc-900 dark:text-white">{others.some((x) => x.kind === 'live') ? '이 영상의 생방송' : '이 방송의 영상'}</h3>
-          <div className="space-y-3">{others.map((c) => <Card key={c.id} c={{ ...c, cats: [] }} onPick={onPick} logs={logs} />)}</div>
+      {/* 순서: 생방송 → 같은 생방송의 다른 편집본 → 쇼츠 */}
+      {showLinked && lives.length > 0 && (
+        <section className="mt-6" aria-label="연결된 생방송">
+          <h3 className="mb-2.5 text-[length:calc(13px*var(--fs,1))] font-black text-zinc-900 dark:text-white">이 영상의 생방송</h3>
+          <div className="space-y-3">{lives.map((c) => <Card key={c.id} c={{ ...c, cats: [] }} onPick={onPick} logs={logs} />)}</div>
+        </section>
+      )}
+      {showLinked && edits.length > 0 && (
+        <section className="mt-6" aria-label="연결된 편집본">
+          <h3 className="mb-2.5 text-[length:calc(13px*var(--fs,1))] font-black text-zinc-900 dark:text-white">{lives.length ? '연결된 편집본' : '이 방송의 영상'}</h3>
+          <div className="space-y-3">{edits.map((c) => <Card key={c.id} c={{ ...c, cats: [] }} onPick={onPick} logs={logs} />)}</div>
         </section>
       )}
       {showLinked && shorts.length > 0 && (
@@ -113,7 +121,7 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts, part }: {
             {shorts.map((x, i) => (
               <button key={x.id} type="button" onClick={() => onShorts?.(shorts.map((y) => ({ url: `https://www.youtube.com/shorts/${y.id}`, title: y.title })), i, x.games)}
                 className="shrink-0 w-[136px] sm:w-[156px] text-left cursor-pointer">
-                <span className="block aspect-[9/16] rounded-2xl overflow-hidden bg-zinc-800"><img src={`https://i.ytimg.com/vi/${x.id}/oardefault.jpg`} onError={(e) => { (e.currentTarget as HTMLImageElement).src = `https://i.ytimg.com/vi/${x.id}/hqdefault.jpg`; }} alt="" loading="lazy" className="w-full h-full object-cover" /></span>
+                <span className="block aspect-[9/16] rounded-2xl overflow-hidden bg-zinc-800"><img src={`https://i.ytimg.com/vi/${x.id}/oardefault.jpg`} onError={(e) => { (e.currentTarget as HTMLImageElement).src = `https://i.ytimg.com/vi/${x.id}/hqdefault.jpg`; }} alt="" className="w-full h-full object-cover" /></span>
                 <span className="mt-1.5 block text-[length:calc(12.5px*var(--fs,1))] font-bold text-zinc-800 dark:text-zinc-100 leading-snug line-clamp-2 break-keep">{x.title || '쇼츠'}</span>
               </button>
             ))}
@@ -141,7 +149,7 @@ function Card({ c, onPick, logs, below }: { c: Cand | (Omit<Cand, 'kind'> & { ki
     <div data-lp={c.id} data-lp-title={title} className="relative isolate flex flex-col rounded-[24px] overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
       <div ref={ref} data-thumb data-thumb-radius="24px 24px 0 0" className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
         <button type="button" onClick={pick} className="block w-full h-full cursor-pointer" aria-label={`${title} 보기`}>
-          <img src={`https://i.ytimg.com/vi/${c.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
+          <img src={`https://i.ytimg.com/vi/${c.id}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />
         </button>
         {typeof meta?.durationSec === 'number' && meta.durationSec > 0 && (
           <span className="absolute bottom-2 right-2 z-20 bg-black/80 text-white font-bold rounded backdrop-blur-sm shadow-sm select-none tabular-nums pointer-events-none text-xs px-1.5 py-1">{formatDuration(meta.durationSec)}</span>
@@ -169,7 +177,7 @@ function Row({ c, onPick }: { c: Cand; onPick: (id: string, title: string, el: E
       <button type="button" data-lp={c.id} data-lp-title={title} onClick={(e) => onPick(c.id, title, (e.currentTarget.querySelector('[data-thumb]') as Element) || e.currentTarget)}
         className="w-full flex items-start gap-3 p-1.5 rounded-xl text-left hover:bg-white/5 active:bg-white/10 cursor-pointer">
         <span data-thumb className="relative w-[44%] max-w-[180px] aspect-video rounded-lg overflow-hidden bg-zinc-800 shrink-0">
-          <img src={`https://i.ytimg.com/vi/${c.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
+          <img src={`https://i.ytimg.com/vi/${c.id}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />
           {typeof meta?.durationSec === 'number' && meta.durationSec > 0 && (
             <span className="absolute bottom-1 right-1 px-1 py-px rounded bg-black/80 text-white text-[length:calc(10.5px*var(--fs,1))] font-bold tabular-nums">{formatDuration(meta.durationSec)}</span>
           )}

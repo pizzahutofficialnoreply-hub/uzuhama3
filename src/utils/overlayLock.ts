@@ -19,6 +19,9 @@ function anyOverlay(): boolean {
     if (!r.width || !r.height) continue;
     const cs = getComputedStyle(el);
     if (cs.visibility === 'hidden' || cs.display === 'none' || cs.pointerEvents === 'none') continue;
+    // 닫히는 애니메이션이 끝나지 않고 투명하게 남은 층은 무시 (이걸 '떠 있는 창'으로 보면 화면이 안 밀리고 터치가 먹통처럼 보임)
+    let op = 1; for (let n: HTMLElement | null = el, k = 0; n && k < 4; n = n.parentElement, k++) op *= Number(getComputedStyle(n).opacity || 1);
+    if (op < 0.05) continue;
     if (el.matches('[role="dialog"], [aria-modal="true"], [data-overlay="true"]')) return true;
     if (cs.position === 'fixed' && r.width >= vw * 0.9 && r.height >= vh * 0.9) return true;
   }
@@ -42,7 +45,7 @@ function scrollableInside(t: EventTarget | null, dy: number): boolean {
   return false;
 }
 let ty = 0;
-const onStart = (e: TouchEvent) => { ty = e.touches[0]?.clientY ?? 0; };
+const onStart = (e: TouchEvent) => { ty = e.touches[0]?.clientY ?? 0; if (!anyOverlay()) unlock(); }; // 잠금이 남아 있으면 바로 풀기
 const onMove = (e: TouchEvent) => {
   if (!locked || e.touches.length !== 1) return;
   const dy = (e.touches[0]?.clientY ?? 0) - ty;

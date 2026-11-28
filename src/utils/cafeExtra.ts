@@ -2,7 +2,8 @@
  * 카페 '[다시보기] 8/23 일요일 생방송 노가리요약 …' 글에서 그날 정보 빼 오기
  *  ✔️오팬무 초록 · ✔️오음무 콜라 · ✔️오저무/오점무 된장찌개 → sheetExtra 의 pan · eum · jeo
  * - 글 하나 = 'M/D (요일)' 머리부터 다음 머리 전까지 (여러 글을 한꺼번에 붙여 넣어도 됨)
- * - 연도가 없으면: 요일이 맞는 가장 가까운 지난 해 (요일도 없으면 오늘 기준 지난 날짜)
+ * - 연도: 카페 글 모으기(북마클릿)가 붙인 글 올린 날 '===== 제목 ⟪2026-08-24 01:10 · …⟫' 의 연도
+ *   (방송일이 올린 날보다 뒤면 그 전 해) · 그게 없으면 요일이 맞는 가장 가까운 지난 해
  */
 import type { SheetExtra } from './sheetExtra';
 
@@ -30,10 +31,14 @@ export function parseCafeExtras(text: string, today = new Date(Date.now() + 9 * 
   const s = String(text || '').replace(/[​-‍﻿]/g, '');
   const heads = [...s.matchAll(HEAD)].filter((m) => /\[\s*다시보기\s*\]|생방|방송/.test(s.slice(Math.max(0, (m.index || 0) - 15), (m.index || 0) + m[0].length + 30)));
   const out = new Map<string, CafeExtraDay>();
+  // 글 올린 날: 머리 앞에 있는 가장 가까운 '===== … ⟪YYYY-MM-DD' 
+  const posted = [...s.matchAll(/=====[^\n]*?⟪\s*(\d{4})-(\d{2})-(\d{2})/g)].map((x) => ({ at: x.index || 0, d: `${x[1]}-${x[2]}-${x[3]}` }));
   heads.forEach((m, i) => {
     const mo = Number(m[2]); const da = Number(m[3]);
     const wd = m[4] ? WD.indexOf(m[4]) : null;
-    const y = m[1] ? Number(m[1]) : pickYear(mo, da, wd, today);
+    const up = [...posted].reverse().find((x) => x.at <= (m.index || 0))?.d;
+    const upY = up ? Number(up.slice(0, 4)) : 0;
+    const y = m[1] ? Number(m[1]) : up ? (iso(upY, mo, da) > up ? upY - 1 : upY) : pickYear(mo, da, wd, today);
     if (!y || !valid(y, mo, da)) return;
     const body = s.slice((m.index || 0) + m[0].length, i + 1 < heads.length ? heads[i + 1].index : undefined);
     const values: SheetExtra = {};

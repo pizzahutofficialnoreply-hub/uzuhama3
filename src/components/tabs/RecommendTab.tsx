@@ -43,14 +43,14 @@ import { cleanShortsTitle } from '../../utils/videoSearch';
 import { LinkMenu } from '../common/LinkMenu';
 import { useInterestTracker, noteInterest } from '../../hooks/useInterestTracker';
 import { tokensOf, personalize, hasInterestProfile, loadInterest, type InterestItem } from '../../utils/interest';
-import { ShortsShelf } from '../common/ShortsCard';
+import { ShortsShelf, ShortsGrid } from '../common/ShortsCard';
 import { CompilationDetail } from './recommend/CompilationDetail';
 import { Pagination } from '../common/Pagination';
 import { VideoListRow } from '../common/VideoListRow';
 import { ViewStyleToggle } from '../common/ViewStyleToggle';
 import { useViewStyle } from '../../hooks/useViewStyle';
 import { YoutubeLogo, ShortsIcon, PlaySquare, GlassPlayButton } from '../common/MediaIcons';
-import { PlaylistsFeed } from './recommend/PlaylistsFeed';
+import { PlaylistsFeed, HomePlaylists } from './recommend/PlaylistsFeed';
 import { MyPlaylists } from './recommend/MyPlaylists';
 import { currentSeason, isSeasonDate, type Season } from '../../utils/seasonal';
 import { usePlaylists } from '../../hooks/usePlaylists';
@@ -71,8 +71,8 @@ const RECOMMEND_SUB_TABS: { id: RecommendSubTab; label: string }[] = [
   { id: 'shorts', label: 'Shorts' },
   { id: 'live', label: '라이브' },
   { id: 'playlists', label: '재생목록' },
-  { id: 'recommend', label: '추천' },
 ];
+// 추천 탭은 없앰: 홈 맨 위 '추천' 줄로 (유튜브 채널 홈처럼)
 
 
 /** 카드 → 맞춤 추천용 정보 (게임·장르, 영상/라이브) */
@@ -721,11 +721,14 @@ export function RecommendTab({
     return saved && RECOMMEND_SUB_TABS.some((t) => t.id === saved) ? saved : 'home';
   });
   const [subTabDir, setSubTabDir] = useState(0); // 넘어가는 방향 (밀기 애니메이션용)
+  const [pinLocal, setPinLocal] = useState<string | null>(null); // 다른 화면에서 고른 영상 (탭을 바꾸면 풀림)
+  const [openPlaylistId, setOpenPlaylistId] = useState<string | null>(null); // 홈 재생목록 칸에서 누른 것
   const changeSubTab = (next: RecommendSubTab) => {
     const from = RECOMMEND_SUB_TABS.findIndex((t) => t.id === subTab);
     const to = RECOMMEND_SUB_TABS.findIndex((t) => t.id === next);
     setSubTabDir(to > from ? 1 : to < from ? -1 : 0);
     setSubTab(next);
+    setPinLocal(null);
     // 선택한 탭 버튼이 보이도록 탭 줄을 옆으로 맞춤
     requestAnimationFrame(() => document.getElementById(`rec-subtab-${next}`)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }));
     localStorage.setItem('rec_subTab', next);
@@ -757,7 +760,8 @@ export function RecommendTab({
   useEffect(() => {
     if (pinnedVideoId) {
       isNavigatedFromExternalRef.current = true;
-      setSubTab('recommend'); localStorage.setItem('rec_subTab', 'recommend'); // 특정 영상 추천으로 넘어오면 추천 탭 (맨 앞에 고정)
+      setPinLocal(pinnedVideoId);
+      setSubTab('videos'); localStorage.setItem('rec_subTab', 'videos'); // 특정 영상으로 넘어오면 동영상 탭 맨 앞에 고정
       setSearchTerm('');
       setSelectedCategories(['전체']);
       setCurrentPage(1);
@@ -775,17 +779,18 @@ export function RecommendTab({
   });
   const [sortOrder, setSortOrder] = useState(() => {
     // 기본 정렬을 '업로드 최신순'으로 바꾸면서 한 번: 예전에 자동 저장된 '최신순(방송일)'은 새 기본으로
-    try { if (!localStorage.getItem('rec_sort_v2')) { localStorage.setItem('rec_sort_v2', '1'); if (localStorage.getItem('rec_sortOrder') === 'desc') localStorage.removeItem('rec_sortOrder'); } } catch { /* */ }
+    // v3: 한 번 더 (설정의 기본값이 업로드 최신순인데 예전에 저장된 방송일 순·과거순이 남아 있던 기기)
+    try { if (!localStorage.getItem('rec_sort_v3')) { localStorage.setItem('rec_sort_v3', '1'); localStorage.setItem('rec_sort_v2', '1'); if (localStorage.getItem('rec_sortOrder') !== 'popular') localStorage.removeItem('rec_sortOrder'); } } catch { /* */ }
     const saved = localStorage.getItem('rec_sortOrder');
     const hasSearch = Boolean(sessionStorage.getItem('rec_searchTerm')?.trim());
-    if (saved === 'accuracy' && !hasSearch) return 'desc';
+    if (saved === 'accuracy' && !hasSearch) return getPrefs().recommendSort;
     if (saved === 'recommend') return getPrefs().recommendSort; // 추천순은 '추천' 탭으로 옮김
     return saved || getPrefs().recommendSort; // 기본값은 설정에서
   });
 
   // 검색 전 사용자가 선택해둔 일반 정렬(최신순, 과거순, 추천순) 보관용 ref
   const previousNonAccuracySortRef = useRef<string>(
-    sortOrder !== 'accuracy' ? sortOrder : 'desc'
+    sortOrder !== 'accuracy' ? sortOrder : getPrefs().recommendSort
   );
   // 검색어 입력 상태에서 사용자가 수동으로 다른 정렬을 선택했는지 여부
   const userSelectedOtherSortDuringSearchRef = useRef<boolean>(false);
@@ -811,7 +816,7 @@ export function RecommendTab({
         // 현재 sortOrder 그대로 유지
       } else {
         // 최신순 초기화가 아닌 이전 정렬 순서로 복귀
-        setSortOrder(previousNonAccuracySortRef.current || 'desc');
+        setSortOrder(previousNonAccuracySortRef.current || getPrefs().recommendSort);
       }
     }
 
@@ -1655,7 +1660,9 @@ export function RecommendTab({
   // 추천 탭은 항상 추천순 (검색 중에는 정확도순 유지)
   const effectiveSortOrder = subTab === 'recommend' && sortOrder !== 'accuracy' && sortOrder !== 'popular' ? 'recommend' : sortOrder;
   // 유튜브 인기순: 고를 때만 조회수를 받아 옴 (화면에 숫자로는 안 보여 줌)
-  const ytViews = useYoutubeViews(effectiveSortOrder === 'popular');
+  // 홈(검색어·카테고리 없음): 유튜브 채널 홈처럼 칸별로 (추천 · 동영상 · Shorts · 인기 동영상 · 라이브 · 재생목록)
+  const homeFeed = subTab === 'home' && !searchTerm.trim() && selectedCategories.includes('전체');
+  const ytViews = useYoutubeViews(effectiveSortOrder === 'popular' || homeFeed);
 
   // 라이브 탭: 방송 기록의 생방송 다시보기 (유튜브 링크가 있는 것, 영상 길이·편집본·쇼츠까지 다른 카드와 같은 모양)
   const liveVideos = useMemo(() => {
@@ -2134,11 +2141,11 @@ export function RecommendTab({
       scoredVids.push(...kept);
     }
 
-    if (pinnedVideoId && (effectiveSortOrder === 'recommend' || !searchTerm.trim())) {
+    if (pinLocal && (effectiveSortOrder === 'recommend' || !searchTerm.trim())) {
       const pinIndex = scoredVids.findIndex(v => 
-        v.id === pinnedVideoId || 
-        v.videoUrl === pinnedVideoId ||
-        (extractYoutubeId(v.videoUrl) && extractYoutubeId(v.videoUrl) === extractYoutubeId(pinnedVideoId))
+        v.id === pinLocal || 
+        v.videoUrl === pinLocal ||
+        (extractYoutubeId(v.videoUrl) && extractYoutubeId(v.videoUrl) === extractYoutubeId(pinLocal))
       );
       if (pinIndex > 0) {
         const [pinnedItem] = scoredVids.splice(pinIndex, 1);
@@ -2147,7 +2154,7 @@ export function RecommendTab({
     }
 
     return scoredVids;
-  }, [allVideos, categoryIndex, categories, selectedCategories, literalTerm, shuffleSeed, effectiveSortOrder, pinnedVideoId, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos, planBundle, docOf, chos, useRelated, sOpts, intent, excludedIds, ytViews, pubOf]); // Removed ratings and history to prevent jumping on watch
+  }, [allVideos, categoryIndex, categories, selectedCategories, literalTerm, shuffleSeed, effectiveSortOrder, pinLocal, subTab, searchIndex, gameKeywordMap, shortsByVideo, liveVideos, planBundle, docOf, chos, useRelated, sOpts, intent, excludedIds, ytViews, pubOf]); // Removed ratings and history to prevent jumping on watch
 
   // 보던 영상 (3~95% 본 영상, 최근 5개)
   const watchHistory = useWatchHistory();
@@ -2183,7 +2190,7 @@ export function RecommendTab({
   // 다른 사람들이 '이 영상 추천하기' 누른 영상은 조금 더 앞으로 (추천 수는 탭에 들어올 때 한 번, 1시간마다만 받아 옴)
   const [recsReady, setRecsReady] = useState(hasRecCounts);
   useEffect(() => {
-    if (subTab !== 'recommend') return;
+    if (subTab !== 'home') return;
     loadRecCounts();
     return onRecs(() => { if (hasRecCounts()) setRecsReady(true); });
   }, [subTab]);
@@ -2193,7 +2200,7 @@ export function RecommendTab({
     return list.slice(0, poolSize).map((x) => ({ x, r: rnd(keyOf(x)) })).sort((a, b) => a.r - b.r).slice(0, n).map((o) => o.x);
   };
   const recShorts = useMemo(() => {
-    if (subTab !== 'recommend') return [];
+    if (subTab !== 'home') return [];
     const pool = catFilterActive
       ? allShortsLite.filter((x) => (x.interest?.tokens || []).some((t) => selectedCategories.includes(t.slice(2)) || selectedCategories.some((c) => c.toLowerCase() === t.slice(2))))
       : allShortsLite;
@@ -2208,6 +2215,24 @@ export function RecommendTab({
     const ordered = boostByRecs(personalize(pool, videoInterestItem), ytOf);
     return pickWithSeed(ordered, (v) => v.id, 4, hasInterestProfile(loadInterest()) ? 12 : ordered.length);
   }, [subTab, liveVideos, interestEpoch, shuffleSeed, selectedCategories, categoryIndex, recsReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 홈 칸들 (검색어 없을 때만 계산)
+  const upTime = (v: any) => { const pub = v.publishedAt || pubOf.get(extractYoutubeId(v.videoUrl) || v.id); const t = pub ? Date.parse(pub) : NaN; return isNaN(t) ? Date.parse(v.parentLog?.date || '') || 0 : t; };
+  const homeLatest = useMemo(() => (homeFeed ? [...allVideos].filter((v) => !excludedIds.has(ytOf(v))).sort((a, b) => upTime(b) - upTime(a)).slice(0, 5) : []), [homeFeed, allVideos, pubOf, excludedIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  const homePopular = useMemo(() => {
+    if (!homeFeed || !ytViews) return [];
+    const vw = (v: any) => ytViews[ytOf(v)] ?? -1;
+    const shown = new Set(homeLatest.map(ytOf));
+    return [...allVideos].filter((v) => vw(v) > 0 && !shown.has(ytOf(v)) && !excludedIds.has(ytOf(v))).sort((a, b) => vw(b) - vw(a)).slice(0, 5);
+  }, [homeFeed, ytViews, allVideos, homeLatest, excludedIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  const homeShorts = useMemo(() => {
+    if (!homeFeed) return [];
+    const pubById = new Map(channelShorts.map((c) => [c.videoId, c.publishedAt || ''] as const));
+    const t = (x: any) => pubById.get(x.id) || (String(x.caption || '').match(/\d{4}-\d{2}-\d{2}/) || [''])[0];
+    return [...allShortsLite].filter((x) => !excludedIds.has(x.id || '')).sort((a, b) => t(b).localeCompare(t(a))).slice(0, 6);
+  }, [homeFeed, allShortsLite, channelShorts, excludedIds]);
+  const homeLives = useMemo(() => (homeFeed ? [...liveVideos].sort((a, b) => String(b.parentLog?.date || '').localeCompare(String(a.parentLog?.date || ''))).slice(0, 3) : []), [homeFeed, liveVideos]);
+  // 추천 줄: 관심 기록이 있으면 맞춤 쇼츠, 없으면 최근 쇼츠 중에서 골고루 (위 Shorts 칸과 겹치지 않게)
+  const homeRec = useMemo(() => { const shown = new Set(homeShorts.map((x) => x.id)); return recShorts.filter((x) => !shown.has(x.id)).slice(0, 10); }, [recShorts, homeShorts]);
   const personalized = useMemo(() => hasInterestProfile(loadInterest()), [interestEpoch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 추천 탭: 이 기기에서 관심 보인 게임·장르 순으로 (이미 본 건 뒤로, 4개마다 새로운 쪽 하나)
@@ -2358,10 +2383,77 @@ export function RecommendTab({
           {recentChips(false)}
         </div>
       )}
-      {subTab === 'playlists' ? (
+      {homeFeed && (
+        <div className="space-y-7">
+          {homeRec.length > 0 && (
+            <section>
+              <h3 className="px-1 mb-2.5 text-[length:calc(17px*var(--fs,1))] font-black text-zinc-900 dark:text-white">추천</h3>
+              <ShortsShelf items={homeRec} />
+            </section>
+          )}
+          {continueItems.length > 0 && (
+            <section>
+              <div className="px-1 mb-2 flex items-center justify-between gap-2">
+                <h3 className="text-[length:calc(17px*var(--fs,1))] font-black text-zinc-900 dark:text-white">보던 영상</h3>
+                <button type="button" onClick={openWatchHistory} className="text-xs font-bold text-purple-600 dark:text-purple-400 cursor-pointer">기록 전체 보기</button>
+              </div>
+              <div className="flex flex-col gap-1 -mx-2.5 sm:mx-0">
+                {continueItems.map((e) => (
+                  <VideoListRow key={`cont-${e.id}`} videoId={e.id} title={e.title || '제목 없음'} href={`https://www.youtube.com/watch?v=${e.id}`} saveKind={e.kind}
+                    badge={`${e.kind === 'live' ? '생방송' : '동영상'} · ${formatDurationSec(e.pos || 0)}까지 봄`} />
+                ))}
+              </div>
+            </section>
+          )}
+          {season && seasonItems.length > 0 && (
+            <section>
+              <h3 className="px-1 text-[length:calc(17px*var(--fs,1))] font-black text-zinc-900 dark:text-white">{season.emoji} {season.title}</h3>
+              <p className="px-1 mt-0.5 mb-2 text-[length:calc(11px*var(--fs,1))] text-zinc-500 dark:text-zinc-400">예전 {season.key === '성탄절' ? '크리스마스' : season.key} 방송과 길게 볼 수 있는 몰아보기·생방송 다시보기를 모았어요.</p>
+              <div className="flex flex-col gap-1 -mx-2.5 sm:mx-0">
+                {seasonItems.map((v) => (
+                  <VideoListRow key={`season-${v.id}`} videoId={extractYoutubeId(v.videoUrl) || v.id} title={v.videoTitle || `${v.parentLog?.date} 생방송`} href={v.videoUrl}
+                    badge={[v.isCompilation ? '몰아보기' : v.isLive ? '생방송' : ''].filter(Boolean).join(' · ') || undefined}
+                    isCompilation={v.isCompilation} saveKind={v.isLive ? 'live' : 'video'} interest={videoInterestItem(v)} shareText={() => formatRecommendShareText(v, data?.logs)} />
+                ))}
+              </div>
+            </section>
+          )}
+          {([['동영상', 'videos', homeLatest], ['Shorts', 'shorts', homeShorts], ['인기 동영상', 'videos', homePopular], ['라이브', 'live', homeLives]] as const).map(([title, tab, list]) => list.length > 0 && (
+            <section key={title}>
+              <button type="button" onClick={() => { if (title === '인기 동영상') setSortOrder('popular' as any); changeSubTab(tab); }} className="px-1 mb-2.5 inline-flex items-center gap-1 text-[length:calc(17px*var(--fs,1))] font-black text-zinc-900 dark:text-white cursor-pointer active:opacity-60">
+                {title}<ChevronRight className="w-5 h-5 text-zinc-400" />
+              </button>
+              {tab === 'shorts' ? <ShortsGrid items={list as any[]} /> : (
+                <div className="flex flex-col gap-1 -mx-2.5 sm:mx-0">
+                  {(list as any[]).map((video) => {
+                    const ytId = extractYoutubeId(video.videoUrl) || video.id;
+                    const isMulti = Boolean(video.isCompilation || (Array.isArray(video.allBroadcastDates) && video.allBroadcastDates.length > 1));
+                    return (
+                      <VideoListRow key={`${title}-${video.id}`} videoId={ytId} title={video.videoTitle || `${video.parentLog?.date || ''} 생방송`} href={video.videoUrl} isCompilation={video.isCompilation}
+                        badge={video.isCompilation ? `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임` : isMulti ? `${video.allBroadcastDates.length}개 생방` : undefined}
+                        lives={!video.isLive && !video.isCompilation ? liveLinksFor(video, data?.logs) : undefined}
+                        edits={video.isLive ? video.liveEdits : undefined}
+                        saveKind={video.isLive ? 'live' : 'video'}
+                        interest={videoInterestItem(video)}
+                        onLiveClick={video.isCompilation ? () => openAiCard(ytId, video.videoTitle || '', document.querySelector(`[data-ai-card="${ytId}"]`), `몰아보기 · ${video.games?.length || video.allBroadcastDates?.length || 0}개 게임`, {
+                          compilation: true,
+                          extra: (close, pick) => <CompilationDetail video={video} allLogs={data?.logs} onClose={close} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} listOnly onPick={pick} />,
+                        }) : undefined}
+                        shorts={mergeShorts(shortsByVideo.get(ytId), !isMulti ? video.parentLog?.shorts : [])}
+                        shareText={() => formatRecommendShareText(video, data?.logs)} />
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          ))}
+          <HomePlaylists logs={data?.logs} onNavigateToCalendar={onNavigateToCalendar} onOpen={(id) => { setOpenPlaylistId(id); changeSubTab('playlists'); }} onMore={() => changeSubTab('playlists')} />
+        </div>
+      )}
+      {homeFeed ? null : subTab === 'playlists' ? (
         <>
           <MyPlaylists searchTerm={searchTerm} logs={data?.logs} onNavigateToCalendar={onNavigateToCalendar} />
-          <PlaylistsFeed searchTerm={searchTerm} logs={data?.logs} onNavigateToCalendar={onNavigateToCalendar} />
+          <PlaylistsFeed searchTerm={searchTerm} logs={data?.logs} onNavigateToCalendar={onNavigateToCalendar} initialOpenId={openPlaylistId} onOpened={() => setOpenPlaylistId(null)} />
         </>
       ) : (<>
       {/* 필터 카드 (최상단 배치: 실시간 연관 검색어 대신 필터가 맨 위에 위치) */}

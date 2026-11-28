@@ -49,12 +49,22 @@ export function useSpeedHold(command: (func: string, args?: any[]) => void) {
   /** 영상이 바뀌거나 다시 재생될 때 (재생기가 속도를 1로 되돌림) */
   const reapply = useCallback(() => { if (lockedRef.current) command('setPlaybackRate', [2]); }, [command]);
   const active = () => Boolean(st.current);
+  // '2배속' 알약: 누르는 동안·고정 직후에만 보이고 2.5초 지나면 사라짐 (영상을 계속 가리지 않게)
+  //  고정 중 다시 꾹 누르면 또 보임 (그때 아래로 당겨 끄거나 알약을 눌러 끔)
+  const [peek, setPeek] = useState(false);
+  useEffect(() => {
+    if (rate !== 2) { setPeek(false); return; }
+    setPeek(true);
+    if (hint) return;
+    const t = window.setTimeout(() => setPeek(false), 2500);
+    return () => window.clearTimeout(t);
+  }, [rate, locked, hint]);
 
   const ui = (
     <>
       {rate === 2 && (
-        <button type="button" onClick={locked ? unlock : undefined}
-          className="absolute left-1/2 top-[calc(env(safe-area-inset-top,0px)+60px)] -translate-x-1/2 z-30 h-8 px-3 rounded-full bg-black/60 backdrop-blur-md text-white text-[length:calc(13px*var(--fs,1))] font-bold flex items-center gap-1 cursor-pointer"
+        <button type="button" onClick={locked ? unlock : undefined} data-hidden={peek ? undefined : ''}
+          className="transition-opacity duration-300 data-[hidden]:opacity-0 data-[hidden]:pointer-events-none absolute left-1/2 top-[calc(env(safe-area-inset-top,0px)+60px)] -translate-x-1/2 z-30 h-8 px-3 rounded-full bg-black/60 backdrop-blur-md text-white text-[length:calc(13px*var(--fs,1))] font-bold flex items-center gap-1 cursor-pointer"
           aria-label={locked ? '2배속 고정 해제' : '2배속'}>
           2배속 <ChevronsRight className="w-4 h-4" />{locked && <Lock className="w-3.5 h-3.5 opacity-80" />}
         </button>

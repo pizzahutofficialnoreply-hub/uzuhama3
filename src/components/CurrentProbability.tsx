@@ -122,9 +122,13 @@ export function CurrentProbability({
 
   useEffect(() => {
     const timer = setInterval(() => {
+      if (document.hidden) return;
       setCurrentTime(new Date());
     }, 1000 * 60);
-    return () => clearInterval(timer);
+    // 돌아오면 화면이 먼저 뜬 뒤 시각 맞춤
+    const vis = () => { if (!document.hidden) window.setTimeout(() => setCurrentTime(new Date()), 1500); };
+    document.addEventListener('visibilitychange', vis);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', vis); };
   }, []);
 
   useEffect(() => {

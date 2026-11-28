@@ -593,7 +593,7 @@ function CafeExtraPanel({ text }: { text: string }) {
         <p className="text-sm font-bold text-zinc-900 dark:text-white">오팬무 · 오음무 · 오저무 <span className="text-zinc-400 font-semibold">카페 글 {days.length}개 날짜</span></p>
         <button type="button" disabled={busy || !changes.length} onClick={save} className="px-3 py-1.5 rounded-xl bg-purple-600 text-white font-bold cursor-pointer disabled:opacity-40">{busy ? '저장 중…' : `${changes.length}개 저장`}</button>
       </div>
-      <p className="text-zinc-500 break-keep">스프레드시트에 없는 건 추가하고, 둘 다 있는데 다른 것만 골라요. 같은 건 숨겨요.</p>
+      <p className="text-zinc-500 break-keep">스프레드시트에 없는 건 추가하고, 둘 다 있는데 다른 것만 골라요. 같은 건 숨겨요. 연도는 카페 글 모으기(5번, '노가리요약' 검색)로 모은 글이면 글 올린 날로 맞추고, 아니면 요일이 맞는 가장 가까운 해로 정해요.</p>
       {!sheet ? <p className="text-zinc-400">시트 값 불러오는 중…</p> : !rows.length ? <p className="text-emerald-600 font-bold">모두 스프레드시트와 같아요.</p> : (
         <ul className="space-y-1.5 max-h-[50vh] overflow-auto">
           {rows.map((r) => { const k = keyOf(r); const p = pick(r); return (

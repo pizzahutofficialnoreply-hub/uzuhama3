@@ -95,6 +95,8 @@ import { FluidBackdrop } from './components/common/FluidBackdrop';
 import { wideAt } from './utils/layoutSize';
 import { setGameCategories } from './utils/gameCategory';
 import { initBgm } from './utils/bgm';
+import { startShake } from './utils/shake';
+import { triggerHaptic } from './utils/haptics';
 // 채널 영상 목록을 앱 켤 때 미리 꺼내 둠 (검색 탭을 열 때 순서가 한 번 바뀌어 보이지 않게)
 import './hooks/useChannelVideos';
 
@@ -206,6 +208,10 @@ function MainApp() {
       window.history.pushState({ view: 'feedback' }, '', window.location.pathname);
     } catch {}
   };
+
+  // 실험실 '흔들어서 문제 신고': 흔들면 의견 보내기 창
+  const openFeedbackRef = useRef(openFeedback); openFeedbackRef.current = openFeedback;
+  useEffect(() => startShake(() => { triggerHaptic(20); openFeedbackRef.current(); }), []);
 
   const closeFeedback = (isFromPopEvent = false) => {
     setShowFeedbackModal(false);
@@ -440,7 +446,9 @@ function MainApp() {
   // 점검 모드 시간 체크 (1초마다 갱신하여 시작/종료 시간에 도달하면 즉시 자동 시작 및 자동 종료)
   const [nowTime, setNowTime] = useState(() => Date.now());
   useEffect(() => {
+    // 앱을 내린 동안(배경음으로 살아 있을 때)은 멈춤: 매초 화면 전체를 다시 그리면 돌아올 때 밀린 일이 많아 까만 화면이 길어짐
     const timer = window.setInterval(() => {
+      if (document.hidden) return;
       setNowTime(Date.now());
     }, 1000);
     return () => window.clearInterval(timer);

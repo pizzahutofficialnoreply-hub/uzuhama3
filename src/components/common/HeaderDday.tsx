@@ -10,7 +10,7 @@ export function HeaderDday({ items }: { items: Item[] }) {
   const [showDate, setShowDate] = useState(false);
   useEffect(() => {
     if (items.length <= 1) return;
-    const t = window.setInterval(() => { setI((x) => (x + 1) % items.length); setShowDate(false); }, 4000);
+    const t = window.setInterval(() => { if (document.hidden) return; setI((x) => (x + 1) % items.length); setShowDate(false); }, 4000);
     return () => window.clearInterval(t);
   }, [items.length]);
   const it = items[i % items.length];
