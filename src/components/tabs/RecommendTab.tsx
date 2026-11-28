@@ -126,7 +126,10 @@ export const VideoCard = ({
   isExpanded = false,
   linkedShorts,
   onShowLiveOn,
+  onPick,
 }: { 
+  /** 펼친 카드 안(몰아보기)에서: 썸네일을 누르면 바깥 카드를 이 영상으로 바꿈 */
+  onPick?: (id: string, title: string, sub?: string) => void;
   /** 생방일을 눌렀을 때 '검색 탭의 라이브에서 그 날 생방 보기' (없으면 기록 탭으로 바로) */
   onShowLiveOn?: (dateStr: string) => void;
   /** 이 영상과 연결된 쇼츠 (쇼츠 아래에 이 영상이 걸린 것) */
@@ -368,6 +371,7 @@ export const VideoCard = ({
               const cardEl = thumbRef.current?.closest('[data-video-card]') || thumbRef.current;
               if (compExpand) { expandCompilation(); return; }
               // 모든 영상: 카드가 펼쳐지고 그 안에서 재생 (요약이 아직 없으면 영상만)
+              if (onPick && video.id) { onPick(video.id, video.videoTitle || '', displayDate ? `${displayDate} 방송` : undefined); return; }
               openAiCard(video.id, video.videoTitle || '', cardEl, displayDate ? `${displayDate} 방송` : undefined, { noSummary: !aiDone });
             }}
             className="group/thumb block w-full h-full relative text-left cursor-pointer border-0 p-0 m-0 bg-transparent"

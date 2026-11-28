@@ -1,8 +1,9 @@
+import { josa } from '../../utils/josa';
 import { RowSkeleton } from './Skeleton';
 import { politeKo } from '../../utils/politeKo';
 import { getPrefs } from '../../utils/userPrefs';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, Pin, Play, X, ScanSearch } from 'lucide-react';
+import { BookOpen, Pin, Play, X, ScanSearch, ChevronDown, ChevronUp } from 'lucide-react';
 import { openAiSummary } from './AiSummaryHost';
 import { cn } from '../../utils';
 import { squash } from '../../utils/smartSearch';
@@ -105,6 +106,9 @@ export function SearchExtras({ query, aiEnabled }: { query: string; aiEnabled: b
   const [loading, setLoading] = useState(false);
   const [ver, setVer] = useState<{ q: string; v: AiVerify } | null>(null);
   const [verifying, setVerifying] = useState(false);
+  // 진짜 검색 결과를 가리지 않게: 처음엔 1개만 + 다음 것 살짝, '더보기'로 나머지
+  const [more, setMore] = useState(false);
+  useEffect(() => { setMore(false); }, [q]);
 
   useEffect(() => {
     if (!aiEnabled || q.length < 2 || q.startsWith('#') || /youtu|chzzk|https?:/.test(q)) { setAi(null); return; }
@@ -153,20 +157,32 @@ export function SearchExtras({ query, aiEnabled }: { query: string; aiEnabled: b
   const allRejected = !verifying && ver?.q === q && ver.v.verified.length === 0 && ver.v.rejected.length > 0;
   if (!q || (!cards.length && !loading && !verifying && !allRejected)) return null;
   return (
-    <section className="mb-5 space-y-2" aria-label="AI 검색">
-      <h3 className="px-1 text-sm font-black text-zinc-900 dark:text-white flex items-center gap-1.5">
+    <section className="mb-4 space-y-2 bg-white dark:bg-zinc-900 rounded-[26px] px-3 pt-4 pb-2" aria-label="AI 검색">
+      <h3 className="px-1 text-[length:calc(15px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white flex items-center gap-1.5">
         <ScanSearch className="w-4 h-4 text-purple-500" /> 콕 집어 찾은 결과
         {loading && !cards.length && <span className="text-[length:calc(11px*var(--fs,1))] font-semibold text-zinc-400 ml-1">AI가 정리해 둔 장면에서 찾는 중…</span>}
       </h3>
       {verifying && <p className="px-1 text-[length:calc(11px*var(--fs,1))] font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-ping" /> AI가 이 장면들을 영상에서 직접 보고 확인하는 중이에요 (처음 찾는 말은 10~40초)</p>}
       {!verifying && ver?.q === q && ver.v.verified.length === 0 && ver.v.rejected.length > 0 && <p className="px-1 text-[length:calc(11px*var(--fs,1))] text-zinc-500">AI가 영상에서 확인해 보니 딱 맞는 장면은 아직 없었어요. 분석된 영상이 늘면 더 찾아요.</p>}
       {(lastExpanded.get(q.toLowerCase()) || []).length > 0 && ai?.q === q && (
-        <p className="px-1 text-[length:calc(11px*var(--fs,1))] text-zinc-500">AI가 '{q}'를 <b>{(lastExpanded.get(q.toLowerCase()) || []).slice(0, 5).join(' · ')}</b>(으)로도 찾아봤어요</p>
+        <p className="px-1 text-[length:calc(11px*var(--fs,1))] text-zinc-500">AI가 {josa(`'${q}'`, '을/를')} <b>{(lastExpanded.get(q.toLowerCase()) || []).slice(0, 5).join(' · ')}</b>{(() => { const w = (lastExpanded.get(q.toLowerCase()) || []).slice(0, 5).pop() || ''; return josa(w, '으로/로').slice(w.length); })()}도 찾아봤어요</p>
       )}
-      <div className={cn('grid gap-2.5', cards.length > 1 && 'lg:grid-cols-2')}>
-        {cards.map((c) => <ExtraCard key={`${c.from}-${c.id}-${c.scenes[0]?.t || 0}`} c={c} />)}
+      <div className={cn('grid gap-2.5', more && cards.length > 1 && 'lg:grid-cols-2')}>
+        {(more ? cards : cards.slice(0, 1)).map((c) => <ExtraCard key={`${c.from}-${c.id}-${c.scenes[0]?.t || 0}`} c={c} />)}
+        {/* 접혀 있을 때: 다음 결과를 살짝 흐리게 (누를 수 없음) */}
+        {!more && cards.length > 1 && (
+          <div aria-hidden className="pointer-events-none relative max-h-14 overflow-hidden">
+            <ExtraCard c={cards[1]} />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-white dark:from-zinc-900/30 dark:to-zinc-900" />
+          </div>
+        )}
         {loading && !cards.length && [0, 1].map((i) => <div key={i} className="rounded-2xl border border-zinc-200 dark:border-zinc-800"><RowSkeleton lines={3} /></div>)}
       </div>
+      {cards.length > 1 && (
+        <button type="button" onClick={() => setMore((v) => !v)} className="press-row w-full py-2.5 rounded-2xl text-[length:calc(13px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-600 dark:text-zinc-300 flex items-center justify-center gap-1">
+          {more ? <>접기<ChevronUp className="w-4 h-4" /></> : <>더보기 · {cards.length - 1}개 더<ChevronDown className="w-4 h-4" /></>}
+        </button>
+      )}
     </section>
   );
 }

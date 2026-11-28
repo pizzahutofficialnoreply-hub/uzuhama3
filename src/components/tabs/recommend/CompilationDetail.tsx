@@ -34,8 +34,9 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
   listOnly?: boolean;
 }) {
   const [savedStyle, setViewStyle] = useViewStyle('compilation');
-  // 펼친 카드 안(웃참 제외 몰아보기): 짧은 목록 → 누르면 위 카드가 그 영상의 통합 카드(영상·쇼츠·게임·AI 요약)로
-  const viewStyle = listOnly ? 'list' : savedStyle;
+  // 펼친 카드 안(웃참 제외 몰아보기): 밖(검색 탭)과 같은 영상 카드 — 편집본·생방송·쇼츠가 한 카드에
+  // 썸네일을 누르면 위 카드가 그 영상의 통합 카드(영상·쇼츠·게임·AI 요약)로
+  const viewStyle = listOnly ? 'card' : savedStyle;
   const [page, setPage] = useState(1);
   // 설정에서 조절, 목록 보기는 한 줄이 작아서 카드의 2배
   const basePerPage = usePrefs().collectionPageSize;
@@ -52,7 +53,11 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
   const gameCount = isCompilation && Array.isArray(video?.games) && video.games.length > 0 ? video.games.length : dates.length;
 
   const rows = useMemo(() => dates.map((date) => {
-    const log: any = logsList.find((l: any) => l?.date === date) || (video?.parentLog?.date === date ? video.parentLog : null);
+    // 같은 날 기록이 여러 개(하루 두 번 방송 등)면 하나로 합침 → 생방송·편집본·쇼츠가 한 카드에 (따로 나뉘지 않게)
+    const same: any[] = logsList.filter((l: any) => l?.date === date);
+    const log: any = same.length > 1
+      ? { ...same[0], edited: same.flatMap((l) => l.edited || []), vods: same.flatMap((l) => l.vods || []), shorts: same.flatMap((l) => l.shorts || []), games: same.flatMap((l) => l.games || []) }
+      : same[0] || (video?.parentLog?.date === date ? video.parentLog : null);
     const edits = (Array.isArray(log?.edited) ? log.edited : []).filter((e: any) => e?.url && !e.isCompilation && !e.compilationId && e.url !== video?.videoUrl && !String(e.title || '').includes('몰아보기'));
     const primary = edits[0];
     // 그 방송에서 몰아보기에 들어간 게임만 (방송마다 고른 게임)
@@ -131,8 +136,9 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
                     category: '',
                     parentLog: r.log,
                     allBroadcastDates: [r.date],
-                    games: [],
+                    games: (r.log?.games || []).filter((g: any) => g?.name),
                   }}
+                  onPick={onPick}
                   linkedShorts={r.shorts.length ? r.shorts.map((x: any) => ({ url: x.url, title: x.title })) : undefined}
                   allLogs={allLogs}
                   onNavigateToCalendar={onNavigateToCalendar}

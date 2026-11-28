@@ -1,4 +1,4 @@
-import { confirmSheet } from '../../utils/ui';
+import { confirmSheet, chooseSheet } from '../../utils/ui';
 
 const TrendTooltip = ({ active, payload, label }: any) => {
   const [visible, setVisible] = useState(false);
@@ -58,7 +58,7 @@ import { format, startOfYear, startOfMonth, endOfMonth, parseISO, startOfWeek, e
 import { AppData, BroadcastLog } from '../../types';
 import { CustomTooltip, DottedBarCursor } from '../CustomTooltip';
 import { parseTimeString, parseTimeTo24, cn, useBodyScrollLock, formatWeekTick } from '../../utils';
-import { Download, FileText, AlertCircle, X, HelpCircle } from 'lucide-react';
+import { Download, FileText, AlertCircle, X, HelpCircle, CalendarRange } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BroadcastHeatmap } from '../stats/BroadcastHeatmap';
 import { CategoryStatsTab } from '../stats/CategoryStatsTab';
@@ -368,6 +368,8 @@ export function DetailedStatsTab({
 
   const previousRangeBeforePresetRef = useRef<{ start: string; end: string } | null>(null);
 
+  // 날짜 직접 고르기·조회·비교는 '직접 고르기'를 눌렀을 때만 (토스식: 처음엔 결과부터)
+  const [showCustom, setShowCustom] = useState(false);
   const handleApplyPreset = (preset: 'ty' | '30d' | '1y' | '5y' | 'all') => {
     // 이미 선택된 프리셋을 한 번 더 클릭하면 프리셋 누르기 전 상태로 취소 복귀
     if (activePreset === preset) {
@@ -971,14 +973,19 @@ export function DetailedStatsTab({
   };
 
   return (
-    <div className="space-y-6" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
+    <div className="space-y-3" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
       
-      {/* Filters */}
-      <div id="detailed-main-card" className="w-full max-w-full bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 flex flex-col xl:flex-row xl:flex-wrap justify-between items-stretch xl:items-center gap-4 xl:gap-6 box-border overflow-hidden relative">
-        <div className="flex items-center justify-between">
-          <h3 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">상세 분석</h3>
+      {/* 맨 위 카드 (토스식): 제목 + 내보내기 · 기간 칩 · 직접 고르기는 접어 둠 */}
+      <div id="detailed-main-card" className="w-full max-w-full bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-5 flex flex-col gap-3.5 box-border overflow-hidden relative">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-[length:calc(22px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">상세 분석</h3>
+          <button type="button" data-testid="stats-export"
+            onClick={async () => { const v = await chooseSheet({ title: '내보내기', options: [{ value: 'csv', label: 'CSV 파일', desc: '엑셀·구글 시트에서 열 수 있어요' }, { value: 'pdf', label: 'PDF 리포트', desc: '그래프까지 한 장으로 정리해요' }] }); if (v === 'csv' || v === 'pdf') setDownloadConfirm(v); }}
+            className="press-row shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[length:calc(13px*var(--fs,1))] font-bold text-zinc-500 dark:text-zinc-400 cursor-pointer">
+            <Download className="w-4 h-4" />내보내기
+          </button>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 text-sm w-full xl:w-auto min-w-0 max-w-full box-border">
+        <div className="flex flex-col gap-3 text-sm w-full min-w-0 max-w-full box-border">
           {/* 기간 프리셋 버튼 그룹 */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
             {[
@@ -1006,8 +1013,14 @@ export function DetailedStatsTab({
                 </button>
               );
             })}
+            <button type="button" aria-expanded={showCustom || !!range2} onClick={() => setShowCustom((v) => !v)}
+              className={cn("px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer inline-flex items-center gap-1",
+                !activePreset ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300")}>
+              <CalendarRange className="w-3.5 h-3.5" />직접 고르기
+            </button>
           </div>
 
+          {(showCustom || !!range2) && (<>
           <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
             {range2 && <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ background: COLOR_A }} title="기간 1" aria-label="기간 1" />}
             <input 
@@ -1027,10 +1040,11 @@ export function DetailedStatsTab({
           <button onClick={handleFilter} className="w-full sm:w-auto px-5 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-sm font-semibold transition-colors shrink-0 cursor-pointer shadow-xs hover:shadow active:scale-[0.98]">
             조회
           </button>
+          </>)}
         </div>
 
         {/* 비교: + 로 기간 하나 더 → 아래 분석 위에 색을 달리해 겹쳐 보여 줌 */}
-        <div className="w-full xl:basis-full min-w-0">
+        {(showCustom || !!range2) && <div className="w-full min-w-0">
           {!range2 ? (
             <button type="button" data-testid="stats-compare-add"
               onClick={() => {
@@ -1069,18 +1083,18 @@ export function DetailedStatsTab({
               </div>
             </div>
           )}
-        </div>
+        </div>}
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0 sm:pb-0 hide-scrollbar w-full sm:w-auto">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="flex items-center gap-1 p-1 rounded-2xl bg-zinc-200/60 dark:bg-zinc-800/80 overflow-x-auto hide-scrollbar w-full sm:w-auto">
           {isLegacyRange ? (
             <>
               <button
                 onClick={() => selectSub('trend')} data-testid="stats-tab-trend"
                 className={cn(
-                  "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-                  !compare && activeSubTab !== 'category' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+                  "flex-1 px-3 py-2 rounded-xl text-[length:calc(14px*var(--fs,1))] font-bold font-hanna font-pro transition-colors whitespace-nowrap cursor-pointer",
+                  !compare && activeSubTab !== 'category' ? "bg-white text-zinc-900 dark:bg-zinc-600 dark:text-white shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
                 )}
               >
                 방송 추이 및 요일별 분석
@@ -1089,8 +1103,8 @@ export function DetailedStatsTab({
                 <button
                   onClick={() => selectSub('category')} data-testid="stats-tab-category"
                   className={cn(
-                    "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-                    !compare && activeSubTab === 'category' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+                    "flex-1 px-3 py-2 rounded-xl text-[length:calc(14px*var(--fs,1))] font-bold font-hanna font-pro transition-colors whitespace-nowrap cursor-pointer",
+                    !compare && activeSubTab === 'category' ? "bg-white text-zinc-900 dark:bg-zinc-600 dark:text-white shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
                   )}
                 >
                   카테고리 분석
@@ -1102,8 +1116,8 @@ export function DetailedStatsTab({
               <button
                 onClick={() => selectSub('trend')} data-testid="stats-tab-trend"
                 className={cn(
-                  "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-                  !compare && activeSubTab === 'trend' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+                  "flex-1 px-3 py-2 rounded-xl text-[length:calc(14px*var(--fs,1))] font-bold font-hanna font-pro transition-colors whitespace-nowrap cursor-pointer",
+                  !compare && activeSubTab === 'trend' ? "bg-white text-zinc-900 dark:bg-zinc-600 dark:text-white shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
                 )}
               >
                 방송 추이
@@ -1111,8 +1125,8 @@ export function DetailedStatsTab({
               <button
                 onClick={() => selectSub('day')} data-testid="stats-tab-day"
                 className={cn(
-                  "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-                  !compare && activeSubTab === 'day' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+                  "flex-1 px-3 py-2 rounded-xl text-[length:calc(14px*var(--fs,1))] font-bold font-hanna font-pro transition-colors whitespace-nowrap cursor-pointer",
+                  !compare && activeSubTab === 'day' ? "bg-white text-zinc-900 dark:bg-zinc-600 dark:text-white shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
                 )}
               >
                 요일별 분석
@@ -1120,8 +1134,8 @@ export function DetailedStatsTab({
               <button
                 onClick={() => selectSub('category')} data-testid="stats-tab-category"
                 className={cn(
-                  "px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-                  !compare && activeSubTab === 'category' ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800"
+                  "flex-1 px-3 py-2 rounded-xl text-[length:calc(14px*var(--fs,1))] font-bold font-hanna font-pro transition-colors whitespace-nowrap cursor-pointer",
+                  !compare && activeSubTab === 'category' ? "bg-white text-zinc-900 dark:bg-zinc-600 dark:text-white shadow-sm" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
                 )}
               >
                 카테고리 분석
@@ -1129,8 +1143,9 @@ export function DetailedStatsTab({
             </>
           )}
 
+        </div>
           {isLegacyRange && (
-            <div className="flex items-center gap-1.5 ml-1 sm:ml-2 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
               <span className="text-[length:calc(11px*var(--fs,1))] font-bold px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
                 ~2025 포함 데이터
               </span>
@@ -1151,27 +1166,10 @@ export function DetailedStatsTab({
               </button>
             </div>
           )}
-        </div>
         
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button 
-            onClick={() => setDownloadConfirm('csv')}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-sm font-medium transition-colors border border-zinc-200 dark:border-zinc-700 whitespace-nowrap"
-          >
-            <Download className="w-4 h-4" />
-            CSV 내보내기
-          </button>
-          <button 
-            onClick={() => setDownloadConfirm('pdf')}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg text-sm font-medium transition-colors border border-zinc-200 dark:border-zinc-700 whitespace-nowrap"
-          >
-            <FileText className="w-4 h-4" />
-            PDF 리포트
-          </button>
-        </div>
       </div>
 
-      <div className="space-y-6 bg-transparent">
+      <div className="space-y-3 bg-transparent">
         {/* 각 하위 탭 맨 위: 그 탭 요약 (예전 기록은 추이 탭이 요일까지 합쳐 보여 줌) */}
         {!compare && <StatsSummary logs={logsArray} start={startDate} end={endDate} part={activeSubTab} withDay={isLegacyRange} onSearch={onNavigateToRecommend ? (q) => onNavigateToRecommend(undefined, q) : undefined} />}
         {/* ~2025 데이터일 때: 방송 추이와 요일별 분석을 합치고 히트맵은 숨김 */}
