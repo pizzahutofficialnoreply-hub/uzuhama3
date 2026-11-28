@@ -1,0 +1,15 @@
+name: tmp 공개 데이터 받기 (지움)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  r:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p snap
+          for f in snapshot_logs.json channel_uploads.json; do curl -sS -o snap/$f "https://uzuhama-beta.web.app/data/$f"; ls -la snap/$f; done
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          git checkout --orphan tmp-snap2 && git rm -rfq . && git add snap && git commit -qm snap && git push -f origin tmp-snap2
