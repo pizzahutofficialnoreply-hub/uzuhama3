@@ -1,0 +1,53 @@
+name: tmp 베타 사이트 직접 보기 (한 번 쓰고 지움)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  look:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 올라간 파일에 새 코드가 있는지
+        run: |
+          for host in uzuhama-beta.web.app uzuhama.vercel.app uzuhama.web.app; do
+            js=$(curl -sS "https://$host/" | grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' | head -1)
+            echo "== $host $js"
+            curl -sS "https://$host$js" -o /tmp/main.js
+            for k in "몰아보기 목록으로" "pickFromList" "이 방송의 게임" "최종 확인 둘러보기" "보통 시작한 시간"; do
+              c=$(grep -c "$k" /tmp/main.js || true); echo "  $k: $c"
+            done
+            ls /tmp/main.js >/dev/null && grep -oE 'assets/[A-Za-z0-9_-]+\.js' /tmp/main.js | sort -u | head -40 > /tmp/chunks.txt
+            for ch in $(cat /tmp/chunks.txt); do curl -sS "https://$host/$ch" >> /tmp/all.js; done
+            for k in "몰아보기 목록으로" "이 방송의 게임" "최종 확인 둘러보기"; do c=$(grep -c "$k" /tmp/all.js || true); echo "  (chunks) $k: $c"; done
+            rm -f /tmp/all.js
+          done
+      - name: 화면 찍기 (DB·API는 막음)
+        run: |
+          npm i -g playwright@1 >/dev/null 2>&1 && npx playwright install --with-deps chromium >/dev/null 2>&1
+          cat > shot.cjs <<'JS'
+          const { chromium, devices } = require('playwright');
+          (async () => {
+            const b = await chromium.launch();
+            const ctx = await b.newContext({ ...devices['iPhone 13'], colorScheme: 'dark' });
+            const p = await ctx.newPage();
+            await p.route(/firestore\.googleapis\.com|firebaseinstallations|vercel\.app\/api\//, (r) => r.abort());
+            await p.addInitScript(() => { localStorage.setItem('uzuhama_onboarding_version','999'); localStorage.setItem('uzuhama_tutorial_done_v1','1'); localStorage.setItem('uzuhama_tutorial_new_1.2.0','1'); });
+            await p.goto('https://uzuhama-beta.web.app/'); await p.waitForTimeout(5000);
+            await p.screenshot({ path: 'shots/1-summary.png' });
+            await p.locator('button', { hasText: /^분석$/ }).last().click({ force: true }); await p.waitForTimeout(3000);
+            await p.screenshot({ path: 'shots/2-stats.png' });
+            await p.evaluate(() => window.scrollBy(0, 800)); await p.waitForTimeout(800);
+            await p.screenshot({ path: 'shots/3-stats2.png' });
+            await p.locator('button[aria-label="영상 검색 및 추천"]').click(); await p.waitForTimeout(3000);
+            await p.screenshot({ path: 'shots/4-search.png' });
+            const info = await p.evaluate(() => ({ sw: !!navigator.serviceWorker?.controller, title: document.title }));
+            console.log(JSON.stringify(info));
+            await b.close();
+          })();
+          JS
+          mkdir -p shots && NODE_PATH=$(npm root -g) node shot.cjs
+      - name: 사진을 임시 브랜치로
+        run: |
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          git checkout --orphan tmp-shots && git rm -rfq . && git add shots && git commit -qm shots && git push -f origin tmp-shots
