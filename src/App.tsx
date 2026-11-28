@@ -96,6 +96,7 @@ import { wideAt } from './utils/layoutSize';
 import { setGameCategories } from './utils/gameCategory';
 import { initBgm } from './utils/bgm';
 import { startShake } from './utils/shake';
+import { ShakeSheet } from './components/common/ShakeSheet';
 import { triggerHaptic } from './utils/haptics';
 // 채널 영상 목록을 앱 켤 때 미리 꺼내 둠 (검색 탭을 열 때 순서가 한 번 바뀌어 보이지 않게)
 import './hooks/useChannelVideos';
@@ -211,7 +212,10 @@ function MainApp() {
 
   // 실험실 '흔들어서 문제 신고': 흔들면 의견 보내기 창
   const openFeedbackRef = useRef(openFeedback); openFeedbackRef.current = openFeedback;
-  useEffect(() => startShake(() => { triggerHaptic(20); openFeedbackRef.current(); }), []);
+  // 흔들면 먼저 '뭔가 이상했나요?' 판 → '문제 알려 주기'를 누르면 의견 보내기 창
+  //  (아이폰은 흔들기가 '누르기'로 치지 않아 이때 진동은 못 줌 · 안드로이드는 진동)
+  const [shakeOpen, setShakeOpen] = useState(false);
+  useEffect(() => startShake(() => { triggerHaptic([20, 40, 20]); setShakeOpen(true); }), []);
 
   const closeFeedback = (isFromPopEvent = false) => {
     setShowFeedbackModal(false);
@@ -1488,6 +1492,7 @@ function MainApp() {
       )}
 
       {/* 의견 보내기 모달 (모든 오버레이 및 모바일 설정창 상단에 항상 최상위 레이어로 렌더링) */}
+      <ShakeSheet open={shakeOpen && !showFeedbackModal} onClose={() => setShakeOpen(false)} onReport={() => openFeedbackRef.current()} />
       {showFeedbackModal && (
         <Suspense fallback={null}><FeedbackModal onClose={() => closeFeedback()} system={data.system} data={data} /></Suspense>
       )}
