@@ -1,0 +1,13 @@
+name: tmp 썸네일 확인 (지움)
+on:
+  workflow_dispatch:
+jobs:
+  r:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          sleep 60
+          for u in "https://store.steampowered.com/app/4197610/Librarian_Tidy_Up_the_Arcane_Library/" "https://www.roblox.com/games/2753915549" "https://apps.apple.com/kr/app/%EB%81%9D%EB%A7%90%EC%9E%87%EA%B8%B0/id540209774"; do
+            echo "== $u"; curl -sS -o /dev/null -w "%{http_code} %{redirect_url}\n" "https://uzuhama.vercel.app/api/videos/meta?gimg=$(python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=""))' "$u")"
+          done
+          echo "== old steam url"; curl -sS -o /dev/null -w "%{http_code}\n" "https://cdn.cloudflare.steamstatic.com/steam/apps/4197610/header.jpg"
