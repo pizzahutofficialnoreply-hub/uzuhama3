@@ -1171,7 +1171,7 @@ export function DetailedStatsTab({
 
       <div className="space-y-3 bg-transparent">
         {/* 각 하위 탭 맨 위: 그 탭 요약 (예전 기록은 추이 탭이 요일까지 합쳐 보여 줌) */}
-        {!compare && <StatsSummary logs={logsArray} start={startDate} end={endDate} part={activeSubTab} withDay={isLegacyRange} onSearch={onNavigateToRecommend ? (q) => onNavigateToRecommend(undefined, q) : undefined} />}
+        {!compare && <StatsSummary logs={logsArray} start={startDate} end={endDate} part={activeSubTab} withDay={isLegacyRange} onSearch={onNavigateToRecommend ? (q) => onNavigateToRecommend(undefined, q) : undefined} onCategory={onNavigateToRecommend ? (c) => onNavigateToRecommend(c) : undefined} />}
         {/* ~2025 데이터일 때: 방송 추이와 요일별 분석을 합치고 히트맵은 숨김 */}
         {isLegacyRange ? (
           <>
@@ -1296,6 +1296,7 @@ export function DetailedStatsTab({
                 isActive={isActive} 
                 onNavigateToCalendar={onNavigateToCalendar}
                 onNavigateToRecommend={onNavigateToRecommend}
+                kpis={!!range2}
               />
               </div>
             )}
@@ -1465,28 +1466,29 @@ export function DetailedStatsTab({
                   startDate={startDate} 
                   endDate={endDate} 
                   onSelectDate={onNavigateToCalendar}
+                  kpis={!!range2}
                 />
                 {range2 && (
                   <div className="space-y-2">
                     <CompareBadge range={range2} />
-                    <BroadcastHeatmap logs={logs2} startDate={range2.start} endDate={range2.end} onSelectDate={onNavigateToCalendar} />
+                    <BroadcastHeatmap logs={logs2} startDate={range2.start} endDate={range2.end} onSelectDate={onNavigateToCalendar} kpis />
                   </div>
                 )}
 
                 {/* 요일별 방송 빈도 그래프 & 요일별 방송 확률 표 (그래프와 표 함께 캡처) */}
                 <div id="detailed-weekday-combo" className="relative space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">요일별 방송</h4>
-                    <WidgetShareButton targetId="detailed-weekday-combo" title="요일별 방송 분석" />
-                  </div>
-                  <StatInsightSummary>
-                    {insights.dailySummary}
-                    {cmpNote?.daily && <span className="block mt-1.5 pl-3 border-l-2" style={{ borderColor: COLOR_B }}>{cmpNote.daily}</span>}
-                  </StatInsightSummary>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    {/* 제목·한 줄 요약·그래프를 한 카드에 (다른 카드와 같은 모양) */}
                     <div className="bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 flex flex-col">
-                      <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em] mb-3">요일별 방송 빈도 그래프</h4>
-                      <div className="h-[300px] w-full">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-[length:calc(20px*var(--fs,1))] font-bold font-hanna font-pro text-zinc-900 dark:text-white tracking-[-0.01em]">요일별 방송</h4>
+                        <WidgetShareButton targetId="detailed-weekday-combo" title="요일별 방송 분석" />
+                      </div>
+                      <StatInsightSummary>
+                        {insights.dailySummary}
+                        {cmpNote?.daily && <span className="block mt-1.5 pl-3 border-l-2" style={{ borderColor: COLOR_B }}>{cmpNote.daily}</span>}
+                      </StatInsightSummary>
+                      <div className="h-[300px] w-full mt-3">
                         {isActive && (<ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                           <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" strokeOpacity={0.2} vertical={false} />
@@ -1552,6 +1554,7 @@ export function DetailedStatsTab({
                 isActive={isActive} 
                 onNavigateToCalendar={onNavigateToCalendar}
                 onNavigateToRecommend={onNavigateToRecommend}
+                kpis={!!range2}
               />
               </div>
             )}

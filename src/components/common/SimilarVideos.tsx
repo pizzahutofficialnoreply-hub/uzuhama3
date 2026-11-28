@@ -78,6 +78,8 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts, part }: {
       if (!l || l.isAbsence) continue;
       const has = [...(l.vods || []), ...(l.edited || []), ...(l.shorts || [])].some((v) => ytId(v?.url) === id);
       if (!has) continue;
+      // 몰아보기로 이어진 기록은 여기서 생방송·영상을 따로따로 늘어놓지 않음 (몰아보기 목록에서 방송마다 한 카드로)
+      if ((l.edited || []).some((v: any) => ytId(v?.url) === id && (v?.isCompilation || v?.compilationId))) continue;
       const games = (l.games || []).map((g) => g.name).filter(Boolean);
       const isLive = (l.vods || []).some((v) => ytId(v?.url) === id);
       const push = (v: any, kind: 'video' | 'live' | 'short') => { const vid = ytId(v?.url); if (!vid || seen.has(vid)) return; seen.add(vid); out.push({ id: vid, title: v.title || '', kind, date: l.date, games }); };

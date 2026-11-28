@@ -30,6 +30,8 @@ interface CategoryStatsTabProps {
   isActive?: boolean;
   onNavigateToCalendar?: (dateStr: string) => void;
   onNavigateToRecommend?: (category?: string, searchTerm?: string) => void;
+  /** 위쪽 숫자 칸: 맨 위 요약 카드에 합쳐서 기본은 숨김, 기간 비교할 때만 */
+  kpis?: boolean;
 }
 
 interface CategoryData {
@@ -131,7 +133,8 @@ export function CategoryStatsTab({
   compareLogs,
   isActive = true,
   onNavigateToCalendar,
-  onNavigateToRecommend
+  onNavigateToRecommend,
+  kpis = false
 }: CategoryStatsTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -393,7 +396,7 @@ export function CategoryStatsTab({
   return (
     <div className="space-y-3">
       {/* 4대 요약 카드 (모바일 폰트 최적화로 말줄임 최소화 & 클릭 시 추천 영상 탭 이동 연동) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+      {kpis && <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         {/* 1위 최다 플레이 카테고리 -> 클릭 시 추천 영상 탭 해당 카테고리 선택 */}
         <div 
           onClick={() => {
@@ -448,7 +451,7 @@ export function CategoryStatsTab({
         </div>
 
         {/* '가장 자주 등장한 게임'은 위 요약(많이 한 게임 순위)과 겹쳐서 뺌 */}
-      </div>
+      </div>}
 
       {/* 카테고리별 비중 원그래프 (크기 키움, 하얀 윤곽선 제거, 부드러운 파스텔톤, 인터랙티브 필터링) */}
       <div 

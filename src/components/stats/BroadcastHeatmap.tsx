@@ -32,6 +32,8 @@ interface BroadcastHeatmapProps {
   startDate?: string;
   endDate?: string;
   className?: string;
+  /** 위쪽 숫자 4칸 (방송 일수·시간·연속): 맨 위 요약과 겹쳐서 기본은 숨김, 기간 비교할 때만 */
+  kpis?: boolean;
   onSelectDate?: (dateStr: string) => void;
 }
 
@@ -49,7 +51,7 @@ export interface DayCellData {
   timeRange: string;
 }
 
-export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelectDate }: BroadcastHeatmapProps) {
+export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelectDate, kpis = false }: BroadcastHeatmapProps) {
   const [selectedCell, setSelectedCell] = useState<DayCellData | null>(null);
   const [hoveredCell, setHoveredCell] = useState<DayCellData | null>(null);
   const [selectedLegendLevel, setSelectedLegendLevel] = useState<number | null>(null);
@@ -219,8 +221,8 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
 
   return (
     <div className={cn("space-y-3", className)}>
-      {/* 4대 요약 카드 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* 4대 요약 카드 (기간 비교할 때만) */}
+      {kpis && <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white dark:bg-zinc-900 rounded-[22px] p-4 flex flex-col justify-between">
           <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
             방송 일수 (방송률)
@@ -279,7 +281,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
             가장 길었던 재정비 기간
           </span>
         </div>
-      </div>
+      </div>}
 
       {/* 방송 활동 히트맵 보드 (라이트/다크 테마 정상 적용, 가로 스크롤 최소화) */}
       <div id="broadcast-heatmap-board" className="bg-white dark:bg-zinc-900 rounded-[26px] px-5 sm:px-6 pt-5 pb-6 flex flex-col space-y-5 text-zinc-900 dark:text-zinc-100 relative">

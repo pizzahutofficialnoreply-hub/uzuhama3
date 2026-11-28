@@ -1,3 +1,4 @@
+import { openVideoCard } from './openVideoCard';
 import { VideoSwipe } from './VideoSwipe';
 import { useIsHeld, HELD_TEXT } from '../../utils/held';
 import { ShieldAlert } from 'lucide-react';
@@ -93,7 +94,8 @@ export function VideoListRow({
         if (onPick && videoId) { e.preventDefault(); onPick(videoId, title, subline || upload || badge); return; }
         if (!sitePlay) return;
         e.preventDefault();
-        openAiCard(videoId, title, thumbRef.current, subline || upload || badge);
+        // 몰아보기·여러 생방송이 이어진 영상은 카드 보기와 똑같이 (방송 목록까지 한 카드로)
+        openVideoCard(videoId, title, thumbRef.current, subline || upload || badge);
       }} className="absolute inset-0 rounded-[18px]" aria-label={sitePlay ? `${title} 펼쳐서 보기` : `${title} 유튜브에서 보기`} />
 
       {typeof index === 'number' && (
