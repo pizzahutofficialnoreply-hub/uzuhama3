@@ -30,7 +30,7 @@ jobs:
         if: steps.cf.outputs.skip != '1'
       - uses: actions/setup-node@v4
         if: steps.cf.outputs.skip != '1'
-        with: { node-version: 24 }
+        with: { node-version: 22 }
       - name: Install (클라우드 점검용)
         if: steps.cf.outputs.skip != '1'
         run: |
