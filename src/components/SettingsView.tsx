@@ -693,7 +693,7 @@ export function SettingsView({
                   className="overflow-hidden"
                 >
                   <div className="px-4 pb-4 pt-2 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
-                    <div className="grid grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-3 gap-2.5" data-tour="settings-theme">
                       <button
                         type="button"
                         onClick={() => handleSelectTheme('light')}
@@ -750,7 +750,7 @@ export function SettingsView({
                         <Type className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                         <span className="text-xs font-bold text-zinc-900 dark:text-white">글자 크기</span>
                       </div>
-                      <div className="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-800" role="radiogroup" aria-label="글자 크기">
+                      <div data-tour="settings-font" className="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-800" role="radiogroup" aria-label="글자 크기">
                         {FONT_SCALES.map((o) => (
                           <button key={o.v} type="button" role="radio" aria-checked={prefs.fontScale === o.v} onClick={() => setPref('fontScale', o.v)}
                             className={cn("py-2 rounded-xl font-bold font-hanna font-pro cursor-pointer transition-colors", prefs.fontScale === o.v ? "bg-white dark:bg-zinc-600 text-zinc-900 dark:text-white shadow-sm" : "text-zinc-500 dark:text-zinc-400")}
@@ -1508,7 +1508,7 @@ function ViewPrefsPanel() {
 
       {part === 'sort' && (<>
         <Row title="추천 영상" desc="홈·동영상 탭을 처음 열 때">
-          <Seg k="recommendSort" options={[['desc', '최신순'], ['asc', '과거순']]} />
+          <Seg k="recommendSort" options={[['upload', '업로드 최신순'], ['desc', '방송일 최신순'], ['asc', '과거순']]} />
         </Row>
         <Row title="검색했을 때" desc="검색어를 넣으면 이 순서로 (지우면 원래 정렬로)">
           <Seg k="searchSort" options={[['accuracy', '정확도순'], ['desc', '최신순'], ['asc', '과거순']]} />

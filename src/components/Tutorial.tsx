@@ -15,8 +15,8 @@ import { fullHeight, bottomBase } from '../utils/viewport';
 
 export const TUTORIAL_DONE_KEY = 'uzuhama_tutorial_done_v1';
 /** 새 기능 둘러보기 (예전 둘러보기를 본 사람에게 한 번): 버전이 바뀌면 이름을 바꿔 다시 */
-export const TUTORIAL_NEW_KEY = 'uzuhama_tutorial_new_1.2.0';
-const NEW_VERSION = '1.2.0';
+export const TUTORIAL_NEW_KEY = 'uzuhama_tutorial_new_1.3.0';
+const NEW_VERSION = '1.3.0';
 export const TUTORIAL_START_EVENT = 'uzuhama-start-tutorial';
 
 type Step = {
@@ -62,12 +62,33 @@ const closeDetails = () => {
   if (btn?.getAttribute('aria-expanded') === 'true') btn.click();
 };
 
-// 누구나 아는 건 짧게, 숨은 기능은 직접 눌러 보며 알아가도록
+// ── 직접 해 보기 도우미 ──
+// 어느 묶음(data-tour)을 마지막으로 눌렀는지 기록 → '눌러 보세요' 단계가 끝났는지 앎
+const tappedAt: Record<string, number> = {};
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', (e) => {
+    const el = (e.target as HTMLElement | null)?.closest?.('[data-tour]');
+    if (el) tappedAt[el.getAttribute('data-tour') || ''] = Date.now();
+  }, true);
+}
+const snap: { t0: number; text?: string } = { t0: 0 };
+const mark = (text?: string) => { snap.t0 = Date.now(); snap.text = text; };
+const tapped = (group: string) => (tappedAt[group] || 0) > snap.t0;
+const textOf = (sel: string) => document.querySelector(sel)?.textContent?.slice(0, 120) || '';
+const cardLabel = () => document.querySelector('[data-testid="ai-card"]')?.getAttribute('aria-label') || '';
+const blurInput = () => { (document.activeElement as HTMLElement | null)?.blur?.(); };
+const SPEED_PILL = '[aria-label="2배속"], [aria-label="2배속 고정 해제"]';
+const SHORTS = '[role="dialog"][aria-label="쇼츠 보기"]';
+// 펼친 카드가 열린 채면(다른 걸 누르다 열린 경우 등) 닫고 다음 단계로
+const closeCard = () => { if (visible('[data-testid="ai-card"]')) document.querySelector<HTMLElement>('[data-tour="card-close"]')?.click(); };
+let lpSeen = false;
+
+// 누구나 아는 건 짧게, 숨은 기능은 직접 눌러 보며 알아가도록 (단계 번호 없이, 하나씩 직접 해 보기)
 const STEPS: Step[] = [
   {
     id: 'welcome',
     title: '우주하마 방송 예측에 오신 걸 환영해요',
-    body: '처음이라 볼 게 많죠? 숨은 기능 위주로 직접 눌러 보며 알려 드릴게요.\n언제든 오른쪽 위 X로 닫을 수 있어요.',
+    body: '하나씩 직접 눌러 보면서 알려 드릴게요. 해 보라는 걸 하면 저절로 다음으로 넘어가요.\n언제든 오른쪽 위 X로 닫을 수 있어요.',
   },
   {
     id: 'prob',
@@ -80,6 +101,7 @@ const STEPS: Step[] = [
   },
   {
     id: 'details-try',
+    chapter: '방송 예측',
     title: '어떻게 나온 숫자인지 볼까요?',
     body: '',
     target: { mobile: '[data-tour="prob-details"]', desktop: '[data-tour="prob-details"]' },
@@ -88,6 +110,7 @@ const STEPS: Step[] = [
   },
   {
     id: 'details',
+    chapter: '방송 예측',
     title: '단계별 계산',
     body: '요일 → 방송 간격 → 휴방 여부 → 남은 시간 순서로 확률이 바뀌는 과정이에요. 마지막 줄이 위의 큰 숫자와 같아요.',
     target: { mobile: '[data-tour="prob-details-area"]', desktop: '[data-tour="prob-details-area"]' },
@@ -96,7 +119,6 @@ const STEPS: Step[] = [
   {
     id: 'title-egg',
     chapter: '방송 예측',
-    isNew: true,
     title: '제목 옆 그림을 세 번 눌러 보세요',
     body: '기념일·수능·할로윈·추석 같은 날에는 제목 글씨체와 그림이 바뀌어요. 그림을 빠르게 세 번 누르면 숨은 장면이 나와요.',
     target: { mobile: 'header h1 [role="img"], header h1 .title-decor', desktop: 'header h1 [role="img"], header h1 .title-decor' },
@@ -107,7 +129,6 @@ const STEPS: Step[] = [
   {
     id: 'recap',
     chapter: '방송 예측',
-    isNew: true,
     title: '올해의 연말 결산',
     body: '한 해 방송을 한 장씩 돌아봐요. 가장 많이 한 게임은 눌러서 바로 볼 수 있고, ⋯ 에서 사진으로 저장하거나 틀린 곳을 알려 줄 수 있어요.',
     target: { mobile: '[data-testid="recap-banner"]', desktop: '[data-testid="recap-banner"]' },
@@ -127,14 +148,42 @@ const STEPS: Step[] = [
     },
   },
   {
+    id: 'cal-month-try',
+    chapter: '방송 기록',
+    title: '다른 달로 넘겨 보기',
+    body: '',
+    target: { mobile: '[data-tour="cal-month-nav"]', desktop: '[data-tour="cal-month-nav"]' },
+    tab: 'calendar',
+    action: {
+      hint: "화살표를 눌러 방송한 날(색칠된 칸)이 있는 달로 가 보세요",
+      reset: () => mark(textOf('[data-tour="cal-month-nav"]')),
+      done: () => textOf('[data-tour="cal-month-nav"]') !== snap.text && visible('[data-testid="cal-day"][data-has-log="1"]'),
+    },
+  },
+  {
+    id: 'cal-day-try',
+    chapter: '방송 기록',
+    title: '방송한 날을 눌러 보세요',
+    body: '',
+    target: { mobile: '[data-testid="cal-day"][data-has-log="1"]', desktop: '[data-testid="cal-day"][data-has-log="1"]' },
+    tab: 'calendar',
+    action: {
+      hint: '색칠된 날짜 하나를 눌러 보세요',
+      reset: () => mark(textOf('#calendar-detail-panel')),
+      done: () => visible('#calendar-detail-panel') && textOf('#calendar-detail-panel') !== snap.text,
+    },
+  },
+  {
     id: 'calendar',
-    title: '방송 기록 달력',
-    body: '방송한 날에 표시가 있어요. 날짜를 누르면 그날 한 게임, 다시보기, 편집 영상, 쇼츠가 한곳에 모여 나와요.',
-    target: { mobile: '#calendar-main-card', desktop: '#calendar-main-card' },
+    chapter: '방송 기록',
+    title: '그날 방송이 한곳에',
+    body: '그날 한 게임, 다시보기, 편집 영상, 쇼츠가 모여 있어요. 게임 그림을 누르면 게임 페이지로, 영상을 누르면 사이트 안에서 바로 펼쳐져요.',
+    target: { mobile: '#calendar-detail-panel', desktop: '#calendar-detail-panel' },
     tab: 'calendar',
   },
   {
     id: 'calendar-export',
+    chapter: '방송 기록',
     title: '내 캘린더에 넣기',
     body: "'캘린더 구독'을 하면 새 방송이 기록될 때마다 아이폰·구글 캘린더에 자동으로 들어와요. 한 방송만 넣고 싶으면 위 달력에서 그 날짜를 눌러 등록해요.",
     target: { mobile: '[data-tour="calendar-export"]', desktop: '[data-tour="calendar-export"]' },
@@ -151,19 +200,30 @@ const STEPS: Step[] = [
     action: { hint: "'분석'을 눌러 보세요", done: ({ activeTab }) => activeTab === 'detailed' },
   },
   {
-    id: 'detailed',
-    title: '기간별 상세 분석',
-    body: '기간을 골라 조회하면 방송 추이, 요일·시간 패턴, 게임 카테고리가 나와요. 그래프 점을 누르면 그 주에 방송한 날짜가 보이고, CSV·PDF로 내보낼 수도 있어요.',
-    target: { mobile: '#detailed-main-card', desktop: '#detailed-main-card' },
+    id: 'stats-range-try',
+    chapter: '분석',
+    title: '기간 바꿔 보기',
+    body: '',
+    target: { mobile: '[data-tour="stats-presets"]', desktop: '[data-tour="stats-presets"]' },
     tab: 'detailed',
+    action: { hint: "'최근 30일'처럼 다른 기간을 눌러 보세요. 아래 숫자·그래프가 다 바뀌어요", reset: () => mark(), done: () => tapped('stats-presets') },
   },
   {
-    id: 'compare',
+    id: 'stats-sub-try',
+    chapter: '분석',
+    title: '요일·시간 보기',
+    body: '',
+    target: { mobile: '[data-tour="stats-subtabs"]', desktop: '[data-tour="stats-subtabs"]' },
+    tab: 'detailed',
+    action: { hint: "'요일별 분석'을 눌러 보세요", done: () => visible('#broadcast-heatmap-board') },
+  },
+  {
+    id: 'heatmap',
     chapter: '분석',
     isNew: true,
-    title: '다른 기간과 겹쳐 보기',
-    body: "'다른 기간과 비교'를 누르면 두 번째 기간(주황)이 생겨요. 추이·요일·시간 그래프와 카테고리 표에 지금 기간(파랑)과 겹쳐서 나와요.",
-    target: { mobile: '[data-testid="stats-compare-add"], [data-testid="stats-compare-range"]', desktop: '[data-testid="stats-compare-add"], [data-testid="stats-compare-range"]' },
+    title: '방송 활동 히트맵',
+    body: '칸 하나가 하루예요. 색이 진할수록 오래 방송했어요. 칸을 누르면 그날 방송 시간이 나오고, 기간은 위에서 고른 기간을 그대로 따라가요.',
+    target: { mobile: '#broadcast-heatmap-board', desktop: '#broadcast-heatmap-board' },
     tab: 'detailed',
   },
   {
@@ -174,33 +234,148 @@ const STEPS: Step[] = [
     body: '',
     target: { mobile: 'button[aria-label="영상 검색 및 추천"]', desktop: '#desktop-tab-bar > button:nth-of-type(4)' },
     tab: 'detailed',
-    action: { hint: '돋보기(추천 영상)를 눌러 보세요', done: ({ activeTab }) => activeTab === 'recommend' },
+    action: { hint: '돋보기를 눌러 보세요', done: ({ activeTab }) => activeTab === 'recommend' },
   },
   {
     id: 'search',
+    chapter: '영상',
     title: '영상은 여기서',
-    body: '홈 · 추천 · 동영상 · Shorts · 라이브 · 재생목록으로 나뉘어 있어요. \'겨울 특집 추천해줘\', \'무서운 거 보여줘\' 처럼 말하듯 써도 되고, 배그·옵치 같은 줄임말이나 유튜브·치지직 링크로도 찾아 줘요. 카드의 저장 버튼으로 내 재생목록도 만들 수 있어요.',
+    body: "홈 · 동영상 · Shorts · 라이브 · 재생목록으로 나뉘어 있어요. '무서운 거 보여줘'처럼 말하듯 써도 되고, 배그·옵치 같은 줄임말이나 유튜브·치지직 링크로도 찾아 줘요.",
     target: { mobile: '#recommend-cards-top', desktop: '#recommend-cards-top' },
     tab: 'recommend',
     scrollTop: true,
   },
   {
-    id: 'video-open',
+    id: 'search-type-try',
+    chapter: '영상',
+    title: '검색해 보기',
+    body: '',
+    target: { mobile: 'input[placeholder="영상 및 방송 검색..."]', desktop: 'input[placeholder="영상 및 방송 검색..."]' },
+    tab: 'recommend',
+    action: {
+      hint: "검색창에 '공포'를 쳐 보세요",
+      done: () => [...document.querySelectorAll<HTMLInputElement>('input[placeholder="영상 및 방송 검색..."]')].some((i) => i.value.trim().length >= 2),
+    },
+  },
+  {
+    id: 'view-toggle-try',
+    chapter: '영상',
+    title: '카드로도, 목록으로도',
+    body: '',
+    target: { mobile: '[role="group"][aria-label="보기 방식"]', desktop: '[role="group"][aria-label="보기 방식"]' },
+    tab: 'recommend',
+    action: { hint: "'카드'나 '목록'을 눌러 보는 방식을 바꿔 보세요", reset: () => { blurInput(); mark(); }, done: () => tapped('view-style') },
+  },
+  {
+    id: 'card-open-try',
+    chapter: '영상',
+    inNew: true,
+    title: '사이트 안에서 펼쳐 보기',
+    body: '',
+    target: { mobile: '#recommend-tab-view [data-thumb]', desktop: '#recommend-tab-view [data-thumb]' },
+    tab: 'recommend',
+    action: { hint: '영상 썸네일을 눌러 보세요. 화면이 펼쳐지며 바로 재생돼요', reset: blurInput, done: () => visible('[data-testid="ai-card"]') },
+  },
+  {
+    id: 'card-speed-try',
     chapter: '영상',
     isNew: true,
-    title: '사이트 안에서 펼쳐 보기',
-    body: '썸네일을 누르면 화면이 펼쳐지며 바로 재생돼요. 아래에는 AI 요약과 대사 스크립트(자막처럼 보기), 이 방송의 생방송·쇼츠, 추천 영상이 이어져요. 재생 중에 닫아도 썸네일 자리에서 계속 나오고, 그걸 누르면 다시 펼쳐져요.',
-    target: { mobile: '#recommend-tab-view [data-thumb], [data-thumb]', desktop: '#recommend-tab-view [data-thumb], [data-thumb]' },
+    title: '꾹 눌러 2배속',
+    body: '영상 양옆을 두 번 톡 치면 10초씩 앞뒤로 가요.',
+    target: { mobile: '[data-testid="ai-card-player"]', desktop: '[data-testid="ai-card-player"]' },
+    action: { hint: '영상 왼쪽이나 오른쪽 끝을 꾹 눌러 보세요. 누른 채 아래로 당기면 2배속이 고정돼요', done: () => visible(SPEED_PILL) },
+  },
+  {
+    id: 'card-summary-try',
+    chapter: '영상',
+    title: 'AI 요약과 대사',
+    body: '',
+    target: { mobile: '[data-tour="card-summary"]', desktop: '[data-tour="card-summary"]' },
+    scrollIntoView: true,
+    action: {
+      hint: "'AI 영상 요약'을 눌러 펼쳐 보세요. 시간을 누르면 그 장면으로 가요",
+      done: () => document.querySelector('[data-tour="card-summary"]')?.getAttribute('data-open') === '1',
+    },
+  },
+  {
+    id: 'card-other-try',
+    chapter: '영상',
+    isNew: true,
+    title: '이 방송의 다른 영상',
+    body: '',
+    target: { mobile: '[data-testid="ai-card"] [data-lp]', desktop: '[data-testid="ai-card"] [data-lp]' },
+    scrollIntoView: true,
+    action: { hint: '아래 생방송이나 다른 영상을 눌러 보세요. 이 카드가 그 영상으로 바뀌어요', reset: () => mark(cardLabel()), done: () => visible('[data-testid="ai-card"]') && cardLabel() !== snap.text },
+  },
+  {
+    id: 'card-close-try',
+    chapter: '영상',
+    inNew: true,
+    title: '닫기',
+    body: '',
+    target: { mobile: '[data-tour="card-close"]', desktop: '[data-tour="card-close"]' },
+    action: { hint: 'X를 눌러 닫아 보세요. 아래로 끌어내려도 돼요. 재생 중이면 썸네일 자리에서 계속 나와요', done: () => !visible('[data-testid="ai-card"]') },
+  },
+  {
+    id: 'lp-try',
+    chapter: '영상',
+    isNew: true,
+    title: '꾹 눌러 미리보기',
+    body: '',
+    target: { mobile: '#recommend-tab-view [data-lp]', desktop: '#recommend-tab-view [data-lp]' },
     tab: 'recommend',
+    action: {
+      hint: '영상을 꾹 눌러 미리보기를 띄운 다음, 바깥을 눌러 닫아 보세요',
+      reset: () => { lpSeen = false; closeCard(); },
+      done: () => { if (visible('[data-lp-layer]')) lpSeen = true; return lpSeen && !visible('[data-lp-layer]'); },
+    },
   },
   {
     id: 'video-swipe',
     chapter: '영상',
-    isNew: true,
     title: '옆으로 밀어서 바로',
-    body: '영상 카드나 목록 줄을 오른쪽으로 밀면 저장, 왼쪽으로 밀면 공유·신고예요. 끝까지 밀면 바로 실행돼요. 신고에서 이 영상 가리기도 할 수 있어요.',
+    body: '영상 카드나 목록 줄을 오른쪽으로 밀면 저장, 왼쪽으로 밀면 공유·신고예요. 끝까지 밀면 바로 실행돼요.',
     target: { mobile: '[data-swipe-row]', desktop: '[data-swipe-row]' },
     tab: 'recommend',
+  },
+  {
+    id: 'shorts-tab-try',
+    chapter: '쇼츠',
+    inNew: true,
+    title: '쇼츠 보기',
+    body: '',
+    target: { mobile: '#rec-subtab-shorts', desktop: '#rec-subtab-shorts' },
+    tab: 'recommend',
+    scrollTop: true,
+    action: { hint: "'Shorts'를 눌러 보세요", reset: closeCard, done: () => document.querySelector('#rec-subtab-shorts')?.getAttribute('aria-selected') === 'true' },
+  },
+  {
+    id: 'shorts-open-try',
+    chapter: '쇼츠',
+    inNew: true,
+    title: '쇼츠 하나 열기',
+    body: '',
+    target: { mobile: '[data-tour="shorts-card"]', desktop: '[data-tour="shorts-card"]' },
+    tab: 'recommend',
+    action: { hint: '쇼츠를 눌러 보세요. 위아래로 밀면 다음 쇼츠예요', done: () => visible(SHORTS) },
+  },
+  {
+    id: 'shorts-speed-try',
+    chapter: '쇼츠',
+    isNew: true,
+    title: '2배속과 진행바',
+    body: '맨 아래 진행바를 끌면 원하는 곳으로 가요. 가운데를 꾹 누르면 저장·공유 메뉴예요.',
+    target: { mobile: '[role="dialog"][aria-label="쇼츠 보기"]', desktop: '[role="dialog"][aria-label="쇼츠 보기"]' },
+    action: { hint: '화면 왼쪽이나 오른쪽 끝을 꾹 눌러 보세요', done: () => visible(SPEED_PILL) },
+  },
+  {
+    id: 'shorts-close-try',
+    chapter: '쇼츠',
+    inNew: true,
+    title: '쇼츠 닫기',
+    body: '',
+    target: { mobile: '[role="dialog"][aria-label="쇼츠 보기"] button[aria-label="닫기"]', desktop: '[role="dialog"][aria-label="쇼츠 보기"] button[aria-label="닫기"]' },
+    action: { hint: '왼쪽 위 X를 눌러 닫아 보세요', done: () => !visible(SHORTS) },
   },
   {
     id: 'settings-try',
@@ -216,6 +391,7 @@ const STEPS: Step[] = [
   IOS_INSTALL_FIRST
     ? {
         id: 'settings-notify',
+        chapter: '설정',
         title: '아이폰은 앱 설치가 먼저예요',
         body: '아이폰은 홈 화면에 추가한 앱에서만 방송 알림이 와요. 설치하고 그 앱으로 열면 여기서 알림을 켤 수 있어요.',
         target: { mobile: '[data-tour="settings-notify"]', desktop: '[data-tour="settings-notify"]' },
@@ -224,6 +400,7 @@ const STEPS: Step[] = [
       }
     : {
         id: 'settings-notify',
+        chapter: '설정',
         title: '여기서 알림을 켜요',
         body: '방송 시작, 휴방 공지, 오늘 유력 시간 몇 분 전 알림을 골라서 켤 수 있어요.',
         target: { mobile: '[data-tour="settings-notify"]', desktop: '[data-tour="settings-notify"]' },
@@ -231,18 +408,73 @@ const STEPS: Step[] = [
         extra: { label: '지금 알림 켜기', onClick: () => openSetupGuide('notify') },
       },
   {
+    id: 'theme-open-try',
+    chapter: '설정',
+    title: '화면 설정',
+    body: '',
+    target: { mobile: '[data-settings-section="theme"]', desktop: '[data-settings-section="theme"]' },
+    scrollIntoView: true,
+    action: { hint: "'화면 설정'을 눌러 열어 보세요", done: () => visible('[data-tour="settings-font"]') },
+  },
+  {
+    id: 'theme-try',
+    chapter: '설정',
+    title: '밝게 · 어둡게',
+    body: '',
+    target: { mobile: '[data-tour="settings-theme"]', desktop: '[data-tour="settings-theme"]' },
+    scrollIntoView: true,
+    action: { hint: '라이트 · 다크 · 시스템 중 마음에 드는 걸 골라 보세요', reset: () => mark(), done: () => tapped('settings-theme') },
+  },
+  {
+    id: 'font-try',
+    chapter: '설정',
+    title: '글자 크기',
+    body: '',
+    target: { mobile: '[data-tour="settings-font"]', desktop: '[data-tour="settings-font"]' },
+    scrollIntoView: true,
+    action: { hint: '읽기 편한 글자 크기를 골라 보세요', reset: () => mark(), done: () => tapped('settings-font') },
+  },
+  {
     id: 'settings-play',
     chapter: '설정',
-    isNew: true,
     title: '영상 재생 기본값',
-    body: "'사이트 안에서 재생'이면 목록 보기의 영상과 카드의 생방송 버튼은 펼쳐서, 쇼츠 버튼은 쇼츠 화면으로 열려요. 쇼츠는 다 보면 비슷한 쇼츠로 이어져요. 유튜브 앱이 편하면 '유튜브 링크로'를 고르세요.",
+    body: "'사이트 안에서 재생'이면 목록의 영상과 생방송 버튼은 펼쳐서, 쇼츠 버튼은 쇼츠 화면으로 열려요. 유튜브 앱이 편하면 '유튜브 링크로'를 고르세요.",
     target: { mobile: '[data-tour="settings-play"]', desktop: '[data-tour="settings-play"]' },
     scrollIntoView: true,
   },
   {
+    id: 'preface-try',
+    chapter: '설정',
+    inNew: true,
+    title: '일러두기',
+    body: '',
+    target: { mobile: '[data-settings-section="preface"]', desktop: '[data-settings-section="preface"]' },
+    scrollIntoView: true,
+    action: { hint: "'일러두기'를 눌러 열어 보세요", done: () => visible('#settings-section-preface .overflow-hidden') },
+  },
+  {
+    id: 'preface-read',
+    chapter: '설정',
+    inNew: true,
+    title: '일러두기는 꼭 읽어 주세요',
+    body: '기록이 어떻게 만들어졌는지, 틀릴 수 있는 부분, 외부 링크 주의 같은 안내예요.',
+    target: { mobile: '#settings-section-preface', desktop: '#settings-section-preface' },
+    scrollIntoView: true,
+    action: {
+      hint: '끝까지 내려 읽어 주세요',
+      reset: () => mark(),
+      done: () => {
+        const el = document.querySelector('#settings-section-preface');
+        if (!el || Date.now() - snap.t0 < 4000) return false;
+        return el.getBoundingClientRect().bottom <= fullHeight() - 40;
+      },
+    },
+  },
+  {
     id: 'settings-setup',
+    chapter: '설정',
     title: '안내는 여기서 다시',
-    body: '앱 설치 · 알림 · 캘린더 등록 안내는 언제든 여기서 다시 볼 수 있어요. 바로 아래에서 이 둘러보기도 다시 볼 수 있어요.',
+    body: '앱 설치 · 알림 · 캘린더 등록 안내는 언제든 여기서 다시 볼 수 있어요. 바로 아래에서 이 둘러보기도 다시 할 수 있어요.',
     target: { mobile: '[data-tour="settings-setup"]', desktop: '[data-tour="settings-setup"]' },
     scrollIntoView: true,
   },
@@ -518,8 +750,11 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
     if (!rect) return { left: (vp.w - w) / 2, top: vp.h / 2, w, center: true, below: true, dock: false };
     const spaceBelow = vp.h - (rect.y + rect.h);
     const left = Math.min(Math.max(16, rect.x + rect.w / 2 - w / 2), vp.w - w - 16);
+    const dockTop = vp.h - (vp.w < 640 ? 104 : 24);
+    // 대상이 아직 화면 밖(스크롤 중 등)이면 말풍선은 화면 아래에 붙여 둠 → 말풍선이 화면 밖으로 사라져 막히는 일 없게
+    if (rect.y > vp.h - 40 || rect.y + rect.h < 40) return { left: (vp.w - w) / 2, top: dockTop, w, center: false, below: false, dock: true };
     if (spaceBelow >= NEED) return { left, top: rect.y + rect.h + 14, w, center: false, below: true, dock: false };
-    if (rect.y >= NEED) return { left, top: rect.y - 14, w, center: false, below: false, dock: false };
+    if (rect.y >= NEED) return { left, top: Math.min(rect.y - 14, dockTop), w, center: false, below: false, dock: false };
     // 대상이 화면을 거의 다 차지하면 화면 아래쪽(모바일은 탭바 위)에 붙여 보여줌
     return { left: (vp.w - w) / 2, top: vp.h - (vp.w < 640 ? 104 : 24), w, center: false, below: false, dock: true };
   }, [rect, vp]);
@@ -624,7 +859,6 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
             )}
             <div className="flex items-start justify-between gap-2">
               <p className="flex items-center gap-1.5 text-[length:calc(11px*var(--fs,1))] font-bold text-purple-600 dark:text-purple-400 tabular-nums">
-                <span>{index + 1} / {total}</span>
                 {step.chapter && <span className="px-1.5 py-px rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">{step.chapter}</span>}
                 {(step.isNew || step.id === 'welcome-new') && <span className="px-1.5 py-px rounded-md bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">새 기능</span>}
               </p>
@@ -657,11 +891,6 @@ export function Tutorial({ enabled, activeTab, onTabChange, onCloseSettings, aut
                   {index === 0 ? (mode === 'new' ? '새 기능 보기' : '둘러보기 시작') : isAction ? '넘어가기' : index < total - 1 ? '다음' : '시작하기'}
                 </button>
               </div>
-            </div>
-            <div className="mt-3 flex justify-center gap-1" aria-hidden="true">
-              {steps.map((s, i) => (
-                <span key={s.id} className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? 'w-4 bg-purple-600' : 'w-1.5 bg-zinc-300 dark:bg-zinc-700'}`} />
-              ))}
             </div>
           </div>
           </motion.div>

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { BroadcastLog } from '../../types';
-import { format, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, differenceInCalendarDays, subDays } from 'date-fns';
+import { format, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, subDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { cn } from '../../utils';
 import { HEATMAP_LEVEL_COLORS, getBroadcastHeatmapLevel } from '../../utils/heatmapUtils';
@@ -69,7 +69,6 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
     return `${h}시간 ${m.toString().padStart(2, '0')}분`;
   };
 
-  const [viewScope, setViewScope] = useState<'range' | 'year' | 'recent'>('range');
 
   // 빠른 날짜 맵 생성 (dateStr -> log)
   const logsByDate = useMemo(() => {
@@ -83,36 +82,17 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
   }, [logs]);
 
   // 그리드에 사용할 날짜 구간 계산
+  // 기간: 분석 탭 위쪽에서 고른 기간 그대로 (히트맵만 따로 고르지 않음)
   const { start, end } = useMemo(() => {
     const now = new Date();
-    if (viewScope === 'year') {
-      const curYear = now.getFullYear();
-      return {
-        start: new Date(curYear, 0, 1),
-        end: new Date(curYear, 11, 31)
-      };
-    }
-
-    if (viewScope === 'recent') {
-      return {
-        start: subDays(now, 364),
-        end: now
-      };
-    }
-
-    // viewScope === 'range'
     let s = startDate ? parseISO(startDate) : subDays(now, 180);
     let e = endDate ? parseISO(endDate) : now;
 
     if (isNaN(s.getTime())) s = subDays(now, 180);
     if (isNaN(e.getTime())) e = now;
 
-    if (differenceInCalendarDays(e, s) > 500) {
-      s = subDays(e, 365);
-    }
-
     return { start: s, end: e };
-  }, [viewScope, startDate, endDate]);
+  }, [startDate, endDate]);
 
   // 주 단위 데이터 및 지표 계산 (20분 단위 레벨 세분화)
   const { weeks, monthLabels, stats } = useMemo(() => {
@@ -194,7 +174,8 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
       const m = firstValidDay.date.getMonth();
       if (m !== lastMonth && firstValidDay.date.getDate() <= 14) {
         labels.push({
-          monthName: format(firstValidDay.date, 'M월'),
+          // 1년 넘는 기간: 1월 자리에 연도 (여러 해가 섞여 헷갈리지 않게)
+          monthName: weeksList.length > 60 && m === 0 ? format(firstValidDay.date, "yyyy년") : format(firstValidDay.date, 'M월'),
           weekIndex: wIndex
         });
         lastMonth = m;
@@ -302,42 +283,6 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
-            <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-medium">
-              <button
-                onClick={() => setViewScope('range')}
-                className={cn(
-                  "px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-xs",
-                  viewScope === 'range'
-                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold shadow-xs"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                )}
-              >
-                선택 기간
-              </button>
-              <button
-                onClick={() => setViewScope('year')}
-                className={cn(
-                  "px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-xs",
-                  viewScope === 'year'
-                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold shadow-xs"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                )}
-              >
-                올해 전체
-              </button>
-              <button
-                onClick={() => setViewScope('recent')}
-                className={cn(
-                  "px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-xs",
-                  viewScope === 'recent'
-                    ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold shadow-xs"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                )}
-              >
-                최근 1년
-              </button>
-            </div>
-
             {/* 히트맵 확대/축소 토글 버튼: 탭 정확도 극대화 */}
             <button
               type="button"
@@ -432,10 +377,12 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
           }}
           className={cn(
             "bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 rounded-xl p-2 sm:p-4 select-none cursor-default",
-            isZoomed ? "overflow-x-auto custom-scrollbar" : "overflow-hidden sm:overflow-x-auto"
+            isZoomed || weeks.length > 60 ? "overflow-x-auto custom-scrollbar" : "overflow-hidden sm:overflow-x-auto"
           )}
+          // 기간이 길면(1년 넘게) 옆으로 넘겨 보기: 처음엔 가장 최근 쪽이 보이게
+          ref={(el) => { if (el && weeks.length > 60 && !el.dataset.scrolled) { el.dataset.scrolled = '1'; requestAnimationFrame(() => { el.scrollLeft = el.scrollWidth; }); } }}
         >
-          <div className={cn("flex flex-col", isZoomed ? "min-w-max pb-2" : "w-full min-w-0")}>
+          <div className={cn("flex flex-col", isZoomed || weeks.length > 60 ? "min-w-max pb-2" : "w-full min-w-0")}>
             
             {/* 그리드 바디: 요일 레이블 + 주(컬럼)들 */}
             <div className="flex items-start w-full">
@@ -469,14 +416,14 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
               {/* 주 컬럼 목록 */}
               <div className={cn(
                 "flex",
-                isZoomed ? "gap-[2px] sm:gap-[3px] justify-start" : "gap-[1px] sm:gap-[2px] flex-1 justify-between w-full min-w-0"
+                isZoomed ? "gap-[2px] sm:gap-[3px] justify-start" : weeks.length > 60 ? "gap-[1px] sm:gap-[2px] justify-start" : "gap-[1px] sm:gap-[2px] flex-1 justify-between w-full min-w-0"
               )}>
                 {weeks.map((week, weekIdx) => (
                   <div
                     key={weekIdx}
                     className={cn(
                       "flex flex-col",
-                      isZoomed ? "w-6 sm:w-7 shrink-0 gap-[2px] sm:gap-[3px]" : "flex-1 min-w-0 max-w-[36px] gap-[1px] sm:gap-[2px]"
+                      isZoomed ? "w-6 sm:w-7 shrink-0 gap-[2px] sm:gap-[3px]" : weeks.length > 60 ? "w-2.5 sm:w-[18px] shrink-0 gap-[1px] sm:gap-[2px]" : "flex-1 min-w-0 max-w-[36px] gap-[1px] sm:gap-[2px]"
                     )}
                   >
                     {week.map((cell) => {
@@ -562,7 +509,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
             {/* 하단 월 라벨 (1월~12월 등) */}
             <div className={cn(
               "flex mt-1 sm:mt-2 text-[length:calc(7.5px*var(--fs,1))] sm:text-[length:calc(11px*var(--fs,1))] font-medium text-zinc-400 dark:text-zinc-500 select-none h-3 sm:h-4",
-              isZoomed ? "pl-5 sm:pl-7" : "pl-2.5 sm:pl-5 w-full justify-between"
+              isZoomed ? "pl-5 sm:pl-7" : weeks.length > 60 ? "pl-2.5 sm:pl-5 gap-[1px] sm:gap-[2px]" : "pl-2.5 sm:pl-5 w-full justify-between"
             )}>
               {weeks.map((_, idx) => {
                 const matchedLabel = monthLabels.find(l => l.weekIndex === idx);
@@ -571,7 +518,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                     key={idx}
                     className={cn(
                       "text-center",
-                      isZoomed ? "w-6 sm:w-7 shrink-0" : "flex-1 min-w-0 max-w-[36px]"
+                      isZoomed ? "w-6 sm:w-7 shrink-0" : weeks.length > 60 ? "w-2.5 sm:w-[18px] shrink-0" : "flex-1 min-w-0 max-w-[36px]"
                     )}
                   >
                     {matchedLabel ? (

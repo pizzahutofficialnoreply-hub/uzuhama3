@@ -987,7 +987,7 @@ export function DetailedStatsTab({
         </div>
         <div className="flex flex-col gap-3 text-sm w-full min-w-0 max-w-full box-border">
           {/* 기간 프리셋 버튼 그룹 */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
+          <div data-tour="stats-presets" className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
             {[
               { key: 'ty' as const, label: '올해' },
               { key: '30d' as const, label: '최근 30일' },
@@ -1087,7 +1087,7 @@ export function DetailedStatsTab({
       </div>
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div className="flex items-center gap-1 p-1 rounded-2xl bg-zinc-200/60 dark:bg-zinc-800/80 overflow-x-auto hide-scrollbar w-full sm:w-auto">
+        <div data-tour="stats-subtabs" className="flex items-center gap-1 p-1 rounded-2xl bg-zinc-200/60 dark:bg-zinc-800/80 overflow-x-auto hide-scrollbar w-full sm:w-auto">
           {isLegacyRange ? (
             <>
               <button

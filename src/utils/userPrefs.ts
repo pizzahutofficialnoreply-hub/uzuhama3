@@ -9,7 +9,7 @@ export interface UserPrefs {
   /** 재생목록·몰아보기를 펼쳤을 때 한 페이지 영상 수 */
   collectionPageSize: number;
   /** 추천 영상(홈·동영상) 기본 정렬 */
-  recommendSort: 'desc' | 'asc';
+  recommendSort: 'upload' | 'desc' | 'asc';
   /** 쇼츠 기본 정렬 기준·순서 */
   shortsSortBy: 'upload' | 'live';
   shortsOrder: 'desc' | 'asc';
@@ -43,7 +43,7 @@ export interface UserPrefs {
 
 export const DEFAULT_PREFS: UserPrefs = {
   collectionPageSize: 8,
-  recommendSort: 'desc',
+  recommendSort: 'upload',
   shortsSortBy: 'upload',
   shortsOrder: 'desc',
   keyboard: 'unknown',

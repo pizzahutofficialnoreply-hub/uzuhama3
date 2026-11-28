@@ -774,6 +774,8 @@ export function RecommendTab({
     return saved ? parseInt(saved, 10) : 1;
   });
   const [sortOrder, setSortOrder] = useState(() => {
+    // 기본 정렬을 '업로드 최신순'으로 바꾸면서 한 번: 예전에 자동 저장된 '최신순(방송일)'은 새 기본으로
+    try { if (!localStorage.getItem('rec_sort_v2')) { localStorage.setItem('rec_sort_v2', '1'); if (localStorage.getItem('rec_sortOrder') === 'desc') localStorage.removeItem('rec_sortOrder'); } } catch { /* */ }
     const saved = localStorage.getItem('rec_sortOrder');
     const hasSearch = Boolean(sessionStorage.getItem('rec_searchTerm')?.trim());
     if (saved === 'accuracy' && !hasSearch) return 'desc';
@@ -2066,6 +2068,10 @@ export function RecommendTab({
         }
         return (b.weight || 0) - (a.weight || 0);
       });
+    } else if (effectiveSortOrder === 'upload') {
+      // 업로드 최신순: 유튜브에 올린 날 (모르면 방송일 기준 시각)
+      const up = (v: any) => { const pub = v.publishedAt || pubOf.get(extractYoutubeId(v.videoUrl) || v.id); const t = pub ? Date.parse(pub) : NaN; return isNaN(t) ? getVideoSortTime(v) : t; };
+      scoredVids.sort((a, b) => (up(b) - up(a)) || (getVideoSortTime(b) - getVideoSortTime(a)));
     } else if (effectiveSortOrder === 'desc') {
       scoredVids.sort((a, b) => {
         const timeA = getVideoSortTime(a);
@@ -2505,7 +2511,8 @@ export function RecommendTab({
                 className="w-full pl-3 pr-7 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-1.5 focus:ring-zinc-400 dark:focus:ring-zinc-600 text-xs appearance-none dark:text-zinc-200 font-medium cursor-pointer"
               >
                 {Boolean(searchTerm.trim()) && <option value="accuracy">정확도순</option>}
-                <option value="desc">{isDateQuery ? '날짜 최신순' : '최신순'}</option>
+                <option value="upload">업로드 최신순</option>
+                <option value="desc">{isDateQuery ? '날짜 최신순' : '방송일 최신순'}</option>
                 <option value="asc">{isDateQuery ? '날짜 과거순' : '과거순 (첫 기록부터)'}</option>
                 <option value="popular">유튜브 인기순</option>
               </select>
@@ -2858,7 +2865,7 @@ export function RecommendTab({
       </div>
 
       <footer className="border-t border-zinc-200 dark:border-zinc-800 py-6 mt-8 text-center text-zinc-500 dark:text-zinc-500 text-sm">
-        <p className="mt-1 text-xs">※ 최신순 영상의 정렬 기준은 방송일(생방일)이에요. 생방이 확인되지 않은 영상은 유튜브에 올린 날 기준이에요.</p>
+        <p className="mt-1 text-xs">※ 업로드 최신순은 유튜브에 올린 날, 방송일 최신순은 방송한 날(생방일) 기준이에요. 생방이 확인되지 않은 영상은 유튜브에 올린 날 기준이에요.</p>
         <p className="mt-1 text-xs break-keep px-4">연결된 생방송이나 생방일이 실제와 다를 수 있어요. 틀린 곳을 보시면 영상 카드의 ⋮ › 신고로 정보 수정을 요청해 주세요.</p>
       </footer>
     </div>

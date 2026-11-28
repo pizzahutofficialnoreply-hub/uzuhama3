@@ -1,3 +1,4 @@
+import { EdgeSpeedZones } from './SpeedHold';
 import { videoGames } from '../../utils/videoGames';
 import { GameLinkCard } from './GameLinkCard';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -364,14 +365,14 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
             onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}
           >
            <motion.div className={`dark absolute inset-0 overflow-hidden bg-black text-white flex ${to.wide ? 'flex-row' : 'flex-col'}`} style={{ y: dragY, scale: dragScale, borderRadius: to.pc ? 24 : dragRadius, transformOrigin: '50% 0%', ...(to.pc ? { background: '#0c0c0e', boxShadow: '0 30px 80px -20px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.08)' } : {}) }}>
-            {to.wide && <button type="button" onClick={close} className="absolute z-30 right-[calc(env(safe-area-inset-right,0px)+10px)] top-2.5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>}
+            {to.wide && <button type="button" data-tour="card-close" onClick={close} className="absolute z-30 right-[calc(env(safe-area-inset-right,0px)+10px)] top-2.5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>}
             {/* 넓은 화면: 영상·자막을 왼쪽 칸으로 묶음 (좁은 화면에선 그대로 위에서 아래로) */}
             <div className={to.wide ? 'relative w-[58%] shrink-0 flex flex-col justify-center bg-black pl-[env(safe-area-inset-left,0px)]' : 'contents'}>
             {/* 상태 표시줄 칸 + 맨 위: 바로 재생 */}
             {/* 맨 위 막대: 상태 표시줄 아래 손잡이 + 닫기 — 영상 위에는 아무것도 안 덮음 (유튜브 자막·설정 버튼이 눌리게) */}
             {!to.wide && <div data-video-drag className="shrink-0 bg-black relative flex items-end justify-center cursor-grab" style={{ height: `calc(env(safe-area-inset-top) + ${BAR_H}px)` }}>
               <span className="mb-[14px] h-1 w-10 rounded-full bg-white/40" aria-hidden />
-              <button type="button" onClick={close} style={{ opacity: settled ? 1 : 0, transition: 'opacity .2s' }} className="absolute right-2 bottom-1 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
+              <button type="button" data-tour="card-close" onClick={close} style={{ opacity: settled ? 1 : 0, transition: 'opacity .2s' }} className="absolute right-2 bottom-1 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer" aria-label="닫기"><X className="w-4 h-4" /></button>
             </div>}
             <div ref={slotRef} className="relative w-full aspect-video bg-black shrink-0">
               {play ? null : (
@@ -430,7 +431,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                     </div>
                   );
                 })()}
-                {(showSummary || hasScript) && <div className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
+                {(showSummary || hasScript) && <div data-tour="card-summary" data-open={open ? '1' : '0'} className="mt-4 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
                   <div className="flex items-center gap-2 px-4 py-3">
                     {showSummary && hasScript ? (
                       <div className="flex-1 min-w-0 flex items-center gap-1" role="tablist">
@@ -509,6 +510,8 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
         />
+        {/* 펼쳐서 볼 때: 양옆 가장자리 꾹 → 2배속(아래로 당겨 고정) · 두 번 톡 → 10초 (유튜브 앱처럼) */}
+        {t && !cur.embed && <EdgeSpeedZones command={(func, args = []) => frame.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')} />}
         {!t && dock && (
           <>
             {/* 썸네일 자리에서 재생 중: 누르면 다시 펼쳐서 거기서 조정 */}

@@ -48,7 +48,7 @@ export function ShortsCard({ url, title, caption, onCaptionClick, liveUrl, editU
   if (hid.state === 'hidden') return <div data-gone aria-hidden />;
 
   return (
-    <div ref={trackRef} className={cn('flex flex-col min-w-0', held && 'video-held', className)}>
+    <div ref={trackRef} data-tour="shorts-card" className={cn('flex flex-col min-w-0', held && 'video-held', className)}>
       <div className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-zinc-900 shadow-sm">
         {held && <HeldCover compact />}
         {playing && ytId && !held ? (

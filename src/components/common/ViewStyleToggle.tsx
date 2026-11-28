@@ -22,7 +22,7 @@ export function ViewStyleToggle({ value, onChange, className }: { value: ViewSty
     </button>
   );
   return (
-    <div className={cn('flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60', className)} role="group" aria-label="보기 방식">
+    <div data-tour="view-style" className={cn('flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60', className)} role="group" aria-label="보기 방식">
       {item('card', '카드', LayoutGrid)}
       {item('list', '목록', List)}
     </div>

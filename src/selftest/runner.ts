@@ -29,7 +29,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
   for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i)!; if (!keep(k)) saved[k] = localStorage.getItem(k) || ''; }
   // 점검 창(iframe)이 바꾼 것만 되돌림 — 점검하는 동안 사용자가 바깥 화면에서 바꾼 건(새 시청 기록 등) 그대로
   // (같은 사이트의 다른 창이 바꾸면 이 창에 storage 이벤트가 옴 → 그 이름만 모아 둠)
-  const touched = new Set<string>(['uzuhama_onboarding_version', 'uzuhama_tutorial_done_v1', 'uzuhama_tutorial_new_1.2.0']);
+  const touched = new Set<string>(['uzuhama_onboarding_version', 'uzuhama_tutorial_done_v1', 'uzuhama_tutorial_new_1.3.0']);
   const backup: Record<string, string | null> = {};
   const noteBackup = (k: string) => {
     if (keep(k) || k in backup || k.startsWith('uzuhama_selftest')) return;
@@ -49,7 +49,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
   };
   try {
     localStorage.setItem('uzuhama_onboarding_version', '999');
-    localStorage.setItem('uzuhama_tutorial_done_v1', '1'); localStorage.setItem('uzuhama_tutorial_new_1.2.0', '1');
+    localStorage.setItem('uzuhama_tutorial_done_v1', '1'); localStorage.setItem('uzuhama_tutorial_new_1.3.0', '1');
   } catch { /* */ }
 
   const hook = () => {
@@ -420,7 +420,7 @@ export async function runSelfTests(frame: HTMLIFrameElement, onStep: (r: StepRes
       let pressed = 0;
       let nestedDone = 0;
       restore(); // 앞 화면에서 바꾼 설정(기간·보기 방식 등)이 넘어오지 않게
-      try { localStorage.setItem('uzuhama_onboarding_version', '999'); localStorage.setItem('uzuhama_tutorial_done_v1', '1'); localStorage.setItem('uzuhama_tutorial_new_1.2.0', '1'); } catch { /* */ }
+      try { localStorage.setItem('uzuhama_onboarding_version', '999'); localStorage.setItem('uzuhama_tutorial_done_v1', '1'); localStorage.setItem('uzuhama_tutorial_new_1.3.0', '1'); } catch { /* */ }
       await setup();
       const base = sig();
       const reset = async () => {

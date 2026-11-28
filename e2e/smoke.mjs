@@ -28,7 +28,7 @@ await check('첫 화면: 약관·시작 안내가 뜬다', async () => {
 });
 
 // 이후 점검은 처음 화면을 건너뛰고
-await ctx.addInitScript(() => { localStorage.setItem('uzuhama_onboarding_version', '999'); localStorage.setItem('uzuhama_tutorial_done_v1', '1'); localStorage.setItem('uzuhama_tutorial_new_1.2.0', '1'); });
+await ctx.addInitScript(() => { localStorage.setItem('uzuhama_onboarding_version', '999'); localStorage.setItem('uzuhama_tutorial_done_v1', '1'); localStorage.setItem('uzuhama_tutorial_new_1.3.0', '1'); });
 await page.goto(BASE);
 await page.waitForTimeout(5000);
 

@@ -998,7 +998,7 @@ export function CalendarTab({ data, selectedDateStr, onClearSelectedDate, isActi
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" data-tour="cal-month-nav">
               <button 
                 onClick={prevMonth} 
                 aria-label="이전 달"

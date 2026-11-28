@@ -1,3 +1,4 @@
+import { useSpeedHold, ScrubBar } from './SpeedHold';
 import { cn } from '../../utils';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -86,6 +87,10 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
   }, []);
 
+  // 2배속(가장자리 길게 누르기) · 진행바
+  const speed = useSpeedHold(command);
+  const speedRef = useRef(speed); speedRef.current = speed;
+  const [tm, setTm] = useState({ cur: 0, dur: 0 });
   const autoNextRef = useRef(autoNext); autoNextRef.current = autoNext;
   const idxRef = useRef(index); idxRef.current = index;
   const goRef = useRef<(d: 1 | -1) => void>(() => {});
@@ -102,12 +107,15 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
         try { if (localStorage.getItem(SOUND_KEY) !== '0') { unmuteAt.current = Date.now(); command('unMute'); command('setVolume', [100]); command('playVideo'); } } catch { /* */ }
       }
       if (d?.event === 'infoDelivery' && typeof d.info?.muted === 'boolean') setMuted(d.info.muted);
+      if (d?.event === 'infoDelivery' && (typeof d.info?.currentTime === 'number' || typeof d.info?.duration === 'number')) {
+        setTm((p) => ({ cur: typeof d.info.currentTime === 'number' ? d.info.currentTime : p.cur, dur: typeof d.info.duration === 'number' && d.info.duration > 0 ? d.info.duration : p.dur }));
+      }
       const state = d?.event === 'onStateChange' ? d.info : d?.event === 'infoDelivery' ? d.info?.playerState : undefined;
       if (state === 0) {
         if (autoNextRef.current && idxRef.current < items.length - 1) goRef.current(1);
         else { command('seekTo', [0, true]); command('playVideo'); }
       }
-      if (state === 1) { setPaused(false); setSwitching(false); hideCaptions(); }
+      if (state === 1) { setPaused(false); setSwitching(false); hideCaptions(); speedRef.current.reapply(); }
       if (state === 2) {
         if (Date.now() - unmuteAt.current < 1800) {
           // 소리 켜기가 막혀 멈춘 것 → 소리 끄고 그대로 이어 재생 + 아이폰은 영상 화면을 직접 누르게
@@ -136,6 +144,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
     setSheetOpen(false);
     if (!id || id === loadedId.current) return;
     loadedId.current = id;
+    setTm({ cur: 0, dur: 0 });
     setSwitching(true);
     command('loadVideoById', [id, 0]);
     setPaused(false);
@@ -204,11 +213,20 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
     touchRef.current = { y: t.clientY, x: t.clientX, t: Date.now(), moved: false };
     setAnimating(false);
     if (longRef.current) window.clearTimeout(longRef.current);
-    longRef.current = window.setTimeout(() => { const st = touchRef.current; if (st && !st.moved) { st.long = true; openMenu(); } }, 500);
+    // 가장자리(양옆 22%)를 꾹 → 2배속 / 가운데를 꾹 → 메뉴
+    const r = stageRef.current?.getBoundingClientRect();
+    const edge = !!r && (t.clientX - r.left < r.width * 0.22 || r.right - t.clientX < r.width * 0.22);
+    longRef.current = window.setTimeout(() => {
+      const st = touchRef.current;
+      if (!st || st.moved) return;
+      st.long = true;
+      if (edge) { (st as any).speed = true; speed.begin(st.y); } else openMenu();
+    }, edge ? 400 : 500);
   };
   const onTouchMove = (e: React.TouchEvent) => {
     const s = touchRef.current;
     if (!s) return;
+    if ((s as any).speed) { speed.move(e.touches[0].clientY); return; }
     const dy = e.touches[0].clientY - s.y;
     if (Math.abs(dy) > 8) { s.moved = true; if (longRef.current) window.clearTimeout(longRef.current); }
     if (s.long) return;
@@ -221,6 +239,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
     touchRef.current = null;
     if (longRef.current) window.clearTimeout(longRef.current);
     if (!s) return;
+    if ((s as any).speed) { speed.end(); setDrag(0); return; }
     if (s.long) { setDrag(0); return; }
     const dy = e.changedTouches[0].clientY - s.y;
     const fast = Date.now() - s.t < 250 && Math.abs(dy) > 25;
@@ -318,6 +337,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
           )}
 
           <HiddenCountdown id={idOf(index)} />
+          {speed.ui}
 
           {/* 멈춰도 따로 아이콘을 띄우지 않음 (넘길 때 잠깐 보이던 것도 없앰) */}
 
@@ -334,7 +354,7 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
           </div>
 
           {/* 아래: 제목·날짜·링크 */}
-          <div className="absolute bottom-0 inset-x-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-black/75 via-black/35 to-transparent pointer-events-none">
+          <div className="absolute bottom-0 inset-x-0 p-4 pb-[calc(max(1rem,env(safe-area-inset-bottom))+14px)] bg-gradient-to-t from-black/75 via-black/35 to-transparent pointer-events-none">
             <p className="text-[length:calc(15px*var(--fs,1))] font-bold leading-snug line-clamp-2 break-keep">{cleanShortsTitle(cur.title) || '유튜브 쇼츠'}</p>
             {cur.caption && <p className="mt-1 text-xs text-white/70">{cur.caption}</p>}
             <div className="mt-3 flex items-center gap-2 pointer-events-auto">
@@ -369,6 +389,9 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
               )}
             </div>
           </div>
+          {/* 진행바: 끌어서 원하는 곳으로 */}
+          {!switching && <ScrubBar cur={tm.cur} dur={tm.dur} className="bottom-[env(safe-area-inset-bottom,0px)]"
+            onSeek={(t, final) => { command('seekTo', [t, final]); setTm((p) => ({ ...p, cur: t })); }} />}
         </div>
       </div>
 

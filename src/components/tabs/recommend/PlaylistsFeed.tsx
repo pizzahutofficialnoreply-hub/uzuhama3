@@ -93,8 +93,10 @@ function PlaylistCard({ playlist, onOpen, onExpand, shareText }: { playlist: Pla
 }
 
 /** 유튜브 앱의 재생목록 화면 (저장·공유 버튼 제외) */
-function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, logIndex, logs, onClose, onNavigateToCalendar, listOnly = false }: {
+function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, logIndex, logs, onClose, onNavigateToCalendar, listOnly = false, onPick }: {
   listOnly?: boolean;
+  /** 펼친 카드 안: 썸네일을 누르면 위 카드가 그 영상의 통합 카드로 (몰아보기와 같음) */
+  onPick?: (videoId: string, title: string, sub?: string) => void;
   playlist: Playlist;
   channelTitle: string;
   channelThumbnail: string;
@@ -105,7 +107,9 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
   onNavigateToCalendar?: (date: string) => void;
 }) {
   const [page, setPage] = useState(1);
-  const [viewStyle, setViewStyle] = useViewStyle('playlist');
+  const [savedStyle, setViewStyle] = useViewStyle('playlist');
+  // 펼친 카드 안: 몰아보기 안과 같은 통합 영상 카드 (재생·생방송·쇼츠가 한 카드에)
+  const viewStyle = listOnly ? 'card' : savedStyle;
   const basePerPage = usePrefs().collectionPageSize; // 설정에서 조절
   const ITEMS_PER_PAGE = viewStyle === 'list' ? basePerPage * 2 : basePerPage; // 목록 보기는 카드의 2배
   const total = playlist.items.length;
@@ -130,6 +134,7 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
       viewStyle={viewStyle}
       onViewStyleChange={setViewStyle}
       listOnly={listOnly}
+      fixedList={listOnly}
     >
           {viewStyle === 'list' ? (
             <div className="flex flex-col gap-1.5">
@@ -171,6 +176,8 @@ function PlaylistDetail({ playlist, channelTitle, channelThumbnail, matchedIds, 
                         : (hit?.log?.games?.length || hit?.log?.game) ? [] : (playlistGame ? [playlistGame] : []),
                     }}
                     allLogs={logs}
+                    onPick={onPick}
+                    linkedShorts={(hit?.log?.shorts || []).length ? (hit.log.shorts as any[]).map((x: any) => (typeof x === 'string' ? { url: x } : { url: x?.url, title: x?.title })).filter((x: any) => x.url) : undefined}
                     onNavigateToCalendar={onNavigateToCalendar}
                   />
                 );
@@ -281,8 +288,8 @@ export function PlaylistsFeed({ searchTerm, logs, onNavigateToCalendar }: { sear
                         noSummary: true,
                         thumb: p.thumbnail,
                         embed: `https://www.youtube.com/embed/videoseries?list=${p.id}&autoplay=1&rel=0`,
-                        extra: (close) => (
-                          <PlaylistDetail playlist={p} channelTitle={data?.channelTitle || '우주하마'} channelThumbnail={data?.channelThumbnail || ''} matchedIds={matched} logIndex={logIndex} logs={logs} listOnly
+                        extra: (close, pick) => (
+                          <PlaylistDetail playlist={p} channelTitle={data?.channelTitle || '우주하마'} channelThumbnail={data?.channelThumbnail || ''} matchedIds={matched} logIndex={logIndex} logs={logs} listOnly onPick={pick}
                             onClose={close} onNavigateToCalendar={(d) => { close(); onNavigateToCalendar?.(d); }} />
                         ),
                       }) : undefined}
