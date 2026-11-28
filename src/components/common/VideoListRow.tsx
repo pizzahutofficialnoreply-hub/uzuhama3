@@ -87,7 +87,7 @@ export function VideoListRow({
 
   return (
     <VideoSwipe id={videoId} kind={(saveKind || interest?.kind || 'video') as any} title={title} shareText={shareText} radius={16} cell onEngage={() => noteInterest(interest, 'engage')}>
-    <div ref={trackRef} data-ai-card={onLiveClick && isCompilation ? videoId : undefined} className={cn('press-row group relative flex gap-3.5 rounded-[18px]', dense ? 'items-center' : 'items-start', held && 'video-held', dense ? 'p-2' : 'px-2.5 py-2', highlighted && 'bg-purple-50 dark:bg-purple-950/40')}>
+    <div ref={trackRef} data-lp={videoId || undefined} data-lp-title={title} data-ai-card={onLiveClick && isCompilation ? videoId : undefined} className={cn('press-row group relative flex gap-3.5 rounded-[18px]', dense ? 'items-center' : 'items-start', held && 'video-held', dense ? 'p-2' : 'px-2.5 py-2', highlighted && 'bg-purple-50 dark:bg-purple-950/40')}>
       {/* 줄 전체를 덮는 링크 (버튼들은 그 위에 따로) */}
       <a href={link} target="_blank" rel="noreferrer" onClick={(e) => {
         noteInterest(interest, 'play');

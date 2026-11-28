@@ -324,6 +324,8 @@ export const VideoCard = ({
     <div 
       ref={trackRef}
       data-video-card
+      data-lp={video.id && /^[\w-]{11}$/.test(video.id) ? video.id : (extractYoutubeId(video.videoUrl) || undefined)}
+      data-lp-title={video.videoTitle || undefined}
       data-ai-card={compExpand ? swipeId : video.id}
       className={cn(
         CARD_SURFACE,

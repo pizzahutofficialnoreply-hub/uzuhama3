@@ -29,7 +29,8 @@ function candidates(logs: Record<string, BroadcastLog>): Cand[] {
       if (e) { e.games = [...new Set([...e.games, ...games])]; return; }
       by.set(id, { id, title: it.title || '', games, cats: lc, date: l.date, kind });
     };
-    (l.edited || []).forEach((v) => add(v, 'video'));
+    // 몰아보기는 방송 하나의 영상이 아니라서(생방일·게임 하나가 붙으면 틀림) 비슷한 영상에서 뺌
+    (l.edited || []).filter((v: any) => !v?.isCompilation && !v?.compilationId).forEach((v) => add(v, 'video'));
     (l.vods || []).forEach((v) => add(v, 'live'));
   }
   cache = { logs, list: [...by.values()] };
@@ -84,7 +85,8 @@ export function SimilarVideos({ id, title, logs, ai, onPick, onShorts, part }: {
       const isLive = (l.vods || []).some((v) => ytId(v?.url) === id);
       const push = (v: any, kind: 'video' | 'live' | 'short') => { const vid = ytId(v?.url); if (!vid || seen.has(vid)) return; seen.add(vid); out.push({ id: vid, title: v.title || '', kind, date: l.date, games }); };
       if (!isLive) (l.vods || []).forEach((v) => push(v, 'live'));
-      (l.edited || []).forEach((v) => push(v, 'video'));
+      // 몰아보기·웃음참기처럼 여러 방송을 묶은 영상은 '이 영상의 생방송'이 아님 (같은 날 기록에 들어 있을 뿐)
+      (l.edited || []).filter((v: any) => !v?.isCompilation && !v?.compilationId && !((v?.allBroadcastDates?.length || 0) > 2) && !/웃음\s*참기|몰아\s*보기/.test(v?.title || '')).forEach((v) => push(v, 'video'));
       (l.shorts || []).forEach((v) => push(v, 'short'));
     }
     return out.slice(0, 12);
@@ -136,7 +138,7 @@ function Card({ c, onPick, logs, below }: { c: Cand | (Omit<Cand, 'kind'> & { ki
   const title = c.kind === 'live' ? liveTitle(c.title, c.date) : (c.title || c.games.join(', ') || `${c.date} 방송`);
   const pick = () => onPick(c.id, title, ref.current);
   return (
-    <div className="relative isolate flex flex-col rounded-[24px] overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+    <div data-lp={c.id} data-lp-title={title} className="relative isolate flex flex-col rounded-[24px] overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
       <div ref={ref} data-thumb data-thumb-radius="24px 24px 0 0" className="relative aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
         <button type="button" onClick={pick} className="block w-full h-full cursor-pointer" aria-label={`${title} 보기`}>
           <img src={`https://i.ytimg.com/vi/${c.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
@@ -164,7 +166,7 @@ function Row({ c, onPick }: { c: Cand; onPick: (id: string, title: string, el: E
   const sub = [c.kind === 'live' ? `${c.date} 생방송` : c.games.slice(0, 2).join(' · '), meta?.publishedAt ? formatRelativeTime(meta.publishedAt) : ''].filter(Boolean).join(' · ');
   return (
     <li>
-      <button type="button" onClick={(e) => onPick(c.id, title, (e.currentTarget.querySelector('[data-thumb]') as Element) || e.currentTarget)}
+      <button type="button" data-lp={c.id} data-lp-title={title} onClick={(e) => onPick(c.id, title, (e.currentTarget.querySelector('[data-thumb]') as Element) || e.currentTarget)}
         className="w-full flex items-start gap-3 p-1.5 rounded-xl text-left hover:bg-white/5 active:bg-white/10 cursor-pointer">
         <span data-thumb className="relative w-[44%] max-w-[180px] aspect-video rounded-lg overflow-hidden bg-zinc-800 shrink-0">
           <img src={`https://i.ytimg.com/vi/${c.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />

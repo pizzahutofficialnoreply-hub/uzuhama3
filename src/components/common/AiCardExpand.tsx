@@ -417,11 +417,10 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                     }} />
                   </div>
                 )}
-                {/* 이 방송의 게임: 썸네일 + 링크 (AI 요약에 '게임별 요약'이 있으면 거기에 붙여서 보여 주니 여기선 생략 · 몰아보기 제외) */}
+                {/* 이 방송의 게임: 기록 탭과 같은 게임 화면 썸네일 카드 (AI 요약은 접혀 있을 때가 많아 늘 보여 줌 · 몰아보기 제외) */}
                 {!t.compilation && !t.embed && (() => {
                   const items = (findVideo(t.id, logs)?.log?.games || []).filter((g: any) => g?.name);
-                  const aiHasGames = showSummary && ready && ((data?.games?.length || 0) + (data?.gameStories?.length || 0)) > 0;
-                  if (!items.length || aiHasGames) return null;
+                  if (!items.length) return null;
                   return (
                     <div className="mt-4">
                       <p className="mb-2 text-[length:calc(13px*var(--fs,1))] font-black text-zinc-900 dark:text-white">이 방송의 게임</p>

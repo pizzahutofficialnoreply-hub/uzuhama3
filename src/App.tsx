@@ -1,3 +1,4 @@
+import { LongPressPreview } from './components/common/LongPressPreview';
 import { CalendarTabSkeleton, StatsTabSkeleton, SearchTabSkeleton } from './components/common/Skeleton';
 /**
  * @license
@@ -1427,6 +1428,7 @@ function MainApp() {
       {/* 저장 버튼 → 저장할 곳 고르기 창·알림 */}
       <AiSummaryHost />
       <AiCardExpandHost logs={data?.logs} />
+      <LongPressPreview />
       <TestModeBar />
       <PullToRefresh onRefresh={refreshData} />
       <SaveHost />

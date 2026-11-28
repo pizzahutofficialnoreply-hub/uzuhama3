@@ -72,8 +72,13 @@ export function mergeLegacyArchiveCopy(base: any, copy: any): any {
       baseGames.push({ name: g.name, link, category: typeof g.category === 'string' ? g.category : '' });
     }
   });
+  // 시작·끝 시각, 방송 시간: 원본(JSON)이 비어 있을 때만 사본 값으로 채움 (원본에 있으면 원본이 더 정확함)
+  const empty = (v: any) => v === undefined || v === null || v === '' || v === 0;
+  const fill: any = {};
+  (['time', 'endTime', 'durationHours'] as const).forEach((f) => { if (empty(base[f]) && !empty(copy[f])) fill[f] = copy[f]; });
   return {
     ...base,
+    ...fill,
     games: baseGames,
     edited: unionByUrl(base.edited, copy.edited, isComp),
     vods: unionByUrl(base.vods, copy.vods, () => false),
@@ -100,7 +105,9 @@ export function overlayMonthDocs(historical: Record<string, any>, monthDocs: any
   // 옛 전체 사본을 먼저, 새 방식 수정분(_patch)을 나중에 적용
   // 자동 데이터 검증(__dc: 유튜브 기준 날짜·시간)은 맨 나중에
   entries.sort((x, y) => Number(Boolean(x.val?._patch)) - Number(Boolean(y.val?._patch)) || Number(Boolean(x.dc)) - Number(Boolean(y.dc)));
-  entries.forEach(({ key, val }) => {
+  entries.forEach(({ key, val: raw }) => {
+    // 날짜 없이 시각만 저장된 예전 사본(4건)도 같은 id 의 원본 날짜로 합침
+    const val = raw && !raw.date && historical[key]?.date ? { ...raw, date: historical[key].date } : raw;
     if (!val || !val.date) return;
     const base = historical[key] || byDate.get(val.date);
     if (!base) {
@@ -108,7 +115,12 @@ export function overlayMonthDocs(historical: Record<string, any>, monthDocs: any
       return;
     }
     const current = logsMap[base.id] || base;
-    logsMap[base.id] = val._patch ? applyArchivePatch(current, val) : mergeLegacyArchiveCopy(current, val);
+    const merged = val._patch ? applyArchivePatch(current, val) : mergeLegacyArchiveCopy(current, val);
+    // 주소가 빈 영상 칸(생방송 6건 등)은 빼서 빈 '생방송' 버튼이 생기지 않게
+    (['vods', 'edited', 'shorts'] as const).forEach((f) => {
+      if (Array.isArray(merged[f])) merged[f] = merged[f].filter((v: any) => (typeof v === 'string' ? v : v?.url));
+    });
+    logsMap[base.id] = merged;
   });
   return logsMap;
 }

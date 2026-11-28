@@ -66,3 +66,32 @@ export function setupGlobalHaptics(): () => void {
     window.removeEventListener('scroll', cancel, { capture: true } as any);
   };
 }
+
+/**
+ * 아이폰 '톡' 진동 (사파리 18+): 아이폰은 진동 API가 없지만, 스위치 모양 체크박스를 켜고 끌 때 기기가 진동함
+ *  → 화면 밖 스위치를 눌러 진동만 냄. 누름 이벤트는 밖으로 퍼지지 않게 막음 (다른 '바깥 누르면 닫기'에 영향 없게)
+ */
+let iosSwitch: HTMLLabelElement | null = null;
+export function iosHaptic(): void {
+  if (typeof document === 'undefined') return;
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!ios) return;
+  try {
+    if (!iosSwitch || !iosSwitch.isConnected) {
+      const label = document.createElement('label');
+      label.setAttribute('aria-hidden', 'true');
+      label.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.setAttribute('switch', '');
+      input.tabIndex = -1;
+      label.appendChild(input);
+      const stop = (e: Event) => e.stopPropagation();
+      label.addEventListener('click', stop);
+      input.addEventListener('click', stop);
+      document.body.appendChild(label);
+      iosSwitch = label;
+    }
+    iosSwitch.click();
+  } catch { /* 지원 안 하면 조용히 통과 */ }
+}

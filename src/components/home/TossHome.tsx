@@ -36,9 +36,9 @@ export function Section({ title, onMore, children }: { title: string; onMore?: (
   );
 }
 
-export function Row({ icon, caption, value, onClick, right }: { icon: ReactNode; caption: string; value: string; onClick?: (el: HTMLElement) => void; right?: ReactNode }) {
+export function Row({ icon, caption, value, onClick, right, lp }: { icon: ReactNode; caption: string; value: string; onClick?: (el: HTMLElement) => void; right?: ReactNode; /** 길게 누르면 미리보기할 유튜브 영상 */ lp?: string | null }) {
   return (
-    <button type="button" onClick={(e) => onClick?.(e.currentTarget)} className="press-row w-full flex items-center gap-3.5 px-3 py-2.5 rounded-2xl text-left">
+    <button type="button" data-lp={lp || undefined} data-lp-title={lp ? value : undefined} onClick={(e) => onClick?.(e.currentTarget)} className="press-row w-full flex items-center gap-3.5 px-3 py-2.5 rounded-2xl text-left">
       <span className="w-11 h-11 rounded-full shrink-0 overflow-hidden flex items-center justify-center">{icon}</span>
       <span className="flex-1 min-w-0">
         <span className="block text-[length:calc(13px*var(--fs,1))] text-zinc-500 dark:text-zinc-400 truncate">{caption}</span>
@@ -137,7 +137,7 @@ export function TossHome({ data, onOpenDate, onOpenStats, onOpenVideo }: {
               {newVideos.map((v) => {
                 const id = extractYoutubeId(v.url);
                 return (
-                  <Row key={v.url}
+                  <Row key={v.url} lp={id}
                     onClick={(el) => (id ? openAiCard(id, v.title, el, `${dayText(v.date)} 영상`) : onOpenVideo(null))}
                     icon={<Thumb src={thumbOf(v.url)} fallback={<Tint tone="zinc"><Film /></Tint>} />}
                     caption={dayText(v.date)} value={v.title} />

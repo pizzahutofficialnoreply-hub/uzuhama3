@@ -1,7 +1,7 @@
 import { chooseSheet } from '../utils/ui';
 import { confirmSheet } from '../utils/ui';
 import { isAdminEmail } from '../utils/adminAuth';
-import { FlaskConical, Stethoscope, Clapperboard } from 'lucide-react';
+import { FlaskConical, Stethoscope } from 'lucide-react';
 import { makeMatcher } from '../utils/textMatch';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { setDefaultList, setDefaultYoutube, useMyPlaylists } from '../utils/myPlaylists';
@@ -292,30 +292,6 @@ export function SettingsView({
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white">내 앱 점검하기</p>
                 <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">이 기기에서 화면·기능이 잘 되는지 확인 (1~3분)</p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />
-          </button>
-          {/* 최종 확인 둘러보기: 화면 녹화를 켜고 돌아오면 메인부터 모든 화면을 자동으로 보여 줌 */}
-          <button
-            type="button"
-            onClick={async () => {
-              const v = await chooseSheet({ title: '최종 확인 둘러보기', message: '요약부터 설정까지 모든 화면을 자동으로 눌러 보며 보여 줘요. 화면 위 막대를 누르면 언제든 멈춰요.', options: [
-                { value: 'record', label: '화면 녹화 켜고 시작', desc: '제어 센터에서 녹화를 켜고 돌아오면 3초 뒤 시작해요' },
-                { value: 'now', label: '지금 바로 시작', desc: '3초 뒤 시작해요' },
-              ] });
-              if (!v) return;
-              onClose?.();
-              const { startAutoTour } = await import('../utils/autoTour');
-              setTimeout(() => startAutoTour({ now: v === 'now' }), 500);
-            }}
-            className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 active:bg-zinc-200/50 dark:active:bg-zinc-800 transition-colors"
-          >
-            <div className="flex items-center gap-3 min-w-0 pr-2">
-              <Clapperboard className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-white">최종 확인 둘러보기</p>
-                <p className="text-[length:calc(11px*var(--fs,1))] text-zinc-500">화면 녹화를 켜면 모든 화면을 자동으로 보여 줘요</p>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" />

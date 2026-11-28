@@ -1,3 +1,4 @@
+import { fixGameName } from '../utils/compilationPick';
 import { noteDbError, noteDbOk } from '../utils/dbHealth';
 import { undoToast } from '../utils/ui';
 import { noteReads } from '../utils/readStats';
@@ -418,6 +419,10 @@ export function useFirebaseData() {
           compSources.forEach(({ docId, comp }) => {
             if (!comp || !comp.url) return;
             const compId = comp.id || docId;
+            // 엑셀에서 '10:59' 같은 게임 이름이 0.4576… 으로 바뀌어 저장된 것 바로잡기 (원본 데이터는 그대로)
+            if (Array.isArray(comp.broadcasts)) comp.broadcasts.forEach((b: any) => {
+              if (Array.isArray(b?.games)) b.games = b.games.map((g: any) => (typeof g === 'string' ? fixGameName(g) : g && typeof g === 'object' ? { ...g, name: fixGameName(g.name) } : g));
+            });
             
             // 연동된 날짜 및 logId 목록 취합
             const allBroadcastDates: string[] = [];
@@ -425,6 +430,9 @@ export function useFirebaseData() {
 
             if (Array.isArray(comp.broadcasts)) {
               comp.broadcasts.forEach((b: any) => {
+                // 기록 id 가 있으면 그 기록의 실제 날짜 (자정 넘긴 방송이 다음 날로 적힌 경우 등 → 생방송을 못 찾던 것)
+                const real = b.logId && logsMap[b.logId]?.date;
+                if (real && real !== b.date) b = { ...b, date: real };
                 if (b.date && !allBroadcastDates.includes(b.date)) allBroadcastDates.push(b.date);
                 if (b.logId && !linkedLogIds.includes(b.logId)) linkedLogIds.push(b.logId);
               });

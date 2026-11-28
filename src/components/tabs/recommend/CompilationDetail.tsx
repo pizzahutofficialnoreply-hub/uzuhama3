@@ -9,6 +9,7 @@ import { getBroadcastDates } from '../BroadcastDetailModal';
 import { VideoCard } from '../RecommendTab';
 import { usePrefs } from '../../../utils/userPrefs';
 import { X } from 'lucide-react';
+import { pickEdit, fixGameName, gameDatesOf } from '../../../utils/compilationPick';
 
 /**
  * 몰아보기(또는 여러 생방송이 연결된 영상)를 펼친 화면 — 재생목록 펼치기와 같은 모양
@@ -46,40 +47,68 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
   const dates = useMemo(() => {
     const reg: string[] = Array.isArray(video?.allBroadcastDates) ? video.allBroadcastDates.filter(Boolean) : [];
     const base = getBroadcastDates(video, logsList);
-    return reg.length > 1 ? [...new Set([...reg, ...base.filter((d) => !reg.includes(d))])] : base;
+    const all = reg.length > 1 ? [...new Set([...reg, ...base.filter((d) => !reg.includes(d))])] : base;
+    // 몰아보기는 등록한 순서(영상 속 순서) 그대로 · 여러 방송에 걸친 영상은 방송한 날 순서대로 (등록 순서가 뒤섞인 것이 있어서)
+    return video?.isCompilation || video?.compilationId ? all : [...all].sort();
   }, [video, logsList]);
   const isCompilation = !!(video?.isCompilation || video?.compilationId);
   const ytId = extractYoutubeId(video?.videoUrl || '') || video?.id;
   const gameCount = isCompilation && Array.isArray(video?.games) && video.games.length > 0 ? video.games.length : dates.length;
 
-  const rows = useMemo(() => dates.map((date) => {
-    // 같은 날 기록이 여러 개(하루 두 번 방송 등)면 하나로 합침 → 생방송·편집본·쇼츠가 한 카드에 (따로 나뉘지 않게)
-    const same: any[] = logsList.filter((l: any) => l?.date === date);
-    const log: any = same.length > 1
-      ? { ...same[0], edited: same.flatMap((l) => l.edited || []), vods: same.flatMap((l) => l.vods || []), shorts: same.flatMap((l) => l.shorts || []), games: same.flatMap((l) => l.games || []) }
-      : same[0] || (video?.parentLog?.date === date ? video.parentLog : null);
-    const edits = (Array.isArray(log?.edited) ? log.edited : []).filter((e: any) => e?.url && !e.isCompilation && !e.compilationId && e.url !== video?.videoUrl && !String(e.title || '').includes('몰아보기'));
-    const primary = edits[0];
-    // 그 방송에서 몰아보기에 들어간 게임만 (방송마다 고른 게임)
-    const nameOf = (g: any) => (typeof g === 'string' ? g : g?.name);
-    const link = isCompilation ? (Array.isArray(log?.edited) ? log.edited : []).find((e: any) => (video?.compilationId && e?.compilationId === video.compilationId) || (e?.isCompilation && e?.url === video?.videoUrl)) : null;
-    const logGames: string[] = Array.isArray(log?.games) && log.games.length ? log.games.map(nameOf).filter(Boolean) : log?.game ? [log.game] : [];
-    const games: string[] = isCompilation
-      ? (Array.isArray(link?.games) && link.games.length ? link.games.map(nameOf).filter(Boolean)
-        : Array.isArray(video?.games) ? video.games.filter((g: any) => (g?.date ? g.date === date : logGames.includes(nameOf(g)))).map(nameOf).filter(Boolean) : [])
-      : logGames;
-    const liveUrl = (Array.isArray(log?.vods) ? log.vods : []).map((v: any) => (typeof v === 'string' ? v : v?.url)).find(Boolean) || log?.vodUrl || '';
-    return {
-      date,
-      videoId: primary ? extractYoutubeId(primary.url) || '' : '',
-      href: primary?.url || liveUrl || undefined,
-      title: primary?.title || (games.length ? `${games.join(', ')} 방송` : `${date} 생방송`),
-      games,
-      liveUrl,
-      log,
-      shorts: (Array.isArray(log?.shorts) ? log.shorts : []).map((s: any) => (typeof s === 'string' ? { url: s } : s)).filter((s: any) => s?.url),
-    };
-  }), [dates, logsList, video, isCompilation]);
+  const rows = useMemo(() => {
+    const nameOf = (g: any) => fixGameName(typeof g === 'string' ? g : g?.name);
+    // 1) 방송마다 기록·그날 몰아보기에 들어간 게임
+    const base = dates.map((date) => {
+      // 같은 날 기록이 여러 개(하루 두 번 방송 등)면 하나로 합침 → 생방송·편집본·쇼츠가 한 카드에 (따로 나뉘지 않게)
+      const same: any[] = logsList.filter((l: any) => l?.date === date);
+      const log: any = same.length > 1
+        ? { ...same[0], edited: same.flatMap((l) => l.edited || []), vods: same.flatMap((l) => l.vods || []), shorts: same.flatMap((l) => l.shorts || []), games: same.flatMap((l) => l.games || []) }
+        : same[0] || (video?.parentLog?.date === date ? video.parentLog : null);
+      const link = isCompilation ? (Array.isArray(log?.edited) ? log.edited : []).find((e: any) => (video?.compilationId && e?.compilationId === video.compilationId) || (e?.isCompilation && e?.url === video?.videoUrl)) : null;
+      const logGames: string[] = Array.isArray(log?.games) && log.games.length ? log.games.map(nameOf).filter(Boolean) : log?.game ? [log.game] : [];
+      const games: string[] = isCompilation
+        ? (Array.isArray(link?.games) && link.games.length ? link.games.map(nameOf).filter(Boolean)
+          : Array.isArray(video?.games) ? video.games.filter((g: any) => (g?.date ? g.date === date : logGames.includes(nameOf(g)))).map(nameOf).filter(Boolean) : [])
+        : logGames;
+      return { date, log, games };
+    });
+    const gd = gameDatesOf(base);
+    // 2) 그날 편집 영상 중 몰아보기 게임에 맞는 것 (첫 번째가 아니라 점수로: 웃음참기·같은 날 다른 게임 영상 제외)
+    const ytOf = (u: string) => extractYoutubeId(u) || u;
+    const built = base.map(({ date, log, games }) => {
+      const seen = new Set<string>();
+      const edits = (Array.isArray(log?.edited) ? log.edited : []).filter((e: any) => {
+        if (!e?.url || e.isCompilation || e.compilationId || e.url === video?.videoUrl || String(e.title || '').includes('몰아보기')) return false;
+        const k = ytOf(e.url); if (seen.has(k)) return false; seen.add(k); return true;
+      });
+      const primary: any = isCompilation ? pickEdit(edits, games, log?.games || [], gd, date) : edits[0];
+      const liveUrl = (Array.isArray(log?.vods) ? log.vods : []).map((v: any) => (typeof v === 'string' ? v : v?.url)).find(Boolean) || log?.vodUrl || '';
+      return {
+        date,
+        dates: [date],
+        videoId: primary ? extractYoutubeId(primary.url) || '' : '',
+        href: primary?.url || liveUrl || undefined,
+        title: primary?.title || (games.length ? `${games.join(', ')} 방송` : `${date} 생방송`),
+        games,
+        liveUrl,
+        log,
+        shorts: (Array.isArray(log?.shorts) ? log.shorts : []).map((x: any) => (typeof x === 'string' ? { url: x } : x)).filter((x: any) => x?.url),
+      };
+    });
+    // 3) 한 편집 영상이 여러 방송에 걸쳐 있으면(이틀에 나눠 한 게임) 카드 하나로 합침 → 같은 영상이 두 번 나오지 않게
+    const out: typeof built = [];
+    const at = new Map<string, number>();
+    built.forEach((r) => {
+      const i = r.videoId ? at.get(r.videoId) : undefined;
+      if (i === undefined) { if (r.videoId) at.set(r.videoId, out.length); out.push(r); return; }
+      const m = out[i];
+      m.dates.push(r.date);
+      r.games.forEach((g) => { if (!m.games.includes(g)) m.games.push(g); });
+      r.shorts.forEach((x: any) => { if (!m.shorts.some((y: any) => y.url === x.url)) m.shorts.push(x); });
+      m.log = { ...m.log, vods: [...(m.log?.vods || []), ...(r.log?.vods || [])], shorts: [...(m.log?.shorts || []), ...(r.log?.shorts || [])] };
+    });
+    return out;
+  }, [dates, logsList, video, isCompilation]);
 
   const totalPages = Math.max(1, Math.ceil(rows.length / PER_PAGE));
   const pageRows = rows.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -135,7 +164,7 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
                     isLive: !r.videoId && Boolean(r.liveUrl),
                     category: '',
                     parentLog: r.log,
-                    allBroadcastDates: [r.date],
+                    allBroadcastDates: r.dates,
                     games: (r.log?.games || []).filter((g: any) => g?.name),
                   }}
                   onPick={onPick}
