@@ -1,18 +1,26 @@
-name: tmp 읽기 통계 (지움)
+name: tmp 읽기 통계 자세히 (지움)
 on:
   workflow_dispatch:
 jobs:
   r:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          curl -sS -m 30 "https://uzuhama.vercel.app/api/health?readstat=sum&t=$(date +%s)" > s.json
-          python3 - <<'PY'
-          import json
-          for d in json.load(open('s.json')):
-              print('== day', d['day'])
-              for k in ('server','client'):
-                  t=sum(d[k].values()); print(' ', k, 'total', t)
-                  for a,b in list(d[k].items())[:14]: print('     ', b, a)
-              print('  hours', sorted(d['hours'].items()))
-          PY
+      - run: npm i -q firebase-admin@12 >/dev/null 2>&1
+      - env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_UZUHAMA }}
+        run: |
+          cat > r.mjs <<'JS'
+          import admin from 'firebase-admin';
+          admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.SA)) });
+          const db = admin.firestore();
+          const day = new Date(Date.now() + 9*3600000 - 86400000).toISOString().slice(0,10);
+          const d = (await db.collection('admin_data').doc('reads_' + day).get()).data() || {};
+          console.log('== day', day);
+          const rows = [];
+          for (const [r, cols] of Object.entries(d.s || {})) for (const [c, n] of Object.entries(cols)) rows.push([n, r, c]);
+          rows.sort((a, b) => b[0] - a[0]);
+          rows.slice(0, 40).forEach(([n, r, c]) => console.log(String(n).padStart(6), r, '›', c));
+          const hr = d.h || {};
+          for (const h of ['h03', 'h13', 'h20']) console.log(h, JSON.stringify(Object.entries(hr[h] || {}).sort((a,b)=>b[1]-a[1]).slice(0,5)));
+          JS
+          node r.mjs
