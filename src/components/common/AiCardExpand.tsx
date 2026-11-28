@@ -1,4 +1,3 @@
-import { EdgeSpeedZones } from './SpeedHold';
 import { requestReveal, waitForCard, settleIntoView } from '../../utils/revealVideo';
 import { videoGames } from '../../utils/videoGames';
 import { GameLinkCard } from './GameLinkCard';
@@ -539,8 +538,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
         />
-        {/* 펼쳐서 볼 때: 양옆 가장자리 꾹 → 2배속(아래로 당겨 고정) · 두 번 톡 → 10초 (유튜브 앱처럼) */}
-        {t && !cur.embed && <EdgeSpeedZones command={(func, args = []) => frame.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')} />}
+        {/* 긴 영상은 유튜브 플레이어에 2배속(꾹 누르기)이 이미 있어서 사이트 쪽 가장자리 칸은 뺌 (전체화면 버튼도 가리지 않게) */}
         {!t && dock && (
           <>
             {/* 썸네일 자리에서 재생 중: 누르면 다시 펼쳐서 거기서 조정 */}

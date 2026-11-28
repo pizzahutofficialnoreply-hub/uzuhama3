@@ -410,11 +410,11 @@ const STEPS: Step[] = [
   {
     id: 'theme-open-try',
     chapter: '설정',
-    title: '화면 설정',
+    title: '화면 모드',
     body: '',
     target: { mobile: '[data-settings-section="theme"]', desktop: '[data-settings-section="theme"]' },
     scrollIntoView: true,
-    action: { hint: "'화면 설정'을 눌러 열어 보세요", done: () => visible('[data-tour="settings-font"]') },
+    action: { hint: "'화면 모드'를 눌러 열어 보세요", done: () => visible('[data-tour="settings-font"]') },
   },
   {
     id: 'theme-try',

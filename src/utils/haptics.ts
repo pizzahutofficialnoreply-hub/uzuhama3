@@ -1,4 +1,6 @@
 import { wideAt } from './layoutSize';
+import { getPrefs } from './userPrefs';
+const hapticsOn = () => { try { return getPrefs().haptics !== false; } catch { return true; } };
 /**
  * Android 및 모바일 기기를 위한 햅틱 피드백 유틸리티
  * PC UI 환경에서는 햅틱을 동작시키지 않으며, 미지원 브라우저에서도 안전하게 통과됩니다.
@@ -7,7 +9,7 @@ import { wideAt } from './layoutSize';
 let lastHapticTime = 0;
 
 export function triggerHaptic(duration: number | number[] = 12): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !hapticsOn()) return;
 
   const now = Date.now();
   if (now - lastHapticTime < 50) return; // 짧은 중복 진동 방지
@@ -77,7 +79,7 @@ let lastTapTick = 0; // 손가락이 덮개 스위치를 직접 눌러 '톡'이 
 /** 스크립트로 '톡' (iOS 26.4 까지만 됨 · 26.5부터는 손가락이 직접 누른 것만 울림 → 아래 덮개 방식이 맡음) */
 export function iosHaptic(): void {
   if (typeof document === 'undefined') return;
-  if (!IS_IOS) return;
+  if (!IS_IOS || !hapticsOn()) return;
   if (Date.now() - lastTapTick < 400) return;
   try {
     if (!iosSwitch || !iosSwitch.isConnected) {
@@ -117,7 +119,8 @@ function forward(label: HTMLLabelElement, e: MouseEvent) {
   const host = label.parentElement as HTMLElement | null;
   e.stopPropagation(); // 원래 클릭은 여기서 멈추고, 아래에서 손가락 밑의 것에 다시 보냄
   if (!host || (host as HTMLButtonElement).disabled || host.getAttribute('aria-disabled') === 'true' || host.closest('[data-no-haptic="true"]')) { e.preventDefault(); return; }
-  lastTapTick = Date.now();
+  if (!hapticsOn()) e.preventDefault(); // 진동 끔: 스위치는 안 켜고(진동 없음) 클릭만 넘김
+  else lastTapTick = Date.now();
   const x = e.clientX, y = e.clientY;
   let under: Element | undefined;
   if (x || y) under = document.elementsFromPoint(x, y).find((n) => !inHx(n) && host.contains(n));

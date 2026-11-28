@@ -3,7 +3,7 @@ import { chooseSheet, toast as uiToast } from '../utils/ui';
 import { askMotionPermission } from '../utils/shake';
 import { confirmSheet } from '../utils/ui';
 import { isAdminEmail } from '../utils/adminAuth';
-import { FlaskConical, Stethoscope } from 'lucide-react';
+import { FlaskConical, Stethoscope, Volume2 } from 'lucide-react';
 import { makeMatcher } from '../utils/textMatch';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { setDefaultList, setDefaultYoutube, useMyPlaylists } from '../utils/myPlaylists';
@@ -91,7 +91,7 @@ export function SettingsView({
   const isAdmin = isAdminUser(user);
   const [showAdminVerifyModal, setShowAdminVerifyModal] = useState(false);
   const deviceLinked = Boolean(useDeviceLink());
-  const [activeSection, setActiveSection] = useState<'notification' | 'viewPrefs' | 'recommend' | 'theme' | 'share' | 'devices' | 'deviceInfo' | 'labs' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(() => initialSection || null);
+  const [activeSection, setActiveSection] = useState<'notification' | 'viewPrefs' | 'recommend' | 'theme' | 'sound' | 'share' | 'devices' | 'deviceInfo' | 'labs' | 'channels' | 'disclaimer' | 'preface' | 'fontLicense' | null>(() => initialSection || null);
   // 긴 항목을 접었을 때(다른 항목을 열어서 닫힌 경우 포함): 다음 항목(또는 연 항목)이 화면 가운데 살짝 위에 오게 스크롤 (끝까지 가서 더 못 가면 거기까지)
   const prevSectionRef = useRef<string | null>(activeSection);
   useEffect(() => {
@@ -408,13 +408,12 @@ export function SettingsView({
         </section>
       )}
 
-      {/* 3. 환경설정 섹션 */}
+      {/* 3. 환경설정: 토스처럼 성격별로 묶음 (영상 · 알림 · 화면과 소리 · 기기와 데이터 · 실험실) */}
       <section className="space-y-1.5">
         <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
-          환경설정
+          영상
         </h3>
         <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
-          
           {/* 보기·정렬 기본값 */}
           <div>
             <button
@@ -475,6 +474,13 @@ export function SettingsView({
             </AnimatePresence>
           </div>
 
+        </div>
+      </section>
+      <section className="space-y-1.5">
+        <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
+          알림
+        </h3>
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           {/* 알림 설정 */}
           <div data-tour="settings-notify">
             <button 
@@ -664,7 +670,14 @@ export function SettingsView({
             </AnimatePresence>
           </div>
 
-          {/* 화면 설정 (테마) */}
+        </div>
+      </section>
+      <section className="space-y-1.5">
+        <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
+          화면과 소리
+        </h3>
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+          {/* 화면 모드: 테마 · 글자 크기 · 탭바 투명도 */}
           <div>
             <button 
               type="button"
@@ -674,7 +687,7 @@ export function SettingsView({
             >
               <div className="flex items-center gap-3">
                 <Palette className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
-                <span className="text-sm font-semibold text-zinc-900 dark:text-white">화면 설정</span>
+                <span className="text-sm font-semibold text-zinc-900 dark:text-white">화면 모드</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2.5 py-1 rounded-full border border-purple-200/60 dark:border-purple-800/60">
@@ -815,6 +828,47 @@ export function SettingsView({
                         </div>
                       </div>
                     </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* 사운드 및 햅틱: 시작 애니메이션·인트로 소리·배경음·진동 */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setActiveSection(activeSection === 'sound' ? null : 'sound')}
+              data-settings-section="sound"
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Volume2 className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <span className="text-sm font-semibold text-zinc-900 dark:text-white">사운드 및 햅틱</span>
+              </div>
+              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'sound' && "rotate-90")} />
+            </button>
+            <AnimatePresence initial={false}>
+              {activeSection === 'sound' && (
+                <motion.div
+                  key="settings-accordion-sound"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-4 pb-4 pt-0.5 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
+                    <div className="flex items-center justify-between pt-3.5">
+                      <div>
+                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">누를 때 진동</p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">버튼·탭을 누르면 '톡' (아이폰은 가벼운 한 번, 시스템 햅틱이 켜져 있어야 해요)</p>
+                      </div>
+                      <button type="button" role="switch" aria-checked={prefs.haptics !== false} onClick={() => setPref('haptics', prefs.haptics === false)}
+                        className={cn("w-10 h-6 flex items-center rounded-full p-0.5 transition-colors shrink-0 cursor-pointer", prefs.haptics !== false ? "bg-purple-600" : "bg-zinc-300 dark:bg-zinc-700")}>
+                        <div className={cn("bg-white w-5 h-5 rounded-full shadow-sm transform transition-transform duration-200", prefs.haptics !== false ? "translate-x-4" : "translate-x-0")} />
+                      </button>
+                    </div>
                     <div className="flex items-center justify-between pt-3.5">
                       <div>
                         <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 font-hanna font-pro">시작 애니메이션</p>
@@ -854,6 +908,13 @@ export function SettingsView({
             </AnimatePresence>
           </div>
 
+        </div>
+      </section>
+      <section className="space-y-1.5">
+        <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
+          기기와 데이터
+        </h3>
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
           {/* 기기 연결 (QR·코드) */}
           <div>
             <button
@@ -876,37 +937,6 @@ export function SettingsView({
                 <motion.div key="settings-accordion-devices" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }} className="overflow-hidden">
                   <div className="px-4 pb-4 pt-2 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50">
                     <DeviceLinkPanel />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* 실험실: 아직 다듬는 중인 기능 켜고 끄기 */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setActiveSection(activeSection === 'labs' ? null : 'labs')}
-              data-settings-section="labs"
-              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <FlaskConical className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
-                <span className="text-sm font-semibold text-zinc-900 dark:text-white">실험실</span>
-              </div>
-              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'labs' && "rotate-90")} />
-            </button>
-            <AnimatePresence initial={false}>
-              {activeSection === 'labs' && (
-                <motion.div key="settings-accordion-labs" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }} className="overflow-hidden">
-                  <div className="px-4 pb-4 pt-2 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50 space-y-2">
-                    <p className="text-xs text-zinc-500 break-keep">아직 다듬는 중인 기능이에요. 마음에 안 들면 꺼 둘 수 있어요.</p>
-                    <LabToggle k="labAiSummary" title="AI 영상 요약" desc="영상 ⋮ 메뉴와 검색 결과에 AI가 정리한 이야기별 요약·노가리를 보여 줘요. AI는 실수할 수 있어요." />
-                    <LabToggle k="labAiCard" title="카드 펼쳐 요약과 함께 보기" desc="AI 요약이 끝난 영상 카드의 썸네일을 누르면 카드가 커지면서 위에서 바로 재생되고, 제목 아래에 요약이 펼쳐져요. 스포일러는 가릴 수 있어요. (쇼츠·목록 보기 제외)" />
-                    <LabToggle k="labIntroTap" title="아이폰: 화면 눌러 인트로 소리 재생" desc="아이폰은 앱을 켤 때 소리를 막아요. 켜 두면 인트로가 화면을 누를 때까지 기다렸다가, 누르면 채널 인트로 노래와 함께 재생돼요." />
-                    <LabToggle k="labYtSave" title="내 유튜브 재생목록에 바로 저장" desc="준비 중이에요. 만들어지면 저장 창에서 구글 계정으로 내 유튜브 재생목록에 바로 담을 수 있어요. 그전까지는 유튜브를 열어 저장해요. 끄면 저장 창에서 유튜브 칸을 숨겨요." />
-                    <LabToggle k="labShake" title="흔들어서 문제 신고" desc="화면이 멈추거나 이상할 때 휴대폰을 몇 번 세게 흔들면 '뭔가 이상했나요?' 창이 뜨고, 거기서 바로 문제를 알려 줄 수 있어요. 아이폰은 켤 때 움직임 센서 허락을 물어봐요." />
-                    <LabToggle k="labCafeOld" title="과거 영상 생방 연동" desc="2020년 전 영상에 팬카페 정리 글을 보고 이어 붙인 생방송 다시보기·영상·쇼츠도 보여 줘요. 예전 기록이라 날짜나 짝이 조금 틀릴 수 있어요." />
                   </div>
                 </motion.div>
               )}
@@ -1037,6 +1067,44 @@ export function SettingsView({
                 캐시 삭제
               </button>
             </div>
+          </div>
+
+        </div>
+      </section>
+      <section className="space-y-1.5">
+        <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 px-3 tracking-wider">
+          실험실
+        </h3>
+        <div className="bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-[24px] overflow-hidden divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+          {/* 실험실: 아직 다듬는 중인 기능 켜고 끄기 */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setActiveSection(activeSection === 'labs' ? null : 'labs')}
+              data-settings-section="labs"
+              className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <FlaskConical className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+                <span className="text-sm font-semibold text-zinc-900 dark:text-white">실험실</span>
+              </div>
+              <ChevronRight className={cn("w-4 h-4 text-zinc-400 transition-transform duration-200", activeSection === 'labs' && "rotate-90")} />
+            </button>
+            <AnimatePresence initial={false}>
+              {activeSection === 'labs' && (
+                <motion.div key="settings-accordion-labs" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }} className="overflow-hidden">
+                  <div className="px-4 pb-4 pt-2 bg-white/50 dark:bg-black/30 border-t border-zinc-200/50 dark:border-zinc-800/50 space-y-2">
+                    <p className="text-xs text-zinc-500 break-keep">아직 다듬는 중인 기능이에요. 마음에 안 들면 꺼 둘 수 있어요.</p>
+                    <LabToggle k="labAiSummary" title="AI 영상 요약" desc="영상 ⋮ 메뉴와 검색 결과에 AI가 정리한 이야기별 요약·노가리를 보여 줘요. AI는 실수할 수 있어요." />
+                    <LabToggle k="labAiCard" title="카드 펼쳐 요약과 함께 보기" desc="AI 요약이 끝난 영상 카드의 썸네일을 누르면 카드가 커지면서 위에서 바로 재생되고, 제목 아래에 요약이 펼쳐져요. 스포일러는 가릴 수 있어요. (쇼츠·목록 보기 제외)" />
+                    <LabToggle k="labIntroTap" title="아이폰: 화면 눌러 인트로 소리 재생" desc="아이폰은 앱을 켤 때 소리를 막아요. 켜 두면 인트로가 화면을 누를 때까지 기다렸다가, 누르면 채널 인트로 노래와 함께 재생돼요." />
+                    <LabToggle k="labYtSave" title="내 유튜브 재생목록에 바로 저장" desc="준비 중이에요. 만들어지면 저장 창에서 구글 계정으로 내 유튜브 재생목록에 바로 담을 수 있어요. 그전까지는 유튜브를 열어 저장해요. 끄면 저장 창에서 유튜브 칸을 숨겨요." />
+                    <LabToggle k="labShake" title="흔들어서 문제 신고" desc="화면이 멈추거나 이상할 때 휴대폰을 몇 번 세게 흔들면 '뭔가 이상했나요?' 창이 뜨고, 거기서 바로 문제를 알려 줄 수 있어요. 아이폰은 켤 때 움직임 센서 허락을 물어봐요." />
+                    <LabToggle k="labCafeOld" title="과거 영상 생방 연동" desc="2020년 전 영상에 팬카페 정리 글을 보고 이어 붙인 생방송 다시보기·영상·쇼츠도 보여 줘요. 예전 기록이라 날짜나 짝이 조금 틀릴 수 있어요." />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
         </div>

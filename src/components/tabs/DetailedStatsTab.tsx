@@ -71,6 +71,7 @@ import { StatInsightSummary } from '../stats/StatInsightSummary';
 import { WidgetShareButton } from '../common/WidgetShareButton';
 import { HEATMAP_LEVEL_COLORS, getBroadcastHeatmapLevel } from '../../utils/heatmapUtils';
 import { wideAt } from '../../utils/layoutSize';
+import { fmtHM } from '../../utils/fmtHM';
 
 const PDF_CATEGORY_PALETTE = [
   '#93a9d2', '#93c5fd', '#6ee7b7', '#fcd34d', '#f472b6',
@@ -1793,8 +1794,8 @@ export function DetailedStatsTab({
               </div>
               <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4">
                 <div className="text-xs font-medium text-zinc-500 mb-1">총 방송 시간</div>
-                <div className="text-xl font-bold text-zinc-900">{pdfHeatmap.totalDurationHours.toFixed(1)}시간</div>
-                <div className="text-xs text-zinc-400 mt-1">회당 평균 {pdfHeatmap.avgDuration.toFixed(1)}시간</div>
+                <div className="text-xl font-bold text-zinc-900">{fmtHM(pdfHeatmap.totalDurationHours)}</div>
+                <div className="text-xs text-zinc-400 mt-1">회당 평균 {fmtHM(pdfHeatmap.avgDuration)}</div>
               </div>
               <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4">
                 <div className="text-xs font-medium text-zinc-500 mb-1">최장 연속 방송</div>
@@ -1891,7 +1892,7 @@ export function DetailedStatsTab({
                         key={lvl}
                         className="w-2.5 h-3.5 rounded-[1.5px] border"
                         style={{ backgroundColor: info.lightBg, borderColor: info.lightBorder }}
-                        title={`${info.label} (${(lvl * 20 / 60).toFixed(1)}h)`}
+                        title={`${info.label} (${fmtHM(lvl * 20 / 60)})`}
                       />
                     );
                   })}
@@ -2173,7 +2174,7 @@ export function DetailedStatsTab({
                           <span className="text-zinc-500 text-xs">({cat.share.toFixed(1)}%)</span>
                         </td>
                         <td className="px-4 py-2.5 text-right font-semibold text-zinc-800">
-                          {cat.estimatedHours}시간
+                          {fmtHM(cat.estimatedHours)}
                         </td>
                         <td className="px-4 py-2.5 text-xs text-zinc-600">
                           {cat.games.slice(0, 3).map(g => `${g.name}(${g.count})`).join(', ')}

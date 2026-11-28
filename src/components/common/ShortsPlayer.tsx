@@ -431,12 +431,12 @@ export function ShortsPlayer({ items, startIndex, onClose, allLogs, autoNext = f
             {cur.caption && <p className="mt-1 text-xs text-white/70">{cur.caption}</p>}
             <div className="mt-3 flex items-center gap-2 pointer-events-auto">
               {cur.liveUrl && (
-                <button type="button" onClick={() => openVideo(cur.liveUrl!, `${cur.caption || ''} 생방송`.trim(), '생방송')} className="h-9 px-3 rounded-full bg-white/15 backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
+                <button type="button" data-lp={extractYoutubeId(cur.liveUrl) || undefined} data-lp-title={`${cur.caption || ''} 생방송`.trim()} onClick={() => openVideo(cur.liveUrl!, `${cur.caption || ''} 생방송`.trim(), '생방송')} className="h-9 px-3 rounded-full bg-white/15 backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
                   <PlaySquare className="w-4 h-4" /> 생방송
                 </button>
               )}
               {cur.editUrl && (
-                <button type="button" onClick={() => openVideo(cur.editUrl!, cur.title || '편집본', '편집본')} className="h-9 px-3 rounded-full bg-white/15 backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
+                <button type="button" data-lp={extractYoutubeId(cur.editUrl) || undefined} data-lp-title={cur.title || '편집본'} onClick={() => openVideo(cur.editUrl!, cur.title || '편집본', '편집본')} className="h-9 px-3 rounded-full bg-white/15 backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
                   <YoutubeLogo className="w-4 h-4" /> 편집본
                 </button>
               )}

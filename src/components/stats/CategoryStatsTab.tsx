@@ -22,6 +22,7 @@ import {
 import { cn, fuzzyKoreanMatch } from '../../utils';
 import { WidgetShareButton } from '../common/WidgetShareButton';
 import { StatInsightSummary } from './StatInsightSummary';
+import { fmtHM } from '../../utils/fmtHM';
 
 interface CategoryStatsTabProps {
   logs: BroadcastLog[];
@@ -117,7 +118,7 @@ const CategoryPieTooltip = ({ active, payload }: any) => {
           비율: <span className="text-purple-300 font-bold">{d.share.toFixed(1)}%</span>
         </div>
         <div className="text-zinc-300">
-          누적 시간: <span className="text-zinc-100 font-bold">{d.hours}시간</span>
+          누적 시간: <span className="text-zinc-100 font-bold">{fmtHM(d.hours)}</span>
         </div>
         <div className="pt-1 text-[length:calc(11px*var(--fs,1))] text-purple-300 font-medium border-t border-zinc-700/60">
           클릭: 선택 / 재클릭: 추천 영상 이동
@@ -871,7 +872,7 @@ export function CategoryStatsTab({
                       {/* 누적 방송 시간 */}
                       <td className="px-3 sm:px-5 lg:px-6 py-3.5 sm:py-4 text-right">
                         <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm">
-                          {cat.estimatedHours}시간
+                          {fmtHM(cat.estimatedHours)}
                         </span>
                         {cmp && <div className="text-[length:calc(10px*var(--fs,1))] sm:text-[length:calc(11px*var(--fs,1))] font-semibold mt-0.5" style={{ color: COMPARE_B }}>{Math.round((cmp.m.get(cat.name)?.hours || 0) * 10) / 10}시간</div>}
                       </td>

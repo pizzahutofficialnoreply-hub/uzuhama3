@@ -108,19 +108,19 @@ export function LongPressPreview() {
       const el = (e.target as HTMLElement | null)?.closest?.(SELECTOR);
       if (el && (start || holding || Date.now() - firedAt.current < 1500)) e.preventDefault();
     };
-    window.addEventListener('touchstart', onStart, { passive: true });
-    window.addEventListener('touchmove', onMove, { passive: true });
-    window.addEventListener('touchend', onEnd, { passive: true });
-    window.addEventListener('touchcancel', onEnd, { passive: true });
+    window.addEventListener('touchstart', onStart, { passive: true, capture: true }); // 먼저 받기 (쇼츠 뷰어처럼 손가락을 안에서 막는 화면에서도)
+    window.addEventListener('touchmove', onMove, { passive: true, capture: true }); // 먼저 받기 (쇼츠 뷰어처럼 손가락을 안에서 막는 화면에서도)
+    window.addEventListener('touchend', onEnd, { passive: true, capture: true }); // 먼저 받기 (쇼츠 뷰어처럼 손가락을 안에서 막는 화면에서도)
+    window.addEventListener('touchcancel', onEnd, { passive: true, capture: true }); // 먼저 받기 (쇼츠 뷰어처럼 손가락을 안에서 막는 화면에서도)
     window.addEventListener('scroll', clear, { passive: true, capture: true });
     window.addEventListener('click', swallow, true);
     window.addEventListener('contextmenu', onMenu, true);
     return () => {
       clear();
-      window.removeEventListener('touchstart', onStart);
-      window.removeEventListener('touchmove', onMove);
-      window.removeEventListener('touchend', onEnd);
-      window.removeEventListener('touchcancel', onEnd);
+      window.removeEventListener('touchstart', onStart, { capture: true } as any);
+      window.removeEventListener('touchmove', onMove, { capture: true } as any);
+      window.removeEventListener('touchend', onEnd, { capture: true } as any);
+      window.removeEventListener('touchcancel', onEnd, { capture: true } as any);
       window.removeEventListener('scroll', clear, true);
       window.removeEventListener('click', swallow, true);
       window.removeEventListener('contextmenu', onMenu, true);

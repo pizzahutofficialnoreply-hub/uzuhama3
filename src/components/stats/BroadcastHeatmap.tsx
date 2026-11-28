@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+import { fmtHM } from '../../utils/fmtHM';
 import { BroadcastLog } from '../../types';
 import { format, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, subDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -59,6 +60,13 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
 
   // 모바일 터치 오작동(스크롤 제스처와 탭 구분) 방지를 위한 터치 추적 ref
   const touchStartPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  // 칸 누르기: 처음엔 선택, 한 번 더 누르면 달력으로 (함수가 매번 바뀌면 칸 전체를 다시 그려서 ref 로 고정)
+  const pickImpl = useRef<(c: DayCellData) => void>(() => {});
+  pickImpl.current = (cell) => {
+    if (selectedCell?.dateStr === cell.dateStr) { if (cell.dateStr && onSelectDate) onSelectDate(cell.dateStr); }
+    else setSelectedCell(cell);
+  };
+  const pickCell = React.useCallback((c: DayCellData) => pickImpl.current(c), []);
 
   const getLegendLevelText = (level: number): string => {
     if (level === 0) return '0시간 00분';
@@ -227,11 +235,11 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
           </span>
           <div className="flex items-baseline gap-1.5 mt-1">
             <span className="text-xl font-bold text-zinc-900 dark:text-white">
-              {stats.totalDurationHours.toFixed(1)}시간
+              {fmtHM(stats.totalDurationHours)}
             </span>
           </div>
           <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
-            회당 평균 {stats.avgDuration.toFixed(1)}시간
+            회당 평균 {fmtHM(stats.avgDuration)}
           </span>
         </div>
 
@@ -334,7 +342,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                   {activeDisplay.hasBroadcast && (
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-zinc-600 dark:text-zinc-300 text-xs">
                       {activeDisplay.durationHours > 0 && (
-                        <span>시간: <strong className="text-zinc-900 dark:text-white">{activeDisplay.durationHours}시간</strong></span>
+                        <span>시간: <strong className="text-zinc-900 dark:text-white">{fmtHM(activeDisplay.durationHours)}</strong></span>
                       )}
                       {activeDisplay.timeRange && (
                         <span className="hidden sm:inline">구간: <strong className="text-zinc-900 dark:text-white">{activeDisplay.timeRange}</strong></span>
@@ -413,97 +421,9 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                 ))}
               </div>
 
-              {/* 주 컬럼 목록 */}
-              <div className={cn(
-                "flex",
-                isZoomed ? "gap-[2px] sm:gap-[3px] justify-start" : weeks.length > 60 ? "gap-[1px] sm:gap-[2px] justify-start" : "gap-[1px] sm:gap-[2px] flex-1 justify-between w-full min-w-0"
-              )}>
-                {weeks.map((week, weekIdx) => (
-                  <div
-                    key={weekIdx}
-                    className={cn(
-                      "flex flex-col",
-                      isZoomed ? "w-6 sm:w-7 shrink-0 gap-[2px] sm:gap-[3px]" : weeks.length > 60 ? "w-2.5 sm:w-[18px] shrink-0 gap-[1px] sm:gap-[2px]" : "flex-1 min-w-0 max-w-[36px] gap-[1px] sm:gap-[2px]"
-                    )}
-                  >
-                    {week.map((cell) => {
-                      const isOutside = cell.date < start || cell.date > end;
-
-                      // 20분 단위 (최대 5시간, 16단계) 채도 및 톤 다변화 스타일 매핑
-                      let cellStyle = "bg-zinc-100 dark:bg-zinc-800/40 border-zinc-200/70 dark:border-zinc-700/50";
-                      if (!isOutside) {
-                        cellStyle = HEATMAP_CELL_CLASSES[cell.level] || HEATMAP_CELL_CLASSES[0];
-                      } else {
-                        cellStyle = "bg-transparent border-transparent opacity-0 pointer-events-none";
-                      }
-
-                      const isSelected = selectedCell?.dateStr === cell.dateStr;
-                      const isLegendMatch = selectedLegendLevel !== null && !isOutside && cell.level === selectedLegendLevel;
-                      const isLegendDimmed = selectedLegendLevel !== null && !isOutside && cell.level !== selectedLegendLevel;
-
-                      const handleSelect = () => {
-                        if (isOutside) return;
-                        if (selectedCell?.dateStr === cell.dateStr) {
-                          // 이미 선택된 셀을 한 번 더 누르면 달력으로 이동
-                          if (cell.dateStr && onSelectDate) {
-                            onSelectDate(cell.dateStr);
-                          }
-                        } else {
-                          // 첫 번째 누를 때는 셀 선택 및 세부 정보 표시
-                          setSelectedCell(cell);
-                        }
-                      };
-
-                      return (
-                        <button
-                          key={cell.dateStr}
-                          type="button"
-                          disabled={isOutside}
-                          aria-label={`${cell.dateStr} ${cell.hasBroadcast ? '방송 진행' : '휴방'}`}
-                          onMouseEnter={() => {
-                            if (!isOutside) setHoveredCell(cell);
-                          }}
-                          onMouseLeave={() => {
-                            setHoveredCell(null);
-                          }}
-                          onTouchStart={(e) => {
-                            const touch = e.touches[0];
-                            touchStartPosRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
-                          }}
-                          onTouchEnd={(e) => {
-                            if (!touchStartPosRef.current) return;
-                            const touch = e.changedTouches[0];
-                            const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
-                            const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
-                            const dt = Date.now() - touchStartPosRef.current.time;
-                            touchStartPosRef.current = null;
-                            // 스크롤 제스처가 아닌 순수 탭(12px 이하 이동, 400ms 미만)일 때만 반응
-                            if (dx < 12 && dy < 12 && dt < 400) {
-                              e.preventDefault();
-                              handleSelect();
-                            }
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelect();
-                          }}
-                          className={cn(
-                            "rounded-[1px] sm:rounded-[3px] border transition-all touch-manipulation select-none relative focus:outline-none",
-                            isZoomed 
-                              ? "h-6 w-6 sm:h-7 sm:w-7 min-w-[24px] sm:min-w-[28px]" 
-                              : "h-2.5 sm:h-[18px] w-full min-w-0",
-                            cellStyle,
-                            isSelected && "ring-2 ring-purple-600 dark:ring-purple-400 z-20 scale-110 shadow-sm",
-                            isLegendMatch && "ring-2 ring-purple-600 dark:ring-purple-300 ring-offset-1 ring-offset-zinc-50 dark:ring-offset-zinc-950 z-20 scale-105 shadow-md",
-                            isLegendDimmed && "opacity-25 dark:opacity-20",
-                            !isOutside ? "cursor-pointer hover:scale-105 active:scale-95" : "cursor-default"
-                          )}
-                        />
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
+              {/* 주 컬럼 목록: 칸마다 버튼·이벤트를 달면 기간이 길 때(수천 칸) 느려서, 칸은 그냥 그림으로 두고 누르기는 여기 한 곳에서 받음 */}
+              <HeatGrid weeks={weeks} isZoomed={isZoomed} start={start} end={end} selectedStr={selectedCell?.dateStr || ''} legend={selectedLegendLevel}
+                onHover={setHoveredCell} onPick={pickCell} />
             </div>
 
             {/* 하단 월 라벨 (1월~12월 등) */}
@@ -573,7 +493,7 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
                     HEATMAP_CELL_CLASSES[lvl],
                     isSelected ? "ring-2 ring-purple-600 dark:ring-white scale-125 z-10 shadow-sm" : "hover:scale-110"
                   )}
-                  title={`${info?.label || `${lvl}단계`} (${(lvl * 20 / 60).toFixed(1)}h) - 클릭 시 히트맵 윤곽선 강조`}
+                  title={`${info?.label || `${lvl}단계`} (${fmtHM(lvl * 20 / 60)}) - 클릭 시 히트맵 윤곽선 강조`}
                 />
               );
             })}
@@ -584,3 +504,50 @@ export function BroadcastHeatmap({ logs, startDate, endDate, className, onSelect
     </div>
   );
 }
+
+type GridProps = { weeks: DayCellData[][]; isZoomed: boolean; start: Date; end: Date; selectedStr: string; legend: number | null; onHover: (c: DayCellData | null) => void; onPick: (c: DayCellData) => void };
+/** 히트맵 칸들: 바뀐 게 없으면 다시 안 그림 · 칸은 div(버튼 아님) · 누르기·마우스 올리기는 바깥 한 곳에서 */
+const HeatGrid = React.memo(function HeatGrid({ weeks, isZoomed, start, end, selectedStr, legend, onHover, onPick }: GridProps) {
+  const long = weeks.length > 60;
+  const cellOf = (el: EventTarget | null): DayCellData | null => {
+    const n = (el as HTMLElement | null)?.closest?.('[data-wi]') as HTMLElement | null;
+    if (!n) return null;
+    const c = weeks[Number(n.dataset.wi)]?.[Number(n.dataset.di)];
+    return c && !(c.date < start || c.date > end) ? c : null;
+  };
+  const hoverRef = useRef<string>('');
+  return (
+    <div
+      data-haptic="true"
+      role="grid" aria-label="방송 히트맵"
+      onClick={(e) => { const c = cellOf(e.target); if (c) { e.stopPropagation(); onPick(c); } }}
+      onMouseMove={(e) => { const c = cellOf(e.target); const k = c?.dateStr || ''; if (k !== hoverRef.current) { hoverRef.current = k; onHover(c); } }}
+      onMouseLeave={() => { hoverRef.current = ''; onHover(null); }}
+      className={cn("flex touch-manipulation", isZoomed ? "gap-[2px] sm:gap-[3px] justify-start" : long ? "gap-[1px] sm:gap-[2px] justify-start" : "gap-[1px] sm:gap-[2px] flex-1 justify-between w-full min-w-0")}
+    >
+      {weeks.map((week, wi) => (
+        <div key={wi} className={cn("flex flex-col", isZoomed ? "w-6 sm:w-7 shrink-0 gap-[2px] sm:gap-[3px]" : long ? "w-2.5 sm:w-[18px] shrink-0 gap-[1px] sm:gap-[2px]" : "flex-1 min-w-0 max-w-[36px] gap-[1px] sm:gap-[2px]")}>
+          {week.map((cell, di) => {
+            const out = cell.date < start || cell.date > end;
+            const sel = selectedStr === cell.dateStr;
+            const match = legend !== null && !out && cell.level === legend;
+            const dim = legend !== null && !out && cell.level !== legend;
+            return (
+              <div key={cell.dateStr} data-wi={wi} data-di={di}
+                aria-label={out ? undefined : `${cell.dateStr} ${cell.hasBroadcast ? '방송 진행' : '휴방'}`}
+                className={cn(
+                  "rounded-[1px] sm:rounded-[3px] border relative",
+                  isZoomed ? "h-6 w-6 sm:h-7 sm:w-7 min-w-[24px] sm:min-w-[28px]" : "h-2.5 sm:h-[18px] w-full min-w-0",
+                  out ? "bg-transparent border-transparent opacity-0" : (HEATMAP_CELL_CLASSES[cell.level] || HEATMAP_CELL_CLASSES[0]),
+                  !out && "cursor-pointer",
+                  sel && "ring-2 ring-purple-600 dark:ring-purple-400 z-20 scale-110 shadow-sm",
+                  match && "ring-2 ring-purple-600 dark:ring-purple-300 ring-offset-1 ring-offset-zinc-50 dark:ring-offset-zinc-950 z-20 scale-105 shadow-md",
+                  dim && "opacity-25 dark:opacity-20",
+                )} />
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+});

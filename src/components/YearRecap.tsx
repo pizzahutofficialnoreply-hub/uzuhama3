@@ -10,6 +10,7 @@ import type { BroadcastLog } from '../types';
 import { buildRecap, liveIdsOf, recapYearNow, yearsWithData, type YearRecap } from '../utils/yearRecap';
 import { useVideoMetaMany } from '../hooks/useVideoDuration';
 import { EventArt } from './common/EventArt';
+import { fmtHM } from '../utils/fmtHM';
 
 /**
  * 연말 결산 (12/15 ~ 1/15 요약 탭 맨 위에 카드, 누르면 이야기처럼 한 장씩)
@@ -118,7 +119,7 @@ function slides(r: YearRecap, play: Play): { key: string; body: React.ReactNode 
             ) : <span className="w-20 aspect-video rounded-lg bg-white/10 shrink-0" />}
             <span className="min-w-0 flex-1">
               <span className="block text-[length:calc(15px*var(--fs,1))] font-bold text-white truncate">{g.name}</span>
-              <span className="block text-[length:calc(12px*var(--fs,1))] text-white/70">{g.count}번{g.hours > 0 ? ` · 약 ${g.hours}시간` : ''}</span>
+              <span className="block text-[length:calc(12px*var(--fs,1))] text-white/70">{g.count}번{g.hours > 0 ? ` · 약 ${fmtHM(g.hours)}` : ''}</span>
             </span>
           </motion.li>
         ))}

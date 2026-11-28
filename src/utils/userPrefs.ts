@@ -39,6 +39,8 @@ export interface UserPrefs {
   labYtSave: boolean;
   /** 실험실: 휴대폰을 흔들면 문제 신고 창 */
   labShake: boolean;
+  /** 누를 때 진동 (안드로이드 진동 · 아이폰 '톡') */
+  haptics: boolean;
   /** 목록 보기에서 영상을 누르면: 사이트 안에서 펼쳐 재생 / 유튜브 링크로 */
   listPlay: 'site' | 'link';
   /** 글자 크기 배율 (설정 › 화면) */
@@ -66,6 +68,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   labIntroTap: false,
   labYtSave: true,
   labShake: false,
+  haptics: true,
   listPlay: 'site',
   fontScale: 1,
 };
