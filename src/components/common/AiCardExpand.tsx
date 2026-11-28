@@ -1,3 +1,4 @@
+import { videoGames } from '../../utils/videoGames';
 import { GameLinkCard } from './GameLinkCard';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -403,7 +404,7 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                 {t.embed || t.compilation || !bodyReady ? (<>
                   <h2 className="text-[length:calc(16px*var(--fs,1))] font-black leading-snug text-zinc-900 dark:text-white break-keep">{data?.title || t.title}</h2>
                   {t.sub && <p className="mt-1 text-[length:calc(12px*var(--fs,1))] text-zinc-500 tabular-nums">{t.sub}</p>}
-                </>) : <VideoCardInfo key={t.id} id={t.id} title={data?.title || t.title} sub={t.sub} logs={logs} />}
+                </>) : <VideoCardInfo key={t.id} id={t.id} title={data?.title || t.title} sub={t.sub} logs={logs} hideGames={!t.compilation && !t.embed} />}
                 {bodyReady && <>
                 {/* AI 요약·스크립트가 있을 때만 찾기 칸 (없으면 찾을 게 없음) */}
                 {!t.embed && (ready || hasScript || compHas) && <CardFind key={`f-${t.id}`} id={t.id} onSeek={(x) => seek(x)} onOpen={(id, title, x) => switchTo(id, title, x)} />}
@@ -419,7 +420,8 @@ export function AiCardExpandHost({ logs }: { logs?: Record<string, any> } = {}) 
                 )}
                 {/* 이 방송의 게임: 기록 탭과 같은 게임 화면 썸네일 카드 (AI 요약은 접혀 있을 때가 많아 늘 보여 줌 · 몰아보기 제외) */}
                 {!t.compilation && !t.embed && (() => {
-                  const items = (findVideo(t.id, logs)?.log?.games || []).filter((g: any) => g?.name);
+                  const fv = findVideo(t.id, logs);
+                  const items = fv ? (fv.kind === 'video' ? videoGames(fv.it, fv.log).games : (fv.log?.games || []).filter((g: any) => g?.name)) : [];
                   if (!items.length) return null;
                   return (
                     <div className="mt-4">

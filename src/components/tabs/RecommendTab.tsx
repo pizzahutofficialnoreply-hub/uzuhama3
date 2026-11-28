@@ -1,3 +1,4 @@
+import { videoGames } from '../../utils/videoGames';
 import { josa } from '../../utils/josa';
 import { chooseSheet } from '../../utils/ui';
 import { liveTitle } from '../../utils/liveTitle';
@@ -1005,7 +1006,12 @@ export function RecommendTab({
         return compGames;
       }
 
-      // 2. 일반 영상: 해당 영상 관련 게임 및 링크 정밀 추출 (영상 카테고리가 장르 태그인 경우에도 생방송 진행 게임 보존)
+      // 2. 일반 영상: 게임 이름 카테고리(2026년 영상)·설명창에 적힌 게임이 있으면 그 게임만
+      {
+        const vg = videoGames(edit, log);
+        if (vg.by === 'tag' || vg.by === 'desc') return vg.games.map((g) => ({ name: g.name, link: g.link || '', category: g.category && g.category.toLowerCase() !== g.name.toLowerCase() ? g.category : '' }));
+      }
+      // 해당 영상 관련 게임 및 링크 정밀 추출 (영상 카테고리가 장르 태그인 경우에도 생방송 진행 게임 보존)
       if (Array.isArray(edit.games) && edit.games.length > 0) {
         return edit.games.map((g: any) => ({
           name: typeof g === 'string' ? g : g.name || '',

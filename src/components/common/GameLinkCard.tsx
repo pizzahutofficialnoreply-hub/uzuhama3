@@ -4,14 +4,16 @@
  */
 import { useState } from 'react';
 import { ExternalLink } from 'lucide-react';
-import { gameLinkLabel, gameThumbUrl } from '../../utils/gameThumb';
+import { gameLinkLabel, gameThumbUrls } from '../../utils/gameThumb';
 import { cn } from '../../utils';
 
 export function GameThumb({ link, className }: { link?: string | null; className?: string }) {
-  const src = gameThumbUrl(link);
-  const [bad, setBad] = useState(false);
-  if (!src || bad) return null;
-  return <img src={src} alt="" loading="lazy" onError={() => setBad(true)} className={cn('object-cover bg-zinc-200 dark:bg-zinc-800 aspect-[460/215]', className)} />;
+  const urls = gameThumbUrls(link);
+  const [i, setI] = useState(0);
+  const src = urls[i];
+  if (!src) return null;
+  // 못 불러오면 다음 후보로, 다 실패하면 썸네일 칸 없이
+  return <img key={src} src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setI((n) => n + 1)} className={cn('object-cover bg-zinc-200 dark:bg-zinc-800 aspect-[460/215]', className)} />;
 }
 
 /** 기록 탭 '진행한 게임' 카드와 같은 모양: 큰 게임 화면 썸네일 + 분류 칩 + 밑줄 친 게임 이름 (썸네일 없으면 썸네일 칸만 없앤 상자) */

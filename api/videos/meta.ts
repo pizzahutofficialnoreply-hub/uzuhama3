@@ -51,11 +51,49 @@ async function sharePage(req: any, res: any) {
 </head><body><script>location.replace(${JSON.stringify(target)})</script><a href="${esc(target)}">${esc(title)} 보러 가기</a></body></html>`);
 }
 
+
+/**
+ * 게임 썸네일 찾기 (GET /api/videos/meta?gimg=<게임 링크>) → 그림 주소로 302
+ *  - 스팀: 2024년쯤부터 새 게임은 그림 주소에 해시가 붙어서 옛 주소(header.jpg)가 없음 → 스팀 appdetails 의 header_image
+ *  - 그 밖(앱 스토어·로블록스·넥슨 등): 그 페이지의 og:image
+ *  - CDN 에 30일 보관 (못 찾으면 1일) → 게임마다 한 달에 한 번 정도만 실제로 물어봄
+ *  - 내부 주소·IP 직접 입력은 막음
+ */
+async function gameImage(req: any, res: any) {
+  const raw = String(req.query?.gimg || '').slice(0, 500);
+  const miss = () => { res.setHeader('Cache-Control', 'public, s-maxage=86400'); return res.status(404).end(); };
+  let u: URL;
+  try { u = new URL(raw); } catch { return miss(); }
+  if (!/^https?:$/.test(u.protocol) || /^(localhost|\d+\.\d+\.\d+\.\d+|\[.*\])$/i.test(u.hostname) || /\.(local|internal)$/i.test(u.hostname)) return miss();
+  let img = '';
+  try {
+    const steam = raw.match(/store\.steampowered\.com\/app\/(\d+)/i) || raw.match(/steamcommunity\.com\/app\/(\d+)/i);
+    if (steam) {
+      const r = await fetch(`https://store.steampowered.com/api/appdetails?appids=${steam[1]}&filters=basic`, { signal: AbortSignal.timeout(6000) });
+      const j: any = r.ok ? await r.json() : null;
+      img = j?.[steam[1]]?.data?.header_image || '';
+    } else {
+      const r = await fetch(u.toString(), { signal: AbortSignal.timeout(6000), headers: { 'User-Agent': 'Mozilla/5.0 (compatible; uzuhama-thumb)', Accept: 'text/html' }, redirect: 'follow' });
+      if (r.ok && /text\/html/i.test(r.headers.get('content-type') || '')) {
+        const html = (await r.text()).slice(0, 300000);
+        const m = html.match(/<meta[^>]+(?:property|name)=["'](?:og:image(?::secure_url)?|twitter:image)["'][^>]*content=["']([^"']+)["']/i)
+          || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["'](?:og:image|twitter:image)["']/i);
+        if (m) img = new URL(m[1].replace(/&amp;/g, '&'), u).toString();
+      }
+    }
+  } catch { /* 못 찾음 */ }
+  if (!/^https:\/\//.test(img)) return miss();
+  res.setHeader('Cache-Control', 'public, max-age=604800, s-maxage=2592000, stale-while-revalidate=2592000');
+  res.setHeader('Location', img);
+  return res.status(302).end();
+}
+
 export default async function handler(req: any, res: any) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   if (req.query?.share) return sharePage(req, res);
+  if (req.query?.gimg) return gameImage(req, res);
 
   const raw = String(req.query?.ids || '');
   const ids = [...new Set(raw.split(',').map((s) => s.trim()).filter((s) => ID_RE.test(s)))].slice(0, 50);

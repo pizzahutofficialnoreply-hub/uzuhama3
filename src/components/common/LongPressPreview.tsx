@@ -50,58 +50,68 @@ export function LongPressPreview() {
   const [t, setT] = useState<Target | null>(null);
   const [shown, setShown] = useState(false);
   const firedAt = useRef(0);
+  const lockUntil = useRef(0);
 
   useEffect(() => {
     let timer = 0;
     let start: { x: number; y: number; el: HTMLElement; from: HTMLElement } | null = null;
+    let holding = false; // 미리보기를 띄운 뒤 아직 손을 안 뗌
     const clear = () => { if (timer) clearTimeout(timer); timer = 0; start = null; };
-    const onDown = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse') return;
+    // 터치 이벤트로 받음: 아이폰은 '손가락 터치' 안에서 시작한 타이머여야 진동(스위치 방식)을 허락할 가능성이 큼
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) { clear(); return; }
       const from = e.target as HTMLElement | null;
-      if (!from || from.closest('[data-no-lp], [data-lp-layer], input, textarea, [contenteditable="true"]')) return;
+      if (!from || !from.closest || from.closest('[data-no-lp], [data-lp-layer], input, textarea, [contenteditable="true"]')) return;
       // 영상 요소(data-lp)를 먼저: 그 안의 링크(카드 덮개 링크 등)보다 영상 정보가 정확함
       const el = (from.closest('[data-lp]') || from.closest('a[href^="http"]')) as HTMLElement | null;
       if (!el) return;
       clear();
-      start = { x: e.clientX, y: e.clientY, el, from };
+      const tch = e.touches[0];
+      start = { x: tch.clientX, y: tch.clientY, el, from };
       timer = window.setTimeout(() => {
-        const s = start; clear();
-        if (!s || !s.el.isConnected) return;
-        const tg = readTarget(s.el, s.from);
+        const st = start; clear();
+        if (!st || !st.el.isConnected) return;
+        const tg = readTarget(st.el, st.from);
         if (!tg) return;
         firedAt.current = Date.now();
+        holding = true;
         iosHaptic();
         triggerHaptic(14);
         setT(tg);
       }, HOLD_MS);
     };
-    const onMove = (e: PointerEvent) => {
-      if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > MOVE_PX) clear();
+    const onMove = (e: TouchEvent) => {
+      const tch = e.touches[0];
+      if (start && tch && Math.hypot(tch.clientX - start.x, tch.clientY - start.y) > MOVE_PX) clear();
     };
-    // 미리보기를 띄운 뒤 손을 떼면 오는 '누름'은 버림 (원래 요소가 열리지 않게)
+    const onEnd = () => {
+      clear();
+      // 손을 뗄 때 따라오는 '누름'이 미리보기 바깥(닫기)이나 미리보기(열기)로 가지 않게 잠깐 막음
+      if (holding) { holding = false; lockUntil.current = Date.now() + 450; }
+    };
     const swallow = (e: Event) => {
-      if (Date.now() - firedAt.current < 700 && !(e.target as HTMLElement)?.closest?.('[data-lp-layer]')) {
+      if (holding || Date.now() < lockUntil.current || (Date.now() - firedAt.current < 700 && !(e.target as HTMLElement)?.closest?.('[data-lp-layer]'))) {
         e.preventDefault(); e.stopPropagation();
       }
     };
     // 갤럭시 크롬은 링크를 길게 누르면 자기 메뉴를 띄움 → 우리 미리보기가 맡는 곳에서는 막음
     const onMenu = (e: Event) => {
       const el = (e.target as HTMLElement | null)?.closest?.(SELECTOR);
-      if (el && (start || Date.now() - firedAt.current < 1500)) e.preventDefault();
+      if (el && (start || holding || Date.now() - firedAt.current < 1500)) e.preventDefault();
     };
-    window.addEventListener('pointerdown', onDown, { passive: true });
-    window.addEventListener('pointermove', onMove, { passive: true });
-    window.addEventListener('pointerup', clear, { passive: true });
-    window.addEventListener('pointercancel', clear, { passive: true });
+    window.addEventListener('touchstart', onStart, { passive: true });
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('touchend', onEnd, { passive: true });
+    window.addEventListener('touchcancel', onEnd, { passive: true });
     window.addEventListener('scroll', clear, { passive: true, capture: true });
     window.addEventListener('click', swallow, true);
     window.addEventListener('contextmenu', onMenu, true);
     return () => {
       clear();
-      window.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', clear);
-      window.removeEventListener('pointercancel', clear);
+      window.removeEventListener('touchstart', onStart);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+      window.removeEventListener('touchcancel', onEnd);
       window.removeEventListener('scroll', clear, true);
       window.removeEventListener('click', swallow, true);
       window.removeEventListener('contextmenu', onMenu, true);
@@ -139,7 +149,7 @@ export function LongPressPreview() {
 
   const open = () => {
     const p = t.press;
-    close(() => { firedAt.current = 0; p?.click(); });
+    close(() => { firedAt.current = 0; lockUntil.current = 0; p?.click(); });
   };
   const yt = () => close(() => window.open(t.url, '_blank', 'noopener'));
   const copy = () => {

@@ -9,9 +9,23 @@ export function steamAppId(link?: string | null): string | null {
   return m ? m[1] : null;
 }
 
+const API_BASE = (import.meta.env.VITE_VERCEL_API_URL ||
+  (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app') ? '' : 'https://uzuhama.vercel.app')
+).replace(/\/+$/, '');
+
+/** 썸네일 후보 (앞에서부터 시도) */
+export function gameThumbUrls(link?: string | null): string[] {
+  const u = String(link || '').trim();
+  if (!/^https?:\/\//i.test(u)) return [];
+  const proxy = `${API_BASE}/api/videos/meta?gimg=${encodeURIComponent(u)}`;
+  const id = steamAppId(u);
+  // 스팀 옛 주소는 서버를 안 거쳐서 빠름 · 새 게임(주소에 해시)이면 실패 → 서버가 스팀에 진짜 주소를 물어봄
+  // 스팀이 아닌 링크(앱 스토어·로블록스 등)는 서버가 그 페이지의 대표 그림을 찾아 줌
+  return id ? [`https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/header.jpg`, proxy] : [proxy];
+}
+
 export function gameThumbUrl(link?: string | null): string | null {
-  const id = steamAppId(link);
-  return id ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/header.jpg` : null;
+  return gameThumbUrls(link)[0] || null;
 }
 
 /** 링크 주소로 '어디서 보기' 이름 */

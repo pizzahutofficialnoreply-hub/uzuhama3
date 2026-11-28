@@ -1,3 +1,4 @@
+import { videoGames } from '../../utils/videoGames';
 import { useMemo, useState } from 'react';
 import { ItemMenu } from './ItemMenu';
 import { GameTitle } from './GameTitle';
@@ -26,7 +27,7 @@ export function findVideo(id: string, logs?: Record<string, any>) {
   return null;
 }
 
-export function VideoCardInfo({ id, title, sub, logs, card, onTitle }: { id: string; title: string; sub?: string; logs?: Record<string, any>; card?: boolean; onTitle?: (el: Element | null) => void }) {
+export function VideoCardInfo({ id, title, sub, logs, card, onTitle, hideGames }: { id: string; title: string; sub?: string; logs?: Record<string, any>; card?: boolean; onTitle?: (el: Element | null) => void; /** 카드 확장: 아래 게임 카드와 겹쳐서 알약 숨김 */ hideGames?: boolean }) {
   const meta = useVideoMeta(id);
   const [all, setAll] = useState(false);
   const found = useMemo(() => findVideo(id, logs), [id, logs]);
@@ -34,8 +35,8 @@ export function VideoCardInfo({ id, title, sub, logs, card, onTitle }: { id: str
   // 게임: 영상에 따로 적힌 게임이 있으면 그것, 없으면 그 방송 게임 · 링크는 그 방송 → 다른 방송 순으로 찾음
   const games = useMemo(() => {
     if (!found) return [] as any[];
-    const own = (found.it.games || []).filter((g: any) => g?.name);
-    const base = own.length ? own : (found.log.games || []).filter((g: any) => g?.name);
+    // 편집 영상은 그 영상 게임만 (게임 이름 카테고리 → 설명창 → 제목), 생방송은 그날 게임 전부
+    const base = found.kind === 'video' ? videoGames(found.it, found.log).games : (found.it.games?.length ? found.it.games : found.log.games || []).filter((g: any) => g?.name);
     const lists = Object.values(logs || {});
     return base.map((g: any) => {
       let link = g.link || (found.log.games || []).find((x: any) => key(x.name) === key(g.name))?.link;
@@ -65,7 +66,7 @@ export function VideoCardInfo({ id, title, sub, logs, card, onTitle }: { id: str
         </p>
       ) : sub ? <p className="mt-1 text-[length:calc(12px*var(--fs,1))] text-zinc-500 tabular-nums">{sub}</p> : null}
 
-      {games.length > 0 && (
+      {games.length > 0 && !hideGames && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {shown.map((g: any, i: number) => {
             const cat = g.category && key(g.category) !== key(g.name) && g.category !== '종합' ? g.category : '';

@@ -34,7 +34,7 @@ export function normGame(s: string): string {
     .replace(/[^0-9a-z가-힣ぁ-んァ-ン一-龥]/g, '');
 }
 
-const sameGame = (a: string, b: string) => {
+export const sameGame = (a: string, b: string) => {
   const x = normGame(a), y = normGame(b);
   if (!x || !y) return false;
   if (x === y) return true;

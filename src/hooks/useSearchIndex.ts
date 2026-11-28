@@ -9,6 +9,8 @@ import { hasTerm } from '../utils/searchPlan';
 /** m = 썸네일 분위기·계절 태그 (정해진 목록에서만) */
 export type SearchEntry = { g?: string[]; t?: string; k?: string[]; d?: string; m?: string[]; x?: 1; p?: 1 };
 /** 썸네일을 아직 안 봤거나(p), 분위기 태그가 생기기 전에 본 것 */
+/** 이미 불러온 색인에서 영상 하나 (색인을 새로 받지 않음) */
+export const searchEntryOf = (id?: string | null): SearchEntry | undefined => (id ? data.entries[id] : undefined);
 export const needsVision = (e?: SearchEntry) => Boolean(e && !e.x && (e.p || e.m === undefined));
 export type SearchIndex = Record<string, SearchEntry>;
 export type GameKeywords = Record<string, string[]>;
