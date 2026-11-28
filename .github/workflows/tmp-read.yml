@@ -1,26 +1,15 @@
 name: tmp 데이터 한 번 읽기 (지움)
 on:
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   r:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - run: |
-          K=AIzaSyD33dUT30Gn5Vr2OKA_X3sI1HAddVsMZoM
-          B="https://firestore.googleapis.com/v1/projects/uzuhama/databases/(default)/documents"
-          echo "== compilations"; curl -sS "$B/compilations?pageSize=50&key=$K" > c.json
-          python3 - <<'PY'
-          import json
-          d=json.load(open('c.json'))
-          for doc in d.get('documents',[]):
-              f=doc['fields']; t=json.dumps(f,ensure_ascii=False)
-              if '비명' in t: print(doc['name'].split('/')[-1], t[:3000])
-          PY
-          echo "== 2025-07"; curl -sS "$B/logs_by_month/2025-07?key=$K" > m.json
-          python3 - <<'PY'
-          import json
-          d=json.load(open('m.json')); t=json.dumps(d,ensure_ascii=False)
-          i=t.find('2025-07-19'); print(len(t)); 
-          import re
-          for m in re.finditer('2025-07-19', t): print(t[max(0,m.start()-300):m.start()+900]); print('----')
-          PY
+          mkdir -p snap
+          for f in snapshot_logs.json channel_uploads.json; do curl -sS -o snap/$f "https://uzuhama-beta.web.app/data/$f"; ls -la snap/$f; head -c 200 snap/$f; echo; done
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          git checkout --orphan tmp-snap && git rm -rfq . && git add snap && git commit -qm snap && git push -f origin tmp-snap
