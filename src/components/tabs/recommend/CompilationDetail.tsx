@@ -47,9 +47,8 @@ export function CompilationDetail({ video, allLogs, onClose, onNavigateToCalenda
   const dates = useMemo(() => {
     const reg: string[] = Array.isArray(video?.allBroadcastDates) ? video.allBroadcastDates.filter(Boolean) : [];
     const base = getBroadcastDates(video, logsList);
-    const all = reg.length > 1 ? [...new Set([...reg, ...base.filter((d) => !reg.includes(d))])] : base;
-    // 몰아보기는 등록한 순서(영상 속 순서) 그대로 · 여러 방송에 걸친 영상은 방송한 날 순서대로 (등록 순서가 뒤섞인 것이 있어서)
-    return video?.isCompilation || video?.compilationId ? all : [...all].sort();
+    // 몰아보기·웃참 등 여러 방송에 걸친 영상 모두 등록한 순서(카페 가져오기·관리자에서 정한 순서) 그대로 — 날짜순으로 다시 정렬하지 않음
+    return reg.length > 1 ? [...new Set([...reg, ...base.filter((d) => !reg.includes(d))])] : base;
   }, [video, logsList]);
   const isCompilation = !!(video?.isCompilation || video?.compilationId);
   const ytId = extractYoutubeId(video?.videoUrl || '') || video?.id;
