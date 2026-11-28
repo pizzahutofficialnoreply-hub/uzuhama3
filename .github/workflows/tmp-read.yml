@@ -1,4 +1,4 @@
-name: tmp 공개 상태 확인 (지움)
+name: tmp 공개 상태 확인 2 (지움)
 on:
   workflow_dispatch:
 jobs:
@@ -7,16 +7,12 @@ jobs:
     steps:
       - run: |
           B=https://uzuhama.vercel.app
-          echo "== health"; curl -sS -m 20 "$B/api/health" | head -c 600; echo
-          echo "== status"; curl -sS -m 20 "$B/api/videos/search-index?status=1" | head -c 2500; echo
-          echo "== ids"; curl -sS -m 20 "$B/api/videos/search-index?ai=ids" > ids.json; python3 -c "import json;d=json.load(open('ids.json'));print({k:(len(v) if isinstance(v,(list,dict)) else v) for k,v in d.items()})"
-          echo "== comp"; curl -sS -m 25 "$B/api/videos/search-index?ai=video&id=p59s4mXoBrs" > c.json; python3 - <<'PY'
+          echo "== dbping"; curl -sS -m 20 "$B/api/health?dbping=1"; echo
+          echo "== weekly"; curl -sS -m 20 "$B/api/health?weekly=last"; echo
+          curl -sS -m 40 "$B/api/videos/search-index" > idx.json; ls -la idx.json
+          python3 - <<'PY'
           import json
-          d=json.load(open('c.json'))
-          print(list(d.keys()))
-          v=d.get('video') or d.get('data') or d
-          print(json.dumps(v,ensure_ascii=False)[:200])
-          for k in ('games','gameStories','chapters','timeline'):
-              x=(v or {}).get(k)
-              if x: print(k, json.dumps(x,ensure_ascii=False)[:4000])
+          d=json.load(open('idx.json')); e=(d.get('entries') or {}).get('p59s4mXoBrs') or {}
+          print('== entry keys', list(e.keys()))
+          for k,v in e.items(): print(k, json.dumps(v,ensure_ascii=False)[:2500])
           PY
